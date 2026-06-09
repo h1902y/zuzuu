@@ -1,0 +1,53 @@
+@import "tailwindcss";
+@import "@fontsource-variable/jetbrains-mono";
+@import "@xterm/xterm/css/xterm.css";
+
+@theme {
+  --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --color-ink-950: #0b0e14;
+  --color-ink-900: #0d1117;
+  --color-ink-850: #11161f;
+  --color-ink-800: #161c26;
+  --color-ink-700: #222a38;
+  --color-ink-500: #4a5568;
+  --color-ink-300: #8b98ab;
+  --color-ink-100: #d6dde8;
+  --color-accent: #58e6c0;
+  --color-accent-dim: #2c8f77;
+  --color-danger: #f47067;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  overscroll-behavior: none;
+}
+
+body {
+  @apply bg-ink-950 text-ink-100 font-mono text-[13px] antialiased;
+}
+
+/* xterm fills its pane */
+.term-host,
+.term-host .xterm,
+.term-host .xterm .xterm-screen {
+  height: 100%;
+}
+.term-host .xterm {
+  padding: 8px 0 0 10px;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-ink-700);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
