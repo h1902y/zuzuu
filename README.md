@@ -4,7 +4,9 @@
 >
 > **Naming:** the project was previously called **zuzuagents** (product concept: *zuzu*). It is being renamed **motorsandsensors**. Sibling projects keep their own names (Zuzucodes Labs, Flow Engine, Notes). Where this doc says "we", it means motorsandsensors.
 >
-> **Status — read this honestly:** this is **design**, converged across several brainstorming/pressure-test/research sessions (2026-06-01 → 2026-06-08). "Solved memory / tools / runtime" means **solved on paper**. **Nothing is built yet.** This directory is documents and research only — no application has been scaffolded.
+> **Status — read this honestly:** this is **design**, converged across several brainstorming/pressure-test/research sessions (2026-06-01 → 2026-06-08). "Solved memory / tools / runtime" means **solved on paper**. Scaffolding has now **begun**: the keystone — host-agnostic trace capture — works today (Experiment 1 + the `mns` CLI). The rest of the system below remains design.
+>
+> **Want to run it?** Trace capture works now — zero install, zero deps, nothing leaves your machine. See **[QUICKSTART.md](QUICKSTART.md)**.
 
 ---
 
