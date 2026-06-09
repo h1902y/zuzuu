@@ -1,0 +1,68 @@
+#!/usr/bin/env node
+// mns — motors & sensors CLI. Verb-first, entire.io-style; zero deps, no build.
+//
+//   mns status                 detected hosts + recorded sessions
+//   mns capture [--host h]      capture a session → git-native trace + index entry
+//   mns trace [--last | FILE]   print a captured trace's span tree
+//   mns doctor                  environment + session health
+//   mns version | help
+//
+// Phase 1: post-hoc transcript capture. Phase 2 (planned): `mns enable` installs
+// background hooks for invisible live capture across the agent session lifecycle.
+
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+import { status } from '../mns/commands/status.mjs';
+import { capture } from '../mns/commands/capture.mjs';
+import { trace } from '../mns/commands/trace.mjs';
+import { doctor } from '../mns/commands/doctor.mjs';
+
+function parseArgs(argv) {
+  const a = { _: [] };
+  for (let i = 0; i < argv.length; i++) {
+    const t = argv[i];
+    if (t === '--last') a.last = true;
+    else if (t.startsWith('--')) a[t.slice(2)] = argv[i + 1]?.startsWith('--') || argv[i + 1] === undefined ? true : argv[++i];
+    else a._.push(t);
+  }
+  return a;
+}
+
+function version() {
+  const pkg = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'package.json'), 'utf8'));
+  console.log(`mns ${pkg.version}`);
+}
+
+function help() {
+  console.log(`mns — motors & sensors
+
+usage: mns <command> [options]
+
+  status                    detected hosts + recorded sessions
+  capture [--host NAME]     capture a session → .mns/traces + .mns/sessions.json
+          [--session ID] [--file PATH]
+  trace [--last | FILE]     print a captured trace's span tree
+  doctor                    environment + session health
+  version                   print version
+  help                      this message
+
+Phase 1 captures from existing transcripts (post-hoc). Live, invisible capture
+across the session lifecycle (\`mns enable\`) is planned — see QUICKSTART.md.`);
+}
+
+const [cmd, ...rest] = process.argv.slice(2);
+const args = parseArgs(rest);
+
+switch (cmd) {
+  case 'status': status(); break;
+  case 'capture': capture(args); break;
+  case 'trace': trace(args); break;
+  case 'doctor': doctor(); break;
+  case 'version': case '--version': case '-v': version(); break;
+  case undefined: case 'help': case '--help': case '-h': help(); break;
+  default:
+    console.error(`unknown command: ${cmd}\n`);
+    help();
+    process.exit(1);
+}

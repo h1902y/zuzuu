@@ -1,0 +1,17 @@
+{
+  "name": "motorsandsensors",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Host-agnostic faculties (Memory/Knowledge/Actions/Guardrails) that graduate across generations, grown from observability traces. Design in README.md; built incrementally via experiments/.",
+  "bin": {
+    "mns": "bin/mns.mjs"
+  },
+  "scripts": {
+    "mns": "node bin/mns.mjs",
+    "capture": "node experiments/experiment-1-trace-capture/bin/capture.mjs",
+    "inspect": "node experiments/experiment-1-trace-capture/bin/inspect-trace.mjs",
+    "test": "node --test 'tests/**/*.test.mjs'",
+    "playground": "node playground/run.mjs"
+  }
+}
