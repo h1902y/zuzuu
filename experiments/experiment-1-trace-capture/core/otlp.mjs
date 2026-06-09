@@ -7,7 +7,7 @@
 // locally today is replayable into any OTel backend later, no converter.
 //
 // NOTE: verify the precise nesting against the receiver spec before claiming
-// drop-in interop for an external consumer (tracked in CONCLUSIONS.md).
+// drop-in interop for an external consumer (tracked in the experiment README’s Conclusions).
 
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';

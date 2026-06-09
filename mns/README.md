@@ -39,7 +39,7 @@ The lifecycle model: `opening → active → completed | abandoned | crashed`. A
 
 **`mns capture` (post-hoc):** records a session as `captured` (lifecycle-unknown snapshot from an existing transcript).
 
-**`mns enable` (live):** installs background hooks (`SessionStart/Stop/SessionEnd`) so sessions transition for real — `active → completed`, or `→ abandoned` when a terminal is killed (reconciled by `mns doctor` via a liveness heartbeat, since a kill emits no signal). Built in [`experiment-2-live-sessions`](../experiments/experiment-2-live-sessions/); the hook is a lifecycle *signal + re-capture trigger* (Design B), never a span builder. See [QUICKSTART.md](../QUICKSTART.md#live-capture-enable-once-then-invisible).
+**`mns enable` (live):** installs background hooks (`SessionStart/Stop/SessionEnd`) so sessions transition for real — `active → completed`, or `→ abandoned` when a terminal is killed (reconciled by `mns doctor` via a liveness heartbeat, since a kill emits no signal). Built in [`experiment-2-live-sessions`](../experiments/experiment-2-live-sessions/); the hook is a lifecycle *signal + re-capture trigger* (Design B), never a span builder. See the [README](../README.md).
 
 ## Layout
 
