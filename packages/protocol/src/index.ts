@@ -179,3 +179,33 @@ export interface OpenRequest {
   /** reveal in the system file manager instead of opening the file */
   reveal?: boolean;
 }
+
+// ── Quick-open file list (GET /api/files) ───────────────────────────────
+export interface FileListResponse {
+  /** workspace-relative file paths (dirs excluded) */
+  files: string[];
+  truncated: boolean;
+}
+
+// ── Workflows (GET/POST /api/workflows) ─────────────────────────────────
+export interface WorkflowArg {
+  name: string;
+  placeholder?: string;
+  default?: string;
+}
+
+export interface Workflow {
+  name: string;
+  command: string;
+  description?: string;
+  args?: WorkflowArg[];
+}
+
+export interface WorkflowListResponse {
+  workflows: Workflow[];
+}
+
+/** Substitute {{arg}} placeholders in a workflow command. */
+export function applyWorkflow(command: string, values: Record<string, string>): string {
+  return command.replace(/\{\{\s*(\w+)\s*\}\}/g, (_m, name: string) => values[name] ?? "");
+}

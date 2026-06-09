@@ -1,8 +1,11 @@
 import type {
   CreateSessionRequest,
+  FileListResponse,
   ListResponse,
   SearchResponse,
   SessionInfo,
+  Workflow,
+  WorkflowListResponse,
   WorkspaceInfo,
 } from "@webcode/protocol";
 
@@ -69,6 +72,12 @@ export const api = {
     if (opts.caseSensitive) qs.set("case", "1");
     return request<SearchResponse>(`/api/search?${qs}`);
   },
+
+  listFiles: () => request<FileListResponse>("/api/files"),
+
+  listWorkflows: () => request<WorkflowListResponse>("/api/workflows"),
+  saveWorkflow: (wf: Workflow) =>
+    request<{ ok: true; path: string }>("/api/workflows", json(wf)),
 };
 
 export function wsUrl(path: string): string {

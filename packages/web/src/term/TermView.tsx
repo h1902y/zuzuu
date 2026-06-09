@@ -11,8 +11,12 @@ import type { WorkspaceInfo } from "@webcode/protocol";
 import { TermConnection } from "./connection";
 import { termRegistry } from "./registry";
 import { registerPathLinks } from "./links";
+import { BlockTracker, type Block } from "./blocks";
+import { BlockGutter } from "./BlockGutter";
 import { useSessions } from "../state/sessions";
 import { useExplorer } from "../state/explorer";
+import { useBlocks } from "../state/blocks";
+import { useWorkflowDraft } from "../workflows/draft";
 
 const FONT_FAMILY = '"JetBrains Mono Variable", ui-monospace, Menlo, monospace';
 
@@ -45,11 +49,17 @@ type Status = "connecting" | "open" | "reconnecting" | "closed";
 export function TermView({ sessionId, active }: { sessionId: string; active: boolean }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
+  const trackerRef = useRef<BlockTracker | null>(null);
   const [status, setStatus] = useState<Status>("connecting");
   const [exitCode, setExitCode] = useState<number | null>(null);
+  const [tick, setTick] = useState(0);
+  const [stickyCmd, setStickyCmd] = useState<{ command: string; exitCode: number | null } | null>(null);
   const setTitle = useSessions((s) => s.setTitle);
   const setCwd = useSessions((s) => s.setCwd);
   const markExited = useSessions((s) => s.markExited);
+  const setBlocks = useBlocks((s) => s.setBlocks);
+  const addCommand = useBlocks((s) => s.addCommand);
+  const openWorkflowDraft = useWorkflowDraft((s) => s.open);
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -100,16 +110,65 @@ export function TermView({ sessionId, active }: { sessionId: string; active: boo
       openPreview: (rel) => useExplorer.getState().openPreviewPath(rel),
     });
 
+    // Command blocks from OSC 133 semantic-prompt markers.
+    const blocksOf = useBlocks.getState().bySession[sessionId] ?? [];
+    void blocksOf;
+    const tracker = new BlockTracker(term, {
+      onChange: (blocks: Block[]) => {
+        setBlocks(sessionId, blocks);
+        setTick((t) => t + 1);
+      },
+      onCommand: (cmd) => addCommand(cmd),
+    });
+    trackerRef.current = tracker;
+    term.parser.registerOscHandler(133, (payload) => {
+      tracker.handle(payload);
+      return true;
+    });
+
+    const updateSticky = () => {
+      const buf = term.buffer.active;
+      const topRow = buf.viewportY;
+      const blocks = tracker.list();
+      // header shows when scrolled above the bottom and a finished block owns the top row
+      const atBottom = buf.viewportY >= buf.baseY;
+      const owner = blocks.find(
+        (b) => b.outputEnd !== null && b.outputStart <= topRow && (b.outputEnd ?? 0) > topRow,
+      );
+      setStickyCmd(!atBottom && owner ? { command: owner.command, exitCode: owner.exitCode } : null);
+      setTick((t) => t + 1);
+    };
+
     term.onData((data) => conn.sendInput(data));
     term.onBinary((data) => conn.sendInput(data));
     term.onResize(({ cols, rows }) => conn.sendResize(cols, rows));
     term.onTitleChange((title) => setTitle(sessionId, title));
+    term.onScroll(updateSticky);
+    term.onRender(() => setTick((t) => t + 1));
 
-    // Cmd+C copies when there's a selection (Ctrl+C stays SIGINT);
-    // Cmd+V falls through to the browser paste pipeline.
+    const jumpBlock = (dir: 1 | -1) => {
+      const buf = term.buffer.active;
+      const top = buf.viewportY;
+      const starts = tracker.list().map((b) => b.outputStart).sort((a, b) => a - b);
+      const target =
+        dir === 1 ? starts.find((s) => s > top) : [...starts].reverse().find((s) => s < top);
+      if (target !== undefined) term.scrollToLine(target);
+    };
+
+    // Cmd+C copies a selection (Ctrl+C stays SIGINT); Cmd+V falls through to
+    // browser paste; Cmd+↑/↓ jump between command blocks.
     term.attachCustomKeyEventHandler((ev) => {
+      if (ev.type !== "keydown") return true;
       if (ev.metaKey && ev.key === "c" && term.hasSelection()) return false;
       if (ev.metaKey && ev.key === "v") return false;
+      if (ev.metaKey && ev.key === "ArrowUp") {
+        jumpBlock(-1);
+        return false;
+      }
+      if (ev.metaKey && ev.key === "ArrowDown") {
+        jumpBlock(1);
+        return false;
+      }
       return true;
     });
 
@@ -137,20 +196,49 @@ export function TermView({ sessionId, active }: { sessionId: string; active: boo
       disposed = true;
       ro.disconnect();
       linkDisposable.dispose();
+      tracker.dispose();
+      trackerRef.current = null;
       termRegistry.delete(sessionId);
       conn.dispose();
       term.dispose();
       termRef.current = null;
     };
-  }, [sessionId, setTitle, setCwd, markExited, queryClient]);
+  }, [sessionId, setTitle, setCwd, markExited, setBlocks, addCommand, queryClient]);
 
   useEffect(() => {
     if (active) termRef.current?.focus();
   }, [active]);
 
+  const reRun = (command: string) =>
+    termRegistry.get(sessionId)?.sendInput(`\x15${command}\r`);
+
   return (
     <div className="relative h-full w-full bg-ink-950">
       <div ref={hostRef} className="term-host h-full w-full" />
+      {termRef.current && trackerRef.current && hostRef.current && (
+        <BlockGutter
+          term={termRef.current}
+          tracker={trackerRef.current}
+          host={hostRef.current}
+          tick={tick}
+          onReRun={reRun}
+          onSaveWorkflow={(command) => openWorkflowDraft(command)}
+        />
+      )}
+      {stickyCmd && (
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center gap-2 border-b border-ink-700 bg-ink-900/95 px-3 py-1 text-[12px] backdrop-blur">
+          <span
+            className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+              stickyCmd.exitCode === null
+                ? "bg-ink-500"
+                : stickyCmd.exitCode === 0
+                  ? "bg-accent"
+                  : "bg-danger"
+            }`}
+          />
+          <span className="truncate text-ink-300">{stickyCmd.command.split("\n")[0]}</span>
+        </div>
+      )}
       {status === "reconnecting" && (
         <div className="absolute right-3 top-2 rounded bg-ink-800 px-2 py-0.5 text-[11px] text-yellow-400">
           reconnecting…

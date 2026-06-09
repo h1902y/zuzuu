@@ -21,6 +21,7 @@ import {
 } from "@webcode/protocol";
 import { encodeFrame } from "./frames.js";
 import { toRel } from "./safe-path.js";
+import { buildInjection, cleanupInjection } from "./shell-integration/inject.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -49,6 +50,17 @@ async function processCwd(pid: number): Promise<string | null> {
     return line ? line.slice(1) : null;
   } catch {
     return null;
+  }
+}
+
+/** Parse an OSC 7 payload `file://host/path` into a decoded absolute path. */
+export function parseOsc7(payload: string): string | null {
+  const m = /^file:\/\/[^/]*(\/.*)$/.exec(payload);
+  if (!m) return null;
+  try {
+    return decodeURIComponent(m[1]!);
+  } catch {
+    return m[1]!;
   }
 }
 
@@ -83,6 +95,9 @@ export class Session {
   private exitPayload: string | null = null;
   private cwdTimer: NodeJS.Timeout | null = null;
   private cwdPolling = false;
+  /** true once OSC 7 has reported cwd — the poll fallback then stops */
+  private oscCwd = false;
+  private readonly tempDir: string | undefined;
   // asciicast v2 ring buffer ("o" + "r" only — input is never recorded)
   private readonly castEvents: CastEvent[] = [];
   private castBytes = 0;
@@ -100,13 +115,34 @@ export class Session {
     this.title = shell.split("/").pop() ?? shell;
     this.mirror = new Terminal({ cols, rows, scrollback: SCROLLBACK, allowProposedApi: true });
     this.mirror.loadAddon(this.serializer);
-    this.pty = pty.spawn(shell, process.platform === "win32" ? [] : ["-l"], {
+
+    // OSC 7: the shell reports its real cwd instantly/exactly; this makes
+    // the poll loop a fallback for shells where the hook didn't load.
+    this.mirror.parser.registerOscHandler(7, (payload) => {
+      const dir = parseOsc7(payload);
+      if (dir) {
+        this.oscCwd = true;
+        this.stopCwdPolling();
+        if (dir !== this.cwdAbs) {
+          this.cwdAbs = dir;
+          this.send(encodeFrame(ServerOp.Cwd, JSON.stringify(this.cwdPayload())));
+          this.onUpdate();
+        }
+      }
+      return true;
+    });
+
+    const injection = process.platform === "win32" ? null : buildInjection(shell);
+    this.tempDir = injection?.tempDir;
+    const args = injection?.args ?? (process.platform === "win32" ? [] : ["-l"]);
+    this.pty = pty.spawn(shell, args, {
       name: "xterm-256color",
       cols,
       rows,
       cwd,
       env: {
         ...process.env,
+        ...injection?.env,
         TERM: "xterm-256color",
         COLORTERM: "truecolor",
         WEBCODE: "1",
@@ -176,7 +212,7 @@ export class Session {
   }
 
   private startCwdPolling(): void {
-    if (this.cwdTimer || !this.alive) return;
+    if (this.cwdTimer || !this.alive || this.oscCwd) return;
     this.cwdTimer = setInterval(() => {
       if (this.cwdPolling) return;
       this.cwdPolling = true;
@@ -282,6 +318,7 @@ export class Session {
       }
     }
     this.mirror.dispose();
+    cleanupInjection(this.tempDir);
   }
 
   info(): SessionInfo {

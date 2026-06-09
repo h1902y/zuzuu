@@ -33,6 +33,13 @@ export function SearchPanel() {
   const [input, setInput] = useState("");
   const [regex, setRegex] = useState(false);
   const [caseSensitive, setCaseSensitive] = useState(false);
+
+  // the ⌘K palette can hand off a query to this panel
+  useEffect(() => {
+    const onSearch = (e: Event) => setInput((e as CustomEvent<string>).detail);
+    window.addEventListener("webcode:search", onSearch);
+    return () => window.removeEventListener("webcode:search", onSearch);
+  }, []);
   const query = useDebounced(input.trim(), 300);
   const openPreviewPath = useExplorer((s) => s.openPreviewPath);
 

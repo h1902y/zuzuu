@@ -15,9 +15,12 @@ import type {
   SaveRecordingRequest,
   WorkspaceInfo,
 } from "@webcode/protocol";
+import type { Workflow } from "@webcode/protocol";
 import { SessionManager } from "./sessions.js";
 import { createFsApi } from "./fs-api.js";
 import { search } from "./search.js";
+import { listFiles } from "./file-list.js";
+import { listWorkflows, saveWorkflow } from "./workflows.js";
 import { handleTermSocket } from "./ws-term.js";
 import { handleFsSocket } from "./ws-fs.js";
 import { PathError, resolveSafe, safeJoin } from "./safe-path.js";
@@ -199,6 +202,29 @@ export class WebcodeServer {
         caseSensitive: c.req.query("case") === "1",
       });
       return c.json(res);
+    });
+
+    app.get("/api/files", async (c) => {
+      const limit = Math.min(Number(c.req.query("limit")) || 5000, 20000);
+      return c.json(await listFiles(cfg.root, limit));
+    });
+
+    app.get("/api/workflows", async (c) => {
+      return c.json({ workflows: await listWorkflows(cfg.root) });
+    });
+
+    app.post("/api/workflows", async (c) => {
+      let wf: Workflow;
+      try {
+        wf = await c.req.json<Workflow>();
+      } catch {
+        return c.json({ error: "invalid body" }, 400);
+      }
+      if (!wf.name?.trim() || !wf.command?.trim()) {
+        return c.json({ error: "name and command required" }, 400);
+      }
+      const path = await saveWorkflow(cfg.root, wf);
+      return c.json({ ok: true, path });
     });
 
     app.route("/api/fs", createFsApi(cfg.root));

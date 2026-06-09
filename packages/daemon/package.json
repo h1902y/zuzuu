@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts --no-open --port 7770",
     "start": "tsx src/index.ts",
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && cp -r src/shell-integration/*.zsh src/shell-integration/*.bash src/shell-integration/*.fish dist/shell-integration/",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

@@ -3,12 +3,16 @@ import { Group, Panel, Separator } from "react-resizable-panels";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./lib/api";
 import { fsEvents } from "./lib/fs-events";
+import { applyWorkflow, type Workflow } from "@webcode/protocol";
 import { useSessions } from "./state/sessions";
 import { useExplorer } from "./state/explorer";
 import { FileTree } from "./explorer/FileTree";
 import { SearchPanel } from "./explorer/SearchPanel";
 import { TermView } from "./term/TermView";
 import { PreviewPane } from "./preview/PreviewPane";
+import { CommandPalette } from "./palette/CommandPalette";
+import { WorkflowSaveModal, WorkflowRunModal } from "./workflows/WorkflowModals";
+import { termRegistry } from "./term/registry";
 
 const parentOf = (path: string) => path.split("/").slice(0, -1).join("/");
 
@@ -42,6 +46,30 @@ export default function App() {
   const setSidebarMode = useExplorer((s) => s.setSidebarMode);
   const revealPath = useExplorer((s) => s.revealPath);
   const activeTab = tabs.find((t) => t.id === activeId);
+
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [runWorkflow, setRunWorkflow] = useState<Workflow | null>(null);
+
+  // ⌘K / Ctrl+K toggles the command palette
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
+      } else if (e.key === "Escape") {
+        setPaletteOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // A workflow with args opens the run modal; argless ones run immediately.
+  const handleRunWorkflow = (wf: Workflow) => {
+    const hasArgs = (wf.args?.length ?? 0) > 0 || /\{\{\s*\w+\s*\}\}/.test(wf.command);
+    if (hasArgs) setRunWorkflow(wf);
+    else termRegistry.get(activeId)?.sendInput(`\x15${applyWorkflow(wf.command, {})}\r`);
+  };
 
   const saveRecording = async () => {
     if (!activeTab) return;
@@ -197,8 +225,23 @@ export default function App() {
               : `./${activeTab.cwdLive.cwd}`}
           </button>
         )}
-        <span className="ml-auto shrink-0">{tabs.filter((t) => t.alive).length} session(s)</span>
+        <button
+          onClick={() => setPaletteOpen(true)}
+          className="ml-auto shrink-0 rounded px-1.5 text-ink-500 hover:text-accent"
+          title="Command palette"
+        >
+          ⌘K
+        </button>
+        <span className="shrink-0">{tabs.filter((t) => t.alive).length} session(s)</span>
       </div>
+
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        onRunWorkflow={handleRunWorkflow}
+      />
+      <WorkflowSaveModal />
+      <WorkflowRunModal workflow={runWorkflow} onClose={() => setRunWorkflow(null)} />
     </div>
   );
 }
