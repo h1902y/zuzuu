@@ -54,7 +54,7 @@ usage: mns <command> [options]
   help                      this message
 
 \`mns capture\` works post-hoc on existing transcripts. \`mns enable\` turns on
-live, invisible capture across the session lifecycle — see QUICKSTART.md.`);
+live, invisible capture across the session lifecycle — see the README.`);
 }
 
 const [cmd, ...rest] = process.argv.slice(2);

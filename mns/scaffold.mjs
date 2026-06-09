@@ -5,7 +5,7 @@
 // user edits to any seeded file always survive a re-init.
 //
 // v1 layout (be-layer faculties; guardrails merged into instructions/ until a
-// real enforcement runtime exists — see README §5):
+// real enforcement runtime exists — see docs/DESIGN.md §5):
 //   .mns/mns.json + knowledge/ memory/ actions/ instructions/
 
 import { join } from 'node:path';

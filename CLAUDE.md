@@ -4,48 +4,67 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repository is
 
-**A design + research repository — not an application.** As of now there is **no code, no build system, no tests, nothing scaffolded**. It is Markdown only: a consolidated design and the audits/surveys it stands on. Treat "solved memory / tools / runtime" in the docs as *solved on paper*. Do not invent build/lint/test commands — there are none to run.
+**A working early-stage build + its canonical design.** The host coding-agent (Claude Code / Codex / Gemini CLI / OpenCode) supplies the **brain**; this project gives it evolving **faculties** — Memory (episodic), Knowledge (semantic), Actions (procedural), Guardrails — that **graduate** across versioned generations, grown from the observability **trace** of real use, human-gated. We **wrap, serve, observe, evolve** a host we never drive.
 
-Structure:
-- `README.md` — the **canonical single-file overview** of the project (what/why/architecture/decisions). It supersedes and consolidates an earlier set of concept docs. Start here; it is the entry point.
-- `inspiration/` — the **reference shelf**: one 100-project field survey (`agent-harness-survey.md`) plus five source-level audits (entire.io host-adapter, Claude Code pricing, model/provider agnosticity, supermemory/smfs, terminal-first runtime). Depth lives here; `README.md` is the synthesis.
+Built so far (verified): the **observe** layer — host-agnostic trace capture (OTLP/JSON) across 4 real hosts + the `mns` CLI + live capture — and the first **serve** slice (`mns init` faculty home). The **evolve** engine is design-only. Don't claim unbuilt parts work; don't treat designed parts as absent — check `experiments/README.md` for what's proven.
 
-## The project in one line
+## Commands
 
-The host coding-agent (Claude Code / Codex / Gemini CLI) supplies the **brain** (reasoning loop + model). This project gives that agent an evolving **Memory, Knowledge, Actions, and Guardrails** — "faculties" that **graduate** across versioned **generations**, grown from the observability **trace** of real use, human-gated. We **wrap, serve, observe, and evolve** a host we do not run; we never drive the host headlessly.
+```bash
+npm test                                   # full hermetic suite (node:test, zero deps)
+node --test tests/unit/ids.test.mjs        # a single test file
+npm run playground                         # real-data smoke checks (pass/skip/fail)
+node playground/run.mjs 4                  # one playground by number
+node bin/mns.mjs <cmd>                     # the CLI (or `mns` after npm link)
+#   init · status · capture [--host h] · trace [--last] · enable|disable [--host opencode] · doctor
+```
 
-## Load-bearing vocabulary (use these terms exactly — they carry decisions)
+No build step, **zero runtime dependencies** (a deliberate policy — `node:test`, `node:sqlite`, hand-rolled OTLP). Node ≥ 22 (OpenCode adapter needs `node:sqlite`; tests need ≥ 21's glob).
 
-- **Faculties**: Memory (episodic), Knowledge (semantic), Actions (procedural/tools), Guardrails (membrane) — the parts *we* own and grow. Cognition, Model, Workspace are **host-owned** (we observe, never graduate). Note the rename: **Knowledge = semantic, Memory = episodic** (older docs called the semantic faculty "Memory").
-- **be / run / evolve**: the architectural split — what the agent *is* (faculties) vs what *runs & bounds* it (runtime) vs what *grows* it (evolution engine).
-- **The two axes** (never fuse them): **Substrate** = *how* a faculty is implemented (operator-*set* tier) vs **Contents/capability** = *what* it accumulated (trace-*earned* promotion).
-- **Pin definitions, observe data**: the backbone principle. Immutable/versioned things are *definitions* (prompt, model, tool version, schema); everything else is *runtime* captured in traces. This dissolves "snapshot/replay the run state."
-- **Entity model**: **Agent** (durable employee, not a script) → **Generation** (immutable pinned lockfile; rollback = flip the `isActive` pointer) → **Run/Episode** (transient, emits a trace).
-- **Proposal**: the first-class bridge from observability to a new generation; human approves it async/out-of-band in an inbox. **Auto-crystallization is deliberately cut from v1** — the async human gate *is* the safety boundary.
-- **Trace**: typed, append-only, tree-shaped record of a run. The keystone artifact — *build first*. The host-adapter's normalized `Event` is its basis.
+## Architecture (the big picture)
 
-## Conventions when editing these docs
+**Capture pipeline (host-agnostic by construction):** per-host adapters (`experiments/experiment-1-trace-capture/adapters/*.mjs`) parse each host's on-disk session log → normalized `Event[]` (tree via `refId`/`parentRefId`) → `core/spans.mjs` → OTLP/JSON (`core/otlp.mjs`). The core has **no host conditionals**; ids are **deterministic** (sha256 of host+session / trace+refId) so re-capture is idempotent. Adding a host = one adapter file registered in `adapters/registry.mjs`.
 
-- **`README.md` is canonical.** When the design changes, update `README.md`; keep `inspiration/` as audit records. Note the `inspiration/` docs contain cross-links to pre-consolidation filenames (e.g. `../agentic-platform-concept.md`, `../agent-foundation-primitives.md`) that no longer exist as separate files — their content now lives in `README.md`. Do not "fix" these by recreating those files; the consolidation was intentional.
-- **Preserve the verified-vs-directional split.** Several audits explicitly separate *verified* facts from *directional/unverified* leads (notably the pricing audit's numbers and the late-2025/2026 preprint citations). Do not promote unverified leads to authoritative claims, and do not strip the honesty flags.
-- **Naming.** The project was previously **zuzuagents** (product concept *zuzu*); it is being renamed **motorsandsensors**. Older docs still say "zuzu/zuzuagents" — that is expected, not an error to mass-rename. Sibling projects keep their names: **Zuzucodes Labs**, **Flow Engine**, **Notes** (the three lineages being merged).
-- Dates in this repo are written absolute (e.g. `2026-06-08`), matching the doc status lines.
+**The `mns` CLI (`mns/`, product surface):** `capture-core.mjs` is the one shared capture path; `store.mjs` is the git-native split (`.mns/sessions.json` index **tracked** + linked to commits; `traces/`/`live/` git-ignored); `session.mjs` is the lifecycle state machine (`opening→active→completed|abandoned|crashed`, post-hoc = `captured`). **Live capture is Design B** — hooks/plugins are lifecycle *signals + re-capture triggers*, never span builders: `commands/hook.mjs` maps Claude's `SessionStart/Stop/SessionEnd` and OpenCode's `session.created/idle/deleted` onto one `open/turn/end` path. No host emits a clean end on kill → `doctor` reconciles stale live sessions from the transcript (nothing lost). `scaffold.mjs`/`inject.mjs`/`commands/init.mjs` = the git-style faculty home (three modes: greenfield / brownfield-inject / reinit; idempotent, never clobbers).
+
+**The method:** `experiments/` (numbered spikes; each README = hypothesis → findings → conclusions) → proven parts harvest into `app/` (be/run/evolve skeleton; nothing harvested yet — CLI imports experiment code in place). `playground/` = app-level smoke vs real machine data; `tests/` = hermetic.
+
+## Hard-won conventions (violating these has bitten us)
+
+- **Real-wire-data rule:** adapters/integrations are built and verified against output the host *actually produced* — never from docs alone, never against self-invented fixtures (that's circular). Observe real events **before** wiring lifecycle semantics (docs lied twice: Claude `Stop` and OpenCode `session.idle` are per-*turn*, not end; OpenCode `session.deleted` is delete-only).
+- **Golden ids in regression tests are pasted from a real run** — never hand-computed. If the id scheme changes intentionally, regenerate and review.
+- **Playground exit contract:** 0 = pass, **2 = skip** (host data absent — not a failure), anything else = fail. Don't "fix" skips to passes.
+- **Hooks/plugins must never break the host:** always exit 0 (`… || true` wrappers, try-wrapped plugin), spawn detached, degrade silently.
+- **`.mns/` deny rules are narrow** (`traces/`, `live/` only) — a blanket `.mns/**` deny starves the agent of its own faculties.
+- **Secrets:** keys never land in tracked files; scan before commit/push. Generated host-enablement config (`.opencode/`, `.claude/settings*.json`) is git-ignored.
+- The `<!-- >>> mns:faculties … -->` block at the bottom of this file is **managed by `mns init`** — don't hand-edit it.
+
+## Load-bearing vocabulary (these terms carry decisions)
+
+- **Faculties**: Knowledge = semantic, Memory = episodic, Actions = procedural, Guardrails = membrane — *we own these*. **Cognition / Model / Workspace are host-owned** (observe, steer via instructions; never graduate). 7 total, split 4/3.
+- **be / run / evolve**: what the agent *is* / what *serves & bounds* it / what *grows* it.
+- **Pin definitions, observe data**: immutable things are *definitions* (prompt, tool version, schema); everything else is runtime captured in traces.
+- **Agent → Generation → Run**: durable identity → immutable pinned lockfile (rollback = flip pointer) → transient episode emitting a trace.
+- **Proposal**: the bridge from observability to a new generation — **always human-approved in v1**.
+- **Design B**: live-capture hooks signal + trigger re-capture through the proven parse path; they never build spans.
+
+## Docs canon
+
+- `README.md` = front door (what works, quickstart). `docs/DESIGN.md` = **canonical design** (was the repo README until 2026-06-10 — older docs/comments citing "README §N" mean DESIGN.md). Experiment records are dated documents — append corrections, don't rewrite history.
+- `inspiration/` = audit records; they contain intentionally-dead links to pre-consolidation filenames — do **not** recreate those files. Preserve every verified-vs-directional honesty split.
+- Older docs say "zuzu/zuzuagents" — expected, not an error. Dates are absolute (`2026-06-09`).
+- `STATUS.md` / `SOCIAL.md` / `tasks/` / `engagement/` stay at the repo root — the personal vault reads them at these paths (federation contract).
 
 ## Key fixed decisions (don't relitigate without cause)
 
-These were converged across multiple sessions; treat them as settled unless explicitly revisiting:
-- Engine runtime = **Cloudflare Workflows only** (`waitForEvent` for human/A2A gates); Workflows runs **only the async evolution loop**, not the hot agent loop.
-- Org topology = **strict 1:N tree + mirror aliases**, *not* an arbitrary DAG. M:N is for faculty *sharing*, not delegation.
-- **Interactive-mode-first** (never headless) — a product pillar grounded in Claude Code pricing + the fact that hooks/MCP/CLAUDE.md/skills only fully work interactively.
-- Host integration is an **observe** model (entire.io's adapter shape), *not* a `run()`/`stream()` driving bridge.
-- Knowledge/Memory substrate = off-edge Postgres/Neon (AGE/pgvector are opt-in top rungs, "prove-it" before betting the hot path).
+- Evolution engine runtime = **Cloudflare Workflows only** (async evolution loop, never the hot agent loop) · org topology = **strict 1:N tree + mirror aliases** · **interactive-mode-first, never headless** · host integration = **observe model** (entire.io shape), not a driving bridge · Knowledge/Memory substrate = off-edge Postgres/Neon (graph/vector are earned top rungs) · **transcript-parsing is the capture foundation**; hooks are enhancement · OpenCode = candidate **default bundled host** (MNS-as-plugin is built; credits model is a flagged, undecided hypothesis — see DESIGN §6).
 
 ## Social
 
 **This project owns the X / Twitter channel (`@h1902y`).** X is the *builder* surface — build-in-public of this harness under the "motors & sensors" brand. The work shown here is the content; an employer who sees the LinkedIn practitioner then checks X and sees someone who actually builds.
 
-- **Read [`SOCIAL.md`](SOCIAL.md) before doing any social work here** — pillars (50% build-log / 30% lessons / 20% reactions), the reply-first daily cadence + Thu/Sun threads, and the design-stage caveat (post the *thinking in public*, don't fake shipped code).
-- This is design-stage (docs only, no code yet) — so build-log content right now = decisions, architecture, and the audits/survey. The pinned anchor thread already does this.
+- **Read [`SOCIAL.md`](SOCIAL.md) before doing any social work here** — pillars (50% build-log / 30% lessons / 20% reactions), the reply-first daily cadence + Thu/Sun threads.
+- Real code ships now (since 2026-06-09) — build-log posts show *actual shipped work*; the standing discipline is the reverse: show only what actually shipped, verified.
 - **Report up:** keep `STATUS.md` current (what was decided/shipped, what's queued for X, blockers). The personal vault (`~/Documents/personal`) aggregates status and owns the cross-channel strategy (`personal/social-channel-architecture.md`) — sync to it, don't duplicate.
 
 ## Tasks
