@@ -108,5 +108,9 @@ test('budget truncates the knowledge list but keeps instructions + guardrails', 
     // ...and deterministic.
     const again = computeDigest(mns, { budget: 80 });
     assert.equal(tiny.text, again.text);
+    // renderedCount reflects what actually appeared in the text
+    assert.equal(typeof tiny.sections.knowledge.renderedCount, 'number');
+    assert.ok(tiny.sections.knowledge.renderedCount >= 1);
+    assert.ok(tiny.sections.knowledge.renderedCount <= tiny.sections.knowledge.shown.length);
   }, { project: '# Project steering\n\nShip daily.\n', rules: RULES });
 });

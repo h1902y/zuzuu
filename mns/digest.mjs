@@ -83,17 +83,20 @@ export function computeDigest(mnsDir, { knowledgeLimit = 5, budget = 1500 } = {}
   lines.push('## Knowledge');
   if (!knowledge.count) {
     lines.push('(no items yet — propose facts to knowledge/inbox/)');
+    sections.knowledge = { ...knowledge, renderedCount: 0 };
   } else {
     lines.push(`${knowledge.count} item(s); most recent:`);
     let shown = 0;
     for (const it of knowledge.shown) {
       const line = `- ${it.id} · ${it.type} · ${it.body.split('\n')[0].slice(0, 80)}`;
+      // join is O(items²) but trivial: once-per-session, knowledgeLimit default 5
       if (lines.join('\n').length + line.length > charBudget && shown > 0) break;
       lines.push(line);
       shown++;
     }
     const dropped = knowledge.count - shown;
     if (dropped > 0) lines.push(`- … (${dropped} more — \`mns recall\`)`);
+    sections.knowledge = { ...knowledge, renderedCount: shown };
   }
   lines.push('');
 
