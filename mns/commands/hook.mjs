@@ -131,7 +131,7 @@ export function gateDecision({ host = 'claude-code', payload = {}, cwd = process
         );
       } catch { /* logging must not affect the gate */ }
     }
-    return host === 'gemini-cli' ? toGeminiDecision(verdict) : toPreToolUseDecision(verdict);
+    return (host === 'gemini-cli' || host === 'opencode') ? toGeminiDecision(verdict) : toPreToolUseDecision(verdict);
   } catch {
     return null; // fail open
   }
@@ -160,10 +160,10 @@ export function sessionStartContext(cwd = process.cwd()) {
  */
 export function runHook(event, { host = 'claude-code', session } = {}) {
   let payload = {};
-  if (host === 'opencode') {
-    payload = { session_id: session };
+  if (host === 'opencode' && !GATE_EVENTS.has(event)) {
+    payload = { session_id: session }; // opencode lifecycle: id via --session (fire-and-forget)
   } else {
-    // claude-code, gemini-cli, codex all pipe a JSON payload on fd 0
+    // claude/gemini/codex always pipe JSON; opencode pipes it for the gate event too
     try {
       // fd 0, not '/dev/stdin' — the device-path form breaks for piped stdin on
       // Linux (CI caught this; macOS masked it).

@@ -58,3 +58,11 @@ test('gateDecision: no match → null (fail-open) for both hosts', () => {
     assert.equal(gateDecision({ host: 'gemini-cli', payload: { tool_name: 'read_file', tool_input: { file_path: 'README.md' } }, cwd }), null);
   });
 });
+
+test('gateDecision: opencode deny → {decision:deny,reason} (plugin-parseable)', () => {
+  withRules([SECRET_RULE], (cwd) => {
+    const d = gateDecision({ host: 'opencode', payload: { session_id: 's', tool_name: 'bash', tool_input: { command: 'cat .env' } }, cwd });
+    assert.equal(d.decision, 'deny');
+    assert.match(d.reason, /no-secret-reads/);
+  });
+});
