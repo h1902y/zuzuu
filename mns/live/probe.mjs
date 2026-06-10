@@ -10,7 +10,7 @@
 // usage (as a hook command):
 //   node probe.mjs --host <h> --event <EV> --out <abs path to .jsonl> [host's own args…]
 
-import { appendFileSync, mkdirSync, readFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, readFileSync, fstatSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 const argOf = (k, d = null) => {
@@ -22,12 +22,15 @@ const host = argOf('--host', 'unknown');
 const event = argOf('--event', 'unknown');
 const out = argOf('--out', null);
 
-// Read whatever the host piped on stdin (most hosts deliver the payload here).
+// Read the host's stdin payload — but ONLY when fd 0 is a pipe or file. A blocking
+// readFileSync(0) on an inherited TTY/open fd hangs the hook forever (Gemini closes
+// stdin so it returned; Codex left it open → a 36-min hang). Never block.
 let stdin = null;
 try {
-  stdin = readFileSync(0, 'utf8');
+  const st = fstatSync(0);
+  if (st.isFIFO() || st.isFile()) stdin = readFileSync(0, 'utf8');
 } catch {
-  /* no/closed stdin */
+  /* no/closed/unreadable stdin */
 }
 
 const record = {
