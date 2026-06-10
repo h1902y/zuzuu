@@ -1,0 +1,33 @@
+name: publish
+# Version-bump-driven: push to main with a bumped package.json version
+# → tests → npm publish with provenance. Unchanged version = no-op.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write # npm provenance (OIDC)
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - name: skip if version already published
+        id: check
+        run: |
+          LOCAL=$(node -p "require('./package.json').version")
+          PUBLISHED=$(npm view motorsandsensors version 2>/dev/null || echo "none")
+          echo "local=$LOCAL published=$PUBLISHED"
+          [ "$LOCAL" != "$PUBLISHED" ] && echo "publish=true" >> "$GITHUB_OUTPUT" || echo "publish=false" >> "$GITHUB_OUTPUT"
+      - if: steps.check.outputs.publish == 'true'
+        run: npm test
+      - if: steps.check.outputs.publish == 'true'
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
