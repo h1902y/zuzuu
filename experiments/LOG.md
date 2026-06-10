@@ -551,3 +551,47 @@ Before building, surveyed all five hosts' *official* faculty mechanisms (paralle
 - The efficiency thesis now has a measured number to point at: deterministic grounding for ~114 tokens, versus an agent re-reading faculty files every session. The observe layer can A/B this against bare setups — the corollary's benchmark gets its instrument.
 - **Two-stage review earned its keep again**: spec-then-quality caught a real fail-open defect (shared try/catch on the hook path) that all unit tests passed through — exactly the class of bug that bricks a host in production.
 - Spec 2 (the Actions engine — `mns act`, manifest + JSON-Schema, progressive disclosure, MCP-converter bridge, borrowing pi's info-architecture and zuzuu `_labs`' contract patterns *without their runtimes*) is specced and plugs into the digest's Actions seam.
+
+## Experiment 10 — the Actions faculty: a script-powered tool collection + its crystallization gate (2026-06-10)
+
+### Hypothesis
+
+The Actions faculty can be *extremely efficient* for a filesystem-based local workspace — runnable scripts the agent invokes by name, served by progressive disclosure (token-cheap), convertible to MCP/OpenAI/Anthropic tool defs for free — **and** it can graduate the same way Knowledge does: agent proposes → human gate → activate. All zero-dep, observe-not-drive, host-safe. (Spec 2, built as Plan 2a = the engine, Plan 2b = the crystallization gate.)
+
+### Borrowed information architecture (not runtimes)
+
+Surveyed two real tool-infra sources and lifted *patterns*, not their execution models (both **drive**; mns must not):
+- **pi** (badlogic/pi-mono): progressive disclosure (index in context, body read on demand — "no loader tool, ride the host's read"), registered-vs-active, throw-to-fail, result-as-patch (content vs details), `prepareArguments` forward-compat, manifest-driven bundles.
+- **zuzuu `_labs`** (a real Python/TS tool sandbox): JSON-Schema-as-single-truth, the strict `main(args) → object` entry contract, preamble/postamble result-marker extraction, OpenAI/Anthropic/MCP converters, depth-counter composition.
+
+**The canon reconciliation (the central decision):** the host's own Bash runs the script; **`mns act` only dispatches + validates**. `mns act <slug>` is the same category of agent-invoked CLI as `mns recall` — never a driver of the agent loop. Consequences, all free: every action call is an observable span; it already passes the guardrails gate (it's a Bash command); zero-dep (a hand-rolled JSON-Schema-subset validator, not Ajv).
+
+### What was built
+
+**Plan 2a — the engine.** `mns/actions/`: `schema.mjs` (zero-dep JSON-Schema-subset validator: validate / validateInputs(merge defaults) / validateOutputs(the object contract)); `manifest.mjs` (`action.json` loader + `listActions(baseDir)` classifying `script` vs the cross-host `SKILL.md` `runbook` standard); a spawn-isolated runner (`runner.mjs`, never imported — `marker.mjs` holds the sentinel) + `dispatch.mjs` (`runAction`: prepare→validate→`main`→validate→emit `__MNS_ACT_RESULT__` marker; **timeout + depth-cap + anchored stdout-only marker + log truncation**); `convert.mjs` (manifest → MCP/OpenAI/Anthropic — the DESIGN §6 "Actions over MCP" bridge, zero rework). CLI `mns act list|show|run|new|schema` with path-traversal-safe slugs. The digest gained an `## Actions` section (progressive disclosure: slug · snippet only).
+
+**Plan 2b — the crystallization gate.** `actions/inbox/` scaffolded; `inbox.mjs` (`activateAction` moves inbox→active, conflict- + manifest-guarded, **never auto-activates**; `rejectAction`); `mns act propose` (agents scaffold into the inbox) + `mns act inbox|approve|reject` (non-interactive gate); **`mns review` gained an actions pass** sharing the knowledge gate's piped-stdin line-queue (one gate, both faculties); faculty block **v5** steers agents to propose actions; A7 **fail-soft outcome trail** (`.mns/live/actions.jsonl`) — the "details" side of pi's result-as-patch.
+
+### Verified
+
+163 tests (validator goldens incl. array/nested/enum; dispatch happy + every error path + depth-cap + prepareArguments + marker-survival; converters; inbox activate/reject/conflict/malformed/unsafe-slug; the **actions+knowledge composition test** — one piped stdin driving both review passes; trail fail-soft; block v5 upgrade). Playground 4/0/0. **Dogfood:** a real `run-tests` action runs `npm test` and returns a validated `pass N / fail 0` (Plan 2a); and the full **propose → `mns review` (y) → activate → run → trail → digest** loop, end-to-end through the real binary (Plan 2b).
+
+### What the two-stage review caught (invisible to happy-path tests)
+
+- **No spawn timeout** — a runaway action would hang `mns act`, hence the host turn (a direct "never break the host" violation). Added `timeout` + `res.error`/`res.signal` mapping.
+- **stderr marker-spoofing** — the parser scanned stdout+stderr, so an action's `console.error('__MNS_ACT_RESULT__…')` could inject a fake result. Fixed: scan **stdout only**, anchored at line start.
+- **Path traversal** — `mns act new ../../x` escaped `.mns/actions/`. Fixed: `isSafeSlug` at the CLI layer *and* inside the lib (`scaffoldAction`/`activate`/`reject`), so containment doesn't depend on the CLI alone.
+
+### Honest limits
+
+- **Not yet observed firing in a real interactive host turn** — verified via unit/integration tests + real-binary smoke (the same remaining-proof caveat as exp-8/9). An agent actually choosing to `mns act` mid-session, and the MCP-served path, are unexercised.
+- **Claude Code only in practice**; the SKILL.md runbook kind is cross-host by standard, but other hosts' action-serving is unwired (real-wire-data rule).
+- **Secrets/sandboxing out of scope** — actions inherit the host shell env in v1 (same trust as the agent); no secret vault, no isolation beyond the spawned process + timeout.
+- **ER for actions is by-slug only** — no dedup of near-duplicate proposed actions; an LLM-judge pass is a later rung. The review summary counts knowledge outcomes, not action outcomes (per-item logged, no aggregate).
+- **The dogfood `run-tests` action runs the full suite in a child** — fine for a demo, not a latency-optimized executor (the `_labs` persistent-executor daemon was deliberately not borrowed).
+
+### Conclusions
+
+- The Actions faculty is real and graduating: author-or-propose → gate → serve → run → observe, zero-dep and host-safe. The manifest authored once for `mns act` is also an MCP/OpenAI/Anthropic tool def — the Stage-2/OpenCode bridge exists before Stage 2 does.
+- **Crystallization is now built, not just asserted** (DESIGN's "Actions crystallization = the same governed pipeline as Knowledge"): the same `mns review` gate, the same inbox→human→activate shape, kept deliberately *out* of the knowledge ER/registry machinery.
+- Three of the project's load-bearing invariants were enforced under adversarial review — never-break-the-host (timeout), result integrity (anchored stdout marker), and containment (slug guard at both layers) — none of which the happy-path tests would have caught.
