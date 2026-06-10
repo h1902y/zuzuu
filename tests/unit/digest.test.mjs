@@ -83,5 +83,9 @@ test('a broken faculty does not sink the digest (fail-soft)', () => {
     const d = computeDigest(mns);
     assert.match(d.text, /## Instructions/);
     assert.match(d.text, /## Knowledge/);
+    assert.match(d.text, /## Guardrails/);        // section survives degradation
+    assert.match(d.text, /no rules configured/);  // degraded, not absent
+    assert.equal(d.sections.guardrails.count, 0);
+    assert.equal(d.sections.guardrails.ok, false);
   }, { project: FILLED, rules: '{ not json' });
 });

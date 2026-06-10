@@ -44,7 +44,9 @@ function knowledgeSection(mnsDir, limit) {
 
 function proposalsSection(mnsDir) {
   try {
-    return { pending: listProposals(mnsDir).length };
+    // count only pending — defensive if listProposals ever returns archived too
+    const pending = listProposals(mnsDir).filter((p) => p.status === 'pending');
+    return { pending: pending.length };
   } catch {
     return { pending: 0 };
   }
