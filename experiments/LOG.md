@@ -513,3 +513,41 @@ Fresh arena `~/Documents/mns-livefire-2` (tiny npm project + decoy `.env`), `mot
 - The faculty loop is live end-to-end on the published package: steer → serve → propose → enforce → observe, in real host sessions.
 - **Live-fire earns its keep**: both findings (steering preempts the gate; `git -C` bypass) are invisible to piped-payload tests — they came from a real model making real choices. The bypass is now a pasted-from-reality regression case, per the golden-ids convention.
 - Still open: the same script driven **interactively** by a human (the `ask` → real permission prompt path), and the OpenCode twin of this arena.
+
+## Experiment 9 — the session contract: grounded sessions on Claude Code (2026-06-10)
+
+### Hypothesis
+
+The efficiency corollary (DESIGN §2) needs a concrete first move: a session that **opens grounded** — the agent receives a deterministic faculty brief at start instead of re-deriving context every turn — should make the faculty value visible *and* cheap. Built as an opinionated session contract on Claude Code's official `SessionStart`/`PreToolUse` hooks, designed host-agnostic so Gemini/Codex/OpenCode/pi become delivery tiers later (Spec 1 of the Stage-1 wrapper).
+
+### Host-mechanism survey first (real-docs, June 2026)
+
+Before building, surveyed all five hosts' *official* faculty mechanisms (parallel research agents, doc-cited). Findings that shaped the design:
+- **Every host now ships a hook surface** that can inject context at start, signal lifecycle, and gate tool calls — Claude Code (`SessionStart` `additionalContext` + `PreToolUse`), **Gemini CLI** (11-event system incl. `BeforeTool`), **Codex** (`SessionStart`/`PreToolUse` + `systemMessage`), OpenCode (`tool.execute.before` + `chat.system.transform`), pi (`before_agent_start` + `tool_call` block). DESIGN's "thinner on Gemini/Codex" assumption is **outdated** — both have full hook systems now (docs-verified, *not yet real-wire-verified* — staged accordingly).
+- **`SKILL.md` is a cross-host Agent-Skills standard** (Claude/Gemini/Codex/pi all consume it; Codex+pi share `.agents/skills/`) → recorded as the runbook substrate for the Actions faculty (Spec 2).
+- **No host has a real knowledge substrate** (Codex Memories is closest, off-by-default + geo-restricted) — our registry-governed, provenance-carrying, gated store stays the differentiated core; hosts give us *serving* surfaces, not competing substrates.
+
+### What was built (Spec 1, 16 commits, subagent-driven TDD)
+
+- **`mns digest`** (`mns/digest.mjs`, pure/deterministic/zero-network/no-model) → `{ text, sections }`: Instructions (the steering, or an **interview directive** when `project.md` is still the placeholder — empty `.mns` becomes a conversation the agent starts), Knowledge (newest-first, capped, `renderedCount`), Proposals (pending-only, conditional), Guardrails (rule count + "refusals are policy"). **Fail-soft per faculty** (one broken faculty never sinks the brief); priority-ordered budget truncation (Instructions + Guardrails never dropped). CLI: `mns digest [--json] [--budget N]`.
+- **`SessionStart` injection** (`mns/commands/hook.mjs`): the hook now also emits the digest as Claude's `{ hookSpecificOutput: { hookEventName, additionalContext } }`. **Fail-open, exit 0 always.** Capture and digest emit live in **independent** try/catch blocks — a capture (`openLive`) throw can't suppress the digest, and vice-versa (the one defect the two-stage review caught; the helper alone wasn't enough).
+- **Faculty block v4** (`mns/inject.mjs`): rewrote the directory-listing block into the three-ritual **contract** — *ground* on the digest (don't re-derive), *cite* in-flight (`from knowledge: <id>`), *harvest* at close (one-fact files → `knowledge/inbox/` → `mns review`). Ships via the exp-6 version-aware in-place upgrade (v3→v4, no clobber).
+- **First-run polish**: `doctor` (git-absence is neutral info, never "all good" under warnings), `status` (this-project block first, machine inventory below), `recall` (honest no-items-vs-no-matches), `init` (digest hint).
+
+### Verified
+
+112 tests pass (was 96; +16: digest sections/budget/json, hook fail-open + capture/digest independence, block-v4 upgrade, doctor summary, recall empty-state). Playground 4/0/0. **Dogfood on this repo: the digest is ~456 chars ≈ 114 tokens** — and it honestly reports this repo's own state (instructions empty → interview directive, 23 pending proposals, 3 guardrail rules, 0 knowledge items). End-to-end smoke through the real binary: a `SessionStart` with a bogus transcript path emitted the full digest JSON and exited 0 — proving capture-failure/digest independence on the wire.
+
+### Honest limits
+
+- **Not yet observed in a real interactive Claude turn.** Verified via unit tests + the real-binary smoke (piped payload), not a live `claude` session reading the injected `additionalContext` — the same remaining-proof pattern as exp-2/4/8. The interactive-first UX claim stays unproven until that run.
+- **Claude Code only.** The digest is host-agnostic by construction, but Gemini/Codex/OpenCode/pi delivery needs each hook surface *observed* before wiring (real-wire-data rule — the survey is docs-only).
+- **Harvest is steering-led, not mechanical.** `SessionEnd` fires too late to prompt the model, so close-out quality rides the contract (exp-8: steering is strong but soft). Mechanical close-out (`SessionEnd` auto-distill) is the queued next slice.
+- The Knowledge salience heuristic is cheap (newest-first), not semantic — semantic ranking on the hot path is a later rung.
+- The Actions index section is **intentionally deferred to Spec 2** (the actions engine); the digest's `sections` shape leaves an additive seam for it.
+
+### Conclusions
+
+- The efficiency thesis now has a measured number to point at: deterministic grounding for ~114 tokens, versus an agent re-reading faculty files every session. The observe layer can A/B this against bare setups — the corollary's benchmark gets its instrument.
+- **Two-stage review earned its keep again**: spec-then-quality caught a real fail-open defect (shared try/catch on the hook path) that all unit tests passed through — exactly the class of bug that bricks a host in production.
+- Spec 2 (the Actions engine — `mns act`, manifest + JSON-Schema, progressive disclosure, MCP-converter bridge, borrowing pi's info-architecture and zuzuu `_labs`' contract patterns *without their runtimes*) is specced and plugs into the digest's Actions seam.
