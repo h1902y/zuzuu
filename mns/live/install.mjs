@@ -4,7 +4,7 @@
 // delimiter blocks. Instead we tag our entries by a stable command SIGNATURE and
 // add/remove only those — never clobbering the user's own hooks. Idempotent.
 
-export const SIGNATURE = 'mns.mjs hook'; // every mns hook command contains this
+export const SIGNATURE = 'mns.mjs'; // appears in every mns hook command path, quote-agnostic
 // entire-style: agent can't read its own observability output (feedback loop) —
 // but ONLY that. The faculty home (.mns/knowledge etc., served by `mns init`)
 // must stay readable, so the deny is narrowed to traces/ + live/.

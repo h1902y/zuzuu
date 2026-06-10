@@ -19,3 +19,14 @@ test('addHookEntries is idempotent; removeHookEntries strips only ours', () => {
   assert.equal(removed.hooks.SessionStart.length, 1);
   assert.equal(removed.hooks.SessionStart[0].hooks[0].command, 'user-hook');
 });
+
+test('idempotent + removable with the REAL quoted command form (mns.mjs" hook)', () => {
+  // the real enable command quotes the BIN path: node "/abs/bin/mns.mjs" hook X --host h || true
+  const real = (ev) => `node "/Users/x/bin/mns.mjs" hook ${ev} --host gemini-cli || true`;
+  const once = addHookEntries({}, real, ['SessionStart', 'BeforeTool']);
+  const twice = addHookEntries(once, real, ['SessionStart', 'BeforeTool']);
+  assert.equal(twice.hooks.SessionStart.length, 1, 'no duplicate on re-enable');
+  assert.equal(twice.hooks.BeforeTool.length, 1);
+  const removed = removeHookEntries(twice);
+  assert.equal(removed.hooks, undefined, 'disable removed all mns hooks');
+});
