@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';
 import { geminiRef } from '../../mns/commands/hook.mjs';
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { gateDecision } from '../../mns/commands/hook.mjs';
 
@@ -35,6 +35,21 @@ function withRules(rules, fn) {
   try { return fn(root); } finally { rmSync(root, { recursive: true, force: true }); }
 }
 const SECRET_RULE = { id: 'no-secret-reads', action: 'deny', tool: '*', pattern: '\\.env', reason: 'secrets' };
+
+test('gateDecision: a path-like session_id (pi) still writes the guardrails log (sanitized filename)', () => {
+  withRules([SECRET_RULE], (cwd) => {
+    const sessPath = '/Users/x/.pi/agent/sessions/--Users-x--/2026_abc.jsonl';
+    const d = gateDecision({ host: 'pi', payload: { session_id: sessPath, tool_name: 'bash', tool_input: { command: 'cat .env' } }, cwd });
+    assert.equal(d.decision, 'deny');
+    const files = readdirSync(join(cwd, '.mns', 'live'));
+    const log = files.find((f) => f.startsWith('guardrails-') && f.endsWith('.jsonl'));
+    assert.ok(log, `expected a guardrails log, got: ${files.join(',')}`);
+    assert.ok(!log.includes('/'), `filename must have no path separators: ${log}`);
+    const line = JSON.parse(readFileSync(join(cwd, '.mns', 'live', log), 'utf8').trim());
+    assert.equal(line.host, 'pi');
+    assert.equal(line.rule, 'no-secret-reads');
+  });
+});
 
 test('gateDecision: codex deny → hookSpecificOutput (Claude-shaped)', () => {
   withRules([SECRET_RULE], (cwd) => {

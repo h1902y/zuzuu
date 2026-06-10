@@ -85,6 +85,14 @@ export function handleHook({ event, payload = {}, cwd = process.cwd(), now = Dat
  * That silence is the fail-open: engine errors and rule-file problems can slow
  * nothing down and block nothing. Matched decisions are logged for the trace.
  */
+// Session ids are usually clean (uuids, ses_…), but some hosts pass a file PATH
+// as the session id (pi → the session-file path). Sanitize before using it in a
+// filename, or the log write silently fails into a non-existent nested path.
+function guardrailsLogName(sessionId) {
+  const safe = String(sessionId || 'unknown').replace(/[^A-Za-z0-9._-]/g, '_').slice(-120);
+  return `guardrails-${safe || 'unknown'}.jsonl`;
+}
+
 export function gateToolUse({ payload = {}, cwd = process.cwd() } = {}) {
   try {
     const { dir } = paths(cwd);
@@ -96,7 +104,7 @@ export function gateToolUse({ payload = {}, cwd = process.cwd() } = {}) {
         const liveDir = join(dir, 'live');
         mkdirSync(liveDir, { recursive: true });
         appendFileSync(
-          join(liveDir, `guardrails-${payload.session_id || 'unknown'}.jsonl`),
+          join(liveDir, guardrailsLogName(payload.session_id)),
           JSON.stringify({ at: new Date().toISOString(), tool: payload.tool_name, ...verdict }) + '\n',
         );
       } catch {
@@ -127,7 +135,7 @@ export function gateDecision({ host = 'claude-code', payload = {}, cwd = process
         const liveDir = join(dir, 'live');
         mkdirSync(liveDir, { recursive: true });
         appendFileSync(
-          join(liveDir, `guardrails-${payload.session_id || 'unknown'}.jsonl`),
+          join(liveDir, guardrailsLogName(payload.session_id)),
           JSON.stringify({ at: new Date().toISOString(), host, tool: payload.tool_name, ...verdict }) + '\n',
         );
       } catch { /* logging must not affect the gate */ }
