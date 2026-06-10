@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { loadManifest, allActions } from '../../mns/actions/manifest.mjs';
+import { loadManifest, allActions, listActions, inboxDir } from '../../mns/actions/manifest.mjs';
 
 function withActions(fn) {
   const root = mkdtempSync(join(tmpdir(), 'mns-act-'));
@@ -74,4 +74,30 @@ test('script dir without action.json falls back to slug', () => {
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test('allActions skips the inbox subdir', () => {
+  withActions((mns) => {
+    const inb = join(mns, 'actions', 'inbox', 'proposed');
+    mkdirSync(inb, { recursive: true });
+    writeFileSync(join(inb, 'action.json'), JSON.stringify({ slug: 'proposed' }));
+    writeFileSync(join(inb, 'run.mjs'), 'export async function main(){ return {}; }');
+    const slugs = allActions(mns).map((a) => a.slug);
+    assert.ok(!slugs.includes('inbox'), 'inbox not listed as an action');
+    assert.ok(!slugs.includes('proposed'), 'inbox contents not listed as active actions');
+  });
+});
+
+test('listActions on the inbox dir lists proposed actions', () => {
+  withActions((mns) => {
+    const inb = join(mns, 'actions', 'inbox', 'proposed');
+    mkdirSync(inb, { recursive: true });
+    writeFileSync(join(inb, 'action.json'), JSON.stringify({ slug: 'proposed', promptSnippet: 'do a thing' }));
+    writeFileSync(join(inb, 'run.mjs'), 'export async function main(){ return {}; }');
+    const list = listActions(inboxDir(mns));
+    assert.equal(list.length, 1);
+    assert.equal(list[0].slug, 'proposed');
+    assert.equal(list[0].kind, 'script');
+    assert.equal(list[0].promptSnippet, 'do a thing');
+  });
 });

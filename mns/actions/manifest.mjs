@@ -14,6 +14,7 @@ export function isSafeSlug(slug) {
 }
 
 export const actionsDir = (mnsDir) => join(mnsDir, 'actions');
+export const inboxDir = (mnsDir) => join(actionsDir(mnsDir), 'inbox');
 const actionDir = (mnsDir, slug) => join(actionsDir(mnsDir), slug);
 
 /** Read action.json for a slug → object, or null if absent/unparseable. */
@@ -40,26 +41,32 @@ function skillFrontmatter(text) {
 }
 
 /**
- * List every action under .mns/actions/ as {slug, kind, title, promptSnippet}.
- * `script` = dir has run.mjs; `runbook` = dir has SKILL.md; other dirs/files skipped.
+ * List actions in a base dir as {slug, kind, title, promptSnippet}.
+ * `script` = dir has run.mjs; `runbook` = dir has SKILL.md; other entries skipped.
+ * Reads the manifest directly from each entry dir (works for any baseDir, e.g. the inbox).
  */
-export function allActions(mnsDir) {
-  const dir = actionsDir(mnsDir);
-  if (!existsSync(dir)) return [];
+export function listActions(baseDir) {
+  if (!existsSync(baseDir)) return [];
   const out = [];
-  for (const name of readdirSync(dir)) {
-    const d = join(dir, name);
+  for (const name of readdirSync(baseDir)) {
+    const d = join(baseDir, name);
     let isDir = false;
     try { isDir = statSync(d).isDirectory(); } catch { /* skip */ }
     if (!isDir) continue; // ignores README.md and any stray files
     if (existsSync(join(d, 'run.mjs'))) {
-      const man = loadManifest(mnsDir, name) ?? {};
+      let man = {};
+      try { man = JSON.parse(readFileSync(join(d, 'action.json'), 'utf8')); } catch { /* slug fallback */ }
       out.push({ slug: name, kind: 'script', title: man.title ?? name, promptSnippet: man.promptSnippet ?? man.description ?? name });
     } else if (existsSync(join(d, 'SKILL.md'))) {
       let fm = {};
-      try { fm = skillFrontmatter(readFileSync(join(d, 'SKILL.md'), 'utf8')); } catch { /* unreadable → slug fallback */ }
+      try { fm = skillFrontmatter(readFileSync(join(d, 'SKILL.md'), 'utf8')); } catch { /* slug fallback */ }
       out.push({ slug: name, kind: 'runbook', title: fm.name ?? name, promptSnippet: fm.description ?? name });
     }
   }
   return out;
+}
+
+/** Active actions under .mns/actions/ (the inbox subdir is excluded). */
+export function allActions(mnsDir) {
+  return listActions(actionsDir(mnsDir)).filter((a) => a.slug !== 'inbox');
 }
