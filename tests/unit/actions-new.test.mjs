@@ -1,8 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, mkdirSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { scaffoldAction } from '../../mns/commands/act-author.mjs';
 
 function withHome(fn) {
@@ -34,4 +36,19 @@ test('scaffoldAction is no-clobber: existing files survive', () => {
     assert.ok(r.created.includes('action.json'));
     assert.ok(!r.created.includes('run.mjs'));
   });
+});
+
+test('mns act new rejects a path-traversal slug (containment)', () => {
+  const root = mkdtempSync(join(tmpdir(), 'mns-trav-'));
+  mkdirSync(join(root, '.mns', 'actions'), { recursive: true });
+  const bin = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'bin', 'mns.mjs');
+  try {
+    const r = spawnSync(process.execPath, [bin, 'act', 'new', '../../escaped'], { cwd: root, encoding: 'utf8' });
+    assert.equal(r.status, 1);
+    assert.match((r.stderr || '') + (r.stdout || ''), /invalid slug/);
+    assert.ok(!existsSync(join(root, 'escaped')), 'nothing written outside .mns');
+    assert.ok(!existsSync(join(root, '..', 'escaped')), 'nothing written above root');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

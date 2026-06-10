@@ -17,6 +17,13 @@ import { newAction, schema as schemaCmd } from './act-author.mjs';
 
 const RESERVED = new Set(['list', 'show', 'new', 'schema']);
 
+const SAFE_SLUG = /^[a-zA-Z0-9][a-zA-Z0-9_-]*$/;
+function requireSlug(slug, usage) {
+  if (!slug) { console.error(usage); process.exit(1); }
+  if (!SAFE_SLUG.test(slug)) { console.error(`invalid slug '${slug}' — letters, digits, - and _ only`); process.exit(1); }
+  return slug;
+}
+
 function list(mnsDir) {
   const actions = allActions(mnsDir);
   if (!actions.length) return console.log('no actions yet — scaffold one with `mns act new <slug>`');
@@ -53,9 +60,10 @@ export function act(args) {
   const mnsDir = paths().dir;
   const sub = args._[0];
   if (!sub || sub === 'list') return list(mnsDir);
-  if (sub === 'show') return show(mnsDir, args._[1]);
-  if (sub === 'new') return newAction(mnsDir, args._[1]);
-  if (sub === 'schema') return schemaCmd(mnsDir, args._[1], args);
+  if (sub === 'show') return show(mnsDir, requireSlug(args._[1], 'usage: mns act show <slug>'));
+  if (sub === 'new') return newAction(mnsDir, requireSlug(args._[1], 'usage: mns act new <slug>'));
+  if (sub === 'schema') return schemaCmd(mnsDir, requireSlug(args._[1], 'usage: mns act schema <slug> [--openai|--anthropic]'), args);
+  // future-reserved guard: extend RESERVED + add a handler above in tandem
   if (RESERVED.has(sub)) { console.error(`unknown: mns act ${sub}`); process.exit(1); }
-  return run(mnsDir, sub, args);
+  return run(mnsDir, requireSlug(sub, 'usage: mns act <slug> [--args JSON]'), args);
 }
