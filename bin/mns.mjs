@@ -71,7 +71,7 @@ usage: mns <command> [options]
                             the actions gate (or use \`mns review\`)
   distill [--all|--session ID]
                             mine real sessions → knowledge proposals (default: last)
-  review                    walk pending knowledge proposals (y/n/e/s/q)
+  review                    walk pending actions + knowledge proposals (y/n/e/s/q)
   proposals list|show|approve|reject <id>
                             the same gate, non-interactive
   enable                    background hooks: invisible live capture + guardrails gate

@@ -40,8 +40,8 @@ export async function review() {
   const inbox = processInbox(mnsDir);
   if (inbox.processed) console.log(`(processed ${inbox.processed} inbox candidate(s) → proposals)`);
   const pending = listProposals(mnsDir);
-  const proposedCount = listProposedActions(mnsDir).length;
-  if (!pending.length && !proposedCount) {
+  const proposed = listProposedActions(mnsDir);
+  if (!pending.length && !proposed.length) {
     console.log('nothing to review — knowledge and actions are current');
     return;
   }
@@ -76,7 +76,6 @@ export async function review() {
     });
   };
   // --- Actions gate: walk proposed actions first ---
-  const proposed = listProposedActions(mnsDir);
   for (let i = 0; i < proposed.length; i++) {
     const a = proposed[i];
     console.log(`\n━━ action ${i + 1}/${proposed.length} ── ${a.slug} ── ${a.kind} ━━`);
