@@ -126,6 +126,7 @@ test('digest Actions section lists slug · snippet (progressive disclosure)', ()
     assert.match(d.text, /## Actions/);
     assert.match(d.text, /run-tests · run the suite/);
     assert.equal(d.sections.actions.count, 1);
+    assert.equal(d.sections.actions.renderedCount, 1);
   }, { project: '# Project steering\n\nShip daily.\n' });
 });
 

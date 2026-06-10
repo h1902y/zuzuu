@@ -38,6 +38,12 @@ test('scaffoldAction is no-clobber: existing files survive', () => {
   });
 });
 
+test('scaffoldAction throws on an unsafe slug (containment at the lib layer)', () => {
+  withHome((mns) => {
+    assert.throws(() => scaffoldAction(mns, '../../escaped'), /invalid slug/);
+  });
+});
+
 test('mns act new rejects a path-traversal slug (containment)', () => {
   const root = mkdtempSync(join(tmpdir(), 'mns-trav-'));
   mkdirSync(join(root, '.mns', 'actions'), { recursive: true });

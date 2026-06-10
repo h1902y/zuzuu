@@ -10,17 +10,16 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { paths } from '../store.mjs';
-import { allActions, loadManifest, actionsDir } from '../actions/manifest.mjs';
+import { allActions, loadManifest, actionsDir, isSafeSlug } from '../actions/manifest.mjs';
 import { runAction } from '../actions/dispatch.mjs';
 import { MARKER } from '../actions/marker.mjs';
 import { newAction, schema as schemaCmd } from './act-author.mjs';
 
 const RESERVED = new Set(['list', 'show', 'new', 'schema']);
 
-const SAFE_SLUG = /^[a-zA-Z0-9][a-zA-Z0-9_-]*$/;
 function requireSlug(slug, usage) {
   if (!slug) { console.error(usage); process.exit(1); }
-  if (!SAFE_SLUG.test(slug)) { console.error(`invalid slug '${slug}' — letters, digits, - and _ only`); process.exit(1); }
+  if (!isSafeSlug(slug)) { console.error(`invalid slug '${slug}' — letters, digits, - and _ only`); process.exit(1); }
   return slug;
 }
 

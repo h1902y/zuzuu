@@ -6,6 +6,13 @@
 import { join } from 'node:path';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 
+// Action slugs: letters/digits start, then letters/digits/-/_. No dots or slashes
+// → cannot escape .mns/actions/ via path traversal.
+export const SAFE_SLUG = /^[a-zA-Z0-9][a-zA-Z0-9_-]*$/;
+export function isSafeSlug(slug) {
+  return typeof slug === 'string' && SAFE_SLUG.test(slug);
+}
+
 export const actionsDir = (mnsDir) => join(mnsDir, 'actions');
 const actionDir = (mnsDir, slug) => join(actionsDir(mnsDir), slug);
 

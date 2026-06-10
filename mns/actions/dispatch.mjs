@@ -36,7 +36,7 @@ function parseOutput(stdout) {
       logLines.push(line);
     }
   }
-  return { parsed, logs: truncate(logLines.join('\n').trim()) };
+  return { parsed, logs: logLines.join('\n').trim() };
 }
 
 /**

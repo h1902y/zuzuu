@@ -4,7 +4,7 @@
 
 import { mkdirSync, existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { actionsDir, loadManifest } from '../actions/manifest.mjs';
+import { actionsDir, loadManifest, isSafeSlug } from '../actions/manifest.mjs';
 import { toMcpTool, toOpenAITool, toAnthropicTool } from '../actions/convert.mjs';
 
 function manifestStub(slug) {
@@ -33,6 +33,7 @@ export async function main(args) {
 
 /** Scaffold .mns/actions/<slug>/ — returns { created: string[] }. No-clobber. */
 export function scaffoldAction(mnsDir, slug) {
+  if (!isSafeSlug(slug)) throw new Error(`invalid slug '${slug}' — letters, digits, - and _ only`);
   const dir = join(actionsDir(mnsDir), slug);
   mkdirSync(dir, { recursive: true });
   const created = [];
