@@ -50,7 +50,7 @@ No build step, **zero runtime dependencies** (a deliberate policy — `node:test
 
 ## Docs canon
 
-- `README.md` = front door (what works, quickstart). `docs/DESIGN.md` = **canonical design** (was the repo README until 2026-06-10 — older docs/comments citing "README §N" mean DESIGN.md). `experiments/LOG.md` = the **build journal** (all experiment records, one append-only file — append corrections, don’t rewrite history). That’s the whole doc set; module knowledge lives in code comments, not READMEs.
+- `README.md` = front door (what works, quickstart). `docs/DESIGN.md` = **canonical design** (was the repo README until 2026-06-10 — older docs/comments citing "README §N" mean DESIGN.md). `experiments/LOG.md` = the **build journal** (all experiment records, one append-only file — append corrections, don’t rewrite history). The **GitHub wiki** = the extended *user guide* (how-tos, host guides, troubleshooting) — it documents **only shipped + verified behavior**, never design intentions (those live in DESIGN). That’s the whole doc set; module knowledge lives in code comments, not READMEs. Wiki source of truth is the wiki git repo (`….wiki.git`).
 - `docs/inspiration/` = audit records; they contain intentionally-dead links to pre-consolidation filenames — do **not** recreate those files. Preserve every verified-vs-directional honesty split.
 - Older docs say "zuzu/zuzuagents" — expected, not an error. Dates are absolute (`2026-06-09`).
 - The personal/marketing federation layer (`STATUS.md`, `SOCIAL.md`, `tasks/`, `engagement/`) lives in **`.personal/` — git-ignored, local-only** (it's strategy/targets, not product). The personal vault reads it at `.personal/` (contract updated 2026-06-10). Note: pre-split copies exist in public git history.
