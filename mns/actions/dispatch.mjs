@@ -14,6 +14,7 @@ import { MARKER } from './marker.mjs';
 const MAX_DEPTH = 8;
 const MAX_BYTES = 50_000;
 const MAX_LINES = 2000;
+const ACTION_TIMEOUT_MS = 60_000;
 const runnerPath = join(dirname(fileURLToPath(import.meta.url)), 'runner.mjs');
 
 function truncate(s) {
@@ -29,9 +30,8 @@ function parseOutput(stdout) {
   let parsed = null;
   const logLines = [];
   for (const line of lines) {
-    const i = line.indexOf(MARKER);
-    if (i !== -1) {
-      try { parsed = JSON.parse(line.slice(i + MARKER.length)); } catch { /* keep last good */ }
+    if (line.startsWith(MARKER)) {
+      try { parsed = JSON.parse(line.slice(MARKER.length)); } catch { /* keep last good */ }
     } else {
       logLines.push(line);
     }
@@ -43,9 +43,10 @@ function parseOutput(stdout) {
  * Run an action by slug. Returns:
  *   { ok:true, value, logs } | { ok:false, error, detail?, logs }
  * error ∈ depth_exceeded | not_found | not_runnable | invalid_input |
- *         invalid_output | script_error | no_result
+ *         invalid_output | script_error | no_result | timeout | spawn_error | killed
  */
-export function runAction(mnsDir, slug, callerArgs = {}) {
+// Synchronous (spawnSync). Returns the result object directly.
+export function runAction(mnsDir, slug, callerArgs = {}, { timeoutMs = ACTION_TIMEOUT_MS } = {}) {
   const depth = Number(process.env.MNS_ACT_DEPTH || 0);
   if (depth >= MAX_DEPTH) return { ok: false, error: 'depth_exceeded', detail: `depth ${depth} ≥ ${MAX_DEPTH}`, logs: '' };
 
@@ -68,9 +69,19 @@ export function runAction(mnsDir, slug, callerArgs = {}) {
     encoding: 'utf8',
     env: { ...process.env, MNS_ACT_DEPTH: String(depth + 1) },
     maxBuffer: 64 * 1024 * 1024,
+    timeout: timeoutMs,
+    killSignal: 'SIGTERM',
   });
 
-  const { parsed, logs } = parseOutput((res.stdout || '') + (res.stderr ? '\n' + res.stderr : ''));
+  if (res.error) {
+    const timedOut = res.error.code === 'ETIMEDOUT';
+    return { ok: false, error: timedOut ? 'timeout' : 'spawn_error', detail: timedOut ? `action exceeded ${timeoutMs}ms` : res.error.message, logs: '' };
+  }
+  if (res.signal) return { ok: false, error: 'killed', detail: `child killed by ${res.signal}`, logs: '' };
+
+  const { parsed, logs: outLogs } = parseOutput(res.stdout || '');
+  const errText = (res.stderr || '').trim();
+  const logs = truncate([outLogs, errText].filter(Boolean).join('\n'));
   if (!parsed) return { ok: false, error: 'no_result', detail: 'action emitted no result marker', logs };
   return { ...parsed, logs };
 }

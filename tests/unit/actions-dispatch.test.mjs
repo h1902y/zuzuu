@@ -47,3 +47,36 @@ test('default_args fill in when caller omits them', async () => {
     },
   );
 });
+
+test('a marker-looking line on stderr does not spoof the result', async () => {
+  await withAction('spoof',
+    { inputs: { type: 'object' }, outputs: { type: 'object', properties: { real: { type: 'boolean' } } } },
+    `export async function main(){ console.error('__MNS_ACT_RESULT__' + JSON.stringify({ ok:true, value:{ real:false } })); return { real: true }; }`,
+    async (mns) => {
+      const r = await runAction(mns, 'spoof', {});
+      assert.equal(r.ok, true);
+      assert.deepEqual(r.value, { real: true }); // the real stdout marker, not the stderr fake
+    });
+});
+
+test('a marker substring mid-log-line is ignored (anchored at line start)', async () => {
+  await withAction('embed',
+    { inputs: { type: 'object' }, outputs: { type: 'object', properties: { done: { type: 'boolean' } } } },
+    `export async function main(){ console.log('note: __MNS_ACT_RESULT__ appears here'); return { done: true }; }`,
+    async (mns) => {
+      const r = await runAction(mns, 'embed', {});
+      assert.equal(r.ok, true);
+      assert.deepEqual(r.value, { done: true });
+    });
+});
+
+test('a hung action times out cleanly (never hangs mns)', async () => {
+  await withAction('hang',
+    { inputs: { type: 'object' }, outputs: { type: 'object' } },
+    `export async function main(){ await new Promise(r => setInterval(r, 1e9)); }`,
+    async (mns) => {
+      const r = await runAction(mns, 'hang', {}, { timeoutMs: 500 });
+      assert.equal(r.ok, false);
+      assert.equal(r.error, 'timeout');
+    });
+});
