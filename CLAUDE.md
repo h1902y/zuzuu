@@ -53,7 +53,7 @@ No build step, **zero runtime dependencies** (a deliberate policy — `node:test
 - `README.md` = front door (what works, quickstart). `docs/DESIGN.md` = **canonical design** (was the repo README until 2026-06-10 — older docs/comments citing "README §N" mean DESIGN.md). `experiments/LOG.md` = the **build journal** (all experiment records, one append-only file — append corrections, don’t rewrite history). That’s the whole doc set; module knowledge lives in code comments, not READMEs.
 - `docs/inspiration/` = audit records; they contain intentionally-dead links to pre-consolidation filenames — do **not** recreate those files. Preserve every verified-vs-directional honesty split.
 - Older docs say "zuzu/zuzuagents" — expected, not an error. Dates are absolute (`2026-06-09`).
-- `STATUS.md` / `SOCIAL.md` / `tasks/` / `engagement/` stay at the repo root — the personal vault reads them at these paths (federation contract).
+- The personal/marketing federation layer (`STATUS.md`, `SOCIAL.md`, `tasks/`, `engagement/`) lives in **`.personal/` — git-ignored, local-only** (it's strategy/targets, not product). The personal vault reads it at `.personal/` (contract updated 2026-06-10). Note: pre-split copies exist in public git history.
 
 ## Key fixed decisions (don't relitigate without cause)
 
@@ -63,16 +63,16 @@ No build step, **zero runtime dependencies** (a deliberate policy — `node:test
 
 **This project owns the X / Twitter channel (`@h1902y`).** X is the *builder* surface — build-in-public of this harness under the "motors & sensors" brand. The work shown here is the content; an employer who sees the LinkedIn practitioner then checks X and sees someone who actually builds.
 
-- **Read [`SOCIAL.md`](SOCIAL.md) before doing any social work here** — pillars (50% build-log / 30% lessons / 20% reactions), the reply-first daily cadence + Thu/Sun threads.
+- **Read [`.personal/SOCIAL.md`](.personal/SOCIAL.md) before doing any social work here** — pillars (50% build-log / 30% lessons / 20% reactions), the reply-first daily cadence + Thu/Sun threads.
 - Real code ships now (since 2026-06-09) — build-log posts show *actual shipped work*; the standing discipline is the reverse: show only what actually shipped, verified.
-- **Report up:** keep `STATUS.md` current (what was decided/shipped, what's queued for X, blockers). The personal vault (`~/Documents/personal`) aggregates status and owns the cross-channel strategy (`personal/social-channel-architecture.md`) — sync to it, don't duplicate.
+- **Report up:** keep `.personal/STATUS.md` current (what was decided/shipped, what's queued for X, blockers). The personal vault (`~/Documents/personal`) aggregates status and owns the cross-channel strategy (`personal/social-channel-architecture.md`) — sync to it, don't duplicate.
 
 ## Tasks
 
-This project owns its activities in [`tasks/`](tasks/) — multi-day work units as `type: activity` markdown notes (checkboxes for steps, `relations: depends-on` for dependencies). Migrated from the personal vault on 2026-06-09 (federation). Current: `ai-agent-harness`, `twitter-profile-growth` (the X growth plan; its `h1902y` handle-procurement sub-list is personal-identity-layer, kept here as a sub-section).
+This project owns its activities in [`.personal/tasks/`](.personal/tasks/) — multi-day work units as `type: activity` markdown notes (checkboxes for steps, `relations: depends-on` for dependencies). Migrated from the personal vault on 2026-06-09 (federation). Current: `ai-agent-harness`, `twitter-profile-growth` (the X growth plan; its `h1902y` handle-procurement sub-list is personal-identity-layer, kept here as a sub-section).
 
 - Activity templates live at `~/Documents/personal/tasks/.schema/templates/` (canonical) — mirror that shape when creating a new task here.
-- When task state changes materially, reflect the headline in [`STATUS.md`](STATUS.md) so the personal vault's dashboard stays current — that's the only cross-repo obligation.
+- When task state changes materially, reflect the headline in [`.personal/STATUS.md`](.personal/STATUS.md) so the personal vault's dashboard stays current — that's the only cross-repo obligation.
 - Some migrated tasks carry `[[wikilinks]]` to notes that stayed in the personal vault; those are cross-repo and won't resolve in Obsidian — leave them as references.
 
 <!-- >>> mns:faculties:v2 >>> -->
