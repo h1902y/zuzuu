@@ -97,12 +97,16 @@ export default function App() {
       }
     };
     const onOpenPicker = () => setVaultPickerOpen(true);
+    const onSaveRec = () => void saveRecording();
     window.addEventListener("keydown", onKey);
     window.addEventListener("webcode:open-vault-picker", onOpenPicker);
+    window.addEventListener("webcode:save-recording", onSaveRec);
     return () => {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("webcode:open-vault-picker", onOpenPicker);
+      window.removeEventListener("webcode:save-recording", onSaveRec);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saveActive, paletteMode]);
 
   // Switch the daemon's workspace, then reload into it (token cookie persists).
@@ -124,15 +128,18 @@ export default function App() {
   };
 
   const saveRecording = async () => {
-    if (!activeTab) return;
+    // read the active session fresh — this is also invoked from a window event
+    const s = useSessions.getState();
+    const tab = s.tabs.find((t) => t.id === s.activeId);
+    if (!tab) return;
     const stamp = new Date().toISOString().slice(11, 19).replace(/:/g, "");
     const path = window.prompt(
       "Save recording as (workspace-relative .cast):",
-      `recordings/${activeTab.title}-${stamp}.cast`,
+      `recordings/${tab.title}-${stamp}.cast`,
     );
     if (!path) return;
     try {
-      const res = await api.saveRecording(activeTab.id, path);
+      const res = await api.saveRecording(tab.id, path);
       if (res.truncated) {
         window.alert("Saved — note: the oldest output was dropped (buffer cap reached).");
       }
@@ -226,16 +233,6 @@ export default function App() {
             >
               +
             </button>
-            {activeTab && (
-              <button
-                onClick={() => void saveRecording()}
-                title="Save session recording (.cast) into the workspace"
-                className="ml-auto flex items-center gap-1.5 px-3 text-[11px] text-ink-500 hover:bg-ink-850 hover:text-danger"
-              >
-                <span className="h-2 w-2 rounded-full border border-current" />
-                rec
-              </button>
-            )}
           </div>
           {/* terminals — all kept mounted so sessions survive tab switches */}
           <div className="relative min-h-0 flex-1">
@@ -249,10 +246,8 @@ export default function App() {
               </div>
             ))}
             {tabs.length === 0 && (
-              <div className="flex h-full items-center justify-center text-ink-500">
-                <button onClick={() => void create()} className="rounded border border-ink-700 px-4 py-2 hover:border-accent-dim hover:text-ink-100">
-                  open a terminal
-                </button>
+              <div className="flex h-full items-center justify-center text-[12px] text-ink-600">
+                no terminal — press + above
               </div>
             )}
           </div>
@@ -268,10 +263,18 @@ export default function App() {
       </Group>
       {/* status bar */}
       <div className="relative flex items-center gap-2.5 border-t border-ink-700 bg-ink-900 px-3 py-1 text-[11px] text-ink-500">
-        {/* connection health */}
+        {/* connection health — hover reveals the live stats (files · sessions · uptime · mem) */}
         <span
           className="flex shrink-0 items-center gap-1.5"
-          title={`daemon ${conn.state}`}
+          title={[
+            `daemon ${conn.state}`,
+            files.data ? `${files.data.files.length}${files.data.truncated ? "+" : ""} files` : null,
+            `${tabs.filter((t) => t.alive).length} session(s)`,
+            conn.uptimeMs !== null ? `up ${fmtUptime(conn.uptimeMs)}` : null,
+            conn.rss !== null ? fmtMB(conn.rss) : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
         >
           <span
             className={`h-1.5 w-1.5 rounded-full ${
@@ -360,19 +363,9 @@ export default function App() {
           </button>
         )}
 
-        {/* right side: stats */}
-        <span className="ml-auto shrink-0">
-          {files.data ? `${files.data.files.length}${files.data.truncated ? "+" : ""} files` : "…"}
-        </span>
-        <span className="shrink-0">{tabs.filter((t) => t.alive).length} session(s)</span>
-        {conn.uptimeMs !== null && (
-          <span className="shrink-0 text-ink-600" title="daemon uptime · memory">
-            {fmtUptime(conn.uptimeMs)} · {conn.rss !== null ? fmtMB(conn.rss) : ""}
-          </span>
-        )}
         <button
           onClick={() => setPaletteOpen(true)}
-          className="shrink-0 rounded px-1.5 text-ink-500 hover:text-accent"
+          className="ml-auto shrink-0 rounded px-1.5 text-ink-500 hover:text-accent"
           title="Command palette"
         >
           ⌘K

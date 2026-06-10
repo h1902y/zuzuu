@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Terminal } from "@xterm/xterm";
 import type { Block, BlockTracker } from "./blocks";
+import { MenuPopover, type MenuItem } from "../components/ActionMenu";
 
 interface GutterMetrics {
   cellHeight: number;
@@ -103,44 +104,47 @@ function BlockActions({
   onSaveWorkflow: () => void;
   onFix: () => void;
 }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const items: MenuItem[] = [
+    { label: "Copy output", iconPath: "M6 6h7v7H6zM3 10V3h7", onClick: onCopy },
+    { label: "Re-run", iconPath: "M13 8a5 5 0 11-1.5-3.5M13 3v2.5h-2.5", onClick: onReRun },
+    { label: "Save as workflow", iconPath: "M8 3v10M3 8h10", onClick: onSaveWorkflow },
+  ];
   return (
     <div
-      className="pointer-events-auto absolute left-2 top-0 flex items-center gap-0.5 rounded border border-ink-700 bg-ink-850 px-1 py-0.5 shadow-lg"
+      className="pointer-events-auto absolute left-2 top-0 flex items-center gap-1 rounded border border-ink-700 bg-ink-850 px-1.5 py-0.5 shadow-lg"
       onMouseDown={(e) => e.preventDefault()}
     >
-      <span className="max-w-40 truncate px-1 text-[11px] text-ink-300" title={block.command}>
+      <span className="max-w-40 truncate text-[11px] text-ink-300" title={block.command}>
         {block.command.split("\n")[0]}
       </span>
       {block.durationMs !== null && block.durationMs > 200 && (
-        <span className="px-0.5 text-[10px] text-ink-500">{fmtMs(block.durationMs)}</span>
+        <span className="text-[10px] text-ink-500">{fmtMs(block.durationMs)}</span>
       )}
       {block.fix && (
         <button
           onClick={onFix}
           title={`Quick fix: ${block.fix.label}`}
-          className="rounded px-1 py-0.5 text-[11px] text-yellow-400 hover:bg-ink-700 hover:text-yellow-300"
+          className="rounded px-1 text-[11px] text-yellow-400 hover:bg-ink-700 hover:text-yellow-300"
         >
           ⚡ fix
         </button>
       )}
-      <ActionBtn title="Copy output" onClick={onCopy} d="M6 6h7v7H6zM3 10V3h7" />
-      <ActionBtn title="Re-run" onClick={onReRun} d="M13 8a5 5 0 11-1.5-3.5M13 3v2.5h-2.5" />
-      <ActionBtn title="Save as workflow" onClick={onSaveWorkflow} d="M8 3v10M3 8h10" />
+      <div className="relative">
+        <button
+          onClick={() => setMenuOpen((v) => !v)}
+          title="Block actions"
+          className="rounded px-0.5 text-ink-400 hover:bg-ink-700 hover:text-ink-100"
+        >
+          <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="currentColor">
+            <circle cx="3" cy="8" r="1.3" />
+            <circle cx="8" cy="8" r="1.3" />
+            <circle cx="13" cy="8" r="1.3" />
+          </svg>
+        </button>
+        {menuOpen && <MenuPopover items={items} onClose={() => setMenuOpen(false)} anchor="button" />}
+      </div>
     </div>
-  );
-}
-
-function ActionBtn({ title, onClick, d }: { title: string; onClick: () => void; d: string }) {
-  return (
-    <button
-      title={title}
-      onClick={onClick}
-      className="rounded p-0.5 text-ink-400 hover:bg-ink-700 hover:text-ink-100"
-    >
-      <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="1.4">
-        <path d={d} strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    </button>
   );
 }
 

@@ -10,6 +10,8 @@ import { MarkdownView } from "../preview/MarkdownView";
 import { CsvView } from "../preview/CsvView";
 import { CastView } from "../preview/CastView";
 import type { OpenFile } from "../state/editor";
+import { ActionMenu } from "../components/ActionMenu";
+import { localFileActions } from "../lib/local-actions";
 
 function inlineUrl(path: string): string {
   return `${api.downloadUrl(path)}&inline=1`;
@@ -86,9 +88,9 @@ export function BinaryCard({ file }: { file: OpenFile }) {
         {file.size !== undefined && <> · {formatBytes(file.size)}</>}
       </div>
       <div className="text-[11px] text-ink-500">binary file — no preview</div>
-      <div className="flex gap-2">
-        <button onClick={() => void api.openLocal(file.path)} className={btn}>open</button>
-        <button onClick={() => void api.openLocal(file.path, true)} className={btn}>reveal in Finder</button>
+      <div className="flex items-center gap-2">
+        <button onClick={() => void api.openLocal(file.path)} className={btn}>Open</button>
+        <ActionMenu items={localFileActions(file.path)} title="More" />
       </div>
     </div>
   );

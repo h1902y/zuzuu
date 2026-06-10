@@ -182,6 +182,12 @@ export function CommandPalette({
               >
                 <Kind>vault</Kind> Switch vault… <span className="ml-2 text-ink-500">⌘⇧O</span>
               </Item>
+              <Item
+                value="save session recording cast asciicast"
+                onSelect={() => run(() => window.dispatchEvent(new Event("webcode:save-recording")))}
+              >
+                <Kind>rec</Kind> Save session recording (.cast)
+              </Item>
             </Command.Group>
           )}
         </Command.List>

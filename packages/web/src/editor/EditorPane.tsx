@@ -1,8 +1,9 @@
 import { lazy, Suspense } from "react";
-import { api } from "../lib/api";
 import { categorize } from "../preview/filetypes";
 import { useEditor, editorTabId, type OpenFile } from "../state/editor";
 import { MediaViewer, MarkdownPreview } from "./MediaViewer";
+import { ActionMenu } from "../components/ActionMenu";
+import { localFileActions } from "../lib/local-actions";
 
 // Lazy boundary: keeps the whole Monaco graph (editor + language workers,
 // ~10MB) out of the main bundle until the first file opens.
@@ -66,7 +67,6 @@ export function EditorPane() {
 function ActiveBody({ file }: { file: OpenFile }) {
   const mdPreview = useEditor((s) => s.mdPreview[editorTabId(file)] ?? false);
   const toggleMdPreview = useEditor((s) => s.toggleMdPreview);
-  const save = useEditor((s) => s.save);
   const buffer = useEditor((s) => s.buffers[editorTabId(file)]);
 
   if (file.diff) {
@@ -94,22 +94,8 @@ function ActiveBody({ file }: { file: OpenFile }) {
             </div>
           )}
           <span className="ml-auto truncate">{file.path}</span>
-          <button
-            onClick={() => void api.openLocal(file.path, true)}
-            className="rounded px-1 hover:text-ink-100"
-            title="Reveal in Finder"
-          >
-            reveal
-          </button>
-          {buffer?.dirty && (
-            <button
-              onClick={() => void save(editorTabId(file))}
-              className="rounded px-1 text-accent hover:text-ink-100"
-              title="Save (⌘S)"
-            >
-              save
-            </button>
-          )}
+          {buffer?.dirty && <span className="shrink-0 text-ink-500">⌘S to save</span>}
+          <ActionMenu items={localFileActions(file.path)} className="shrink-0" />
         </div>
       )}
       <div className="min-h-0 flex-1 overflow-auto">

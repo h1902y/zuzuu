@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { shellQuote, type ListResponse } from "@webcode/protocol";
@@ -6,6 +6,8 @@ import { api } from "../lib/api";
 import { useExplorer } from "../state/explorer";
 import { useSessions } from "../state/sessions";
 import { termRegistry } from "../term/registry";
+import { ActionMenu, MenuPopover, type MenuItem } from "../components/ActionMenu";
+import { localFileActions } from "../lib/local-actions";
 
 interface Row {
   path: string;
@@ -166,7 +168,31 @@ export function FileTree() {
     termRegistry.get(activeId)?.sendInput(`\x15cd ${shellQuote(absOf(row.path))}\r`);
   };
 
-  const copyPath = (row: Row) => void navigator.clipboard.writeText(absOf(row.path));
+  // full action set for a row, shown via the ⋯ menu and right-click
+  const rowActions = (row: Row): MenuItem[] => {
+    const dirItems: MenuItem[] = row.isDir
+      ? [
+          { label: "Open terminal here", iconPath: "M3 4l4 4-4 4M8 12h5", onClick: () => void createSession(row.path) },
+          { label: "cd here", iconPath: "M2 8h9m0 0L8 5m3 3l-3 3M13 3v10", onClick: () => cdHere(row) },
+          { label: "New folder", iconPath: "M8 4v8M4 8h8", onClick: () => void newFolderIn(row.path) },
+        ]
+      : [];
+    return [
+      ...dirItems,
+      ...localFileActions(row.path, absOf(row.path)).map((it, i) => (i === 0 ? { ...it, separated: dirItems.length > 0 } : it)),
+      { label: "Rename", iconPath: "M11 3l2 2-7 7H4v-2l7-7z", onClick: () => void onRename(row), separated: true },
+      { label: "Delete", iconPath: "M4 5h8m-7 0v7m3-7v7m3-7v7M6 5V3h4v2", onClick: () => void onDelete(row), danger: true },
+    ];
+  };
+
+  const newFolderIn = async (dir: string) => {
+    const name = window.prompt("New folder name:");
+    if (!name) return;
+    await api.mkdir(join(dir, name));
+    void refreshDir(dir);
+  };
+
+  const [ctxMenu, setCtxMenu] = useState<{ items: MenuItem[]; x: number; y: number } | null>(null);
 
   // scroll to selection when revealPath (status bar / search) selects a row
   useEffect(() => {
@@ -207,6 +233,10 @@ export function FileTree() {
                 onDoubleClick={() => {
                   if (row.isDir) cdHere(row);
                 }}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setCtxMenu({ items: rowActions(row), x: e.clientX, y: e.clientY });
+                }}
               >
                 {row.isDir ? (
                   <Chevron open={row.expanded} />
@@ -232,18 +262,8 @@ export function FileTree() {
                     className="ml-1 h-1.5 w-1.5 shrink-0 rounded-full bg-accent"
                   />
                 )}
-                <span className="ml-auto hidden shrink-0 items-center gap-1 group-hover:flex">
-                  {row.isDir && (
-                    <>
-                      <RowButton title="cd here (active terminal)" onClick={() => cdHere(row)} d="M2 8h9m0 0L8 5m3 3l-3 3M13 3v10" />
-                      <RowButton title="Open terminal here" onClick={() => void createSession(row.path)} d="M3 4l4 4-4 4M8 12h5" />
-                    </>
-                  )}
-                  <RowButton title="Copy path" onClick={() => copyPath(row)} d="M6 6h7v7H6zM3 10V3h7" />
-                  <RowButton title="Reveal in Finder" onClick={() => void api.openLocal(row.path, true)} d="M2 5h4l1.5 1.5H14V12a1 1 0 01-1 1H3a1 1 0 01-1-1V5zM8 8.5v3m0 0l-1.5-1.5M8 11.5L9.5 10" />
-                  <RowButton title="Open with default app" onClick={() => void api.openLocal(row.path)} d="M6 3H3v10h10v-3M9 3h4v4M13 3L7 9" />
-                  <RowButton title="Rename" onClick={() => void onRename(row)} d="M11 3l2 2-7 7H4v-2l7-7z" />
-                  <RowButton title="Delete" onClick={() => void onDelete(row)} d="M4 5h8m-7 0v7m3-7v7m3-7v7M6 5V3h4v2" danger />
+                <span className="ml-auto hidden shrink-0 group-hover:block">
+                  <ActionMenu items={rowActions(row)} />
                 </span>
               </div>
             );
@@ -253,6 +273,9 @@ export function FileTree() {
           <div className="px-3 py-2 text-[12px] text-ink-500">empty workspace</div>
         )}
       </div>
+      {ctxMenu && (
+        <MenuPopover items={ctxMenu.items} anchor="point" x={ctxMenu.x} y={ctxMenu.y} onClose={() => setCtxMenu(null)} />
+      )}
     </div>
   );
 }
@@ -271,29 +294,3 @@ function ToolbarButton({ title, onClick, d }: { title: string; onClick: () => vo
   );
 }
 
-function RowButton({
-  title,
-  onClick,
-  d,
-  danger,
-}: {
-  title: string;
-  onClick: () => void;
-  d: string;
-  danger?: boolean;
-}) {
-  return (
-    <button
-      title={title}
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick();
-      }}
-      className={`rounded p-0.5 ${danger ? "text-ink-500 hover:text-danger" : "text-ink-500 hover:text-ink-100"}`}
-    >
-      <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.3">
-        <path d={d} strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    </button>
-  );
-}
