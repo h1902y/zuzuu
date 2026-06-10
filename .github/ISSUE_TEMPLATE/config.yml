@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Design doc
+    url: https://github.com/h1902y/motorsandsensors/blob/main/docs/DESIGN.md
+    about: The canonical design — check whether your idea is already designed (or deliberately cut).

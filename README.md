@@ -1,5 +1,7 @@
 # motors & sensors
 
+[![ci](https://github.com/h1902y/motorsandsensors/actions/workflows/ci.yml/badge.svg)](https://github.com/h1902y/motorsandsensors/actions/workflows/ci.yml) [![npm](https://img.shields.io/npm/v/motorsandsensors)](https://www.npmjs.com/package/motorsandsensors) [![node](https://img.shields.io/node/v/motorsandsensors)](package.json) [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
 **Give the coding agent you already run an evolving Memory, Knowledge, Actions, and Guardrails — grown from how you actually work.**
 
 Your host agent — Claude Code, Codex, Gemini CLI, OpenCode — supplies the *brain* (the reasoning loop + the model). motors & sensors wraps the host you already pay for: it **serves** faculties to it, **observes** every session as an OpenTelemetry trace, and (the end-game) **evolves** the faculties from those traces — human-gated, across versioned generations. We never run a competing agent loop and never drive the host headlessly.

@@ -1,0 +1,12 @@
+name: Experiment proposal
+description: Propose a numbered experiment (hypothesis → real-data proof → conclusions)
+labels: ["experiment"]
+body:
+  - type: textarea
+    id: hypothesis
+    attributes: { label: "Hypothesis", description: "What do you believe is true, and what would prove it?" }
+    validations: { required: true }
+  - type: textarea
+    id: realdata
+    attributes: { label: "Real-data verification plan", description: "This project's rule: verified against real sessions/wire data — never invented fixtures." }
+    validations: { required: true }

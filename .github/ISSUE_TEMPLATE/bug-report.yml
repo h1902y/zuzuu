@@ -1,0 +1,19 @@
+name: Bug report
+description: Something in mns misbehaved
+labels: ["hardening"]
+body:
+  - type: input
+    id: version
+    attributes: { label: "mns version", description: "`mns version`", placeholder: "0.1.1" }
+    validations: { required: true }
+  - type: input
+    id: host
+    attributes: { label: "Host agent", placeholder: "Claude Code / Codex / Gemini CLI / OpenCode + version" }
+    validations: { required: true }
+  - type: textarea
+    id: what
+    attributes: { label: "What happened vs what you expected", description: "Include the command and output. `mns doctor` output helps." }
+    validations: { required: true }
+  - type: textarea
+    id: env
+    attributes: { label: "Environment", placeholder: "macOS 15 / Ubuntu 24.04 · Node 22.x" }
