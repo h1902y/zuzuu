@@ -79,7 +79,6 @@ export function computeDigest(mnsDir, { knowledgeLimit = 5, budget = 1500 } = {}
   lines.push('');
 
   const knowledge = knowledgeSection(mnsDir, knowledgeLimit);
-  sections.knowledge = knowledge;
   lines.push('## Knowledge');
   if (!knowledge.count) {
     lines.push('(no items yet — propose facts to knowledge/inbox/)');
@@ -96,7 +95,8 @@ export function computeDigest(mnsDir, { knowledgeLimit = 5, budget = 1500 } = {}
     }
     const dropped = knowledge.count - shown;
     if (dropped > 0) lines.push(`- … (${dropped} more — \`mns recall\`)`);
-    sections.knowledge = { ...knowledge, renderedCount: shown };
+    // `shown` = items actually rendered (after budget); `count` = total available
+    sections.knowledge = { ...knowledge, shown: knowledge.shown.slice(0, shown), renderedCount: shown };
   }
   lines.push('');
 
@@ -113,6 +113,10 @@ export function computeDigest(mnsDir, { knowledgeLimit = 5, budget = 1500 } = {}
   lines.push('## Guardrails');
   lines.push(guardrails.count ? `${guardrails.count} rule(s) — the enforced gate is on; refusals are policy.` : 'no rules configured.');
   lines.push('');
+
+  // NOTE: the Actions index section is intentionally deferred to Spec 2 (the
+  // actions engine). When added, extend `sections` with `actions` — additive,
+  // not a breaking change to the existing --json shape.
 
   return { text: lines.join('\n').trimEnd() + '\n', sections };
 }
