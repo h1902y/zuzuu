@@ -125,6 +125,10 @@ export function computeDigest(mnsDir, { knowledgeLimit = 5, budget = 1500 } = {}
     const droppedA = actions.count - shownA;
     if (droppedA > 0) lines.push(`- … (${droppedA} more — \`mns act list\`)`);
     lines.push('');
+    // mirror the Knowledge contract: shown reflects what actually rendered
+    sections.actions = { ...actions, shown: actions.shown.slice(0, shownA), renderedCount: shownA };
+  } else {
+    sections.actions = { ...actions, renderedCount: 0 };
   }
 
   const proposals = proposalsSection(mnsDir);
