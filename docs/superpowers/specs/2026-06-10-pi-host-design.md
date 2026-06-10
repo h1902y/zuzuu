@@ -26,6 +26,8 @@ The pi extension is a **signal + re-capture trigger**, never a span builder (lik
 
 ---
 
+> **Phase-0 status (2026-06-10, blocked):** pi loads + runs headless, but its Google Gemini key returns **429 quota exceeded** (free-tier limit: 0) on `gemini-3.1-pro` — so no model call completes and no events/tool fire. **Blocker: a working model credential** (a paid/quota'd Gemini key, or `pi auth` to another provider). Once the model runs, the probe (below) captures pi's real events.
+
 ## Phase 0 — Observe (probe pi's real events)
 
 A probe extension (`.pi/extensions/probe.ts`) records each event's real payload; run a real pi session that triggers a tool.

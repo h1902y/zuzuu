@@ -16,8 +16,8 @@ Per CLAUDE.md, the gate is wired against OpenCode's **actual** plugin behavior, 
 
 1. **Two veto mechanisms exist; `permission.ask` is the better fit.** `permission.ask(input, output)` lets a plugin set `output.status` to `"deny" | "ask" | "allow"` — a direct match for our `deny > ask > allow` severity (and it handles `ask` *natively*, unlike Gemini where we had to defer). `tool.execute.before(input, output)` blocks only by **throwing** (or mutating `output.args`). → **Use `permission.ask` as the primary gate; `tool.execute.before` throw is the hard-deny fallback** if `permission.ask` proves not to fire for a tool.
 2. **`tool.execute.before` signature footgun:** `input = { tool, sessionID, callID }`, `output = { args }` — the tool **arguments live on `output.args`, not `input`**.
-3. **Existing-capture fix (pre-existing bug):** the lifecycle `event` payload carries the session id **differently per event** — `session.idle → event.properties.sessionID`, but `session.created` / `session.deleted → event.properties.info.id`. Our current plugin reads `.sessionID` for all three, so created/deleted silently get `undefined` (capture still works via the per-turn `idle` re-capture — why exp-8 looked fine — but fix it).
-4. **Plugin directory:** current OpenCode expects **`.opencode/plugins/` (plural)**; our shipped code writes `.opencode/plugin/` (singular, kept only for backcompat). → switch to plural.
+3. **~~Existing-capture bug~~ — DISPROVEN by the probe (real-wire correction).** A web-sourced reading claimed `session.created`/`deleted` carry the id only at `properties.info.id`, not `properties.sessionID`. **On the installed v1.16.2 the probe shows `properties.sessionID` is present on *every* session event** (`session.created`, `session.idle`, `session.updated`, …, all = `ses_…`). So our existing plugin's `event.properties.sessionID` is **correct** — no fix needed. (Classic case for the real-wire rule: the fork docs differed from the installed binary.)
+4. **Plugin directory:** the probe confirms the installed v1.16.2 loads **both** `.opencode/plugin/` (singular, our current) **and** `.opencode/plugins/` (plural, the documented default) — both fired `__init__`. So no forced change; we'll standardize on the documented **plural** for forward-compat, but singular is not broken.
 5. **Headless reality:** `opencode run` has a known upstream post-tool-call hang (#17516) and needs `-m <provider/model>` (our self-probe stalled on exactly this). Gate hooks (`permission.ask`/`tool.execute.before`) **are awaited**; the lifecycle `event` hook is **fire-and-forget** (fine for Design B — capture is signal+reconcile). → empirical confirmation runs **interactively** (headless is too flaky here), the Codex pattern.
 
 ## Existing pattern this builds on
@@ -35,6 +35,8 @@ Capture is fire-and-forget (spawn detached, don't wait). A **gate must decide sy
 
 ## Phase 0 — Observe (self-served; OpenCode is installed)
 
+> **Phase-0 status (2026-06-10, partial):** the probe confirmed **plugin loading + lifecycle `event` hooks fire headless** (`opencode run -m`), both plugin dirs load, and finding #3 is disproven (sessionID on all events). **The gate hooks (`permission.ask`/`tool.execute.before`) remain UNobserved** — the run errored `Invalid API key` (the OpenCode Zen credential), so the model never invoked a tool. **Blocker: a working model credential** (re-auth `opencode auth login`), then re-run the probe to observe the gate hook + veto. Not a mechanism problem.
+
 The signatures are doc-verified (above); Phase 0 *confirms behavior on the installed binary*: a probe plugin (in `.opencode/plugins/`) that records what `permission.ask` and `tool.execute.before` actually receive, and whether setting `output.status="deny"` / throwing actually blocks.
 - **Run it correctly:** the earlier self-probe stalled because `opencode run` needs `-m <provider/model>` and hits a known post-tool hang (#17516). Retry headless **with `-m`**; if it still hangs after the tool, run **interactively** (a real OpenCode TUI session) — the Codex pattern — since the gate decision is what we need to observe, not headless completion.
 - **Deliverables (confirm before the plan):** that `permission.ask` fires for the gated tool and `output.status="deny"` blocks it (else the `tool.execute.before`-throw fallback); the real arg paths on the installed version; that the lifecycle `event` ids match the per-event shape in finding #3. Committed as a golden fixture (`tests/fixtures/hooks/opencode.probe.*`).
@@ -45,7 +47,7 @@ The signatures are doc-verified (above); Phase 0 *confirms behavior on the insta
 
 ### 1. The plugin gains a gate handler (`mns/commands/enable.mjs` — the `opencodePlugin()` template)
 
-Also **fix the install + capture** while here (findings #3, #4): write the plugin to **`.opencode/plugins/` (plural)**; in the `event` handler, read the session id per-event — `event.properties.sessionID` for `session.idle`, `event.properties.info.id` for `session.created`/`session.deleted`.
+Also **standardize the dir** (finding #4): write the plugin to **`.opencode/plugins/` (plural, documented default)**. The `event` capture handler is **unchanged** — `event.properties.sessionID` is correct on v1.16.2 (finding #3 disproven).
 
 Add a **`permission.ask(input, output)`** handler (primary gate) that:
 1. Extracts `tool` + args + `sessionID` (args on `output.args` for the tool hook; `permission.ask`'s `input` is a `Permission` — exact field paths confirmed in Phase 0).
