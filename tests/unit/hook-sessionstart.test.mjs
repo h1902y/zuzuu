@@ -1,0 +1,40 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { sessionStartContext } from '../../mns/commands/hook.mjs';
+
+function withHome(fn, project) {
+  const root = mkdtempSync(join(tmpdir(), 'mns-hook-'));
+  const mns = join(root, '.mns');
+  mkdirSync(join(mns, 'knowledge', 'items'), { recursive: true });
+  mkdirSync(join(mns, 'knowledge', 'proposals'), { recursive: true });
+  mkdirSync(join(mns, 'instructions'), { recursive: true });
+  mkdirSync(join(mns, 'guardrails'), { recursive: true });
+  writeFileSync(join(mns, 'instructions', 'project.md'), project);
+  try {
+    return fn(root); // pass repo root; paths() derives .mns under it
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+test('sessionStartContext returns the Claude additionalContext shape', () => {
+  withHome((root) => {
+    const out = sessionStartContext(root);
+    assert.equal(out.hookSpecificOutput.hookEventName, 'SessionStart');
+    assert.match(out.hookSpecificOutput.additionalContext, /mns faculty digest/);
+    assert.match(out.hookSpecificOutput.additionalContext, /Ship daily/);
+  }, '# Project steering\n\nShip daily.\n');
+});
+
+test('sessionStartContext returns null when the home is absent (fail-open)', () => {
+  const root = mkdtempSync(join(tmpdir(), 'mns-nohome-'));
+  try {
+    const out = sessionStartContext(root);
+    assert.ok(out === null || typeof out.hookSpecificOutput === 'object');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

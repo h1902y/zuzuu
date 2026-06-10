@@ -19,6 +19,7 @@ import { SessionState } from '../session.mjs';
 import { openLive, touchLive, closeLive } from '../live/live-store.mjs';
 import { loadRules, evaluate, toPreToolUseDecision } from '../guardrails.mjs';
 import { paths } from '../store.mjs';
+import { computeDigest } from '../digest.mjs';
 
 // Lifecycle events, normalized across hosts (verified by observing each host):
 //   open  — session starts
@@ -97,6 +98,23 @@ export function gateToolUse({ payload = {}, cwd = process.cwd() } = {}) {
 }
 
 /**
+ * Build Claude Code's SessionStart additionalContext payload from the faculty
+ * digest. Returns null on ANY failure (fail-open: the session proceeds with no
+ * injected context, never a broken hook).
+ * @param {string} cwd  repo cwd; paths() resolves the .mns home under it
+ */
+export function sessionStartContext(cwd = process.cwd()) {
+  try {
+    const mnsDir = paths(cwd).dir;
+    const { text } = computeDigest(mnsDir);
+    if (!text || !text.trim()) return null;
+    return { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: text } };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * CLI entry. Claude hooks pipe a JSON payload on stdin; OpenCode's plugin passes
  * `--host opencode --session <id>` (no stdin). Always exits 0 (never break the agent).
  */
@@ -119,6 +137,10 @@ export function runHook(event, { host = 'claude-code', session } = {}) {
       if (decision) process.stdout.write(JSON.stringify(decision));
     } else {
       handleHook({ event, payload, host });
+      if (event === 'SessionStart') {
+        const ctx = sessionStartContext();
+        if (ctx) process.stdout.write(JSON.stringify(ctx));
+      }
     }
   } catch {
     /* never break the agent */
