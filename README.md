@@ -9,8 +9,7 @@ Your host agent — Claude Code, Codex, Gemini CLI, OpenCode — supplies the *b
 ## What works today
 
 ```bash
-git clone https://github.com/h1902y/motorsandsensors.git && cd motorsandsensors
-npm link        # zero dependencies, no build — puts `mns` on your PATH
+npm install -g motorsandsensors   # zero dependencies — installs the `mns` command
 
 mns init        # scaffold your project's agent faculty home (.mns/) — git-style
 mns capture     # turn your latest agent session into an OpenTelemetry trace
@@ -27,7 +26,7 @@ mns doctor      # health + lost-session reconciliation
 
 All four verified against **real sessions** — never fixtures ([`playground-4`](tests/playground/playground-4-provider-journey/play.mjs)).
 
-**Prerequisites:** Node ≥ 22 and git — that's it (zero dependencies, nothing else installs). You need at least one supported agent you've already used, so a session exists to capture.
+**Prerequisites:** Node ≥ 22 — that's it. You need at least one supported agent you've already used, so a session exists to capture. (Hacking on mns itself? `git clone https://github.com/h1902y/motorsandsensors && cd motorsandsensors && npm link`.)
 
 **`mns init`** behaves like `git init`: empty dir → scaffolds the faculty home + `AGENTS.md`/`CLAUDE.md`; existing project → adds `.mns/` and injects a small delimiter-marked block into your existing instruction files (your text is never touched); already initialized → restores missing pieces only. The home: `knowledge/` (verified facts) · `memory/` (curated episodes) · `actions/` (runbooks) · `instructions/` (steering + rules).
 
