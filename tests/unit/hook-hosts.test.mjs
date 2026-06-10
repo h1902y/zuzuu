@@ -66,3 +66,11 @@ test('gateDecision: opencode deny → {decision:deny,reason} (plugin-parseable)'
     assert.match(d.reason, /no-secret-reads/);
   });
 });
+
+test('gateDecision: pi deny → {decision:deny,reason}', () => {
+  withRules([SECRET_RULE], (cwd) => {
+    const d = gateDecision({ host: 'pi', payload: { session_id: 's', tool_name: 'bash', tool_input: { command: 'cat .env' } }, cwd });
+    assert.equal(d.decision, 'deny');
+    assert.match(d.reason, /no-secret-reads/);
+  });
+});

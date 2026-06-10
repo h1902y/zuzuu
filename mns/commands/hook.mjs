@@ -27,9 +27,9 @@ import { computeDigest } from '../digest.mjs';
 //   end   — clean session end (rare: most hosts have none → staleness reconciles)
 // Claude: SessionStart/Stop/SessionEnd · OpenCode: session.created/idle/deleted
 // Gemini: SessionStart/AfterAgent/SessionEnd · Codex: SessionStart/UserPromptSubmit/Stop (no clean end)
-const OPEN = new Set(['SessionStart', 'session.created']);
-const TURN = new Set(['Stop', 'session.idle', 'AfterAgent', 'UserPromptSubmit']);
-const END = new Set(['SessionEnd', 'session.deleted']);
+const OPEN = new Set(['SessionStart', 'session.created', 'session_start']);
+const TURN = new Set(['Stop', 'session.idle', 'AfterAgent', 'UserPromptSubmit', 'turn_end']);
+const END = new Set(['SessionEnd', 'session.deleted', 'session_shutdown']);
 
 /** Gemini's adapter reads logs.json filtered by sessionId; derive it from the
  *  hook's transcript_path (~/.gemini/tmp/<proj>/chats/session-*.json → ../../logs.json). */
@@ -59,6 +59,7 @@ export function handleHook({ event, payload = {}, cwd = process.cwd(), now = Dat
   let ref;
   if (host === 'opencode') ref = id;                 // adapter reads its DB by id
   else if (host === 'gemini-cli') ref = geminiRef(payload);
+  else if (host === 'pi') ref = payload.session_id; // pi: extension passes the session file path as --session; adapter parse() reads it
   else ref = payload.transcript_path;                 // claude-code, codex: the transcript/rollout file
   const adapter = byName(host);
 
@@ -131,7 +132,7 @@ export function gateDecision({ host = 'claude-code', payload = {}, cwd = process
         );
       } catch { /* logging must not affect the gate */ }
     }
-    return (host === 'gemini-cli' || host === 'opencode') ? toGeminiDecision(verdict) : toPreToolUseDecision(verdict);
+    return (host === 'gemini-cli' || host === 'opencode' || host === 'pi') ? toGeminiDecision(verdict) : toPreToolUseDecision(verdict);
   } catch {
     return null; // fail open
   }
@@ -160,8 +161,8 @@ export function sessionStartContext(cwd = process.cwd()) {
  */
 export function runHook(event, { host = 'claude-code', session } = {}) {
   let payload = {};
-  if (host === 'opencode' && !GATE_EVENTS.has(event)) {
-    payload = { session_id: session }; // opencode lifecycle: id via --session (fire-and-forget)
+  if ((host === 'opencode' || host === 'pi') && !GATE_EVENTS.has(event)) {
+    payload = { session_id: session }; // opencode/pi lifecycle: id via --session (fire-and-forget)
   } else {
     // claude/gemini/codex always pipe JSON; opencode pipes it for the gate event too
     try {
