@@ -13,6 +13,7 @@ import type {
   MkdirRequest,
   OpenRequest,
   RenameRequest,
+  WriteRequest,
 } from "@webcode/protocol";
 import { PathError, resolveSafe, toRel } from "./safe-path.js";
 
@@ -125,6 +126,17 @@ export function createFsApi(root: string): Hono {
     const abs = await resolveSafe(root, body.path ?? "");
     if (abs === root) return c.json({ error: "invalid path" }, 400);
     await fsp.mkdir(abs, { recursive: true });
+    return c.json({ ok: true });
+  });
+
+  // Save an editor buffer to disk.
+  app.post("/write", async (c) => {
+    const body = await c.req.json<WriteRequest>();
+    const abs = await resolveSafe(root, body.path ?? "");
+    if (abs === root) return c.json({ error: "invalid path" }, 400);
+    if (typeof body.content !== "string") return c.json({ error: "content required" }, 400);
+    await fsp.mkdir(path.dirname(abs), { recursive: true });
+    await fsp.writeFile(abs, body.content, "utf8");
     return c.json({ ok: true });
   });
 

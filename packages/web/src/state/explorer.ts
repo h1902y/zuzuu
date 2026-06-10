@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { fsEvents } from "../lib/fs-events";
+import { useEditor } from "../state/editor";
 
 export interface PreviewTarget {
   path: string;
@@ -8,22 +9,21 @@ export interface PreviewTarget {
   size?: number;
 }
 
-export type SidebarMode = "files" | "search";
+export type SidebarMode = "files" | "search" | "git";
 
 interface ExplorerState {
   /** workspace-relative paths of expanded dirs ("" = root, always expanded) */
   expanded: Set<string>;
   selected: string | null;
-  preview: PreviewTarget | null;
   sidebarMode: SidebarMode;
   setSidebarMode: (mode: SidebarMode) => void;
   toggle: (path: string) => void;
   collapseAll: () => void;
   select: (path: string | null) => void;
+  /** open a file in the editor pane (editable or viewer per type) */
   openPreview: (target: PreviewTarget) => void;
   /** open by workspace-relative path alone (terminal links, search hits) */
   openPreviewPath: (path: string) => void;
-  closePreview: () => void;
   /** expand all ancestors of a path and select it in the tree */
   revealPath: (path: string) => void;
 }
@@ -31,7 +31,6 @@ interface ExplorerState {
 export const useExplorer = create<ExplorerState>((set) => ({
   expanded: new Set<string>(),
   selected: null,
-  preview: null,
   sidebarMode: "files",
   setSidebarMode: (mode) => set({ sidebarMode: mode }),
 
@@ -56,12 +55,10 @@ export const useExplorer = create<ExplorerState>((set) => ({
 
   select: (path) => set({ selected: path }),
 
-  openPreview: (target) => set({ preview: target }),
+  openPreview: (target) => useEditor.getState().open(target),
 
   openPreviewPath: (path) =>
-    set({ preview: { path, name: path.split("/").pop() ?? path } }),
-
-  closePreview: () => set({ preview: null }),
+    useEditor.getState().open({ path, name: path.split("/").pop() ?? path }),
 
   revealPath: (path) =>
     set((s) => {

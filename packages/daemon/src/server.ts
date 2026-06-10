@@ -16,11 +16,17 @@ import type {
   WorkspaceInfo,
 } from "@webcode/protocol";
 import type { Workflow } from "@webcode/protocol";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { SessionManager } from "./sessions.js";
 import { createFsApi } from "./fs-api.js";
 import { search } from "./search.js";
 import { listFiles } from "./file-list.js";
 import { listWorkflows, saveWorkflow } from "./workflows.js";
+import * as git from "./git.js";
+import { shellHistory } from "./history.js";
+
+const execFileAsync = promisify(execFile);
 import { handleTermSocket } from "./ws-term.js";
 import { handleFsSocket } from "./ws-fs.js";
 import { PathError, resolveSafe, safeJoin } from "./safe-path.js";
@@ -225,6 +231,62 @@ export class WebcodeServer {
       }
       const path = await saveWorkflow(cfg.root, wf);
       return c.json({ ok: true, path });
+    });
+
+    // ── git ──────────────────────────────────────────────────────────
+    app.get("/api/git/status", async (c) => c.json(await git.status(cfg.root)));
+
+    app.get("/api/git/diff", async (c) => {
+      const p = c.req.query("path") ?? "";
+      if (!p) return c.json({ error: "path required" }, 400);
+      return c.json({ original: await git.diffOriginal(cfg.root, p) });
+    });
+
+    app.post("/api/git/stage", async (c) => {
+      const { paths } = await c.req.json<{ paths: string[] }>();
+      await git.stage(cfg.root, Array.isArray(paths) ? paths : []);
+      return c.json({ ok: true });
+    });
+
+    app.post("/api/git/unstage", async (c) => {
+      const { paths } = await c.req.json<{ paths: string[] }>();
+      await git.unstage(cfg.root, Array.isArray(paths) ? paths : []);
+      return c.json({ ok: true });
+    });
+
+    app.post("/api/git/commit", async (c) => {
+      const { message } = await c.req.json<{ message: string }>();
+      if (!message?.trim()) return c.json({ error: "message required" }, 400);
+      try {
+        await git.commit(cfg.root, message.trim());
+      } catch (err) {
+        return c.json({ error: (err as Error).message }, 400);
+      }
+      return c.json({ ok: true });
+    });
+
+    // ── shell history + quick-fix actions ──────────────────────────────
+    app.get("/api/history", async (c) => c.json({ commands: await shellHistory() }));
+
+    app.post("/api/fix/kill-port", async (c) => {
+      const { port } = await c.req.json<{ port: number }>();
+      if (!Number.isInteger(port) || port < 1 || port > 65535) {
+        return c.json({ error: "invalid port" }, 400);
+      }
+      try {
+        const { stdout } = await execFileAsync("lsof", ["-ti", `tcp:${port}`]);
+        const pids = stdout.split("\n").map((s) => s.trim()).filter(Boolean);
+        for (const pid of pids) {
+          try {
+            process.kill(Number(pid), "SIGTERM");
+          } catch {
+            // already gone
+          }
+        }
+        return c.json({ ok: true, killed: pids.length });
+      } catch {
+        return c.json({ ok: true, killed: 0 }); // nothing listening
+      }
     });
 
     app.route("/api/fs", createFsApi(cfg.root));

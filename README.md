@@ -58,11 +58,28 @@ packages/
   HttpOnly cookie auth, every fs path through one hardened `safePath` choke point
   (lexical + realpath symlink checks, unit-tested).
 
-- **Preview pane**: third resizable pane, single-click any file — GFM markdown
-  (react-markdown + remark-gfm: tables, task lists, relative images resolved through the
-  daemon), shiki syntax highlighting (lazy chunks), images/SVG, PDF, video/audio
+- **Editor** (VS Code online-IDE-inspired — webcode is architecturally code-server, a real
+  backend): single-click any file opens it in a **Monaco editor** (lazy-loaded) as a tab with an
+  unsaved-dot indicator; `⌘S` writes to disk. Free in-browser **TS/JS IntelliSense** (the
+  TypeScript language service runs in a web worker — no backend). Markdown opens with an
+  **Edit | Preview** toggle; images/PDF/video/audio/CSV/asciicast stay read-only viewers.
+
+- **Git** (the thing serverless vscode.dev structurally can't do): the daemon shells out to
+  `git`. **M/A/D/U status badges** in the file tree, a **Source Control panel** (branch,
+  staged/changes lists) → click a file for a **Monaco side-by-side diff** (HEAD vs working) →
+  stage / unstage / commit.
+
+- **Run-recent-command** (`⌘R`): a quickpick merging the session's command blocks with the
+  shell's own history file (`~/.zsh_history`/`~/.bash_history`); Enter runs into the active
+  terminal, Alt+Enter inserts without running.
+
+- **Terminal quick fixes**: a finished command's output is matched for known errors and a
+  one-click chip appears on the block — `git push --set-upstream …` after a failed push,
+  "kill :PORT & rerun" on `EADDRINUSE`, git "did you mean" subcommand fixes.
+
+- **Preview pane**: GFM markdown (react-markdown + remark-gfm: tables, task lists, relative
+  images resolved through the daemon), shiki highlighting, images/SVG, PDF, video/audio
   (streamed via Range), CSV tables, asciicast `.cast` replay, binary-sniff fallback card.
-  Previews live-refresh when the file changes on disk.
 
 - **Command blocks** (Warp-inspired, built on the vendor-neutral **OSC 133** semantic-prompt
   standard): a small shell hook is auto-injected at spawn (VS Code's method — temp `ZDOTDIR`
@@ -96,9 +113,10 @@ packages/
 
 ## Status
 
-v0.4 — terminal (tabs, reattach, flow control, WebGL) + explorer + preview pane + local-native
-integration + **command blocks (OSC 133), ⌘K palette, workflows** working end-to-end. Roadmap
-(Warp/Charm-inspired): a real multiline input editor, inline CLI completions, freeze-style SVG
-export of selections,
-⌘K palette, glow-style markdown TOC, sequin escape-sequence inspector, git awareness, PWA
-manifest, `npm i -g` packaging, SSH-out.
+v0.5 — terminal (blocks, sticky header, flow control, WebGL) + explorer + preview pane +
+local-native integration + ⌘K palette + workflows + **Monaco editor (tabs, ⌘S save, TS
+IntelliSense, markdown edit/preview), git (badges + SCM panel + diff/stage/commit), run-recent
+(⌘R), terminal quick fixes** working end-to-end. Roadmap (VS Code / Warp / Charm-inspired):
+LSP for non-TS IntelliSense, terminal splits, Problems/Outline panels, inline CLI completions,
+freeze-style SVG export, sequin escape-sequence inspector, PWA manifest, `npm i -g` packaging,
+SSH-out.

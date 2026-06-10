@@ -223,6 +223,7 @@ export function TermView({ sessionId, active }: { sessionId: string; active: boo
           tick={tick}
           onReRun={reRun}
           onSaveWorkflow={(command) => openWorkflowDraft(command)}
+          send={reRun}
         />
       )}
       {stickyCmd && (

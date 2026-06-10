@@ -187,6 +187,43 @@ export interface FileListResponse {
   truncated: boolean;
 }
 
+// ── File write (POST /api/fs/write) ─────────────────────────────────────
+export interface WriteRequest {
+  path: string;
+  content: string;
+}
+
+// ── Shell history (GET /api/history) ────────────────────────────────────
+export interface HistoryResponse {
+  /** most-recent-first, deduped */
+  commands: string[];
+}
+
+// ── Git (GET/POST /api/git/*) ───────────────────────────────────────────
+/** XY status codes from `git status --porcelain` (e.g. " M", "A ", "??"). */
+export interface GitStatusEntry {
+  path: string;
+  /** staged (index) status char: M A D R C ? or space */
+  index: string;
+  /** unstaged (worktree) status char */
+  worktree: string;
+}
+
+export interface GitStatusResponse {
+  repo: boolean;
+  branch: string;
+  entries: GitStatusEntry[];
+}
+
+export interface GitDiffResponse {
+  /** HEAD/index content for the diff editor's left side ("" for untracked) */
+  original: string;
+}
+
+export interface KillPortRequest {
+  port: number;
+}
+
 // ── Workflows (GET/POST /api/workflows) ─────────────────────────────────
 export interface WorkflowArg {
   name: string;

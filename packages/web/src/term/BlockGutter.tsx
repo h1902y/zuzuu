@@ -27,9 +27,11 @@ interface Props {
   tick: number;
   onReRun: (command: string) => void;
   onSaveWorkflow: (command: string) => void;
+  /** send a command to the active PTY (kill-line prefixed + enter) */
+  send: (command: string) => void;
 }
 
-export function BlockGutter({ term, tracker, host, tick, onReRun, onSaveWorkflow }: Props) {
+export function BlockGutter({ term, tracker, host, tick, onReRun, onSaveWorkflow, send }: Props) {
   const [hovered, setHovered] = useState<number | null>(null);
   void tick; // re-render dependency
   const metrics = readMetrics(term, host);
@@ -68,7 +70,18 @@ export function BlockGutter({ term, tracker, host, tick, onReRun, onSaveWorkflow
                 onCopy={() => void navigator.clipboard.writeText(tracker.outputText(block))}
                 onReRun={() => onReRun(block.command)}
                 onSaveWorkflow={() => onSaveWorkflow(block.command)}
+                onFix={() => block.fix?.run(send)}
               />
+            )}
+            {block.fix && hovered !== block.id && (
+              <button
+                onClick={() => block.fix!.run(send)}
+                onMouseDown={(e) => e.preventDefault()}
+                className="pointer-events-auto absolute left-2 top-0 flex items-center gap-1 whitespace-nowrap rounded border border-yellow-600/50 bg-ink-850 px-1.5 py-0.5 text-[10px] text-yellow-400 shadow-lg hover:border-yellow-500 hover:text-yellow-300"
+                title="Quick fix"
+              >
+                <span>⚡</span> {block.fix.label}
+              </button>
             )}
           </div>
         );
@@ -82,11 +95,13 @@ function BlockActions({
   onCopy,
   onReRun,
   onSaveWorkflow,
+  onFix,
 }: {
   block: Block;
   onCopy: () => void;
   onReRun: () => void;
   onSaveWorkflow: () => void;
+  onFix: () => void;
 }) {
   return (
     <div
@@ -98,6 +113,15 @@ function BlockActions({
       </span>
       {block.durationMs !== null && block.durationMs > 200 && (
         <span className="px-0.5 text-[10px] text-ink-500">{fmtMs(block.durationMs)}</span>
+      )}
+      {block.fix && (
+        <button
+          onClick={onFix}
+          title={`Quick fix: ${block.fix.label}`}
+          className="rounded px-1 py-0.5 text-[11px] text-yellow-400 hover:bg-ink-700 hover:text-yellow-300"
+        >
+          ⚡ fix
+        </button>
       )}
       <ActionBtn title="Copy output" onClick={onCopy} d="M6 6h7v7H6zM3 10V3h7" />
       <ActionBtn title="Re-run" onClick={onReRun} d="M13 8a5 5 0 11-1.5-3.5M13 3v2.5h-2.5" />

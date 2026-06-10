@@ -83,7 +83,19 @@ export function FileTree() {
     return tab?.cwdLive && !tab.cwdLive.outside ? tab.cwdLive.cwd : undefined;
   });
   const workspace = useQuery({ queryKey: ["workspace"], queryFn: api.workspace });
+  const gitStatus = useQuery({ queryKey: ["git", "status"], queryFn: api.gitStatus, refetchInterval: 4000 });
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // path → single-letter badge (M/A/D/U), worktree status preferred
+  const gitBadges = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const e of gitStatus.data?.entries ?? []) {
+      const letter =
+        e.index === "?" ? "U" : e.worktree !== " " ? e.worktree : e.index;
+      if (letter && letter !== " ") map.set(e.path, letter);
+    }
+    return map;
+  }, [gitStatus.data]);
 
   const dirPaths = useMemo(() => ["", ...expanded].sort(), [expanded]);
 
@@ -202,10 +214,18 @@ export function FileTree() {
                   <span className="w-3 shrink-0" />
                 )}
                 <EntryIcon row={row} />
-                <span className="truncate text-[12.5px] text-ink-100">
+                <span className={`truncate text-[12.5px] ${gitBadges.has(row.path) ? "text-yellow-400" : "text-ink-100"}`}>
                   {row.name}
                   {row.isSymlink && <span className="ml-1 text-ink-500">⤳</span>}
                 </span>
+                {gitBadges.has(row.path) && (
+                  <span
+                    className={`ml-1 shrink-0 text-[10px] ${gitBadges.get(row.path) === "D" ? "text-danger" : gitBadges.get(row.path) === "U" ? "text-accent-dim" : "text-yellow-500"}`}
+                    title={`git: ${gitBadges.get(row.path)}`}
+                  >
+                    {gitBadges.get(row.path)}
+                  </span>
+                )}
                 {activeCwd !== undefined && activeCwd === row.path && (
                   <span
                     title="active terminal is here"

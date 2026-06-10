@@ -1,6 +1,9 @@
 import type {
   CreateSessionRequest,
   FileListResponse,
+  GitDiffResponse,
+  GitStatusResponse,
+  HistoryResponse,
   ListResponse,
   SearchResponse,
   SessionInfo,
@@ -78,6 +81,27 @@ export const api = {
   listWorkflows: () => request<WorkflowListResponse>("/api/workflows"),
   saveWorkflow: (wf: Workflow) =>
     request<{ ok: true; path: string }>("/api/workflows", json(wf)),
+
+  // editor read/write
+  readFile: async (path: string) => {
+    const res = await fetch(`/api/fs/download?path=${encodeURIComponent(path)}&inline=1`);
+    if (!res.ok) throw new ApiError(res.status, `failed to read (${res.status})`);
+    return res.text();
+  },
+  writeFile: (path: string, content: string) =>
+    request<{ ok: true }>("/api/fs/write", json({ path, content })),
+
+  // git
+  gitStatus: () => request<GitStatusResponse>("/api/git/status"),
+  gitDiff: (path: string) =>
+    request<GitDiffResponse>(`/api/git/diff?path=${encodeURIComponent(path)}`),
+  gitStage: (paths: string[]) => request<{ ok: true }>("/api/git/stage", json({ paths })),
+  gitUnstage: (paths: string[]) => request<{ ok: true }>("/api/git/unstage", json({ paths })),
+  gitCommit: (message: string) => request<{ ok: true }>("/api/git/commit", json({ message })),
+
+  // shell history + quick-fix actions
+  history: () => request<HistoryResponse>("/api/history"),
+  killPort: (port: number) => request<{ ok: true }>("/api/fix/kill-port", json({ port })),
 };
 
 export function wsUrl(path: string): string {

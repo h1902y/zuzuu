@@ -8,8 +8,10 @@ import { useSessions } from "./state/sessions";
 import { useExplorer } from "./state/explorer";
 import { FileTree } from "./explorer/FileTree";
 import { SearchPanel } from "./explorer/SearchPanel";
+import { GitPanel } from "./explorer/GitPanel";
 import { TermView } from "./term/TermView";
-import { PreviewPane } from "./preview/PreviewPane";
+import { EditorPane } from "./editor/EditorPane";
+import { useEditor } from "./state/editor";
 import { CommandPalette } from "./palette/CommandPalette";
 import { WorkflowSaveModal, WorkflowRunModal } from "./workflows/WorkflowModals";
 import { termRegistry } from "./term/registry";
@@ -31,6 +33,7 @@ export default function App() {
     if (!workspace.data) return;
     fsEvents.start((path) => {
       void queryClient.invalidateQueries({ queryKey: ["dir", path] });
+      void queryClient.invalidateQueries({ queryKey: ["git", "status"] });
       // refresh any open preview whose file lives in the changed directory
       void queryClient.invalidateQueries({
         predicate: (q) =>
@@ -41,28 +44,38 @@ export default function App() {
     });
   }, [workspace.data, queryClient]);
 
-  const preview = useExplorer((s) => s.preview);
+  const hasEditor = useEditor((s) => s.openFiles.length > 0);
+  const saveActive = useEditor((s) => s.saveActive);
   const sidebarMode = useExplorer((s) => s.sidebarMode);
   const setSidebarMode = useExplorer((s) => s.setSidebarMode);
   const revealPath = useExplorer((s) => s.revealPath);
   const activeTab = tabs.find((t) => t.id === activeId);
 
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [paletteMode, setPaletteMode] = useState<"all" | "history">("all");
   const [runWorkflow, setRunWorkflow] = useState<Workflow | null>(null);
 
-  // ⌘K / Ctrl+K toggles the command palette
+  // global shortcuts: ⌘K palette, ⌘R run-recent, ⌘S save active editor file
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
-        setPaletteOpen((v) => !v);
+        setPaletteMode("all");
+        setPaletteOpen((v) => !(v && paletteMode === "all"));
+      } else if ((e.metaKey || e.ctrlKey) && e.key === "r") {
+        e.preventDefault();
+        setPaletteMode("history");
+        setPaletteOpen(true);
+      } else if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+        e.preventDefault();
+        saveActive();
       } else if (e.key === "Escape") {
         setPaletteOpen(false);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [saveActive, paletteMode]);
 
   // A workflow with args opens the run modal; argless ones run immediately.
   const handleRunWorkflow = (wf: Workflow) => {
@@ -110,7 +123,7 @@ export default function App() {
         <Panel defaultSize="22%" minSize="160px" maxSize="45%" className="bg-ink-900">
           <div className="flex h-full flex-col">
             <div className="flex shrink-0 border-b border-ink-700">
-              {(["files", "search"] as const).map((mode) => (
+              {(["files", "search", "git"] as const).map((mode) => (
                 <button
                   key={mode}
                   onClick={() => setSidebarMode(mode)}
@@ -125,7 +138,13 @@ export default function App() {
               ))}
             </div>
             <div className="min-h-0 flex-1">
-              {sidebarMode === "files" ? <FileTree /> : <SearchPanel />}
+              {sidebarMode === "files" ? (
+                <FileTree />
+              ) : sidebarMode === "search" ? (
+                <SearchPanel />
+              ) : (
+                <GitPanel />
+              )}
             </div>
           </div>
         </Panel>
@@ -196,11 +215,11 @@ export default function App() {
             )}
           </div>
         </Panel>
-        {preview && (
+        {hasEditor && (
           <>
             <Separator className="w-px bg-ink-700 transition-colors hover:bg-accent-dim" />
-            <Panel id="preview" defaultSize="35%" minSize="240px" className="min-w-0">
-              <PreviewPane />
+            <Panel id="editor" defaultSize="42%" minSize="280px" className="min-w-0">
+              <EditorPane />
             </Panel>
           </>
         )}
@@ -237,6 +256,7 @@ export default function App() {
 
       <CommandPalette
         open={paletteOpen}
+        mode={paletteMode}
         onClose={() => setPaletteOpen(false)}
         onRunWorkflow={handleRunWorkflow}
       />

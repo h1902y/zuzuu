@@ -1,4 +1,5 @@
 import type { IMarker, Terminal } from "@xterm/xterm";
+import { detectQuickFix, type QuickFix } from "./quickfix";
 
 /**
  * A command block: one prompt → command → output → exit cycle, derived from
@@ -15,6 +16,8 @@ export interface Block {
   exitCode: number | null;
   startedAt: number;
   durationMs: number | null;
+  /** one-click fix when the command failed with a known pattern */
+  fix?: QuickFix;
 }
 
 export interface BlockEvents {
@@ -69,6 +72,8 @@ export class BlockTracker {
         this.pending.exitCode = Number.isFinite(exit) ? exit : null;
         this.pending.outputEnd = this.absCursorRow();
         this.pending.durationMs = performance.now() - this.pending.startedAt;
+        this.pending.fix =
+          detectQuickFix(this.pending.command, this.outputText(this.pending), this.pending.exitCode) ?? undefined;
         this.pending = null;
         this.emit();
       }
@@ -84,14 +89,14 @@ export class BlockTracker {
     const buf = this.term.buffer.active;
     const from = this.bMarker?.line ?? this.absCursorRow();
     const to = this.absCursorRow();
-    const lines: string[] = [];
+    let cmd = "";
     for (let row = from; row <= to; row++) {
       const line = buf.getLine(row);
       if (!line) continue;
-      const full = line.translateToString(true);
-      lines.push(row === from ? full.slice(this.bCol) : full);
+      const full = row === from ? line.translateToString(true).slice(this.bCol) : line.translateToString(true);
+      cmd += (row > from && !line.isWrapped ? "\n" : "") + full;
     }
-    return lines.join("\n").trim();
+    return cmd.trim();
   }
 
   private absCursorRow(): number {
@@ -99,16 +104,18 @@ export class BlockTracker {
     return buf.baseY + buf.cursorY;
   }
 
-  /** Output text of a block, for copy. */
+  /** Output text of a block, for copy. Wrapped rows rejoin without a newline. */
   outputText(block: Block): string {
     const buf = this.term.buffer.active;
     const end = block.outputEnd ?? buf.baseY + buf.cursorY;
-    const lines: string[] = [];
+    let out = "";
     for (let row = block.outputStart; row < end; row++) {
       const line = buf.getLine(row);
-      if (line) lines.push(line.translateToString(true));
+      if (!line) continue;
+      // line.isWrapped → this visual row continues the previous logical line
+      out += (row > block.outputStart && !line.isWrapped ? "\n" : "") + line.translateToString(true);
     }
-    return lines.join("\n").replace(/\n+$/, "");
+    return out.replace(/\n+$/, "");
   }
 
   list(): Block[] {

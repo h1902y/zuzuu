@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Command } from "cmdk";
 import { useQuery } from "@tanstack/react-query";
 import type { Workflow } from "@webcode/protocol";
@@ -14,31 +14,57 @@ import { termRegistry } from "../term/registry";
  */
 export function CommandPalette({
   open,
+  mode = "all",
   onClose,
   onRunWorkflow,
 }: {
   open: boolean;
+  /** "history" opens directly into run-recent-command (⌘R) */
+  mode?: "all" | "history";
   onClose: () => void;
   onRunWorkflow: (wf: Workflow) => void;
 }) {
   const [searchValue, setSearchValue] = useState("");
   const openPreviewPath = useExplorer((s) => s.openPreviewPath);
   const setSidebarMode = useExplorer((s) => s.setSidebarMode);
-  const history = useBlocks((s) => s.history);
+  const blockHistory = useBlocks((s) => s.history);
   const { tabs, activeId, setActive, create } = useSessions();
 
   const files = useQuery({
     queryKey: ["files"],
     queryFn: api.listFiles,
-    enabled: open,
+    enabled: open && mode === "all",
     staleTime: 30_000,
   });
   const workflows = useQuery({
     queryKey: ["workflows"],
     queryFn: api.listWorkflows,
-    enabled: open,
+    enabled: open && mode === "all",
     staleTime: 10_000,
   });
+  const shellHist = useQuery({
+    queryKey: ["history"],
+    queryFn: api.history,
+    enabled: open,
+    staleTime: 15_000,
+  });
+
+  // session blocks first (most relevant), then shell-history file, deduped
+  const history = useMemo(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const c of [...blockHistory, ...(shellHist.data?.commands ?? [])]) {
+      const t = c.trim();
+      if (t && !seen.has(t)) {
+        seen.add(t);
+        out.push(t);
+      }
+    }
+    return out;
+  }, [blockHistory, shellHist.data]);
+
+  // Alt held at selection time → insert-without-run for recent commands
+  const altRef = useRef(false);
 
   useEffect(() => {
     if (!open) setSearchValue("");
@@ -46,12 +72,16 @@ export function CommandPalette({
 
   if (!open) return null;
 
+  const historyOnly = mode === "history";
+
   const run = (fn: () => void) => {
     fn();
     onClose();
   };
   const sendToTerminal = (cmd: string) =>
     termRegistry.get(activeId)?.sendInput(`\x15${cmd}\r`);
+  const insertToTerminal = (cmd: string) =>
+    termRegistry.get(activeId)?.sendInput(`\x15${cmd}`);
 
   return (
     <div
@@ -68,7 +98,8 @@ export function CommandPalette({
           autoFocus
           value={searchValue}
           onValueChange={setSearchValue}
-          placeholder="Jump to file, run a command, search…"
+          onKeyDown={(e) => (altRef.current = e.altKey)}
+          placeholder={historyOnly ? "Run a recent command… (Alt+Enter inserts without running)" : "Jump to file, run a command, search…"}
           className="w-full border-b border-ink-700 bg-transparent px-4 py-3 text-[13px] text-ink-100 placeholder:text-ink-500 focus:outline-none"
         />
         <Command.List className="max-h-[50vh] overflow-auto p-1.5">
@@ -76,7 +107,7 @@ export function CommandPalette({
             no matches
           </Command.Empty>
 
-          {searchValue.trim().length >= 2 && (
+          {!historyOnly && searchValue.trim().length >= 2 && (
             <Command.Group heading="Search">
               <Item
                 onSelect={() =>
@@ -95,16 +126,20 @@ export function CommandPalette({
           )}
 
           {history.length > 0 && (
-            <Command.Group heading="History">
-              {history.slice(0, 8).map((cmd, i) => (
-                <Item key={`h-${i}`} value={`history ${cmd}`} onSelect={() => run(() => sendToTerminal(cmd))}>
+            <Command.Group heading={historyOnly ? "Recent commands" : "History"}>
+              {history.slice(0, historyOnly ? 200 : 8).map((cmd, i) => (
+                <Item
+                  key={`h-${i}`}
+                  value={`history ${cmd}`}
+                  onSelect={() => run(() => (altRef.current ? insertToTerminal(cmd) : sendToTerminal(cmd)))}
+                >
                   <Kind>run</Kind> {cmd}
                 </Item>
               ))}
             </Command.Group>
           )}
 
-          {(workflows.data?.workflows.length ?? 0) > 0 && (
+          {!historyOnly && (workflows.data?.workflows.length ?? 0) > 0 && (
             <Command.Group heading="Workflows">
               {workflows.data!.workflows.map((wf) => (
                 <Item key={`w-${wf.name}`} value={`workflow ${wf.name} ${wf.command}`} onSelect={() => run(() => onRunWorkflow(wf))}>
@@ -115,25 +150,29 @@ export function CommandPalette({
             </Command.Group>
           )}
 
-          <Command.Group heading="Files">
-            {(files.data?.files ?? []).slice(0, 500).map((f) => (
-              <Item key={`f-${f}`} value={`file ${f}`} onSelect={() => run(() => openPreviewPath(f))}>
-                <Kind>file</Kind> {f}
-              </Item>
-            ))}
-          </Command.Group>
+          {!historyOnly && (
+            <Command.Group heading="Files">
+              {(files.data?.files ?? []).slice(0, 500).map((f) => (
+                <Item key={`f-${f}`} value={`file ${f}`} onSelect={() => run(() => openPreviewPath(f))}>
+                  <Kind>file</Kind> {f}
+                </Item>
+              ))}
+            </Command.Group>
+          )}
 
-          <Command.Group heading="Sessions">
-            {tabs.map((t) => (
-              <Item key={`s-${t.id}`} value={`session ${t.title} ${t.id}`} onSelect={() => run(() => setActive(t.id))}>
-                <Kind>term</Kind> {t.title}
-                {t.id === activeId && <span className="ml-2 text-accent-dim">active</span>}
+          {!historyOnly && (
+            <Command.Group heading="Sessions">
+              {tabs.map((t) => (
+                <Item key={`s-${t.id}`} value={`session ${t.title} ${t.id}`} onSelect={() => run(() => setActive(t.id))}>
+                  <Kind>term</Kind> {t.title}
+                  {t.id === activeId && <span className="ml-2 text-accent-dim">active</span>}
+                </Item>
+              ))}
+              <Item value="new terminal session" onSelect={() => run(() => void create())}>
+                <Kind>term</Kind> New terminal
               </Item>
-            ))}
-            <Item value="new terminal session" onSelect={() => run(() => void create())}>
-              <Kind>term</Kind> New terminal
-            </Item>
-          </Command.Group>
+            </Command.Group>
+          )}
         </Command.List>
       </Command>
     </div>
