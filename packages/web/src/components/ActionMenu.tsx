@@ -19,10 +19,15 @@ export function ActionMenu({
   items,
   className = "",
   title = "More actions",
+  align = "right",
+  iconPath,
 }: {
   items: MenuItem[];
   className?: string;
   title?: string;
+  align?: "left" | "right";
+  /** stroked icon path; defaults to the ⋯ dots */
+  iconPath?: string;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -33,15 +38,21 @@ export function ActionMenu({
           e.stopPropagation();
           setOpen((v) => !v);
         }}
-        className={`rounded px-1 text-ink-400 hover:bg-ink-700 hover:text-ink-100 ${className}`}
+        className={`flex h-6 w-6 items-center justify-center rounded-[var(--radius-sm)] text-ink-400 hover:bg-hover hover:text-ink-100 ${className}`}
       >
-        <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="currentColor">
-          <circle cx="3" cy="8" r="1.3" />
-          <circle cx="8" cy="8" r="1.3" />
-          <circle cx="13" cy="8" r="1.3" />
-        </svg>
+        {iconPath ? (
+          <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d={iconPath} strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        ) : (
+          <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="currentColor">
+            <circle cx="3" cy="8" r="1.3" />
+            <circle cx="8" cy="8" r="1.3" />
+            <circle cx="13" cy="8" r="1.3" />
+          </svg>
+        )}
       </button>
-      {open && <MenuPopover items={items} onClose={() => setOpen(false)} anchor="button" />}
+      {open && <MenuPopover items={items} onClose={() => setOpen(false)} anchor="button" align={align} />}
     </div>
   );
 }
@@ -51,12 +62,14 @@ export function MenuPopover({
   items,
   onClose,
   anchor = "button",
+  align = "right",
   x,
   y,
 }: {
   items: MenuItem[];
   onClose: () => void;
   anchor?: "button" | "point";
+  align?: "left" | "right";
   x?: number;
   y?: number;
 }) {
@@ -78,26 +91,26 @@ export function MenuPopover({
 
   const positioned =
     anchor === "point"
-      ? ({ position: "fixed", left: x, top: y } as const)
-      : ({ position: "absolute", right: 0, top: "100%" } as const);
+      ? ({ position: "fixed", left: x, top: y, boxShadow: "var(--shadow-menu)" } as const)
+      : ({ position: "absolute", [align]: 0, top: "100%", boxShadow: "var(--shadow-menu)" } as const);
 
   return (
     <div
       ref={ref}
       style={positioned}
       onClick={(e) => e.stopPropagation()}
-      className="z-50 mt-1 min-w-44 overflow-hidden rounded border border-ink-700 bg-ink-850 py-1 shadow-xl"
+      className="z-[80] mt-1 min-w-44 overflow-hidden rounded-[var(--radius-ui)] border border-border bg-elevated py-1"
     >
       {items.map((item, i) => (
         <div key={item.label}>
-          {item.separated && i > 0 && <div className="my-1 border-t border-ink-700" />}
+          {item.separated && i > 0 && <div className="my-1 border-t border-border" />}
           <button
             onClick={(e) => {
               e.stopPropagation();
               item.onClick();
               onClose();
             }}
-            className={`flex w-full items-center gap-2 px-3 py-1 text-left text-[12px] hover:bg-ink-700 ${
+            className={`flex w-full items-center gap-2 px-3 py-1 text-left text-ui hover:bg-hover ${
               item.danger ? "text-danger hover:text-danger" : "text-ink-200 hover:text-ink-100"
             }`}
           >

@@ -7,6 +7,7 @@ import { useSessions } from "../state/sessions";
 import { useExplorer } from "../state/explorer";
 import { useBlocks } from "../state/blocks";
 import { termRegistry } from "../term/registry";
+import { Overlay } from "../components/ui";
 
 /**
  * ⌘K fuzzy launcher over data webcode already has: files, command history
@@ -84,13 +85,11 @@ export function CommandPalette({
     termRegistry.get(activeId)?.sendInput(`\x15${cmd}`);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[12vh]"
-      onClick={onClose}
-    >
+    <Overlay onClose={onClose} align="top">
       <Command
         label="Command palette"
-        className="w-full max-w-xl overflow-hidden rounded-lg border border-ink-700 bg-ink-900 shadow-2xl"
+        className="w-full max-w-xl overflow-hidden rounded-[var(--radius-dialog)] border border-border bg-elevated"
+        style={{ boxShadow: "var(--shadow-dialog)" }}
         onClick={(e) => e.stopPropagation()}
         loop
       >
@@ -100,10 +99,10 @@ export function CommandPalette({
           onValueChange={setSearchValue}
           onKeyDown={(e) => (altRef.current = e.altKey)}
           placeholder={historyOnly ? "Run a recent command… (Alt+Enter inserts without running)" : "Jump to file, run a command, search…"}
-          className="w-full border-b border-ink-700 bg-transparent px-4 py-3 text-[13px] text-ink-100 placeholder:text-ink-500 focus:outline-none"
+          className="w-full border-b border-border bg-transparent px-4 py-3 text-body text-ink-100 placeholder:text-ink-500 focus:outline-none"
         />
         <Command.List className="max-h-[50vh] overflow-auto p-1.5">
-          <Command.Empty className="px-3 py-6 text-center text-[12px] text-ink-500">
+          <Command.Empty className="px-3 py-6 text-center text-ui text-ink-500">
             no matches
           </Command.Empty>
 
@@ -192,7 +191,7 @@ export function CommandPalette({
           )}
         </Command.List>
       </Command>
-    </div>
+    </Overlay>
   );
 }
 
@@ -209,7 +208,7 @@ function Item({
     <Command.Item
       value={value}
       onSelect={onSelect}
-      className="flex cursor-pointer items-center gap-1 truncate rounded px-2 py-1.5 text-[12.5px] text-ink-100 data-[selected=true]:bg-ink-700/70"
+      className="flex cursor-pointer items-center gap-1 truncate rounded-[var(--radius-sm)] px-2 py-1.5 text-ui text-ink-100 data-[selected=true]:bg-hover"
     >
       {children}
     </Command.Item>
@@ -218,7 +217,7 @@ function Item({
 
 function Kind({ children }: { children: React.ReactNode }) {
   return (
-    <span className="mr-1 shrink-0 rounded bg-ink-800 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-ink-400">
+    <span className="mr-1 shrink-0 rounded-[var(--radius-sm)] bg-hover px-1.5 py-0.5 text-meta uppercase tracking-wide text-ink-400">
       {children}
     </span>
   );

@@ -1,3 +1,4 @@
+import { Overlay, Dialog, DialogHeader, Button, prompt } from "../components/ui";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
@@ -30,7 +31,7 @@ export function VaultPicker({
 
   const newFolder = async () => {
     if (!here) return;
-    const name = window.prompt("New folder name (created here, then opened):");
+    const name = await prompt({ title: "New folder", placeholder: "created here, then opened", okLabel: "Create" });
     if (!name) return;
     try {
       const res = await api.browseMkdir(here, name);
@@ -41,30 +42,20 @@ export function VaultPicker({
   };
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div
-        className="flex h-[60vh] w-full max-w-xl flex-col overflow-hidden rounded-lg border border-ink-700 bg-ink-900 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center gap-2 border-b border-ink-700 px-3 py-2">
-          <span className="text-[13px] font-semibold text-ink-100">Open a folder as workspace</span>
-          <button onClick={onClose} className="ml-auto rounded p-1 text-ink-500 hover:text-ink-100" title="Close">
-            <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <path d="M4 4l8 8m0-8l-8 8" strokeLinecap="round" />
-            </svg>
-          </button>
-        </div>
+    <Overlay onClose={onClose}>
+      <Dialog width="lg" className="flex h-[60vh] flex-col !max-w-xl">
+        <DialogHeader title="Open a folder as workspace" onClose={onClose} />
 
         {recent.filter((r) => r !== currentRoot).length > 0 && (
-          <div className="border-b border-ink-700 px-2 py-1.5">
-            <div className="px-1 py-0.5 text-[10px] uppercase tracking-wider text-ink-500">Recent</div>
+          <div className="border-b border-border px-2 py-1.5">
+            <div className="px-1 py-0.5 text-meta uppercase tracking-wider text-ink-500">Recent</div>
             <div className="flex flex-wrap gap-1">
               {recent.filter((r) => r !== currentRoot).slice(0, 6).map((r) => (
                 <button
                   key={r}
                   onClick={() => onPick(r)}
                   title={r}
-                  className="max-w-full truncate rounded border border-ink-700 px-2 py-0.5 text-[11.5px] text-ink-300 hover:border-accent-dim hover:text-ink-100"
+                  className="max-w-full truncate rounded border border-border px-2 py-0.5 text-meta text-ink-300 hover:border-accent-dim hover:text-ink-100"
                 >
                   {tilde(r)}
                 </button>
@@ -74,7 +65,7 @@ export function VaultPicker({
         )}
 
         {/* breadcrumb / current path */}
-        <div className="flex items-center gap-2 border-b border-ink-700 px-3 py-1.5 text-[12px]">
+        <div className="flex items-center gap-2 border-b border-border px-3 py-1.5 text-ui">
           <button
             onClick={() => browse.data?.parent && setPath(browse.data.parent)}
             disabled={!browse.data?.parent}
@@ -88,13 +79,13 @@ export function VaultPicker({
 
         {/* directory list */}
         <div className="min-h-0 flex-1 overflow-auto py-1">
-          {browse.isLoading && <div className="px-3 py-2 text-[12px] text-ink-500">loading…</div>}
-          {browse.error && <div className="px-3 py-2 text-[12px] text-danger">{(browse.error as Error).message}</div>}
-          {browse.data?.dirs.length === 0 && <div className="px-3 py-2 text-[12px] text-ink-500">no subfolders</div>}
+          {browse.isLoading && <div className="px-3 py-2 text-ui text-ink-500">loading…</div>}
+          {browse.error && <div className="px-3 py-2 text-ui text-danger">{(browse.error as Error).message}</div>}
+          {browse.data?.dirs.length === 0 && <div className="px-3 py-2 text-ui text-ink-500">no subfolders</div>}
           {browse.data?.dirs.map((d) => (
             <div
               key={d.path}
-              className="group flex cursor-default items-center gap-2 px-3 py-1 text-[12.5px] hover:bg-ink-800"
+              className="group flex cursor-default items-center gap-2 px-3 py-1 text-ui hover:bg-hover"
               onClick={() => setPath(d.path)}
               onDoubleClick={() => onPick(d.path)}
             >
@@ -107,7 +98,7 @@ export function VaultPicker({
                   e.stopPropagation();
                   onPick(d.path);
                 }}
-                className="ml-auto hidden rounded border border-ink-700 px-2 py-0.5 text-[11px] text-accent group-hover:block hover:bg-ink-700"
+                className="ml-auto hidden rounded border border-border px-2 py-0.5 text-meta text-accent group-hover:block hover:bg-hover"
               >
                 open
               </button>
@@ -116,19 +107,15 @@ export function VaultPicker({
         </div>
 
         {/* footer actions */}
-        <div className="flex items-center gap-2 border-t border-ink-700 px-3 py-2">
-          <button onClick={() => void newFolder()} className="rounded border border-ink-700 px-2.5 py-1 text-[12px] text-ink-300 hover:text-ink-100">
+        <div className="flex items-center gap-2 border-t border-border px-3 py-2">
+          <Button variant="ghost" onClick={() => void newFolder()}>
             New folder…
-          </button>
-          <button
-            onClick={() => here && onPick(here)}
-            disabled={!here}
-            className="ml-auto rounded border border-accent-dim bg-accent-dim/15 px-3 py-1 text-[12px] text-accent enabled:hover:bg-accent-dim/25 disabled:opacity-40"
-          >
+          </Button>
+          <Button variant="primary" className="ml-auto" onClick={() => here && onPick(here)} disabled={!here}>
             Open this folder
-          </button>
+          </Button>
         </div>
-      </div>
-    </div>
+      </Dialog>
+    </Overlay>
   );
 }

@@ -5,6 +5,7 @@ import { api } from "../lib/api";
 import { useWorkflowDraft } from "./draft";
 import { termRegistry } from "../term/registry";
 import { useSessions } from "../state/sessions";
+import { Overlay, Dialog, Button } from "../components/ui";
 
 /** Extract {{arg}} names from a command, in first-seen order. */
 function placeholders(command: string): string[] {
@@ -17,22 +18,16 @@ function placeholders(command: string): string[] {
 
 function Modal({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[15vh]" onClick={onClose}>
-      <div
-        className="w-full max-w-md rounded-lg border border-ink-700 bg-ink-900 p-4 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mb-3 text-[13px] font-semibold text-ink-100">{title}</div>
+    <Overlay onClose={onClose} align="top" className="pt-[15vh]">
+      <Dialog width="sm" className="p-4">
+        <div className="mb-3 text-body font-semibold text-ink-100">{title}</div>
         {children}
-      </div>
-    </div>
+      </Dialog>
+    </Overlay>
   );
 }
 
-const inputCls =
-  "w-full rounded border border-ink-700 bg-ink-950 px-2 py-1.5 text-[12.5px] text-ink-100 placeholder:text-ink-500 focus:border-accent-dim focus:outline-none";
-const btnCls =
-  "rounded border border-ink-700 px-3 py-1 text-[12px] hover:border-accent-dim hover:text-ink-100";
+const inputCls = "wc-input w-full px-2 py-1.5";
 
 /** "Save as workflow" — opened from a block's action with a seed command. */
 export function WorkflowSaveModal() {
@@ -79,13 +74,13 @@ export function WorkflowSaveModal() {
           value={command}
           onChange={(e) => setCommand(e.target.value)}
         />
-        <p className="text-[11px] text-ink-500">
+        <p className="text-meta text-ink-500">
           Use <code className="text-accent">{"{{arg}}"}</code> for prompts.
           {args.length > 0 && ` Args: ${args.map((a) => a.name).join(", ")}`}
         </p>
         <div className="flex justify-end gap-2 pt-1">
-          <button className={btnCls} onClick={close}>cancel</button>
-          <button className={`${btnCls} border-accent-dim text-accent`} onClick={() => void save()}>save</button>
+          <Button variant="ghost" onClick={close}>cancel</Button>
+          <Button variant="primary" onClick={() => void save()}>save</Button>
         </div>
       </div>
     </Modal>
@@ -120,10 +115,10 @@ export function WorkflowRunModal({ workflow, onClose }: { workflow: Workflow | n
   return (
     <Modal title={`Run: ${workflow.name}`} onClose={onClose}>
       <div className="space-y-2">
-        <p className="truncate font-mono text-[11px] text-ink-500">{workflow.command}</p>
+        <p className="truncate font-mono text-meta text-ink-500">{workflow.command}</p>
         {argDefs.map((a, i) => (
           <div key={a.name}>
-            <label className="mb-0.5 block text-[11px] text-ink-400">{a.name}</label>
+            <label className="mb-0.5 block text-meta text-ink-400">{a.name}</label>
             <input
               className={inputCls}
               autoFocus={i === 0}
@@ -137,8 +132,8 @@ export function WorkflowRunModal({ workflow, onClose }: { workflow: Workflow | n
           </div>
         ))}
         <div className="flex justify-end gap-2 pt-1">
-          <button className={btnCls} onClick={onClose}>cancel</button>
-          <button className={`${btnCls} border-accent-dim text-accent`} onClick={runIt}>run</button>
+          <Button variant="ghost" onClick={onClose}>cancel</Button>
+          <Button variant="primary" onClick={runIt}>run</Button>
         </div>
       </div>
     </Modal>

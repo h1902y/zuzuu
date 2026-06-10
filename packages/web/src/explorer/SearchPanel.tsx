@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { useExplorer } from "../state/explorer";
+import { Field } from "../components/ui";
 
 function useDebounced<T>(value: T, ms: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -52,15 +53,14 @@ export function SearchPanel() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="border-b border-ink-700 p-2">
-        <input
+      <div className="border-b border-border p-2">
+        <Field
           autoFocus
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="search workspace…"
-          className="w-full rounded border border-ink-700 bg-ink-950 px-2 py-1 text-[12.5px] text-ink-100 placeholder:text-ink-500 focus:border-accent-dim focus:outline-none"
         />
-        <div className="mt-1.5 flex items-center gap-2 text-[11px] text-ink-500">
+        <div className="mt-1.5 flex items-center gap-2 text-meta text-ink-500">
           <OptionToggle label=".*" title="Regular expression" active={regex} onClick={() => setRegex((v) => !v)} />
           <OptionToggle label="Aa" title="Case sensitive" active={caseSensitive} onClick={() => setCaseSensitive((v) => !v)} />
           {isFetching && <span className="ml-auto">searching…</span>}
@@ -68,12 +68,12 @@ export function SearchPanel() {
       </div>
       <div className="min-h-0 flex-1 overflow-auto py-1">
         {error && (
-          <div className="px-3 py-2 text-[12px] text-danger">{(error as Error).message}</div>
+          <div className="px-3 py-2 text-ui text-danger">{(error as Error).message}</div>
         )}
         {data?.results.map((file) => (
           <div key={file.path} className="mb-1">
             <div
-              className="cursor-default truncate px-2 py-0.5 text-[11.5px] font-semibold text-ink-300 hover:bg-ink-800"
+              className="cursor-default truncate px-2 py-0.5 text-meta font-semibold text-ink-300 hover:bg-hover"
               title={file.path}
               onClick={() => openPreviewPath(file.path)}
             >
@@ -82,7 +82,7 @@ export function SearchPanel() {
             {file.matches.map((m, i) => (
               <div
                 key={`${m.line}-${i}`}
-                className="flex cursor-default gap-2 px-2 py-0.5 text-[12px] hover:bg-ink-800"
+                className="flex cursor-default gap-2 px-2 py-0.5 text-ui hover:bg-hover"
                 onClick={() => openPreviewPath(file.path)}
               >
                 <span className="w-8 shrink-0 text-right text-ink-500">{m.line}</span>
@@ -94,14 +94,14 @@ export function SearchPanel() {
           </div>
         ))}
         {data && data.results.length === 0 && (
-          <div className="px-3 py-2 text-[12px] text-ink-500">no matches</div>
+          <div className="px-3 py-2 text-ui text-ink-500">no matches</div>
         )}
         {query.length > 0 && query.length < 2 && (
-          <div className="px-3 py-2 text-[12px] text-ink-500">type at least 2 characters</div>
+          <div className="px-3 py-2 text-ui text-ink-500">type at least 2 characters</div>
         )}
       </div>
       {data && (
-        <div className="border-t border-ink-700 px-2 py-1 text-[11px] text-ink-500">
+        <div className="border-t border-border px-2 py-1 text-meta text-ink-500">
           {data.total}{data.truncated ? "+" : ""} matches · {data.results.length} files · {data.engine}
         </div>
       )}
@@ -135,8 +135,8 @@ function OptionToggle({
       onClick={onClick}
       className={`rounded border px-1.5 py-0.5 font-semibold ${
         active
-          ? "border-accent-dim bg-ink-800 text-accent"
-          : "border-ink-700 text-ink-500 hover:text-ink-300"
+          ? "border-accent-dim bg-hover text-accent"
+          : "border-border text-ink-500 hover:text-ink-300"
       }`}
     >
       {label}

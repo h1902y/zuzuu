@@ -9,6 +9,7 @@ interface BlocksState {
   setBlocks: (sessionId: string, blocks: Block[]) => void;
   addCommand: (command: string) => void;
   clear: (sessionId: string) => void;
+  resetAll: () => void;
 }
 
 const HISTORY_MAX = 200;
@@ -34,4 +35,6 @@ export const useBlocks = create<BlocksState>((set) => ({
       delete bySession[sessionId];
       return { bySession };
     }),
+
+  resetAll: () => set({ bySession: {}, history: [] }),
 }));

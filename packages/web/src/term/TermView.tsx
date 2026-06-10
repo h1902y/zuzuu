@@ -21,10 +21,10 @@ import { useWorkflowDraft } from "../workflows/draft";
 const FONT_FAMILY = '"JetBrains Mono Variable", ui-monospace, Menlo, monospace';
 
 const THEME = {
-  background: "#0b0e14",
+  background: "#0a0d12",
   foreground: "#d6dde8",
   cursor: "#58e6c0",
-  cursorAccent: "#0b0e14",
+  cursorAccent: "#0a0d12",
   selectionBackground: "#2c4f6e80",
   black: "#11161f",
   red: "#f47067",
@@ -227,7 +227,7 @@ export function TermView({ sessionId, active }: { sessionId: string; active: boo
         />
       )}
       {stickyCmd && (
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center gap-2 border-b border-ink-700 bg-ink-900/95 px-3 py-1 text-[12px] backdrop-blur">
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center gap-2 border-b border-border bg-surface/95 px-3 py-1 text-ui backdrop-blur">
           <span
             className={`h-1.5 w-1.5 shrink-0 rounded-full ${
               stickyCmd.exitCode === null
@@ -241,17 +241,17 @@ export function TermView({ sessionId, active }: { sessionId: string; active: boo
         </div>
       )}
       {status === "reconnecting" && (
-        <div className="absolute right-3 top-2 rounded bg-ink-800 px-2 py-0.5 text-[11px] text-yellow-400">
+        <div className="absolute right-3 top-2 rounded bg-hover px-2 py-0.5 text-meta text-warn">
           reconnecting…
         </div>
       )}
       {exitCode !== null && (
-        <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 border-t border-ink-700 bg-ink-900/95 px-3 py-1.5 text-[12px] text-ink-300">
+        <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 border-t border-border bg-surface/95 px-3 py-1.5 text-ui text-ink-300">
           process exited with code {exitCode}
         </div>
       )}
       {status === "closed" && exitCode === null && (
-        <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 border-t border-ink-700 bg-ink-900/95 px-3 py-1.5 text-[12px] text-danger">
+        <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 border-t border-border bg-surface/95 px-3 py-1.5 text-ui text-danger">
           disconnected — session may be attached in another window
         </div>
       )}

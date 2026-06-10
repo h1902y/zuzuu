@@ -5,17 +5,51 @@
 
 @theme {
   --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --color-ink-950: #0b0e14;
-  --color-ink-900: #0d1117;
-  --color-ink-850: #11161f;
-  --color-ink-800: #161c26;
-  --color-ink-700: #222a38;
-  --color-ink-500: #4a5568;
-  --color-ink-300: #8b98ab;
-  --color-ink-100: #d6dde8;
-  --color-accent: #58e6c0;
-  --color-accent-dim: #2c8f77;
-  --color-danger: #f47067;
+
+  /* ── ink ramp (tuned for crisper contrast + elevation) ─────────────── */
+  --color-ink-950: #0a0d12; /* app background (deepest) */
+  --color-ink-900: #0e121a; /* panel surface */
+  --color-ink-850: #1c2434; /* elevated: menus, dialogs, raised hover */
+  --color-ink-800: #232c3d; /* hover */
+  --color-ink-700: #2a3343; /* hairline border */
+  --color-ink-600: #3a465c; /* strong border / faint text */
+  --color-ink-500: #5a6678; /* muted text */
+  --color-ink-300: #97a3b6; /* secondary text */
+  --color-ink-100: #dde4ee; /* primary text */
+  --color-accent: #5be6c4;
+  --color-accent-dim: #2f9a80;
+  --color-danger: #f0726a;
+  --color-warn: #e0a23a;
+
+  /* ── semantic surface/line aliases (used by the ui kit) ────────────── */
+  --color-app: var(--color-ink-950);
+  --color-surface: var(--color-ink-900);
+  --color-elevated: var(--color-ink-850);
+  --color-hover: var(--color-ink-800);
+  --color-border: var(--color-ink-700);
+  --color-border-strong: var(--color-ink-600);
+  --color-muted: var(--color-ink-500);
+  --color-subtle: var(--color-ink-300);
+
+  /* ── type scale (three sizes only) ─────────────────────────────────── */
+  --text-meta: 0.6875rem; /* 11px — labels, meta, badges */
+  --text-meta--line-height: 1.45;
+  --text-ui: 0.75rem; /* 12px — default UI text */
+  --text-ui--line-height: 1.4;
+  --text-body: 0.8125rem; /* 13px — editor/terminal/body */
+  --text-body--line-height: 1.5;
+
+  /* ── radii (one curvature per tier) ────────────────────────────────── */
+  --radius-sm: 4px; /* small controls */
+  --radius-ui: 6px; /* cards, menus, chips */
+  --radius-dialog: 10px; /* overlays, dialogs, command palette */
+
+  /* ── elevation ─────────────────────────────────────────────────────── */
+  --shadow-menu: 0 6px 20px -6px rgb(0 0 0 / 0.5), 0 2px 6px -2px rgb(0 0 0 / 0.4);
+  --shadow-dialog: 0 24px 64px -16px rgb(0 0 0 / 0.6), 0 8px 24px -8px rgb(0 0 0 / 0.45);
+
+  /* canonical bar height — every header / footer / tab strip */
+  --height-bar: 34px;
 }
 
 html,
@@ -26,7 +60,40 @@ body,
 }
 
 body {
-  @apply bg-ink-950 text-ink-100 font-mono text-[13px] antialiased;
+  @apply bg-app text-ink-100 font-mono antialiased;
+  font-size: var(--text-body);
+}
+
+/* ── one canonical bar: fixed height, centered, standard padding ─────── */
+.wc-bar {
+  display: flex;
+  align-items: center;
+  height: var(--height-bar);
+  min-height: var(--height-bar);
+  flex-shrink: 0;
+  padding-inline: 10px;
+  gap: 8px;
+}
+
+/* ── one focus-ring everywhere ──────────────────────────────────────── */
+.wc-focus:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-accent) 55%, transparent);
+}
+.wc-input {
+  background: var(--color-app);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-ink-100);
+  font-size: var(--text-ui);
+}
+.wc-input::placeholder {
+  color: var(--color-muted);
+}
+.wc-input:focus {
+  outline: none;
+  border-color: var(--color-accent-dim);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-accent) 35%, transparent);
 }
 
 /* xterm fills its pane */
@@ -91,16 +158,33 @@ body {
   overflow-x: auto;
 }
 
+/* command palette group headings */
+[cmdk-group-heading] {
+  padding: 6px 8px 2px;
+  font-size: var(--text-meta);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-ink-500);
+}
+
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 11px;
+  height: 11px;
 }
 ::-webkit-scrollbar-thumb {
   background: var(--color-ink-700);
-  border-radius: 5px;
-  border: 2px solid transparent;
+  border-radius: 6px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-ink-600);
   background-clip: content-box;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-ink-700) transparent;
 }

@@ -18,6 +18,8 @@ interface SessionsState {
   setTitle: (id: string, title: string) => void;
   setCwd: (id: string, cwd: CwdPayload) => void;
   markExited: (id: string) => void;
+  /** drop all tabs so init() can re-seed for a new workspace */
+  reset: () => void;
 }
 
 export const useSessions = create<SessionsState>((set, get) => ({
@@ -65,4 +67,6 @@ export const useSessions = create<SessionsState>((set, get) => ({
     set((s) => ({
       tabs: s.tabs.map((t) => (t.id === id ? { ...t, alive: false } : t)),
     })),
+
+  reset: () => set({ tabs: [], activeId: null, loaded: false }),
 }));

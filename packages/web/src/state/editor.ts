@@ -35,6 +35,8 @@ interface EditorState {
   saveActive: () => void;
   toggleMdPreview: (path: string) => void;
   reload: (path: string) => void;
+  /** drop all open files/buffers (e.g. on vault switch) */
+  resetAll: () => void;
 }
 
 function tabId(f: OpenFile): string {
@@ -119,6 +121,8 @@ export const useEditor = create<EditorState>((set, get) => ({
     const buf = get().buffers[path];
     if (buf && !buf.dirty) void loadBuffer(path, path, set);
   },
+
+  resetAll: () => set({ openFiles: [], activePath: null, buffers: {}, mdPreview: {} }),
 }));
 
 async function loadBuffer(

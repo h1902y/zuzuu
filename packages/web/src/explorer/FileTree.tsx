@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { shellQuote, type ListResponse } from "@webcode/protocol";
 import { api } from "../lib/api";
 import { useExplorer } from "../state/explorer";
 import { useSessions } from "../state/sessions";
 import { termRegistry } from "../term/registry";
-import { ActionMenu, MenuPopover, type MenuItem } from "../components/ActionMenu";
+import { ActionMenu, MenuPopover, type MenuItem, prompt, confirm } from "../components/ui";
 import { localFileActions } from "../lib/local-actions";
 
 interface Row {
@@ -77,7 +77,7 @@ function EntryIcon({ row }: { row: Row }) {
 
 export function FileTree() {
   const queryClient = useQueryClient();
-  const { expanded, selected, toggle, select, openPreview } = useExplorer();
+  const { expanded, selected, toggle, select, openPreview, renaming, setRenaming } = useExplorer();
   const createSession = useSessions((s) => s.create);
   const activeId = useSessions((s) => s.activeId);
   const activeCwd = useSessions((s) => {
@@ -85,7 +85,7 @@ export function FileTree() {
     return tab?.cwdLive && !tab.cwdLive.outside ? tab.cwdLive.cwd : undefined;
   });
   const workspace = useQuery({ queryKey: ["workspace"], queryFn: api.workspace });
-  const gitStatus = useQuery({ queryKey: ["git", "status"], queryFn: api.gitStatus, refetchInterval: 4000 });
+  const gitStatus = useQuery({ queryKey: ["git", "status"], queryFn: api.gitStatus, refetchInterval: 4000, placeholderData: keepPreviousData });
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // path → single-letter badge (M/A/D/U), worktree status preferred
@@ -105,6 +105,7 @@ export function FileTree() {
     queries: dirPaths.map((path) => ({
       queryKey: ["dir", path],
       queryFn: () => api.listDir(path),
+      placeholderData: keepPreviousData,
     })),
   });
 
@@ -136,22 +137,29 @@ export function FileTree() {
   }, [selected, rows]);
 
   // ── actions ────────────────────────────────────────────────────────
-  const onNewFolder = async () => {
-    const name = window.prompt("New folder name:");
-    if (!name) return;
-    await api.mkdir(join(selectedDir, name));
-    void refreshDir(selectedDir);
-  };
+  // start inline rename (an input appears on the row)
+  const onRename = (row: Row) => setRenaming(row.path);
 
-  const onRename = async (row: Row) => {
-    const name = window.prompt("Rename to:", row.name);
-    if (!name || name === row.name) return;
-    await api.rename(row.path, join(parentOf(row.path), name));
-    void refreshDir(parentOf(row.path));
+  // commit an inline rename / new-file name edit
+  const commitRename = async (oldPath: string, newName: string) => {
+    setRenaming(null);
+    const trimmed = newName.trim();
+    const parent = parentOf(oldPath);
+    if (!trimmed || trimmed === oldPath.split("/").pop()) return;
+    const newPath = join(parent, trimmed);
+    await api.rename(oldPath, newPath);
+    void refreshDir(parent);
+    select(newPath);
   };
 
   const onDelete = async (row: Row) => {
-    if (!window.confirm(`Delete ${row.name}${row.isDir ? " and its contents" : ""}?`)) return;
+    const ok = await confirm({
+      title: `Delete ${row.name}?`,
+      message: row.isDir ? "This folder and its contents will be deleted." : "This file will be deleted.",
+      okLabel: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
     await api.remove([row.path]);
     select(null);
     void refreshDir(parentOf(row.path));
@@ -186,10 +194,15 @@ export function FileTree() {
   };
 
   const newFolderIn = async (dir: string) => {
-    const name = window.prompt("New folder name:");
-    if (!name) return;
-    await api.mkdir(join(dir, name));
-    void refreshDir(dir);
+    const data = dirData.get(dir);
+    const taken = new Set((data?.entries ?? []).map((e) => e.name));
+    let name = "untitled";
+    for (let i = 1; taken.has(name); i++) name = `untitled-${i}`;
+    const path = join(dir, name);
+    await api.mkdir(path);
+    await refreshDir(dir);
+    select(path);
+    setRenaming(path);
   };
 
   const [ctxMenu, setCtxMenu] = useState<{ items: MenuItem[]; x: number; y: number } | null>(null);
@@ -204,11 +217,6 @@ export function FileTree() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-1 border-b border-ink-700 px-2 py-1.5 text-ink-300">
-        <span className="mr-auto truncate text-[11px] uppercase tracking-wider">Files</span>
-        <ToolbarButton title="New folder" onClick={onNewFolder} d="M8 4v8M4 8h8" />
-        <ToolbarButton title="Refresh" onClick={() => queryClient.invalidateQueries({ queryKey: ["dir"] })} d="M13 8a5 5 0 11-1.5-3.5M13 3v2.5h-2.5" />
-      </div>
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto py-1">
         <div className="relative" style={{ height: virtualizer.getTotalSize() }}>
           {virtualizer.getVirtualItems().map((vi) => {
@@ -244,13 +252,21 @@ export function FileTree() {
                   <span className="w-3 shrink-0" />
                 )}
                 <EntryIcon row={row} />
-                <span className={`truncate text-[12.5px] ${gitBadges.has(row.path) ? "text-yellow-400" : "text-ink-100"}`}>
-                  {row.name}
-                  {row.isSymlink && <span className="ml-1 text-ink-500">⤳</span>}
-                </span>
+                {renaming === row.path ? (
+                  <RenameInput
+                    name={row.name}
+                    onCommit={(newName) => void commitRename(row.path, newName)}
+                    onCancel={() => setRenaming(null)}
+                  />
+                ) : (
+                  <span className={`truncate text-ui ${gitBadges.has(row.path) ? "text-warn" : "text-ink-100"}`}>
+                    {row.name}
+                    {row.isSymlink && <span className="ml-1 text-ink-500">⤳</span>}
+                  </span>
+                )}
                 {gitBadges.has(row.path) && (
                   <span
-                    className={`ml-1 shrink-0 text-[10px] ${gitBadges.get(row.path) === "D" ? "text-danger" : gitBadges.get(row.path) === "U" ? "text-accent-dim" : "text-yellow-500"}`}
+                    className={`ml-1 shrink-0 text-meta ${gitBadges.get(row.path) === "D" ? "text-danger" : gitBadges.get(row.path) === "U" ? "text-accent-dim" : "text-warn"}`}
                     title={`git: ${gitBadges.get(row.path)}`}
                   >
                     {gitBadges.get(row.path)}
@@ -270,7 +286,7 @@ export function FileTree() {
           })}
         </div>
         {rows.length === 0 && (
-          <div className="px-3 py-2 text-[12px] text-ink-500">empty workspace</div>
+          <div className="px-3 py-2 text-ui text-ink-500">empty workspace</div>
         )}
       </div>
       {ctxMenu && (
@@ -280,17 +296,38 @@ export function FileTree() {
   );
 }
 
-function ToolbarButton({ title, onClick, d }: { title: string; onClick: () => void; d: string }) {
+/** Inline name editor for a tree row. Selects the basename (not the extension). */
+function RenameInput({
+  name,
+  onCommit,
+  onCancel,
+}: {
+  name: string;
+  onCommit: (newName: string) => void;
+  onCancel: () => void;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.focus();
+    const dot = name.lastIndexOf(".");
+    el.setSelectionRange(0, dot > 0 ? dot : name.length); // select basename, keep ext
+  }, [name]);
   return (
-    <button
-      title={title}
-      onClick={onClick}
-      className="rounded p-1 text-ink-300 hover:bg-ink-700 hover:text-ink-100"
-    >
-      <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.4">
-        <path d={d} strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    </button>
+    <input
+      ref={ref}
+      defaultValue={name}
+      onClick={(e) => e.stopPropagation()}
+      onDoubleClick={(e) => e.stopPropagation()}
+      onBlur={(e) => onCommit(e.target.value)}
+      onKeyDown={(e) => {
+        e.stopPropagation();
+        if (e.key === "Enter") onCommit((e.target as HTMLInputElement).value);
+        else if (e.key === "Escape") onCancel();
+      }}
+      className="wc-input min-w-0 flex-1 px-1 py-0 text-ui"
+    />
   );
 }
 

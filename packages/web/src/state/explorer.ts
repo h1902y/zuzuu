@@ -15,6 +15,9 @@ interface ExplorerState {
   /** workspace-relative paths of expanded dirs ("" = root, always expanded) */
   expanded: Set<string>;
   selected: string | null;
+  /** path of the tree row currently being inline-renamed */
+  renaming: string | null;
+  setRenaming: (path: string | null) => void;
   sidebarMode: SidebarMode;
   setSidebarMode: (mode: SidebarMode) => void;
   toggle: (path: string) => void;
@@ -26,11 +29,15 @@ interface ExplorerState {
   openPreviewPath: (path: string) => void;
   /** expand all ancestors of a path and select it in the tree */
   revealPath: (path: string) => void;
+  /** collapse + deselect everything (e.g. on vault switch) */
+  resetAll: () => void;
 }
 
 export const useExplorer = create<ExplorerState>((set) => ({
   expanded: new Set<string>(),
   selected: null,
+  renaming: null,
+  setRenaming: (renaming) => set({ renaming }),
   sidebarMode: "files",
   setSidebarMode: (mode) => set({ sidebarMode: mode }),
 
@@ -74,4 +81,6 @@ export const useExplorer = create<ExplorerState>((set) => ({
       }
       return { expanded, selected: path };
     }),
+
+  resetAll: () => set({ expanded: new Set<string>(), selected: null }),
 }));

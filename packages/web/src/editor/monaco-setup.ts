@@ -47,7 +47,7 @@ export function ensureTheme(): string {
       inherit: true,
       rules: [],
       colors: {
-        "editor.background": "#0b0e14",
+        "editor.background": "#0a0d12",
         "editor.foreground": "#d6dde8",
         "editorLineNumber.foreground": "#4a5568",
         "editorLineNumber.activeForeground": "#8b98ab",
@@ -55,7 +55,7 @@ export function ensureTheme(): string {
         "editorCursor.foreground": "#58e6c0",
         "editor.lineHighlightBackground": "#11161f",
         "editorWidget.background": "#11161f",
-        "editorGutter.background": "#0b0e14",
+        "editorGutter.background": "#0a0d12",
         "diffEditor.insertedTextBackground": "#57ab5a22",
         "diffEditor.removedTextBackground": "#f4706722",
       },

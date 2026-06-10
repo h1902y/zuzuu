@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { Group, Panel, Separator } from "react-resizable-panels";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./lib/api";
 import { fsEvents } from "./lib/fs-events";
-import { applyWorkflow, type Workflow } from "@webcode/protocol";
+import { applyWorkflow, type ListResponse, type Workflow } from "@webcode/protocol";
 import { useSessions } from "./state/sessions";
 import { useExplorer } from "./state/explorer";
 import { FileTree } from "./explorer/FileTree";
@@ -12,6 +12,7 @@ import { GitPanel } from "./explorer/GitPanel";
 import { TermView } from "./term/TermView";
 import { EditorPane } from "./editor/EditorPane";
 import { useEditor } from "./state/editor";
+import { useBlocks } from "./state/blocks";
 import { CommandPalette } from "./palette/CommandPalette";
 import { WorkflowSaveModal, WorkflowRunModal } from "./workflows/WorkflowModals";
 import { termRegistry } from "./term/registry";
@@ -19,6 +20,7 @@ import { useConnection } from "./state/connection";
 import { DisconnectedBanner } from "./DisconnectedBanner";
 import { WelcomeOverlay } from "./onboarding/WelcomeOverlay";
 import { VaultPicker } from "./onboarding/VaultPicker";
+import { Bar, ModeTabs, Tab, TabBar, IconButton, StatusDot, DialogHost, prompt, ActionMenu, type MenuItem } from "./components/ui";
 
 const parentOf = (path: string) => path.split("/").slice(0, -1).join("/");
 
@@ -40,8 +42,8 @@ export default function App() {
   const workspace = useQuery({ queryKey: ["workspace"], queryFn: api.workspace });
   const conn = useConnection();
   const wsConfig = useQuery({ queryKey: ["workspace", "config"], queryFn: api.workspaceConfig });
-  const gitStatus = useQuery({ queryKey: ["git", "status"], queryFn: api.gitStatus, refetchInterval: 4000 });
-  const files = useQuery({ queryKey: ["files"], queryFn: api.listFiles, staleTime: 30_000 });
+  const gitStatus = useQuery({ queryKey: ["git", "status"], queryFn: api.gitStatus, refetchInterval: 4000, placeholderData: keepPreviousData });
+  const files = useQuery({ queryKey: ["files"], queryFn: api.listFiles, staleTime: 30_000, placeholderData: keepPreviousData });
   const [vaultPickerOpen, setVaultPickerOpen] = useState(false);
   const [vaultMenuOpen, setVaultMenuOpen] = useState(false);
 
@@ -109,12 +111,56 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saveActive, paletteMode]);
 
-  // Switch the daemon's workspace, then reload into it (token cookie persists).
+  // Create a file or folder in the selected dir (or workspace root) with a
+  // default name, then drop the tree row straight into inline-rename so the
+  // user edits the name + extension in place (no upfront prompt).
+  const sidebarTargetDir = () => {
+    const sel = useExplorer.getState().selected;
+    return sel ? (sel.includes(".") ? sel.split("/").slice(0, -1).join("/") : sel) : "";
+  };
+  const uniqueName = (dir: string, base: string, ext: string) => {
+    const list = queryClient.getQueryData<ListResponse>(["dir", dir]);
+    const taken = new Set((list?.entries ?? []).map((e) => e.name));
+    let name = `${base}${ext}`;
+    for (let i = 1; taken.has(name); i++) name = `${base}-${i}${ext}`;
+    return name;
+  };
+  const createAndRename = async (dir: string, name: string, mk: (path: string) => Promise<unknown>) => {
+    const path = dir ? `${dir}/${name}` : name;
+    await mk(path);
+    if (dir) useExplorer.getState().revealPath(`${dir}/x`); // expand the dir
+    await queryClient.invalidateQueries({ queryKey: ["dir", dir] });
+    useExplorer.getState().select(path);
+    useExplorer.getState().setRenaming(path);
+  };
+  const newFile = () => {
+    const dir = sidebarTargetDir();
+    return createAndRename(dir, uniqueName(dir, "untitled", ".md"), (p) => api.writeFile(p, ""));
+  };
+  const newFolder = () => {
+    const dir = sidebarTargetDir();
+    return createAndRename(dir, uniqueName(dir, "untitled", ""), (p) => api.mkdir(p));
+  };
+  const newMenu: MenuItem[] = [
+    { label: "New file", iconPath: "M4 1.5h5L13 5.5v9a1 1 0 01-1 1H4a1 1 0 01-1-1v-12a1 1 0 011-1zM9 2v4h4", onClick: () => void newFile() },
+    { label: "New folder", iconPath: "M1.5 3.5A1.5 1.5 0 013 2h3l1.5 1.5H13A1.5 1.5 0 0114.5 5v7A1.5 1.5 0 0113 13.5H3A1.5 1.5 0 011.5 12z", onClick: () => void newFolder() },
+  ];
+
+  // Switch the daemon's workspace seamlessly — no full reload. Reset the
+  // client stores (the daemon already tore down the old sessions), drop all
+  // cached queries, then re-seed sessions and refetch for the new root.
   const switchVault = async (path: string) => {
     setVaultMenuOpen(false);
+    setVaultPickerOpen(false);
     try {
       await api.switchWorkspace(path);
-      window.location.reload();
+      useEditor.getState().resetAll();
+      useBlocks.getState().resetAll();
+      useExplorer.getState().resetAll();
+      useSessions.getState().reset(); // unmounts terminals → disposes their sockets
+      queryClient.clear();
+      await useSessions.getState().init(); // fresh session in the new root
+      await queryClient.invalidateQueries(); // workspace/config/files/git…
     } catch (err) {
       window.alert(`Could not open vault: ${(err as Error).message}`);
     }
@@ -133,10 +179,11 @@ export default function App() {
     const tab = s.tabs.find((t) => t.id === s.activeId);
     if (!tab) return;
     const stamp = new Date().toISOString().slice(11, 19).replace(/:/g, "");
-    const path = window.prompt(
-      "Save recording as (workspace-relative .cast):",
-      `recordings/${tab.title}-${stamp}.cast`,
-    );
+    const path = await prompt({
+      title: "Save session recording",
+      defaultValue: `recordings/${tab.title}-${stamp}.cast`,
+      okLabel: "Save",
+    });
     if (!path) return;
     try {
       const res = await api.saveRecording(tab.id, path);
@@ -169,23 +216,21 @@ export default function App() {
     <div className="flex h-full flex-col">
       <DisconnectedBanner state={conn.state} />
       <Group orientation="horizontal" className="min-h-0 flex-1">
-        <Panel defaultSize="22%" minSize="160px" maxSize="45%" className="bg-ink-900">
+        <Panel defaultSize="22%" minSize="160px" maxSize="45%" className="bg-surface">
           <div className="flex h-full flex-col">
-            <div className="flex shrink-0 border-b border-ink-700">
-              {(["files", "search", "git"] as const).map((mode) => (
-                <button
-                  key={mode}
-                  onClick={() => setSidebarMode(mode)}
-                  className={`flex-1 py-1 text-[11px] uppercase tracking-wider ${
-                    sidebarMode === mode
-                      ? "border-b border-accent text-ink-100"
-                      : "text-ink-500 hover:text-ink-300"
-                  }`}
-                >
-                  {mode}
-                </button>
-              ))}
-            </div>
+            <Bar border="b" className="!gap-0">
+              <ModeTabs options={["files", "search", "git"] as const} value={sidebarMode} onChange={setSidebarMode} />
+              <span className="ml-auto flex items-center gap-0.5">
+                {sidebarMode === "files" && (
+                  <ActionMenu items={newMenu} title="New file or folder" iconPath="M8 3v10M3 8h10" />
+                )}
+                <IconButton
+                  title="Refresh"
+                  iconPath="M13 8a5 5 0 11-1.5-3.5M13 3v2.5h-2.5"
+                  onClick={() => queryClient.invalidateQueries({ queryKey: sidebarMode === "git" ? ["git"] : ["dir"] })}
+                />
+              </span>
+            </Bar>
             <div className="min-h-0 flex-1">
               {sidebarMode === "files" ? (
                 <FileTree />
@@ -197,43 +242,25 @@ export default function App() {
             </div>
           </div>
         </Panel>
-        <Separator className="w-px bg-ink-700 transition-colors hover:bg-accent-dim" />
+        <Separator className="w-px bg-border transition-colors hover:bg-accent-dim" />
         <Panel className="flex min-w-0 flex-col">
-          {/* tab bar */}
-          <div className="flex items-stretch gap-px overflow-x-auto border-b border-ink-700 bg-ink-900">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActive(tab.id)}
-                className={`group flex max-w-48 items-center gap-2 px-3 py-1.5 text-[12px] ${
-                  tab.id === activeId
-                    ? "bg-ink-950 text-ink-100"
-                    : "bg-ink-900 text-ink-300 hover:bg-ink-850"
-                }`}
-              >
-                <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${tab.alive ? "bg-accent" : "bg-ink-500"}`} />
-                <span className="truncate">{tab.title}</span>
-                <span
-                  role="button"
-                  tabIndex={-1}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    void close(tab.id);
-                  }}
-                  className="rounded px-0.5 text-ink-500 opacity-0 hover:bg-ink-700 hover:text-ink-100 group-hover:opacity-100"
+          <Bar border="b" surface="surface" className="!gap-0 overflow-x-auto !px-0">
+            <TabBar>
+              {tabs.map((tab) => (
+                <Tab
+                  key={tab.id}
+                  active={tab.id === activeId}
+                  onClick={() => setActive(tab.id)}
+                  onClose={() => void close(tab.id)}
+                  title={tab.cwdLive ? `${tab.title} · ${tab.cwdLive.cwd}` : tab.title}
+                  leading={<StatusDot tone={tab.alive ? "ok" : "idle"} />}
                 >
-                  ×
-                </span>
-              </button>
-            ))}
-            <button
-              onClick={() => void create()}
-              title="New terminal"
-              className="px-3 text-ink-300 hover:bg-ink-850 hover:text-accent"
-            >
-              +
-            </button>
-          </div>
+                  {tab.title}
+                </Tab>
+              ))}
+            </TabBar>
+            <IconButton title="New terminal" iconPath="M8 3v10M3 8h10" onClick={() => void create()} className="mx-1" />
+          </Bar>
           {/* terminals — all kept mounted so sessions survive tab switches */}
           <div className="relative min-h-0 flex-1">
             {tabs.map((tab) => (
@@ -246,7 +273,7 @@ export default function App() {
               </div>
             ))}
             {tabs.length === 0 && (
-              <div className="flex h-full items-center justify-center text-[12px] text-ink-600">
+              <div className="flex h-full items-center justify-center text-ui text-ink-600">
                 no terminal — press + above
               </div>
             )}
@@ -254,7 +281,7 @@ export default function App() {
         </Panel>
         {hasEditor && (
           <>
-            <Separator className="w-px bg-ink-700 transition-colors hover:bg-accent-dim" />
+            <Separator className="w-px bg-border transition-colors hover:bg-accent-dim" />
             <Panel id="editor" defaultSize="42%" minSize="280px" className="min-w-0">
               <EditorPane />
             </Panel>
@@ -262,7 +289,7 @@ export default function App() {
         )}
       </Group>
       {/* status bar */}
-      <div className="relative flex items-center gap-2.5 border-t border-ink-700 bg-ink-900 px-3 py-1 text-[11px] text-ink-500">
+      <Bar border="t" surface="surface" className="relative !gap-2.5 text-meta text-ink-500">
         {/* connection health — hover reveals the live stats (files · sessions · uptime · mem) */}
         <span
           className="flex shrink-0 items-center gap-1.5"
@@ -276,14 +303,9 @@ export default function App() {
             .filter(Boolean)
             .join(" · ")}
         >
-          <span
-            className={`h-1.5 w-1.5 rounded-full ${
-              conn.state === "connected"
-                ? "bg-accent"
-                : conn.state === "reconnecting"
-                  ? "animate-pulse bg-yellow-500"
-                  : "bg-danger"
-            }`}
+          <StatusDot
+            tone={conn.state === "connected" ? "ok" : conn.state === "reconnecting" ? "warn" : "bad"}
+            pulse={conn.state === "reconnecting"}
           />
           <span className="text-accent-dim">❯_</span>
         </span>
@@ -300,19 +322,22 @@ export default function App() {
           {vaultMenuOpen && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setVaultMenuOpen(false)} />
-              <div className="absolute bottom-full left-0 z-50 mb-1 w-64 overflow-hidden rounded border border-ink-700 bg-ink-850 py-1 shadow-xl">
+              <div
+                style={{ boxShadow: "var(--shadow-menu)" }}
+                className="absolute bottom-full left-0 z-50 mb-1 w-64 overflow-hidden rounded-[var(--radius-ui)] border border-border bg-elevated py-1"
+              >
                 <button
                   onClick={() => {
                     setVaultMenuOpen(false);
                     setVaultPickerOpen(true);
                   }}
-                  className="block w-full px-3 py-1.5 text-left text-[12px] text-ink-100 hover:bg-ink-700"
+                  className="block w-full px-3 py-1.5 text-left text-ui text-ink-100 hover:bg-hover"
                 >
                   Switch vault… <span className="text-ink-500">⌘⇧O</span>
                 </button>
                 {(wsConfig.data?.recent ?? []).filter((r) => r !== workspace.data?.root).length > 0 && (
-                  <div className="mt-1 border-t border-ink-700 pt-1">
-                    <div className="px-3 py-0.5 text-[10px] uppercase tracking-wider text-ink-500">Recent</div>
+                  <div className="mt-1 border-t border-border pt-1">
+                    <div className="px-3 py-0.5 text-meta uppercase tracking-wider text-ink-500">Recent</div>
                     {(wsConfig.data?.recent ?? [])
                       .filter((r) => r !== workspace.data?.root)
                       .slice(0, 6)
@@ -320,7 +345,7 @@ export default function App() {
                         <button
                           key={r}
                           onClick={() => void switchVault(r)}
-                          className="block w-full truncate px-3 py-1 text-left text-[12px] text-ink-300 hover:bg-ink-700 hover:text-ink-100"
+                          className="block w-full truncate px-3 py-1 text-left text-ui text-ink-300 hover:bg-hover hover:text-ink-100"
                           title={r}
                         >
                           {r.replace(/^\/Users\/[^/]+/, "~")}
@@ -359,18 +384,18 @@ export default function App() {
             title="Source Control"
           >
             ⎇ {gitStatus.data.branch}
-            {dirtyCount > 0 && <span className="ml-1 text-yellow-500">±{dirtyCount}</span>}
+            {dirtyCount > 0 && <span className="ml-1 text-warn">±{dirtyCount}</span>}
           </button>
         )}
 
         <button
           onClick={() => setPaletteOpen(true)}
-          className="ml-auto shrink-0 rounded px-1.5 text-ink-500 hover:text-accent"
+          className="ml-auto shrink-0 rounded-[var(--radius-sm)] px-1.5 text-ink-500 hover:text-accent"
           title="Command palette"
         >
           ⌘K
         </button>
-      </div>
+      </Bar>
 
       <CommandPalette
         open={paletteOpen}
@@ -380,6 +405,7 @@ export default function App() {
       />
       <WorkflowSaveModal />
       <WorkflowRunModal workflow={runWorkflow} onClose={() => setRunWorkflow(null)} />
+      <DialogHost />
 
       {vaultPickerOpen && (
         <VaultPicker

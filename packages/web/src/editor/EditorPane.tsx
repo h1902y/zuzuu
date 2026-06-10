@@ -2,8 +2,8 @@ import { lazy, Suspense } from "react";
 import { categorize } from "../preview/filetypes";
 import { useEditor, editorTabId, type OpenFile } from "../state/editor";
 import { MediaViewer, MarkdownPreview } from "./MediaViewer";
-import { ActionMenu } from "../components/ActionMenu";
 import { localFileActions } from "../lib/local-actions";
+import { Bar, TabBar, Tab, ActionMenu } from "../components/ui";
 
 // Lazy boundary: keeps the whole Monaco graph (editor + language workers,
 // ~10MB) out of the main bundle until the first file opens.
@@ -11,7 +11,7 @@ const MonacoFile = lazy(() => import("./MonacoFile"));
 const DiffTab = lazy(() => import("./DiffTab"));
 
 function EditorFallback() {
-  return <div className="flex h-full items-center justify-center text-[12px] text-ink-500">loading editor…</div>;
+  return <div className="flex h-full items-center justify-center text-ui text-ink-500">loading editor…</div>;
 }
 
 const EDITABLE = new Set(["code", "markdown"]);
@@ -20,45 +20,64 @@ export function EditorPane() {
   const openFiles = useEditor((s) => s.openFiles);
   const activePath = useEditor((s) => s.activePath);
   const buffers = useEditor((s) => s.buffers);
-  const { setActive, close } = useEditor();
+  const mdPreview = useEditor((s) => s.mdPreview);
+  const { setActive, close, toggleMdPreview } = useEditor();
 
   if (openFiles.length === 0) return null;
   const active = openFiles.find((f) => editorTabId(f) === activePath) ?? openFiles[0]!;
 
   return (
-    <div className="flex h-full min-w-0 flex-col bg-ink-900">
-      {/* tab bar */}
-      <div className="flex shrink-0 items-stretch overflow-x-auto border-b border-ink-700">
-        {openFiles.map((f) => {
-          const id = editorTabId(f);
-          const dirty = buffers[id]?.dirty;
-          return (
-            <button
-              key={id}
-              onClick={() => setActive(id)}
-              className={`group flex max-w-48 items-center gap-1.5 border-r border-ink-700 px-3 py-1.5 text-[12px] ${
-                id === activePath ? "bg-ink-950 text-ink-100" : "bg-ink-900 text-ink-300 hover:bg-ink-850"
-              }`}
-              title={f.path}
-            >
-              {f.diff && <span className="text-[10px] text-accent-dim">diff</span>}
-              <span className="truncate">{f.name}</span>
-              <span
-                role="button"
-                tabIndex={-1}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  close(id);
-                }}
-                className="ml-0.5 flex h-3.5 w-3.5 items-center justify-center rounded text-ink-500 hover:bg-ink-700 hover:text-ink-100"
+    <div className="flex h-full min-w-0 flex-col bg-surface">
+      <Bar border="b" surface="surface" className="!gap-0 overflow-x-auto !px-0">
+        <TabBar>
+          {openFiles.map((f) => {
+            const id = editorTabId(f);
+            const isMd = !f.diff && categorize(f.name) === "markdown";
+            const previewing = mdPreview[id] ?? false;
+            return (
+              <Tab
+                key={id}
+                active={id === activePath}
+                onClick={() => setActive(id)}
+                onClose={() => close(id)}
+                dirty={buffers[id]?.dirty}
+                title={f.path}
+                className="border-r border-border"
+                leading={f.diff ? <span className="text-meta text-accent-dim">diff</span> : undefined}
+                trailing={
+                  isMd ? (
+                    <span
+                      role="button"
+                      tabIndex={-1}
+                      title={previewing ? "Edit" : "Preview"}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleMdPreview(id);
+                      }}
+                      className={`flex h-4 w-4 items-center justify-center rounded-[var(--radius-sm)] hover:bg-elevated ${
+                        previewing ? "text-accent" : "text-ink-500 hover:text-ink-200"
+                      }`}
+                    >
+                      <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="1.4">
+                        {previewing ? (
+                          <path d="M11 3l2 2-7 7H4v-2l7-7z" strokeLinecap="round" strokeLinejoin="round" />
+                        ) : (
+                          <>
+                            <path d="M1 8s2.5-4.5 7-4.5S15 8 15 8s-2.5 4.5-7 4.5S1 8 1 8z" />
+                            <circle cx="8" cy="8" r="1.6" />
+                          </>
+                        )}
+                      </svg>
+                    </span>
+                  ) : undefined
+                }
               >
-                {dirty ? <span className="h-1.5 w-1.5 rounded-full bg-ink-300 group-hover:hidden" /> : null}
-                <span className={dirty ? "hidden group-hover:inline" : ""}>×</span>
-              </span>
-            </button>
-          );
-        })}
-      </div>
+                {f.name}
+              </Tab>
+            );
+          })}
+        </TabBar>
+      </Bar>
       <ActiveBody file={active} />
     </div>
   );
@@ -66,7 +85,6 @@ export function EditorPane() {
 
 function ActiveBody({ file }: { file: OpenFile }) {
   const mdPreview = useEditor((s) => s.mdPreview[editorTabId(file)] ?? false);
-  const toggleMdPreview = useEditor((s) => s.toggleMdPreview);
   const buffer = useEditor((s) => s.buffers[editorTabId(file)]);
 
   if (file.diff) {
@@ -85,18 +103,12 @@ function ActiveBody({ file }: { file: OpenFile }) {
 
   return (
     <>
-      {(isMarkdown || editable) && (
-        <div className="flex shrink-0 items-center gap-2 border-b border-ink-700 px-3 py-1 text-[11px] text-ink-500">
-          {isMarkdown && (
-            <div className="flex overflow-hidden rounded border border-ink-700">
-              <Seg active={!mdPreview} onClick={() => mdPreview && toggleMdPreview(editorTabId(file))}>Edit</Seg>
-              <Seg active={mdPreview} onClick={() => !mdPreview && toggleMdPreview(editorTabId(file))}>Preview</Seg>
-            </div>
-          )}
-          <span className="ml-auto truncate">{file.path}</span>
-          {buffer?.dirty && <span className="shrink-0 text-ink-500">⌘S to save</span>}
-          <ActionMenu items={localFileActions(file.path)} className="shrink-0" />
-        </div>
+      {editable && (
+        <Bar border="b" className="text-meta text-ink-500">
+          <span className="truncate">{file.path}</span>
+          {buffer?.dirty && <span className="ml-auto shrink-0 text-ink-500">⌘S to save</span>}
+          <ActionMenu items={localFileActions(file.path)} className={buffer?.dirty ? "shrink-0" : "ml-auto shrink-0"} />
+        </Bar>
       )}
       <div className="min-h-0 flex-1 overflow-auto">
         {isMarkdown && mdPreview ? (
@@ -110,16 +122,5 @@ function ActiveBody({ file }: { file: OpenFile }) {
         )}
       </div>
     </>
-  );
-}
-
-function Seg({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-2 py-0.5 ${active ? "bg-ink-700 text-ink-100" : "text-ink-400 hover:text-ink-200"}`}
-    >
-      {children}
-    </button>
   );
 }

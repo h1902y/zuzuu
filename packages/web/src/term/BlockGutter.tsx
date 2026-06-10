@@ -78,7 +78,7 @@ export function BlockGutter({ term, tracker, host, tick, onReRun, onSaveWorkflow
               <button
                 onClick={() => block.fix!.run(send)}
                 onMouseDown={(e) => e.preventDefault()}
-                className="pointer-events-auto absolute left-2 top-0 flex items-center gap-1 whitespace-nowrap rounded border border-yellow-600/50 bg-ink-850 px-1.5 py-0.5 text-[10px] text-yellow-400 shadow-lg hover:border-yellow-500 hover:text-yellow-300"
+                className="pointer-events-auto absolute left-2 top-0 flex items-center gap-1 whitespace-nowrap rounded border border-yellow-600/50 bg-elevated px-1.5 py-0.5 text-meta text-warn shadow-lg hover:border-yellow-500 hover:text-yellow-300"
                 title="Quick fix"
               >
                 <span>⚡</span> {block.fix.label}
@@ -112,20 +112,20 @@ function BlockActions({
   ];
   return (
     <div
-      className="pointer-events-auto absolute left-2 top-0 flex items-center gap-1 rounded border border-ink-700 bg-ink-850 px-1.5 py-0.5 shadow-lg"
+      className="pointer-events-auto absolute left-2 top-0 flex items-center gap-1 rounded border border-border bg-elevated px-1.5 py-0.5 shadow-lg"
       onMouseDown={(e) => e.preventDefault()}
     >
-      <span className="max-w-40 truncate text-[11px] text-ink-300" title={block.command}>
+      <span className="max-w-40 truncate text-meta text-ink-300" title={block.command}>
         {block.command.split("\n")[0]}
       </span>
       {block.durationMs !== null && block.durationMs > 200 && (
-        <span className="text-[10px] text-ink-500">{fmtMs(block.durationMs)}</span>
+        <span className="text-meta text-ink-500">{fmtMs(block.durationMs)}</span>
       )}
       {block.fix && (
         <button
           onClick={onFix}
           title={`Quick fix: ${block.fix.label}`}
-          className="rounded px-1 text-[11px] text-yellow-400 hover:bg-ink-700 hover:text-yellow-300"
+          className="rounded px-1 text-meta text-warn hover:bg-hover hover:text-yellow-300"
         >
           ⚡ fix
         </button>
@@ -134,7 +134,7 @@ function BlockActions({
         <button
           onClick={() => setMenuOpen((v) => !v)}
           title="Block actions"
-          className="rounded px-0.5 text-ink-400 hover:bg-ink-700 hover:text-ink-100"
+          className="rounded px-0.5 text-ink-400 hover:bg-hover hover:text-ink-100"
         >
           <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="currentColor">
             <circle cx="3" cy="8" r="1.3" />

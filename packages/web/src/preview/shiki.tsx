@@ -46,14 +46,14 @@ export function ShikiBlock({ code, lang }: { code: string; lang: string }) {
   if (html) {
     return (
       <div
-        className="shiki-block overflow-x-auto text-[12px] leading-relaxed"
+        className="shiki-block overflow-x-auto text-ui leading-relaxed"
         // shiki output is library-generated markup from plain text, not user HTML
         dangerouslySetInnerHTML={{ __html: html }}
       />
     );
   }
   return (
-    <pre className="overflow-x-auto whitespace-pre text-[12px] leading-relaxed text-ink-100">
+    <pre className="overflow-x-auto whitespace-pre text-ui leading-relaxed text-ink-100">
       {code}
     </pre>
   );
