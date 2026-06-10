@@ -47,6 +47,10 @@ export interface ServerConfig {
   /** extra allowed origins, e.g. the Vite dev server */
   extraOrigins?: string[];
   version: string;
+  /** running inside a per-user cloud sandbox VM */
+  hosted?: boolean;
+  /** public hostname the VM is reached at (e.g. "app.fly.dev") */
+  publicHost?: string;
 }
 
 const STATIC_MIME: Record<string, string> = {
@@ -81,6 +85,13 @@ export class WebcodeServer {
       ...hostNames.map((h) => `http://${h}:${cfg.port}`),
       ...(cfg.extraOrigins ?? []),
     ]);
+    // hosted: also accept the public hostname (Fly's edge sets Host to it);
+    // Host/Origin defense stays on, just widened to the one public origin.
+    if (cfg.publicHost) {
+      this.allowedHosts.add(cfg.publicHost.toLowerCase());
+      this.allowedOrigins.add(`https://${cfg.publicHost}`);
+      this.allowedOrigins.add(`http://${cfg.publicHost}`);
+    }
     this.app = this.buildApp();
   }
 

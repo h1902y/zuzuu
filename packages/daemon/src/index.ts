@@ -98,6 +98,19 @@ function openBrowser(url: string): void {
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
 
+  // ── hosted mode (cloud sandbox) ────────────────────────────────────
+  // Driven entirely by env so local behaviour is unchanged. In a per-user
+  // micro-VM the VM boundary is the security model; we still keep the
+  // token + Host/Origin gates, just widened to the public hostname.
+  const hosted = process.env.WEBCODE_HOSTED === "1";
+  if (hosted) {
+    args.dir = process.env.WEBCODE_ROOT ?? args.dir;
+    args.host = "0.0.0.0";
+    args.port = Number(process.env.PORT) || 8080;
+    args.token = process.env.WEBCODE_TOKEN ?? args.token;
+    args.open = false;
+  }
+
   let root: string;
   try {
     root = await fsp.realpath(path.resolve(args.dir));
@@ -105,9 +118,10 @@ async function main(): Promise<void> {
     console.error(`webcode: no such directory: ${args.dir}`);
     process.exit(1);
   }
-  if (args.host !== "127.0.0.1" && args.host !== "localhost" && args.host !== "::1") {
+  if (!hosted && args.host !== "127.0.0.1" && args.host !== "localhost" && args.host !== "::1") {
     console.error(
-      "webcode: refusing to bind a non-loopback address — the daemon exposes your filesystem and shell.",
+      "webcode: refusing to bind a non-loopback address — the daemon exposes your filesystem and shell.\n" +
+        "  (set WEBCODE_HOSTED=1 only inside an isolated per-user sandbox VM.)",
     );
     process.exit(1);
   }
@@ -116,9 +130,16 @@ async function main(): Promise<void> {
     await fsp.readFile(path.resolve(HERE, "..", "package.json"), "utf8"),
   ) as { version: string };
   const token = args.token ?? crypto.randomBytes(24).toString("base64url");
-  await addRecent(root).catch(() => {}); // remember this workspace
-  const port = await findFreePort(args.port, args.host);
+  if (!hosted) await addRecent(root).catch(() => {}); // remember this workspace
+  const port = hosted ? args.port : await findFreePort(args.port, args.host);
   const webDist = path.resolve(HERE, "..", "..", "web", "dist");
+
+  // public origin(s) allowed in hosted mode (the <app>.fly.dev / custom host)
+  const publicHost = process.env.WEBCODE_PUBLIC_HOST; // e.g. "myapp.fly.dev"
+  const extraOrigins = [
+    ...(args.dev ? ["http://localhost:5173", "http://127.0.0.1:5173"] : []),
+    ...(publicHost ? [`https://${publicHost}`, `http://${publicHost}`] : []),
+  ];
 
   const server = new WebcodeServer({
     root,
@@ -127,13 +148,15 @@ async function main(): Promise<void> {
     token,
     webDist,
     version: pkg.version,
-    extraOrigins: args.dev
-      ? ["http://localhost:5173", "http://127.0.0.1:5173"]
-      : undefined,
+    hosted,
+    publicHost,
+    extraOrigins: extraOrigins.length ? extraOrigins : undefined,
   });
 
   server.start((boundPort) => {
-    const url = `http://127.0.0.1:${boundPort}/?token=${token}`;
+    const url = hosted
+      ? `(hosted) listening on :${boundPort}`
+      : `http://127.0.0.1:${boundPort}/?token=${token}`;
     console.log(`\n  webcode v${pkg.version}`);
     console.log(`  workspace  ${root}`);
     console.log(`  url        ${url}\n`);
