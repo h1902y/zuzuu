@@ -104,7 +104,9 @@ export function runHook(event, { host = 'claude-code', session } = {}) {
   let payload = {};
   if (host === 'claude-code') {
     try {
-      payload = JSON.parse(readFileSync('/dev/stdin', 'utf8'));
+      // fd 0, not '/dev/stdin' — the device-path form breaks for piped stdin on
+      // Linux (CI caught this; macOS masked it).
+      payload = JSON.parse(readFileSync(0, 'utf8'));
     } catch {
       /* no/garbage stdin */
     }
