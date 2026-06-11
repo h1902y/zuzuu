@@ -6,7 +6,7 @@
 
 Your host agent — Claude Code, Codex, Gemini CLI, OpenCode — supplies the *brain* (the reasoning loop + the model). motors & sensors wraps the host you already pay for: it **serves** faculties to it, **observes** every session as an OpenTelemetry trace, and (the end-game) **evolves** the faculties from those traces — human-gated, across versioned generations. We never run a competing agent loop and never drive the host headlessly.
 
-> **Status (honest):** early build, moving fast. **Observe** works (4 real hosts, verified); **serve** has its first two slices — the faculty home (`mns init`) and an **enforced guardrails gate** on tool calls. The **evolve** engine — the actual differentiator — is designed, not yet built. Full design: [`docs/DESIGN.md`](docs/DESIGN.md).
+> **Status (honest):** early build, moving fast. **Observe** works (5 real hosts, verified). **Serve** delivers the faculty home (`mns init`), a session digest to every host, an **enforced guardrails gate** on all 5, and five faculties sharing one proposal/review spine. **Evolve** is now **wired and tested** — trace miners → a mechanical eval lens → human-gated `mns review` → versioned **generations** (mint / rollback / drift-check) — but **not yet proven on a real graduation corpus** (the loop runs + passes hermetic tests; it hasn't yet improved an agent from real sessions end-to-end). Full design: [`docs/DESIGN.md`](docs/DESIGN.md).
 
 ## What works today
 

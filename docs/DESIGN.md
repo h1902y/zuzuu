@@ -6,7 +6,7 @@
 >
 > **Naming:** the project was previously called **zuzuagents** (product concept: *zuzu*). It is being renamed **motorsandsensors** ("mns" in the CLI). Sibling projects keep their own names (Zuzucodes Labs, Flow Engine, Notes). Where this doc says "we", it means motorsandsensors.
 >
-> **Status — read this honestly:** this is the **design**, ahead of the build by intent. What's *built* (and verified) so far: the observe layer — host-agnostic trace capture across 4 real hosts, the `mns` CLI, live capture, the faculty home (`mns init`). The evolution engine, the faculties' content pipelines, and everything else below remain **solved on paper only** until an experiment ships them.
+> **Status — read this honestly:** the design ran ahead of the build by intent; the build has now caught up to the spine. *Built + verified* (exp-1–13, 309 hermetic tests): the observe layer (trace capture across **5** real hosts, the `mns` CLI, live capture); serve (faculty home, a session digest to all 5 hosts, the enforced gate on all 5, five faculties on one **shared spine** — proposal/provenance/trail/gate); and the **evolve loop in code** — trace miners (per faculty) → a mechanical **eval lens** → human-gated `mns review` → versioned **generations** (immutable lockfiles, `mint`/`rollback`/drift-check) → Runs that pin a generation. What remains **solved-on-paper / unproven:** the loop graduating an agent from a *real* multi-session corpus (only golden-tested so far); the LLM-judge eval rung (mechanical-only today; `getScorer` seam exists); the Memory episode distiller (schema + stub miner only); and the Cloudflare-Workflows async runtime.
 
 ---
 
