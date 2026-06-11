@@ -1,4 +1,4 @@
-// The faculty-home scaffold — the layout contract for `mns init`.
+// The faculty-home scaffold — the layout contract for `zuzuu init`.
 //
 // Git-init discipline: idempotent and never destructive. plan() inspects what
 // exists; apply() creates ONLY what's missing — it never overwrites a file, so
@@ -29,19 +29,19 @@ actually work — and **nothing changes without your approval**.
 - **guardrails/** — what NOT to do (enforced rules, checked on every tool call)
 
 ## How things graduate (you're in the loop)
-    a session runs  →  mns mines candidates  →  inbox/  →  proposals/
+    a session runs  →  zuzuu mines candidates  →  inbox/  →  proposals/
                                                               │  you decide
-                                                    mns review  (y / n / edit)
+                                                    zuzuu review  (y / n / edit)
                                                               ▼
                                           approved → the faculty + a new *generation*
 A **generation** is a pinned checkpoint of every faculty. Approving proposals mints
-one; \`mns generation rollback <id>\` restores any earlier checkpoint.
+one; \`zuzuu generation rollback <id>\` restores any earlier checkpoint.
 
 ## Get in the loop
-- \`mns inbox\`            — what's waiting for your approval
-- \`mns review\`          — approve / reject, one at a time
-- \`mns generation list\` — your checkpoints (· = active)
-- \`mns explain\`         — this model, any time
+- \`zuzuu inbox\`            — what's waiting for your approval
+- \`zuzuu review\`          — approve / reject, one at a time
+- \`zuzuu generation list\` — your checkpoints (· = active)
+- \`zuzuu explain\`         — this model, any time
 
 ## What to ignore
 \`.traces/\`, \`.live/\`, and \`knowledge/.index.db\` are machine internals (git-ignored).
@@ -53,16 +53,16 @@ const KNOWLEDGE_README = `# knowledge/ — the Knowledge faculty (what's TRUE)
 Items in \`items/\` — one fact/entity per file: prose body + typed attributes +
 typed relations (registry-governed: \`registry/\`) + provenance. The derived
 search index (\`.index.db\`, git-ignored) gives lexical/graph/semantic recall:
-\`mns recall\`. Candidates arrive in \`inbox/\` (from agents or \`mns distill\`),
-become \`proposals/\`, and a human approves via \`mns review\` — never silently.
-\`mns remember\` writes directly (the human IS the gate). \`mns knowledge audit\`
+\`zuzuu recall\`. Candidates arrive in \`inbox/\` (from agents or \`zuzuu distill\`),
+become \`proposals/\`, and a human approves via \`zuzuu review\` — never silently.
+\`zuzuu remember\` writes directly (the human IS the gate). \`zuzuu knowledge audit\`
 checks health.
 `;
 
 const MEMORY_README = `# memory/ — episodic faculty (what HAPPENED)
 
 Curated recollections of past sessions, distilled from the observability traces (\`agent/.traces/\`).
-- **Who writes:** mns (distillation — *not built yet*), human (curation). Raw traces stay in traces/ — this is the *curated* layer.
+- **Who writes:** zuzuu (distillation — *not built yet*), human (curation). Raw traces stay in traces/ — this is the *curated* layer.
 - **Where:** one Markdown file per entry under \`entries/\`, named \`<id>.md\`.
 
 ## Record schema (Markdown + YAML frontmatter)
@@ -90,9 +90,9 @@ The durable lesson.
 const ACTIONS_README = `# actions/ — procedural faculty (how to DO things)
 
 Named, reusable procedures/skills for this project (scripts, runbooks, tool recipes).
-- **Who writes:** the human; later, mns proposes crystallized actions mined from traces (human-approved).
+- **Who writes:** the human; later, zuzuu proposes crystallized actions mined from traces (human-approved).
 - **Contract:** one action per file; state what it does, inputs, and how to invoke it.
-- **Propose a reusable action**: \`mns act propose <slug>\` scaffolds into \`actions/inbox/\` for review. A human approves via \`mns review\` (or \`mns act approve <slug>\`). Never write active actions directly from an agent.
+- **Propose a reusable action**: \`zuzuu act propose <slug>\` scaffolds into \`actions/inbox/\` for review. A human approves via \`zuzuu review\` (or \`zuzuu act approve <slug>\`). Never write active actions directly from an agent.
 `;
 
 const INSTRUCTIONS_README = `# instructions/ — the Instructions faculty (directive: who the agent is)
@@ -110,8 +110,8 @@ const PROJECT_SEED = `# Project steering
 
 const GUARDRAILS_README = `# guardrails/ — the Guardrails faculty (enforced, not advisory)
 
-Declarative rules in \`rules.json\`, evaluated on every tool call by the mns
-PreToolUse gate (installed by \`mns enable\`). Severity wins: deny > ask > allow;
+Declarative rules in \`rules.json\`, evaluated on every tool call by the zuzuu
+PreToolUse gate (installed by \`zuzuu enable\`). Severity wins: deny > ask > allow;
 no match → the host's normal permission flow. The engine FAILS OPEN — a
 guardrail bug can block nothing — and matched decisions are logged for the trace.
 
@@ -202,7 +202,7 @@ export function ensureGitignore(cwd) {
   const have = new Set(existing.split('\n').map((l) => l.trim()));
   const missing = IGNORE_LINES.filter((l) => !have.has(l));
   if (!missing.length) return [];
-  const block = (existing && !existing.endsWith('\n') ? '\n' : '') + '\n# mns: local-only observability data\n' + missing.join('\n') + '\n';
+  const block = (existing && !existing.endsWith('\n') ? '\n' : '') + '\n# zuzuu: local-only observability data\n' + missing.join('\n') + '\n';
   writeFileSync(path, existing + block);
   return missing;
 }

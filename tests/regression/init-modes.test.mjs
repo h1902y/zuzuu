@@ -37,7 +37,7 @@ function snapshot(dir, base = dir, acc = {}) {
 test('mode 1 — empty dir: greenfield scaffold + AGENTS.md/CLAUDE.md created', () => {
   withTemp((cwd) => {
     const out = run(cwd);
-    assert.match(out, /Initialized empty mns home/);
+    assert.match(out, /Initialized empty zuzuu home/);
     assert.ok(existsSync(join(cwd, 'agent', 'knowledge', 'README.md')));
     assert.ok(existsSync(join(cwd, 'agent', 'memory', 'entries')), 'memory/entries scaffolded');
     assert.match(readFileSync(join(cwd, 'agent', 'memory', 'README.md'), 'utf8'), /Remember next time/, 'memory README documents the record schema');
@@ -55,7 +55,7 @@ test('mode 2 — existing project: inject into existing CLAUDE.md + guarantee AG
     writeFileSync(join(cwd, 'CLAUDE.md'), '# Existing guidance\n\nUser rules here.\n');
     writeFileSync(join(cwd, '.gitignore'), 'node_modules/\n');
     const out = run(cwd);
-    assert.match(out, /Initialized mns home in existing project/);
+    assert.match(out, /Initialized zuzuu home in existing project/);
     const claude = readFileSync(join(cwd, 'CLAUDE.md'), 'utf8');
     assert.ok(claude.startsWith('# Existing guidance'), 'user content untouched at top');
     assert.match(claude, /zuzuu:faculties:v\d+/);
@@ -88,7 +88,7 @@ test('mode 3 — reinit: byte-identical no-op on a complete home; user edits sur
     writeFileSync(join(cwd, 'agent', 'instructions', 'project.md'), 'CUSTOM\n');
     const before = snapshot(cwd);
     const out = run(cwd);
-    assert.match(out, /Reinitialized existing mns home/);
+    assert.match(out, /Reinitialized existing zuzuu home/);
     assert.deepEqual(snapshot(cwd), before, 'second init changed nothing');
   });
 });

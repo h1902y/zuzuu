@@ -57,5 +57,5 @@ export function inbox(args = {}, log = console.log) {
   for (const { faculty, count, first } of rows) {
     log(`  ${faculty}: ${count} pending — ${first}`);
   }
-  log('→ run `mns review` to approve/reject (each approval mints a generation checkpoint).');
+  log('→ run `zuzuu review` to approve/reject (each approval mints a generation checkpoint).');
 }

@@ -1,13 +1,13 @@
 #!/usr/bin/env node
-// mns — motors & sensors CLI. Verb-first, entire.io-style; zero deps, no build.
+// zuzuu — the agent-faculty CLI (formerly mns / motors & sensors). Verb-first, entire.io-style; zero deps, no build.
 //
-//   mns status                 detected hosts + recorded sessions
-//   mns capture [--host h]      capture a session → git-native trace + index entry
-//   mns trace [--last | FILE]   print a captured trace's span tree
-//   mns doctor                  environment + session health
-//   mns version | help
+//   zuzuu status                 detected hosts + recorded sessions
+//   zuzuu capture [--host h]      capture a session → git-native trace + index entry
+//   zuzuu trace [--last | FILE]   print a captured trace's span tree
+//   zuzuu doctor                  environment + session health
+//   zuzuu version | help
 //
-// Phase 1: post-hoc transcript capture. Phase 2 (planned): `mns enable` installs
+// Phase 1: post-hoc transcript capture. Phase 2 (planned): `zuzuu enable` installs
 // background hooks for invisible live capture across the agent session lifecycle.
 
 import { readFileSync } from 'node:fs';
@@ -50,13 +50,13 @@ function parseArgs(argv) {
 
 function version() {
   const pkg = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'package.json'), 'utf8'));
-  console.log(`mns ${pkg.version}`);
+  console.log(`zuzuu ${pkg.version}`);
 }
 
 function help() {
-  console.log(`mns — motors & sensors
+  console.log(`zuzuu — evolving faculties for the coding agent you already run  (\`mns\` still works as an alias)
 
-usage: mns <command> [options]
+usage: zuzuu <command> [options]
 
   code [dir]                launch OpenCode as the bundled default host (faculty home + capture + gate + digest)
   init                      scaffold the faculty home (.mns/) — git-style, idempotent
@@ -76,7 +76,7 @@ usage: mns <command> [options]
   act <slug> [--args JSON]  run a script action
   act propose <slug>        scaffold a proposed action → actions/inbox/ (for review)
   act inbox|approve <slug>|reject <slug>
-                            the actions gate (or use \`mns review\`)
+                            the actions gate (or use \`zuzuu review\`)
   distill [--all|--session ID]
                             mine real sessions → knowledge proposals (default: last)
   inbox                     what's pending your approval, per faculty
@@ -94,8 +94,9 @@ usage: mns <command> [options]
   version                   print version
   help                      this message
 
-\`mns capture\` works post-hoc on existing transcripts. \`mns enable\` turns on
-live, invisible capture across the session lifecycle — see the README.`);
+\`zuzuu capture\` works post-hoc on existing transcripts. \`zuzuu enable\` turns on
+live, invisible capture across the session lifecycle — see the README.
+(\`mns\` remains a legacy alias for every command above.)`);
 }
 
 const [cmd, ...rest] = process.argv.slice(2);

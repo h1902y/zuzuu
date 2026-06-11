@@ -57,14 +57,14 @@ export function proposeAction(mnsDir, slug) {
 }
 
 export function newAction(mnsDir, slug) {
-  if (!slug) { console.error('usage: mns act new <slug>'); process.exit(1); }
+  if (!slug) { console.error('usage: zuzuu act new <slug>'); process.exit(1); }
   const { created } = scaffoldAction(mnsDir, slug);
   if (created.length) console.log(`scaffolded action '${slug}' → ${created.join(', ')} in agent/actions/${slug}/`);
   else console.log(`action '${slug}' already complete — nothing to do`);
 }
 
 export function schema(mnsDir, slug, args = {}) {
-  if (!slug) { console.error('usage: mns act schema <slug> [--mcp|--openai|--anthropic]'); process.exit(1); }
+  if (!slug) { console.error('usage: zuzuu act schema <slug> [--mcp|--openai|--anthropic]'); process.exit(1); }
   const man = loadManifest(mnsDir, slug);
   if (!man) { console.error(`no action '${slug}' (missing action.json)`); process.exit(1); }
   const def = args.openai ? toOpenAITool(man) : args.anthropic ? toAnthropicTool(man) : toMcpTool(man);

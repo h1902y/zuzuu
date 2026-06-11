@@ -28,7 +28,7 @@ export function facultiesLine(mnsDir) {
     drifted = Array.isArray(d?.drifted) && d.drifted.length > 0;
   } catch { /* fail-soft */ }
   let line = `faculties: ${gen || 'no generation yet'} · ${pending} pending review`;
-  if (drifted) line += ' · ⚠ drift (run mns doctor)';
+  if (drifted) line += ' · ⚠ drift (run zuzuu doctor)';
   return line;
 }
 
@@ -36,7 +36,7 @@ export function status() {
   const { sessions } = readIndex();
   console.log(`this project — recorded sessions (agent/sessions.json): ${sessions.length}`);
   if (!sessions.length) {
-    console.log('  none yet — run `mns capture`, or just start your agent (live capture)');
+    console.log('  none yet — run `zuzuu capture`, or just start your agent (live capture)');
   } else {
     console.log('');
     console.log('  STATUS     HOST          DUR     GIT       T/TOOLS/ERR  SESSION');

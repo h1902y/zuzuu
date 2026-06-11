@@ -27,14 +27,14 @@ function requireSlug(slug, usage) {
 
 function list(mnsDir) {
   const actions = allActions(mnsDir);
-  if (!actions.length) return console.log('no actions yet — scaffold one with `mns act new <slug>`');
+  if (!actions.length) return console.log('no actions yet — scaffold one with `zuzuu act new <slug>`');
   for (const a of actions.sort((x, y) => x.slug.localeCompare(y.slug))) {
     console.log(`  ${a.slug}  [${a.kind}]  ${a.promptSnippet}`);
   }
 }
 
 function show(mnsDir, slug) {
-  if (!slug) { console.error('usage: mns act show <slug>'); process.exit(1); }
+  if (!slug) { console.error('usage: zuzuu act show <slug>'); process.exit(1); }
   const man = loadManifest(mnsDir, slug);
   if (man) return console.log(JSON.stringify(man, null, 2));
   const skill = join(actionsDir(mnsDir), slug, 'SKILL.md');
@@ -60,7 +60,7 @@ function run(mnsDir, slug, args) {
 
 function propose(mnsDir, slug) {
   const { created } = proposeAction(mnsDir, slug);
-  if (created.length) console.log(`proposed action '${slug}' → ${created.join(', ')} in agent/actions/inbox/${slug}/ (review with \`mns review\`)`);
+  if (created.length) console.log(`proposed action '${slug}' → ${created.join(', ')} in agent/actions/inbox/${slug}/ (review with \`zuzuu review\`)`);
   else console.log(`proposed action '${slug}' already complete — nothing to do`);
 }
 
@@ -88,14 +88,14 @@ export function act(args) {
   const mnsDir = paths().dir;
   const sub = args._[0];
   if (!sub || sub === 'list') return list(mnsDir);
-  if (sub === 'show') return show(mnsDir, requireSlug(args._[1], 'usage: mns act show <slug>'));
-  if (sub === 'new') return newAction(mnsDir, requireSlug(args._[1], 'usage: mns act new <slug>'));
-  if (sub === 'schema') return schemaCmd(mnsDir, requireSlug(args._[1], 'usage: mns act schema <slug> [--openai|--anthropic]'), args);
-  if (sub === 'propose') return propose(mnsDir, requireSlug(args._[1], 'usage: mns act propose <slug>'));
+  if (sub === 'show') return show(mnsDir, requireSlug(args._[1], 'usage: zuzuu act show <slug>'));
+  if (sub === 'new') return newAction(mnsDir, requireSlug(args._[1], 'usage: zuzuu act new <slug>'));
+  if (sub === 'schema') return schemaCmd(mnsDir, requireSlug(args._[1], 'usage: zuzuu act schema <slug> [--openai|--anthropic]'), args);
+  if (sub === 'propose') return propose(mnsDir, requireSlug(args._[1], 'usage: zuzuu act propose <slug>'));
   if (sub === 'inbox') return inbox(mnsDir);
-  if (sub === 'approve') return approve(mnsDir, requireSlug(args._[1], 'usage: mns act approve <slug>'));
-  if (sub === 'reject') return reject(mnsDir, requireSlug(args._[1], 'usage: mns act reject <slug>'));
+  if (sub === 'approve') return approve(mnsDir, requireSlug(args._[1], 'usage: zuzuu act approve <slug>'));
+  if (sub === 'reject') return reject(mnsDir, requireSlug(args._[1], 'usage: zuzuu act reject <slug>'));
   // future-reserved guard: extend RESERVED + add a handler above in tandem
-  if (RESERVED.has(sub)) { console.error(`unknown: mns act ${sub}`); process.exit(1); }
-  return run(mnsDir, requireSlug(sub, 'usage: mns act <slug> [--args JSON]'), args);
+  if (RESERVED.has(sub)) { console.error(`unknown: zuzuu act ${sub}`); process.exit(1); }
+  return run(mnsDir, requireSlug(sub, 'usage: zuzuu act <slug> [--args JSON]'), args);
 }

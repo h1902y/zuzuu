@@ -110,7 +110,7 @@ export async function doctor() {
     problems++;
   };
 
-  console.log('mns doctor\n');
+  console.log('zuzuu doctor\n');
 
   // Node
   const major = Number(process.versions.node.split('.')[0]);
@@ -136,11 +136,11 @@ export async function doctor() {
   // faculty home (served by `mns init`)
   const root = paths().root;
   if (!homeExists(root)) {
-    warn('no faculty home — run `mns init` to scaffold knowledge/memory/actions/instructions');
+    warn('no faculty home — run `zuzuu init` to scaffold knowledge/memory/actions/instructions');
   } else {
     const missing = planScaffold(root);
     const gaps = missing.dirs.length + missing.files.length + (missing.manifestMissing ? 1 : 0);
-    if (gaps) warn(`faculty home incomplete (${gaps} piece(s) missing) — rerun \`mns init\``);
+    if (gaps) warn(`faculty home incomplete (${gaps} piece(s) missing) — rerun \`zuzuu init\``);
     else ok('faculty home complete (knowledge/ memory/ actions/ instructions/ guardrails/)');
   }
 
@@ -152,7 +152,7 @@ export async function doctor() {
       const { items, errors } = allItems(dir);
       if (errors.length) warn(`${errors.length} knowledge item(s) unparseable`);
       const pending = listProposals(dir).length;
-      ok(`knowledge: ${items.length} item(s), ${pending} pending proposal(s)${pending ? ' — run \`mns review\`' : ''}`);
+      ok(`knowledge: ${items.length} item(s), ${pending} pending proposal(s)${pending ? ' — run \`zuzuu review\`' : ''}`);
       const e = await detectEmbedder();
       if (!e.available) warn(`semantic search off — ${e.reason}`);
       else ok(`embeddings available (ollama/${e.model})`);
@@ -162,14 +162,14 @@ export async function doctor() {
   // hosts
   const hosts = detected();
   if (hosts.length) ok(`hosts detected: ${hosts.map((h) => h.name).join(', ')}`);
-  else warn('no supported agent data found — use Claude Code or Gemini CLI, then `mns capture`');
+  else warn('no supported agent data found — use Claude Code or Gemini CLI, then `zuzuu capture`');
 
   // generation drift check (WS3-T3)
   try {
     const { dir: mnsDir } = paths();
     const drift = detectDrift(mnsDir);
     if (drift.noneActive) {
-      info('generation: no generation pinned yet — run `mns generation mint`');
+      info('generation: no generation pinned yet — run `zuzuu generation mint`');
     } else if (drift.error) {
       warn(`generation drift check failed: ${drift.error}`);
     } else if (drift.drifted.length === 0) {

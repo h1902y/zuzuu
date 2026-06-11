@@ -23,8 +23,8 @@ const FACULTY_CONTRACTS = {
     'as memory/entries/.',
   actions:
     'actions — the procedural faculty: how to DO. Runbooks and runnable scripts. ' +
-    'Propose one with `mns act propose <slug>` (lands in actions/inbox/); on approval ' +
-    'it becomes an active action you can run with `mns act <slug>`.',
+    'Propose one with `zuzuu act propose <slug>` (lands in actions/inbox/); on approval ' +
+    'it becomes an active action you can run with `zuzuu act <slug>`.',
   instructions:
     'instructions — the directive faculty: who to BE. The pinned steering artifact ' +
     '(instructions/project.md) that grounds every session. Empty by default — the ' +
@@ -36,14 +36,14 @@ const FACULTY_CONTRACTS = {
 };
 
 const LOOP_DIAGRAM = [
-  '  session → mine → inbox/ → proposals/ → (mns review: you approve) → faculty + a new generation',
+  '  session → mine → inbox/ → proposals/ → (zuzuu review: you approve) → faculty + a new generation',
 ].join('\n');
 
 const VALID_TOPICS = 'topics: faculties · graduation · knowledge · memory · actions · instructions · guardrails';
 
 function overview() {
   return [
-    'mns — five faculties your coding agent grows from real use, human-gated.',
+    'zuzuu — five faculties your coding agent grows from real use, human-gated.',
     '',
     'The 5 faculties:',
     ...FACULTY_ONE_LINERS.map((l) => '  ' + l),
@@ -55,11 +55,11 @@ function overview() {
     '  immutable checkpoint you can roll back to.',
     '',
     'Get in the loop:',
-    '  mns inbox             what is pending your approval',
-    '  mns review            walk each proposal: approve / reject / edit',
-    '  mns generation list   the generations you have minted (rollback anytime)',
+    '  zuzuu inbox             what is pending your approval',
+    '  zuzuu review            walk each proposal: approve / reject / edit',
+    '  zuzuu generation list   the generations you have minted (rollback anytime)',
     '',
-    'More: `mns explain faculties` · `mns explain graduation` · `mns explain <faculty>`',
+    'More: `zuzuu explain faculties` · `zuzuu explain graduation` · `zuzuu explain <faculty>`',
   ].join('\n');
 }
 
@@ -74,7 +74,7 @@ function faculties() {
     '  proposals/  reviewable records (with evidence + analysis)',
     '  items/      graduated — pinned into the active generation',
     '',
-    'You move a candidate along by running `mns review`.',
+    'You move a candidate along by running `zuzuu review`.',
   ].join('\n');
 }
 
@@ -86,14 +86,14 @@ function graduation() {
     '',
     '1. A real session is mined into candidate learnings → faculty inbox/.',
     '2. Candidates become proposals/ (evidence + entity-resolution analysis).',
-    '3. THE HUMAN GATE: `mns review` walks each one — you approve, reject, or edit.',
+    '3. THE HUMAN GATE: `zuzuu review` walks each one — you approve, reject, or edit.',
     '   Nothing graduates without you (Proposals are always human-approved in v1).',
     '4. Each review that approves anything mints a GENERATION — an immutable,',
     '   content-addressed checkpoint of the whole faculty state.',
-    '5. Rollback is flipping a pointer: `mns generation rollback <id>` restores a',
+    '5. Rollback is flipping a pointer: `zuzuu generation rollback <id>` restores a',
     '   past generation by content. Your approvals are never lost.',
     '',
-    'Inspect: `mns generation list` · `mns generation show <id>`.',
+    'Inspect: `zuzuu generation list` · `zuzuu generation show <id>`.',
   ].join('\n');
 }
 

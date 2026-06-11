@@ -15,7 +15,7 @@ function mnsDir() {
 
 function list(dir) {
   const ids = listGenerations(dir);
-  if (!ids.length) return console.log('no generations yet — mint one with `mns generation mint`');
+  if (!ids.length) return console.log('no generations yet — mint one with `zuzuu generation mint`');
   const active = activeGeneration(dir);
   for (const id of ids) {
     const lf = readGeneration(dir, id) ?? {};
@@ -56,14 +56,14 @@ export function showLines(dir, id) {
 }
 
 function show(dir, id) {
-  if (!id) { console.error('usage: mns generation show <id>'); process.exit(1); }
+  if (!id) { console.error('usage: zuzuu generation show <id>'); process.exit(1); }
   const out = showLines(dir, id);
   if (out == null) { console.error(`no generation '${id}'`); process.exit(1); }
   console.log(out);
 }
 
 function doRollback(dir, id) {
-  if (!id) { console.error('usage: mns generation rollback <id>'); process.exit(1); }
+  if (!id) { console.error('usage: zuzuu generation rollback <id>'); process.exit(1); }
   if (!readGeneration(dir, id)) { console.error(`no generation '${id}'`); process.exit(1); }
   const r = rollback(dir, id);
   console.log(`✓ rolled back to ${id} — restored ${r.restored} item(s); active=${id}`);
@@ -76,6 +76,6 @@ export function generation(args) {
   if (sub === 'mint') return mint(dir);
   if (sub === 'show') return show(dir, args._[1]);
   if (sub === 'rollback') return doRollback(dir, args._[1]);
-  console.error(`unknown: mns generation ${sub}\nusage: mns generation [list|show <id>|mint|rollback <id>]`);
+  console.error(`unknown: zuzuu generation ${sub}\nusage: zuzuu generation [list|show <id>|mint|rollback <id>]`);
   process.exit(1);
 }

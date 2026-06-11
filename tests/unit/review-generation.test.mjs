@@ -13,7 +13,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { listGenerations, readGeneration, activeGeneration } from '../../mns/faculty/generation.mjs';
 
-const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'bin', 'mns.mjs');
+const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'bin', 'zuzuu.mjs');
 
 /**
  * Build a minimal .mns home with N knowledge inbox facts (which processInbox
@@ -64,7 +64,7 @@ test('review: approve both proposals → exactly one generation minted, mintedFr
 
     // stdout should mention the mint as a graduation ceremony
     assert.match(r.stdout, /generation gen_001 minted/);
-    assert.match(r.stdout, /mns generation show/);
+    assert.match(r.stdout, /zuzuu generation show/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

@@ -45,7 +45,7 @@ test('inbox lists pending knowledge proposals + the review hint', () => {
     inbox({ _: [], mnsDir: mns }, (s) => lines.push(s));
     const out = lines.join('\n');
     assert.match(out, /knowledge: 2 pending/);
-    assert.match(out, /mns review/);
+    assert.match(out, /zuzuu review/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -58,7 +58,7 @@ test('empty home → all caught up', () => {
     inbox({ _: [], mnsDir: mns }, (s) => lines.push(s));
     const out = lines.join('\n');
     assert.match(out, /all caught up/i);
-    assert.doesNotMatch(out, /mns review/);
+    assert.doesNotMatch(out, /zuzuu review/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
