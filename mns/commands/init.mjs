@@ -35,11 +35,18 @@ function serveInstructions(cwd, { greenfield }) {
     writeFileSync(path, injectBlock(text));
     injected.push(hasBlock(text) ? `${f} (upgraded → v${BLOCK_VERSION})` : f);
   }
-  if (greenfield && existing.length === 0) {
-    for (const f of ['AGENTS.md', 'CLAUDE.md']) {
-      writeFileSync(join(cwd, f), facultiesBlock() + '\n');
-      created.push(f);
-    }
+  // AGENTS.md is the universal steering file Codex / OpenCode / pi all read
+  // (Claude=CLAUDE.md, Gemini=GEMINI.md have their own). Guarantee it carries the
+  // block in EVERY mode — including brownfield — so those three hosts are served.
+  // No-clobber: only create when absent (existing ones were handled by the loop above).
+  if (!existsSync(join(cwd, 'AGENTS.md'))) {
+    writeFileSync(join(cwd, 'AGENTS.md'), facultiesBlock() + '\n');
+    created.push('AGENTS.md');
+  }
+  // Greenfield convenience: also give Claude its CLAUDE.md.
+  if (greenfield && !existsSync(join(cwd, 'CLAUDE.md'))) {
+    writeFileSync(join(cwd, 'CLAUDE.md'), facultiesBlock() + '\n');
+    created.push('CLAUDE.md');
   }
   return { injected, created };
 }
@@ -71,8 +78,10 @@ export function init(args = {}) {
   } else {
     console.log(`Initialized mns home in existing project ${join(cwd, '.mns')}/`);
     console.log(`  faculties : knowledge/ memory/ actions/ instructions/ guardrails/  (+ mns.json manifest)`);
-    if (injected.length) console.log(`  steering  : injected faculty block → ${injected.join(', ')}`);
-    else console.log(`  steering  : no CLAUDE.md/AGENTS.md/GEMINI.md found — create one and rerun, or add the block manually`);
+    const steer = [];
+    if (injected.length) steer.push(`injected → ${injected.join(', ')}`);
+    if (created.length) steer.push(`created ${created.join(' + ')} (read by Codex/OpenCode/pi)`);
+    if (steer.length) console.log(`  steering  : ${steer.join(' · ')}`);
     const hosts = detected().map((a) => a.name).join(', ');
     if (hosts) console.log(`  hosts     : detected ${hosts} — \`mns capture\` works now; \`mns enable\` for live`);
   }

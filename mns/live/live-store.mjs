@@ -11,7 +11,12 @@ import { paths } from '../store.mjs';
 import { SessionState } from '../session.mjs';
 
 const liveDir = (cwd) => join(paths(cwd).dir, 'live');
-const recPath = (id, cwd) => join(liveDir(cwd), `${id}.json`);
+// Some hosts pass a file PATH as the session id (pi → the session-file path).
+// Sanitize for the record filename (the real id is preserved inside the JSON),
+// or the write fails into a non-existent nested dir. read/write/close all route
+// through here, so the key stays consistent.
+const recFile = (id) => `${String(id ?? 'unknown').replace(/[^A-Za-z0-9._-]/g, '_').slice(-120) || 'unknown'}.json`;
+const recPath = (id, cwd) => join(liveDir(cwd), recFile(id));
 
 function read(id, cwd) {
   try {

@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { sessionStartContext } from '../../mns/commands/hook.mjs';
+import { existsSync, readFileSync } from 'node:fs';
+import { sessionStartContext, writeLiveDigest, handleHook } from '../../mns/commands/hook.mjs';
 
 function withHome(fn, project) {
   const root = mkdtempSync(join(tmpdir(), 'mns-hook-'));
@@ -27,6 +28,32 @@ test('sessionStartContext returns the Claude additionalContext shape', () => {
     assert.match(out.hookSpecificOutput.additionalContext, /mns faculty digest/);
     assert.match(out.hookSpecificOutput.additionalContext, /Ship daily/);
   }, '# Project steering\n\nShip daily.\n');
+});
+
+test('writeLiveDigest writes the digest to .mns/live/digest.md (universal channel)', () => {
+  withHome((root) => {
+    writeLiveDigest(root);
+    const p = join(root, '.mns', 'live', 'digest.md');
+    assert.ok(existsSync(p), 'digest.md created');
+    assert.match(readFileSync(p, 'utf8'), /mns faculty digest/);
+    assert.match(readFileSync(p, 'utf8'), /Ship daily/);
+  }, '# Project steering\n\nShip daily.\n');
+});
+
+test('handleHook delivers the digest file on an OPEN event for a non-Claude host (pi)', () => {
+  withHome((root) => {
+    handleHook({ event: 'session_start', payload: { session_id: 'x' }, cwd: root, host: 'pi' });
+    assert.ok(existsSync(join(root, '.mns', 'live', 'digest.md')), 'digest delivered on pi session_start');
+  }, '# Project steering\n\nShip daily.\n');
+});
+
+test('writeLiveDigest on an absent home does not throw (fail-open)', () => {
+  const root = mkdtempSync(join(tmpdir(), 'mns-nodigest-'));
+  try {
+    assert.doesNotThrow(() => writeLiveDigest(root));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test('sessionStartContext on an absent home degrades gracefully (no throw, well-formed)', () => {

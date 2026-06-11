@@ -11,7 +11,7 @@
 // MUST always exit 0 and never block — a throwing hook would disrupt the agent
 // session. `runHook` wraps everything; failures degrade silently.
 
-import { readFileSync, appendFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, appendFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { byName } from '../../experiments/experiment-1-trace-capture/adapters/registry.mjs';
 import { captureTrace } from '../capture-core.mjs';
@@ -64,8 +64,11 @@ export function handleHook({ event, payload = {}, cwd = process.cwd(), now = Dat
   const adapter = byName(host);
 
   if (OPEN.has(event)) {
-    openLive({ id, host, transcriptPath: ref, startedAt: new Date(now).toISOString(), now }, cwd);
-    safeCapture(adapter, ref, SessionState.ACTIVE, cwd);
+    try {
+      openLive({ id, host, transcriptPath: ref, startedAt: new Date(now).toISOString(), now }, cwd);
+      safeCapture(adapter, ref, SessionState.ACTIVE, cwd);
+    } catch { /* live/capture hiccup must not block grounding below */ }
+    writeLiveDigest(cwd); // universal grounding channel — every host reads .mns/live/digest.md
   } else if (TURN.has(event)) {
     touchLive({ id, host, transcriptPath: ref, now }, cwd);
     safeCapture(adapter, ref, SessionState.ACTIVE, cwd);
@@ -123,6 +126,27 @@ export function gateDecision({ host = 'claude-code', payload = {}, cwd = process
 }
 
 /**
+ * Universal digest delivery (Design B side effect, not a span builder). Computes
+ * the faculty digest and writes it to `.mns/live/digest.md` — the ONE channel
+ * every host can read at session start (the faculty block points here). Claude
+ * also gets it inline via sessionStartContext; the other 4 hosts rely on this
+ * file. Fail-open: any error is swallowed (never break the host).
+ * @param {string} cwd  repo cwd; paths() resolves the .mns home under it
+ */
+export function writeLiveDigest(cwd = process.cwd()) {
+  try {
+    const mnsDir = paths(cwd).dir;
+    const { text } = computeDigest(mnsDir);
+    if (!text || !text.trim()) return;
+    const liveDir = join(mnsDir, 'live');
+    mkdirSync(liveDir, { recursive: true });
+    writeFileSync(join(liveDir, 'digest.md'), text);
+  } catch {
+    /* fail-open — grounding is best-effort, never blocks the host */
+  }
+}
+
+/**
  * Build Claude Code's SessionStart additionalContext payload from the faculty
  * digest. Returns null on ANY failure (fail-open: the session proceeds with no
  * injected context, never a broken hook).
@@ -163,7 +187,10 @@ export function runHook(event, { host = 'claude-code', session } = {}) {
       if (decision) process.stdout.write(JSON.stringify(decision));
     } else {
       try { handleHook({ event, payload, host }); } catch { /* capture failure is silent — never blocks the digest or the host */ }
-      if (event === 'SessionStart') {
+      // Claude consumes additionalContext inline; the other hosts read
+      // .mns/live/digest.md (written by handleHook's OPEN branch). Scoping the
+      // stdout push to Claude avoids emitting an unread schema to Gemini/Codex.
+      if (event === 'SessionStart' && host === 'claude-code') {
         try {
           const ctx = sessionStartContext();
           if (ctx) process.stdout.write(JSON.stringify(ctx));
