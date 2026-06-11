@@ -47,7 +47,7 @@ test('mode 1 — empty dir: greenfield scaffold + AGENTS.md/CLAUDE.md created', 
   });
 });
 
-test('mode 2 — existing project: scaffold + inject into existing CLAUDE.md, user text intact', () => {
+test('mode 2 — existing project: inject into existing CLAUDE.md + guarantee AGENTS.md (Codex/OpenCode/pi)', () => {
   withTemp((cwd) => {
     writeFileSync(join(cwd, 'index.js'), '// app\n');
     writeFileSync(join(cwd, 'CLAUDE.md'), '# Existing guidance\n\nUser rules here.\n');
@@ -57,10 +57,24 @@ test('mode 2 — existing project: scaffold + inject into existing CLAUDE.md, us
     const claude = readFileSync(join(cwd, 'CLAUDE.md'), 'utf8');
     assert.ok(claude.startsWith('# Existing guidance'), 'user content untouched at top');
     assert.match(claude, /mns:faculties:v\d+/);
-    assert.ok(!existsSync(join(cwd, 'AGENTS.md')), 'brownfield does NOT create new host files');
+    // brownfield now GUARANTEES AGENTS.md — the universal file Codex/OpenCode/pi read.
+    assert.ok(existsSync(join(cwd, 'AGENTS.md')), 'brownfield ensures AGENTS.md exists');
+    assert.match(readFileSync(join(cwd, 'AGENTS.md'), 'utf8'), /mns:faculties:v\d+/);
     const gi = readFileSync(join(cwd, '.gitignore'), 'utf8');
     assert.ok(gi.startsWith('node_modules/'), 'gitignore preserved');
     assert.match(gi, /\.mns\/live\//);
+  });
+});
+
+test('mode 2 — a project that already has AGENTS.md gets the block injected, not clobbered', () => {
+  withTemp((cwd) => {
+    writeFileSync(join(cwd, 'index.js'), '// app\n');
+    writeFileSync(join(cwd, 'AGENTS.md'), '# Team conventions\n\nUse tabs.\n');
+    run(cwd);
+    const agents = readFileSync(join(cwd, 'AGENTS.md'), 'utf8');
+    assert.ok(agents.startsWith('# Team conventions'), 'user AGENTS.md content preserved');
+    assert.match(agents, /mns:faculties:v\d+/);
+    assert.equal((agents.match(/mns:faculties:v\d+/g) || []).length, 1, 'exactly one block');
   });
 });
 
