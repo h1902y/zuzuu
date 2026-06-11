@@ -14,6 +14,7 @@ import { loadRegistry, validateItem } from './registry.mjs';
 import { allItems, readItem, writeItem, slugify } from './items.mjs';
 import { upsertItem } from './index.mjs';
 import { resolve as erResolve, merge } from './er.mjs';
+import { mechanicalScore } from '../eval/score.mjs';
 
 export const proposalsDir = (mnsDir) => join(mnsDir, 'knowledge', 'proposals');
 const archiveDir = (mnsDir) => join(proposalsDir(mnsDir), 'archive');
@@ -38,9 +39,24 @@ export function createProposal(mnsDir, { candidate, source, evidence = {} }) {
     const prev = JSON.parse(readFileSync(existing, 'utf8'));
     prev.evidence = { ...prev.evidence, ...evidence };
     prev.er = er;
+    // keep analysis in sync so scorer can use updated er verdict
+    prev.analysis = { ...(prev.analysis ?? {}), er: { verdict: er.verdict } };
+    prev.score = scoreProposal(prev);
     return writeProposal(mnsDir, prev);
   }
-  return writeProposal(mnsDir, { id, kind: 'item', status: 'pending', created_at: new Date().toISOString(), source, candidate, evidence, er });
+  const proposal = { id, kind: 'item', status: 'pending', created_at: new Date().toISOString(), source, candidate, evidence, er, analysis: { er: { verdict: er.verdict } } };
+  proposal.score = scoreProposal(proposal);
+  return writeProposal(mnsDir, proposal);
+}
+
+/** Compute mechanicalScore for a proposal — fail-open (returns null on error). */
+function scoreProposal(proposal) {
+  try {
+    const { score, confidence, rationale } = mechanicalScore(proposal, {});
+    return { score, confidence, rationale };
+  } catch {
+    return null;
+  }
 }
 
 export function listProposals(mnsDir) {
