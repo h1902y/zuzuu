@@ -68,14 +68,15 @@ function archive(mnsDir, proposal, status, extra = {}) {
 }
 
 /**
- * Approve: registry proposals append their key; item proposals write/merge the
- * item (unknown keys are DROPPED with warnings — knowledge stays registry-clean).
+ * Apply an approved proposal's effects — the canonical write path, extracted so
+ * the Knowledge faculty adapter (WS2-T2) can call the *same* logic. This is the
+ * registry-branch + ER-merge + writeItem + upsertItem body; it does NOT archive
+ * (the caller decides lifecycle). Behaviour is identical to the old inline body.
  * @returns {{ok:boolean, action:string, item?:string, warnings:string[]}}
  */
-export function approveProposal(mnsDir, id) {
-  const proposal = getProposal(mnsDir, id);
-  if (!proposal) return { ok: false, action: 'not-found', warnings: [] };
+export function applyKnowledgeProposal(mnsDir, proposal) {
   const warnings = [];
+  const id = proposal.id;
 
   if (proposal.kind === 'registry') {
     const file = join(mnsDir, 'knowledge', 'registry', `${proposal.registry}.json`);
@@ -83,7 +84,6 @@ export function approveProposal(mnsDir, id) {
     if (proposal.registry === 'attributes') defs.push({ key: proposal.key, value: 'string', description: `registered via proposal ${id}` });
     else defs.push({ name: proposal.key, inverse: proposal.key, description: `registered via proposal ${id} (symmetric — edit inverse if directional)` });
     writeFileSync(file, JSON.stringify(defs, null, 2) + '\n');
-    archive(mnsDir, proposal, 'approved');
     return { ok: true, action: `registered ${proposal.registry.slice(0, -1)} '${proposal.key}'`, warnings };
   }
 
@@ -117,8 +117,25 @@ export function approveProposal(mnsDir, id) {
   }
   writeItem(mnsDir, item);
   upsertItem(mnsDir, item);
-  archive(mnsDir, proposal, 'approved', { applied: action });
   return { ok: true, action, item: item.id, warnings };
+}
+
+/**
+ * Approve: registry proposals append their key; item proposals write/merge the
+ * item (unknown keys are DROPPED with warnings — knowledge stays registry-clean).
+ * Delegates the effect to applyKnowledgeProposal, then archives.
+ * @returns {{ok:boolean, action:string, item?:string, warnings:string[]}}
+ */
+export function approveProposal(mnsDir, id) {
+  const proposal = getProposal(mnsDir, id);
+  if (!proposal) return { ok: false, action: 'not-found', warnings: [] };
+
+  const r = applyKnowledgeProposal(mnsDir, proposal);
+  if (!r.ok) return r;
+
+  if (proposal.kind === 'registry') archive(mnsDir, proposal, 'approved');
+  else archive(mnsDir, proposal, 'approved', { applied: r.action });
+  return r;
 }
 
 export function rejectProposal(mnsDir, id, reason = '') {
