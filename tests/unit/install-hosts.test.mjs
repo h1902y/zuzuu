@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { addHookEntries, removeHookEntries } from '../../mns/live/install.mjs';
+import { addHookEntries, removeHookEntries } from '../../zuzuu/live/install.mjs';
 
 const cmd = (ev) => `node /x/mns.mjs hook ${ev} --host gemini-cli || true`;
 
@@ -21,8 +21,8 @@ test('addHookEntries is idempotent; removeHookEntries strips only ours', () => {
 });
 
 test('idempotent + removable with the REAL quoted command form (mns.mjs" hook)', () => {
-  // the real enable command quotes the BIN path: node "/abs/bin/mns.mjs" hook X --host h || true
-  const real = (ev) => `node "/Users/x/bin/mns.mjs" hook ${ev} --host gemini-cli || true`;
+  // the real enable command quotes the BIN path: node "/abs/bin/zuzuu.mjs" hook X --host h || true
+  const real = (ev) => `node "/Users/x/bin/zuzuu.mjs" hook ${ev} --host gemini-cli || true`;
   const once = addHookEntries({}, real, ['SessionStart', 'BeforeTool']);
   const twice = addHookEntries(once, real, ['SessionStart', 'BeforeTool']);
   assert.equal(twice.hooks.SessionStart.length, 1, 'no duplicate on re-enable');

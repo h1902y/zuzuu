@@ -72,24 +72,24 @@ export function init(args = {}) {
   const createdCount = plan.dirs.length + plan.files.length + (plan.manifestMissing ? 1 : 0);
 
   if (reinit) {
-    console.log(`Reinitialized existing mns home in ${join(cwd, 'agent')}/`);
+    console.log(`Reinitialized existing zuzuu home in ${join(cwd, 'agent')}/`);
     if (createdCount) console.log(`  restored : ${createdCount} missing piece(s)`);
     if (injected.length) console.log(`  injected : faculty block → ${injected.join(', ')}`);
     if (!createdCount && !injected.length && !ignoreAdded.length) console.log('  (complete — nothing to do)');
   } else if (greenfield) {
-    console.log(`Initialized empty mns home in ${join(cwd, 'agent')}/`);
+    console.log(`Initialized empty zuzuu home in ${join(cwd, 'agent')}/`);
     console.log(`  faculties : knowledge/ memory/ actions/ instructions/ guardrails/  (+ agent.json manifest)`);
     console.log(`  steering  : created ${created.join(' + ')} pointing your agent at its faculties`);
-    console.log(`  next      : \`mns enable\` for live capture · \`mns digest\` to preview the grounding your agent opens with · start your agent in ${basename(cwd)}/`);
+    console.log(`  next      : \`zuzuu enable\` for live capture · \`zuzuu digest\` to preview the grounding your agent opens with · start your agent in ${basename(cwd)}/`);
   } else {
-    console.log(`Initialized mns home in existing project ${join(cwd, 'agent')}/`);
+    console.log(`Initialized zuzuu home in existing project ${join(cwd, 'agent')}/`);
     console.log(`  faculties : knowledge/ memory/ actions/ instructions/ guardrails/  (+ agent.json manifest)`);
     const steer = [];
     if (injected.length) steer.push(`injected → ${injected.join(', ')}`);
     if (created.length) steer.push(`created ${created.join(' + ')} (read by Codex/OpenCode/pi)`);
     if (steer.length) console.log(`  steering  : ${steer.join(' · ')}`);
     const hosts = detected().map((a) => a.name).join(', ');
-    if (hosts) console.log(`  hosts     : detected ${hosts} — \`mns capture\` works now; \`mns enable\` for live`);
+    if (hosts) console.log(`  hosts     : detected ${hosts} — \`zuzuu capture\` works now; \`zuzuu enable\` for live`);
   }
   if (ignoreAdded.length) console.log(`  gitignore : +${ignoreAdded.join(' ')}`);
 }

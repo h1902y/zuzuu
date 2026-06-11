@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { addHooks, removeHooks, isInstalled, LIFECYCLE_EVENTS, SIGNATURE } from '../../mns/live/install.mjs';
+import { addHooks, removeHooks, isInstalled, LIFECYCLE_EVENTS, SIGNATURE } from '../../zuzuu/live/install.mjs';
 
-const commandFor = (e) => `node /x/bin/mns.mjs hook ${e} || true`;
+const commandFor = (e) => `node /x/bin/zuzuu.mjs hook ${e} || true`;
 const hasSig = (s) => JSON.stringify(s).includes(SIGNATURE);
 
 const NARROW_DENIES = ['Read(./agent/.traces/**)', 'Read(./agent/.live/**)'];

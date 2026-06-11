@@ -9,7 +9,7 @@ import { spawnSync } from 'node:child_process';
 // Drives the REAL gate: `mns hook PreToolUse` with a payload on stdin, in a
 // temp project scaffolded by the real `mns init` (so the seed rules are the
 // ones users actually get). Asserts the wire contract Claude Code consumes.
-const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'bin', 'mns.mjs');
+const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'bin', 'zuzuu.mjs');
 
 function gate(cwd, payload) {
   const r = spawnSync(process.execPath, [BIN, 'hook', 'PreToolUse'], { cwd, input: JSON.stringify(payload), encoding: 'utf8' });

@@ -9,7 +9,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync } from 'node
 import { repoRoot } from '../store.mjs';
 import { addHooks, removeHooks, isInstalled, LIFECYCLE_EVENTS, GATE_EVENTS, addHookEntries, removeHookEntries } from '../live/install.mjs';
 
-const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'bin', 'mns.mjs');
+const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'bin', 'zuzuu.mjs');
 
 // `|| true` → exit 0 even if node/mns is absent (graceful degradation).
 const commandFor = (event) => `node "${BIN}" hook ${event} || true`;

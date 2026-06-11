@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { existsSync, readFileSync } from 'node:fs';
-import { sessionStartContext, writeLiveDigest, handleHook } from '../../mns/commands/hook.mjs';
+import { sessionStartContext, writeLiveDigest, handleHook } from '../../zuzuu/commands/hook.mjs';
 
 function withHome(fn, project) {
   const root = mkdtempSync(join(tmpdir(), 'mns-hook-'));
@@ -25,7 +25,7 @@ test('sessionStartContext returns the Claude additionalContext shape', () => {
   withHome((root) => {
     const out = sessionStartContext(root);
     assert.equal(out.hookSpecificOutput.hookEventName, 'SessionStart');
-    assert.match(out.hookSpecificOutput.additionalContext, /mns faculty digest/);
+    assert.match(out.hookSpecificOutput.additionalContext, /zuzuu faculty digest/);
     assert.match(out.hookSpecificOutput.additionalContext, /Ship daily/);
   }, '# Project steering\n\nShip daily.\n');
 });
@@ -35,7 +35,7 @@ test('writeLiveDigest writes the digest to .mns/live/digest.md (universal channe
     writeLiveDigest(root);
     const p = join(root, '.mns', '.live', 'digest.md');
     assert.ok(existsSync(p), 'digest.md created');
-    assert.match(readFileSync(p, 'utf8'), /mns faculty digest/);
+    assert.match(readFileSync(p, 'utf8'), /zuzuu faculty digest/);
     assert.match(readFileSync(p, 'utf8'), /Ship daily/);
   }, '# Project steering\n\nShip daily.\n');
 });
@@ -64,7 +64,7 @@ test('sessionStartContext on an absent home degrades gracefully (no throw, well-
     // a non-empty digest, so we get a well-formed payload, never null/throw.
     const out = sessionStartContext(root); // must not throw
     assert.equal(out.hookSpecificOutput.hookEventName, 'SessionStart');
-    assert.match(out.hookSpecificOutput.additionalContext, /mns faculty digest/);
+    assert.match(out.hookSpecificOutput.additionalContext, /zuzuu faculty digest/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

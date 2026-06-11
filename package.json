@@ -1,6 +1,6 @@
 {
-  "name": "motorsandsensors",
-  "version": "0.2.0",
+  "name": "zuzuu",
+  "version": "1.0.0",
   "private": false,
   "type": "module",
   "description": "Give the coding agent you already run (Claude Code, Codex, Gemini CLI, OpenCode) evolving faculties — knowledge, memory, actions, instructions, guardrails — with host-agnostic OpenTelemetry session tracing. Zero dependencies.",
@@ -31,18 +31,19 @@
     "node": ">=22"
   },
   "bin": {
-    "mns": "bin/mns.mjs"
+    "zuzuu": "bin/zuzuu.mjs",
+    "mns": "bin/zuzuu.mjs"
   },
   "files": [
     "bin/",
-    "mns/",
+    "zuzuu/",
     "experiments/experiment-1-trace-capture/core/",
     "experiments/experiment-1-trace-capture/adapters/",
     "LICENSE",
     "README.md"
   ],
   "scripts": {
-    "mns": "node bin/mns.mjs",
+    "zuzuu": "node bin/zuzuu.mjs",
     "capture": "node experiments/experiment-1-trace-capture/bin/capture.mjs",
     "inspect": "node experiments/experiment-1-trace-capture/bin/inspect-trace.mjs",
     "test": "node --test 'tests/**/*.test.mjs'",

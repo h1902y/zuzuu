@@ -116,7 +116,7 @@ export function ceremonyBlock(genId, approvedIds, byFaculty) {
     .join(' · ');
   return [
     `\n✓ generation ${genId} minted from ${n} approval(s)${breakdown ? ` — ${breakdown}` : ''}.`,
-    `  inspect: mns generation show ${genId}   ·   roll back: mns generation rollback ${genId}`,
+    `  inspect: zuzuu generation show ${genId}   ·   roll back: zuzuu generation rollback ${genId}`,
   ].join('\n');
 }
 
@@ -294,6 +294,6 @@ export function proposals(args) {
     console.log(r.ok ? '✓ rejected' : '✗ not found');
     process.exit(r.ok ? 0 : 1);
   }
-  console.error('usage: mns proposals list|show <id>|approve <id>|reject <id> [--reason r] [--faculty f]');
+  console.error('usage: zuzuu proposals list|show <id>|approve <id>|reject <id> [--reason r] [--faculty f]');
   process.exit(1);
 }

@@ -4,9 +4,9 @@ import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import { mkdirSync as _mkdirA, writeFileSync as _writeA } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { computeDigest } from '../../mns/digest.mjs';
-import { writeItem } from '../../mns/knowledge/items.mjs';
-import { createProposal } from '../../mns/knowledge/proposals.mjs';
+import { computeDigest } from '../../zuzuu/digest.mjs';
+import { writeItem } from '../../zuzuu/knowledge/items.mjs';
+import { createProposal } from '../../zuzuu/knowledge/proposals.mjs';
 
 // Build a throwaway .mns home; return its path (the mnsDir).
 function withHome(fn, seed = {}) {
@@ -73,7 +73,7 @@ test('proposals + guardrails sections reflect state', () => {
     createProposal(mns, { candidate: { type: 'fact', body: 'releases must be tagged' }, source: 'test', evidence: {} });
     const d = computeDigest(mns);
     assert.equal(d.sections.proposals.pending, 1);
-    assert.match(d.text, /mns review/);
+    assert.match(d.text, /zuzuu review/);
     assert.match(d.text, /await your approval/);
     assert.equal(d.sections.guardrails.count, 1);
     assert.match(d.text, /enforced/i);

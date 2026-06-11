@@ -80,7 +80,7 @@ function guardrailsSection(mnsDir) {
 export function computeDigest(mnsDir, { knowledgeLimit = 5, budget = 1500 } = {}) {
   const charBudget = budget * 4;
   const sections = {};
-  const lines = ['# mns faculty digest', ''];
+  const lines = ['# zuzuu faculty digest', ''];
 
   const instr = readInstructions(mnsDir);
   sections.instructions = instr;
@@ -104,7 +104,7 @@ export function computeDigest(mnsDir, { knowledgeLimit = 5, budget = 1500 } = {}
       shown++;
     }
     const dropped = knowledge.count - shown;
-    if (dropped > 0) lines.push(`- … (${dropped} more — \`mns recall\`)`);
+    if (dropped > 0) lines.push(`- … (${dropped} more — \`zuzuu recall\`)`);
     // `shown` = items actually rendered (after budget); `count` = total available
     sections.knowledge = { ...knowledge, shown: knowledge.shown.slice(0, shown), renderedCount: shown };
   }
@@ -114,7 +114,7 @@ export function computeDigest(mnsDir, { knowledgeLimit = 5, budget = 1500 } = {}
   sections.actions = actions;
   if (actions.count) {
     lines.push('## Actions');
-    lines.push(`${actions.count} available; run with \`mns act <slug>\`:`);
+    lines.push(`${actions.count} available; run with \`zuzuu act <slug>\`:`);
     let shownA = 0;
     for (const a of actions.shown) {
       const line = `- ${a.slug} · ${a.promptSnippet}`;
@@ -123,7 +123,7 @@ export function computeDigest(mnsDir, { knowledgeLimit = 5, budget = 1500 } = {}
       shownA++;
     }
     const droppedA = actions.count - shownA;
-    if (droppedA > 0) lines.push(`- … (${droppedA} more — \`mns act list\`)`);
+    if (droppedA > 0) lines.push(`- … (${droppedA} more — \`zuzuu act list\`)`);
     lines.push('');
     // mirror the Knowledge contract: shown reflects what actually rendered
     sections.actions = { ...actions, shown: actions.shown.slice(0, shownA), renderedCount: shownA };
@@ -135,7 +135,7 @@ export function computeDigest(mnsDir, { knowledgeLimit = 5, budget = 1500 } = {}
   sections.proposals = proposals;
   if (proposals.pending > 0) {
     lines.push('## Proposals');
-    lines.push(`${proposals.pending} proposal(s) await your approval — run \`mns review\`; approving mints a generation (your checkpoint).`);
+    lines.push(`${proposals.pending} proposal(s) await your approval — run \`zuzuu review\`; approving mints a generation (your checkpoint).`);
     lines.push('');
   }
 

@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { scaffoldAction } from '../../mns/commands/act-author.mjs';
+import { scaffoldAction } from '../../zuzuu/commands/act-author.mjs';
 
 function withHome(fn) {
   const root = mkdtempSync(join(tmpdir(), 'mns-new-'));
@@ -47,7 +47,7 @@ test('scaffoldAction throws on an unsafe slug (containment at the lib layer)', (
 test('mns act new rejects a path-traversal slug (containment)', () => {
   const root = mkdtempSync(join(tmpdir(), 'mns-trav-'));
   mkdirSync(join(root, '.mns', 'actions'), { recursive: true });
-  const bin = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'bin', 'mns.mjs');
+  const bin = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'bin', 'zuzuu.mjs');
   try {
     const r = spawnSync(process.execPath, [bin, 'act', 'new', '../../escaped'], { cwd: root, encoding: 'utf8' });
     assert.equal(r.status, 1);
