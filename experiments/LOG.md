@@ -680,3 +680,37 @@ Both hosts ship detailed docs on disk (OpenCode: `@opencode-ai/plugin` types; pi
 - **All five hosts now have live capture; all five have an enforced gate** (Claude · Gemini · Codex · OpenCode · pi). The Stage-1 host-agnostic wrapper is complete across the full host set, host-honestly scoped (Codex interactive-only; OpenCode/pi deny-blocks, ask-defers).
 - pi — the Stage-3 owned-harness target — is now also a *wrapped* host (observe parity). Building the owned harness *on* pi remains gated on the efficiency benchmark; this is coverage only.
 - **The real-wire rule paid again:** OpenRouter unmasked the credential blocker, the probe flipped the OpenCode gate mechanism (`permission.ask`→`tool.execute.before`), disproved a web-sourced sessionID "bug," corrected pi's tool-result shape, and the dogfood caught the path-as-filename log bug. None were visible from docs.
+
+---
+
+## Experiment 13 — the faculty + evolution remediation program (WS1–WS5, 2026-06-11)
+
+**Hypothesis:** before Stage 2, audit whether the faculty **schemas** and the **evolution approach** are accurate and good, and whether any host is under-/over-served — then remediate. Three deep audits (faculty schemas · evolution model · per-host integration) found the architecture sound-in-intent but built as an **uneven staircase**, with one real serving bug and a design-only evolve layer. User chose the ambitious path: build the evolve spine, deliver the digest everywhere, level the faculties to a shared pattern, stub Memory. Five workstreams, TDD, 186 → 309 tests.
+
+### Audit findings (what we fixed)
+- **The digest was Claude-only.** `sessionStartContext()` emits Claude's `additionalContext` schema; the other 4 hosts' faculty block *promised* a digest they never received. (Corrected one audit claim: OpenCode + pi DO read the static block — via `AGENTS.md`; pi confirmed through `.contextFiles`.)
+- **Faculty maturity staircase:** Knowledge full (registry/ER/proposals/SQLite/provenance) → Actions partial (rename-only, no archive/provenance) → Guardrails/Instructions engine-only → Memory empty.
+- **Evolve spine design-only:** no Agent→Generation→Run, no pinning/rollback, no eval lens; proposals graduated one-at-a-time; `Session ≠ Run`.
+- Smaller: `convert.mjs` is **not** dead (used by `mns act schema`); no 6th faculty missing; Knowledge is the pattern to lift, not over-engineered.
+
+### What was built (5 workstreams)
+- **WS1 — serving honesty.** Universal digest: `writeLiveDigest()` writes `.mns/live/digest.md` on every OPEN event (host-agnostic) — the one channel all 5 hosts read; faculty block **v6** points there (Claude keeps its inline push). Brownfield `mns init` now guarantees `AGENTS.md` (Codex/OpenCode/pi depend on it). Memory schema stubbed. **Bonus fix:** a pi live-record path-as-id crash (sanitized the filename), found by the WS1 smoke test.
+- **WS2 — the shared faculty spine.** New `mns/faculty/` core (unified Proposal record + provenance + trail + registry + a generic approve/reject **gate**); a **Faculty Adapter** per faculty (`ingest/validate/apply/render`). `mns review` is now adapter-driven across **all five**; Actions reject **archives** (was a destructive delete); one-time schema migrator. Knowledge's registry/ER/SQLite + Actions' runner preserved unchanged. (Review caught a Critical: the generic gate had dropped the `if (!r.ok) return` guard → a failed apply was archived as approved; restored + regression-tested.)
+- **WS3 — the generation model.** Immutable generation lockfiles pin a per-faculty **item-id + content-hash manifest** with content snapshots; `generations/active` pointer; **rollback = flip pointer + materialize by hash** (never `git revert`). Batch-approving in `mns review` **mints** one generation; **Sessions pin the active generation at open** (Run linkage → every trace carries a `generation` fk); `mns doctor` reports faculty **hash drift**. `mns.json` v2 + agent id.
+- **WS4 — the eval lens.** Deterministic mechanical scorer (`mns/eval/` — signals/score/rank), swappable via `getScorer` for a future LLM-judge. `mns review` orders the queue by score + flags low-signal; `mns eval` is the non-interactive ranked view; proposals persist their score. **Ranks, never auto-approves** — the human gate stays mandatory.
+- **WS5 — multi-faculty miners.** A miner **registry** + a superset `mineTranscript` (command sequences, corrective turns, destructive failures). Per-faculty miners: **Actions** (recurring command n-grams → runbook), **Guardrails** (repeated destructive failures → rules — **`ask`-only, literal-escaped patterns, cross-session-gated**), **Instructions** (recurring corrections → amendments, low-confidence), **Memory** (registered stub). `mns distill --all-faculties` closes the loop: capture → mine → eval-rank → propose → human batch-approve → mint a generation.
+
+### Verified
+309 hermetic tests (186 → 309 across the program), zero LLM in the suite (the eval lens is pure; the miners are deterministic golden tests). Each workstream merged to main green. End-to-end proven: `mns review` mints a generation; editing an item → `mns doctor` flags drift; `mns generation rollback` restores; `mns eval` ranks; the **single-session destructive command produces NO guardrail rule** (the key safety property, independently code-verified — `action:'ask'` hardcoded, cross-session gate, `escapeRegex` forbids broad patterns).
+
+### Honest limits
+- **The evolve loop is wired but unproven on real graduations** — the miners + eval + mint exist and pass golden tests, but no real multi-session corpus has been distilled → approved → pinned yet. Human-gate is mandatory by design (v1).
+- **Memory is schema + a stub miner only** — no episode distiller built.
+- **Session = Run in v1** (one generation per session, minted out-of-band in review) — documented as the v1 model, not permanent.
+- The eval lens is mechanical-only; the LLM-judge seam (`getScorer`) is present but unimplemented (DESIGN §6 / mns-credits).
+- Generation rollback restores by content snapshot; verified on knowledge items in tests — broad multi-faculty rollback is exercised by units, not yet a real session.
+
+### Conclusions
+- The five faculties now share **one spine** (proposal/provenance/trail/gate) and one human gate; the approach is coherent, not a staircase. Every faculty can be observed, proposed-into, evaluated, reviewed, and pinned.
+- **observe → serve → evolve** is now end-to-end *in code* (was: evolve design-only). The differentiator — versioned, rollback-able generations grown from real traces, human-gated — exists and is tested; proving it on a real graduation corpus is the next milestone.
+- The audit method earned its keep: it caught the Claude-only digest, the destructive Actions-reject, and the missing gate guard — none visible without reading the whole system.

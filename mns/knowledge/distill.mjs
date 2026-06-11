@@ -18,12 +18,44 @@ import { createProposal, fileRegistryProposals } from './proposals.mjs';
 
 const norm = (cmd) => String(cmd).trim().replace(/\s+/g, ' ').slice(0, 200);
 
-/** Extract raw mining signals from one Claude Code transcript. */
+// Superset (WS5-T1) constants.
+const SEQ_SEP = ' && '; // joins adjacent Bash commands into a 2-gram label
+const CORRECTION_LEXICON = ["no, don't", "don't ", 'actually use', 'always ', 'never ', 'stop ', 'instead'];
+const DESTRUCTIVE_SHAPES = [/\brm\s+-[a-z]*r/, /git\s+push\s+.*--force/, /DROP\s+TABLE/i, /chmod\s+-R/];
+
+const isCorrection = (text) => {
+  const t = String(text).toLowerCase();
+  return CORRECTION_LEXICON.some((p) => t.includes(p));
+};
+const isDestructive = (cmd) => DESTRUCTIVE_SHAPES.some((re) => re.test(cmd));
+
+/** Extract a plain-text string from a user message content (string or block array). */
+function userText(content) {
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content
+      .filter((b) => b && b.type === 'text' && typeof b.text === 'string')
+      .map((b) => b.text)
+      .join(' ');
+  }
+  return '';
+}
+/** True if a user message is a tool_result echo (not a real user turn). */
+const isToolResult = (content) => Array.isArray(content) && content.some((b) => b && b.type === 'tool_result');
+
+/**
+ * Extract raw mining signals from one Claude Code transcript.
+ * SUPERSET (WS5-T1): the original `commands/files/failures` keys are unchanged;
+ * `sequences/correctionTurns/destructiveFailures` are added for later faculties.
+ */
 export function mineTranscript(file) {
-  const out = { commands: [], files: [], failures: [] };
+  const out = { commands: [], files: [], failures: [], sequences: [], correctionTurns: [], destructiveFailures: [] };
   let sessionId = '';
   const results = new Map(); // tool_use_id -> is_error
-  const uses = []; // {name, input}
+  const uses = []; // {id, name, input}
+  const bashOrder = []; // normalized Bash commands in transcript order
+  const userTurns = []; // {text, afterToolAction}
+  let sawToolAction = false;
   for (const line of readFileSync(file, 'utf8').split('\n')) {
     if (!line) continue;
     let e;
@@ -34,11 +66,18 @@ export function mineTranscript(file) {
     }
     if (e.sessionId) sessionId ||= e.sessionId;
     const content = e.message?.content;
+    // real user turn (text), not a tool_result echo → candidate correction turn
+    if (e.type === 'user' && content != null && !isToolResult(content)) {
+      const text = userText(content).trim();
+      if (text) userTurns.push({ text, afterToolAction: sawToolAction });
+    }
     if (!Array.isArray(content)) continue;
     for (const b of content) {
       if (b.type === 'tool_use') {
         const input = typeof b.input === 'string' ? safeParse(b.input) : b.input ?? {};
         uses.push({ id: b.id, name: b.name, input });
+        sawToolAction = true;
+        if (b.name === 'Bash' && input?.command) bashOrder.push(norm(input.command));
       } else if (b.type === 'tool_result') {
         results.set(b.tool_use_id, !!b.is_error);
       }
@@ -50,7 +89,15 @@ export function mineTranscript(file) {
     const fp = u.input?.file_path || u.input?.path;
     if (fp && ['Read', 'Write', 'Edit', 'NotebookEdit'].includes(u.name)) out.files.push(String(fp));
     if (failed) out.failures.push(u.name);
+    if (failed && u.name === 'Bash' && u.input?.command) {
+      const cmd = norm(u.input.command);
+      if (isDestructive(cmd)) out.destructiveFailures.push({ cmd, tool: u.name });
+    }
   }
+  // 2-gram Bash sequences (adjacent within the session)
+  for (let i = 0; i + 1 < bashOrder.length; i++) out.sequences.push(bashOrder[i] + SEQ_SEP + bashOrder[i + 1]);
+  // corrective user turns that follow an assistant tool action
+  for (const t of userTurns) if (t.afterToolAction && isCorrection(t.text)) out.correctionTurns.push({ text: t.text.slice(0, 500) });
   return { sessionId, ...out };
 }
 
