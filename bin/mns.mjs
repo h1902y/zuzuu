@@ -27,6 +27,7 @@ import { digest } from '../mns/commands/digest.mjs';
 import { act } from '../mns/commands/act.mjs';
 import { migrate } from '../mns/commands/migrate.mjs';
 import { generation } from '../mns/commands/generation.mjs';
+import { evalCmd } from '../mns/commands/eval.mjs';
 
 function parseArgs(argv) {
   const a = { _: [] };
@@ -80,6 +81,7 @@ usage: mns <command> [options]
                             pin/list/roll back faculty generations (lockfiles)
   enable                    background hooks: invisible live capture + guardrails gate
   disable                   remove the background hooks
+  eval [--faculty f]        rank pending proposals by eval score, highest first
   migrate                   one-time migrator: rewrite legacy candidate/er proposals to new shape
   doctor                    environment + session health (reconciles lost sessions)
   version                   print version
@@ -108,6 +110,7 @@ switch (cmd) {
   case 'enable': enable(args); break;
   case 'disable': disable(args); break;
   case 'hook': runHook(args._[0], { host: args.host, session: args.session }); break;
+  case 'eval': evalCmd(args); break;
   case 'migrate': migrate(args); break;
   case 'generation': generation(args); break;
   case 'doctor': await doctor(); break;

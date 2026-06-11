@@ -7,7 +7,7 @@
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
-import { paths } from '../store.mjs';
+import { paths, readIndex } from '../store.mjs';
 import { processInbox } from '../knowledge/inbox.mjs';
 import { getProposal, proposalsDir } from '../knowledge/proposals.mjs';
 import { readItem } from '../knowledge/items.mjs';
@@ -15,11 +15,30 @@ import * as registry from '../faculty/registry.mjs';
 import * as gate from '../faculty/gate.mjs';
 import { listProposals as spineListProposals } from '../faculty/proposal.mjs';
 import { mintGeneration, activeGeneration } from '../faculty/generation.mjs';
+import { rank } from '../eval/rank.mjs';
+import { getScorer, mechanicalScore } from '../eval/score.mjs';
+import { evalLine } from './eval.mjs';
 import '../knowledge/adapter.mjs';    // self-registers the 'knowledge' adapter
 import '../actions/adapter.mjs';      // self-registers the 'actions' adapter
 import '../guardrails/adapter.mjs';   // self-registers the 'guardrails' adapter
 import '../instructions/adapter.mjs'; // self-registers the 'instructions' adapter
 import '../memory/adapter.mjs';       // self-registers the 'memory' adapter
+
+/** Build sessionMtimes map from the sessions index — best-effort, fail-open. */
+function buildSessionMtimes() {
+  try {
+    const idx = readIndex();
+    const map = {};
+    for (const s of idx.sessions ?? []) {
+      if (!s.id) continue;
+      const ms = s.startedAt ? Date.parse(s.startedAt) : 0;
+      if (!isNaN(ms) && ms > 0) map[s.id] = ms;
+    }
+    return map;
+  } catch {
+    return {};
+  }
+}
 
 // Review walks faculties in a fixed order so piped sessions are deterministic
 // (the combo smoke test feeds one stdin across the actions pass then knowledge).
@@ -35,10 +54,17 @@ function pendingByFaculty(mnsDir) {
     if (a) { ordered.push(a); seen.add(name); }
   }
   for (const a of adapters) if (!seen.has(a.name)) ordered.push(a);
+  const sessionMtimes = buildSessionMtimes();
+  const now = Date.now();
+  const scorer = getScorer();
   const out = [];
   for (const a of ordered) {
-    const proposals = facultyPending(mnsDir, a);
-    if (proposals.length) out.push({ adapter: a, proposals });
+    let proposals = facultyPending(mnsDir, a);
+    if (!proposals.length) continue;
+    // Rank proposals highest-score-first (display only — never changes approval/mint).
+    const ranked = rank(proposals, scorer, { now, sessionMtimes });
+    proposals = ranked.map((r) => r.proposal);
+    out.push({ adapter: a, proposals });
   }
   return out;
 }
@@ -51,7 +77,7 @@ function facultyPending(mnsDir, a) {
   return spineListProposals(mnsDir, a.name);
 }
 
-function card(mnsDir, p, i, total) {
+function card(mnsDir, p, i, total, scoreResult) {
   const lines = [];
   lines.push(`\n━━ proposal ${i + 1}/${total} ── ${p.id} ── ${p.kind} ── source: ${p.source ?? '-'} ━━`);
   if (p.kind === 'registry') {
@@ -70,6 +96,8 @@ function card(mnsDir, p, i, total) {
       if (m) lines.push(`  existing: ${m.body.slice(0, 80).replace(/\n/g, ' ')}`);
     }
   }
+  // Eval line — always shown; scoreResult computed by caller from ranked array.
+  if (scoreResult) lines.push(`  ${evalLine(scoreResult)}`);
   return lines.join('\n');
 }
 
@@ -116,19 +144,26 @@ export async function review() {
   const approvedIds = [];
   let approved = 0, rejected = 0, skipped = 0;
   let totalLeft = groups.reduce((n, g) => n + g.proposals.length, 0);
+  const sessionMtimes = buildSessionMtimes();
+  const now = Date.now();
+  const scorer = getScorer();
   // One loop over faculties with pending proposals (adapter-driven, WS2-T3).
   for (const { adapter, proposals } of groups) {
     const isActions = adapter.name === 'actions';
     for (let i = 0; i < proposals.length; i++) {
       const p = proposals[i];
+      // Compute scoreResult for this proposal (fail-open).
+      let scoreResult = null;
+      try { scoreResult = scorer(p, { now, sessionMtimes }); } catch { /* fail-open */ }
       // Card: knowledge keeps its rich card (ER + existing-item lookup); other
       // faculties render through the adapter contract.
-      if (adapter.name === 'knowledge') console.log(card(mnsDir, p, i, proposals.length));
+      if (adapter.name === 'knowledge') console.log(card(mnsDir, p, i, proposals.length, scoreResult));
       else {
         const r = adapter.render(p);
         const [head, ...rest] = r.card.split('\n');
         console.log(`\n━━ ${adapter.name} ${i + 1}/${proposals.length} ── ${head} ━━`);
         if (rest.length) console.log(rest.join('\n'));
+        if (scoreResult) console.log(`  ${evalLine(scoreResult)}`);
       }
       const prompt = isActions
         ? '  [y]activate [n]reject [s]kip [q]uit > '
@@ -153,7 +188,9 @@ export async function review() {
           const fresh = getProposal(mnsDir, p.id);
           if (fresh) {
             proposals[i] = fresh;
-            console.log(card(mnsDir, fresh, i, proposals.length));
+            let freshScore = null;
+            try { freshScore = scorer(fresh, { now, sessionMtimes }); } catch { /* fail-open */ }
+            console.log(card(mnsDir, fresh, i, proposals.length, freshScore));
           }
         } else if (a === 's') {
           skipped++; totalLeft--; acted = true;
