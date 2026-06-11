@@ -4,7 +4,11 @@
 // delimiter blocks. Instead we tag our entries by a stable command SIGNATURE and
 // add/remove only those — never clobbering the user's own hooks. Idempotent.
 
-export const SIGNATURE = 'mns.mjs'; // appears in every mns hook command path, quote-agnostic
+export const SIGNATURE = 'zuzuu.mjs'; // appears in every zuzuu hook command path, quote-agnostic
+// Match our entries by the new OR the legacy bin name, so re-enable/disable on a
+// project wired before the rebrand cleans up its old `mns.mjs` hook commands too.
+const SIGNATURES = ['zuzuu.mjs', 'mns.mjs'];
+const tagged = (cmd) => SIGNATURES.some((s) => String(cmd).includes(s));
 // entire-style: agent can't read its own observability output (feedback loop) —
 // but ONLY that. The faculty home (agent/knowledge etc., served by `mns init`)
 // must stay readable, so the deny is narrowed to .traces/ + .live/.
@@ -22,7 +26,7 @@ export const GATE_EVENTS = ['PreToolUse'];
 const ALL_EVENTS = [...LIFECYCLE_EVENTS, ...GATE_EVENTS];
 
 const clone = (o) => JSON.parse(JSON.stringify(o ?? {}));
-const hasOurs = (matchers) => (matchers || []).some((m) => (m.hooks || []).some((h) => String(h.command).includes(SIGNATURE)));
+const hasOurs = (matchers) => (matchers || []).some((m) => (m.hooks || []).some((h) => tagged(h.command)));
 
 /** Pure hook add for ANY host's {hooks:{Event:[{hooks:[…]}]}} config. No permissions. */
 export function addHookEntries(settings, commandFor, events) {
@@ -40,7 +44,7 @@ export function removeHookEntries(settings) {
   const s = clone(settings);
   if (s.hooks) {
     for (const ev of Object.keys(s.hooks)) {
-      s.hooks[ev] = (s.hooks[ev] || []).filter((m) => !(m.hooks || []).some((h) => String(h.command).includes(SIGNATURE)));
+      s.hooks[ev] = (s.hooks[ev] || []).filter((m) => !(m.hooks || []).some((h) => tagged(h.command)));
       if (!s.hooks[ev].length) delete s.hooks[ev];
     }
     if (!Object.keys(s.hooks).length) delete s.hooks;

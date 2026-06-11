@@ -11,7 +11,7 @@ import { processInbox } from '../../mns/knowledge/inbox.mjs';
 import { writeItem, readItem } from '../../mns/knowledge/items.mjs';
 import { SEED_TYPES, SEED_ATTRIBUTES, SEED_RELATIONS, loadRegistry } from '../../mns/knowledge/registry.mjs';
 
-const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'bin', 'mns.mjs');
+const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'bin', 'zuzuu.mjs');
 
 function withHome(fn) {
   const dir = mkdtempSync(join(tmpdir(), 'mns-pipe-'));
