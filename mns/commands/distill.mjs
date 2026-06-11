@@ -1,7 +1,15 @@
-// `mns distill` — mine real sessions into knowledge proposals (source A).
+// `mns distill` — mine real sessions into proposals (source A).
+//
+// Default: knowledge only (back-compat, via distillSessions). With
+// `--all-faculties`: mine each transcript ONCE into a superset, then run every
+// registered faculty miner (knowledge today; actions/guardrails/instructions/
+// memory land in later WS5 tasks) over the shared sessions array.
 
 import { paths } from '../store.mjs';
-import { distillSessions, transcriptsFor } from '../knowledge/distill.mjs';
+import { distillSessions, transcriptsFor, mineTranscript } from '../knowledge/distill.mjs';
+import * as registry from '../miners/registry.mjs';
+// Import miner modules so they self-register.
+import '../miners/knowledge.mjs';
 
 export function distill(args) {
   const scope = args.all ? 'all' : args.session ? null : 'last';
@@ -11,6 +19,29 @@ export function distill(args) {
     process.exit(2);
   }
   const mnsDir = paths().dir;
+
+  if (args['all-faculties'] || args.allFaculties) {
+    const sessions = files
+      .map((f) => {
+        try {
+          return mineTranscript(f);
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean);
+    console.log(`distilled ${sessions.length} session(s) across ${registry.all().length} faculty miner(s):`);
+    let total = 0;
+    for (const miner of registry.all()) {
+      const cand = miner.aggregate(sessions, {});
+      const n = miner.propose(mnsDir, cand);
+      total += n;
+      console.log(`  ${miner.faculty.padEnd(12)} ${n} proposal(s)`);
+    }
+    if (total) console.log('next: mns review');
+    return;
+  }
+
   const r = distillSessions(mnsDir, files);
   console.log(`distilled ${r.sessionsMined} session(s) → ${r.proposals.length} proposal(s)${r.registryProposals.length ? ` (+${r.registryProposals.length} registry)` : ''}`);
   for (const p of r.proposals) console.log(`  ${p.er.verdict.padEnd(9)} ${p.id}`);
