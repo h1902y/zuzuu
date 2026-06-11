@@ -9,6 +9,7 @@ import { statusData } from '../../zuzuu/commands/status.mjs';
 import { inboxData } from '../../zuzuu/commands/inbox.mjs';
 import { generationListData, generationShowData } from '../../zuzuu/commands/generation.mjs';
 import { mintGeneration } from '../../zuzuu/faculty/generation.mjs';
+import { digestData } from '../../zuzuu/commands/digest.mjs';
 
 function withHome(fn) {
   const root = mkdtempSync(join(tmpdir(), 'zjson-'));
@@ -51,5 +52,12 @@ test('generationListData returns active + list; showData returns the diff', () =
     assert.equal(show.id, lf.id);
     assert.ok(show.faculties && typeof show.faculties === 'object');
     assert.equal(generationShowData(dir, 'gen_999'), null);   // unknown id
+  });
+});
+
+test('digestData returns { text }', () => {
+  withHome((dir) => {
+    const d = digestData(dir);
+    assert.equal(typeof d.text, 'string');
   });
 });
