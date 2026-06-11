@@ -12,6 +12,8 @@ import * as registry from '../miners/registry.mjs';
 import '../miners/knowledge.mjs';
 import '../miners/actions.mjs';
 import '../miners/guardrails.mjs';
+import '../miners/instructions.mjs';
+import '../miners/memory.mjs';
 
 export function distill(args) {
   const scope = args.all ? 'all' : args.session ? null : 'last';
