@@ -169,6 +169,57 @@ export function readGeneration(mnsDir, id) {
   return existsSync(p) ? readJson(p) : null;
 }
 
+/** Item-list faculties carry {id,hash}[]; single-file faculties a *Hash scalar. */
+const HASH_KEYS = { knowledge: 'registryHash', instructions: 'projectHash', guardrails: 'rulesHash' };
+
+/** Diff two item-manifest arrays → {added, changed, removed} (id lists). */
+function diffItems(parentItems = [], childItems = []) {
+  const p = new Map(parentItems.map((i) => [i.id, i.hash]));
+  const c = new Map(childItems.map((i) => [i.id, i.hash]));
+  const added = [], changed = [], removed = [];
+  for (const [id, hash] of c) {
+    if (!p.has(id)) added.push(id);
+    else if (p.get(id) !== hash) changed.push(id);
+  }
+  for (const id of p.keys()) if (!c.has(id)) removed.push(id);
+  return { added: added.sort(), changed: changed.sort(), removed: removed.sort() };
+}
+
+/**
+ * Per-faculty diff of generation `id` against its forkedFrom parent (pure).
+ * For item-list faculties (knowledge/actions/memory) reports added/changed/removed
+ * id lists. For hash-only faculties (guardrails/instructions, and knowledge's
+ * registry) reports a `changed` boolean when the scalar hash differs. When there
+ * is no parent (forkedFrom null), everything present counts as added.
+ * Returns null for an unknown id.
+ */
+export function diffGenerations(mnsDir, id) {
+  const child = readGeneration(mnsDir, id);
+  if (!child) return null;
+  const parent = child.forkedFrom ? readGeneration(mnsDir, child.forkedFrom) : null;
+  const cf = child.faculties || {};
+  const pf = parent?.faculties || {};
+  const faculties = {};
+  for (const f of ['knowledge', 'actions', 'memory']) {
+    faculties[f] = diffItems(pf[f]?.items, cf[f]?.items);
+    // knowledge also has a registry hash
+    if (f === 'knowledge') {
+      faculties[f].registryChanged = (cf.knowledge?.registryHash ?? null) !== (pf.knowledge?.registryHash ?? null);
+    }
+  }
+  for (const f of ['guardrails', 'instructions']) {
+    const key = HASH_KEYS[f];
+    faculties[f] = { changed: (cf[f]?.[key] ?? null) !== (pf[f]?.[key] ?? null) };
+  }
+  return {
+    id,
+    forkedFrom: child.forkedFrom ?? null,
+    mintedFrom: Array.isArray(child.mintedFrom) ? child.mintedFrom : [],
+    mintedAt: child.mintedAt ?? null,
+    faculties,
+  };
+}
+
 function nextGenId(mnsDir) {
   const ids = listGenerations(mnsDir);
   const max = ids.reduce((m, id) => Math.max(m, parseInt(id.slice(4), 10) || 0), 0);

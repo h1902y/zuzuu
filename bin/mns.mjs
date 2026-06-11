@@ -83,8 +83,8 @@ usage: mns <command> [options]
   review                    walk pending actions + knowledge proposals (y/n/e/s/q)
   proposals list|show|approve|reject <id>
                             the same gate, non-interactive
-  generation [list|mint|rollback <id>]
-                            pin/list/roll back faculty generations (lockfiles)
+  generation [list|show <id>|mint|rollback <id>]
+                            pin/list/show/roll back faculty generations (lockfiles)
   enable                    background hooks: invisible live capture + guardrails gate
   disable                   remove the background hooks
   eval [--faculty f]        rank pending proposals by eval score, highest first
