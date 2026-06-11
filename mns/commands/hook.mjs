@@ -64,8 +64,10 @@ export function handleHook({ event, payload = {}, cwd = process.cwd(), now = Dat
   const adapter = byName(host);
 
   if (OPEN.has(event)) {
-    openLive({ id, host, transcriptPath: ref, startedAt: new Date(now).toISOString(), now }, cwd);
-    safeCapture(adapter, ref, SessionState.ACTIVE, cwd);
+    try {
+      openLive({ id, host, transcriptPath: ref, startedAt: new Date(now).toISOString(), now }, cwd);
+      safeCapture(adapter, ref, SessionState.ACTIVE, cwd);
+    } catch { /* live/capture hiccup must not block grounding below */ }
     writeLiveDigest(cwd); // universal grounding channel — every host reads .mns/live/digest.md
   } else if (TURN.has(event)) {
     touchLive({ id, host, transcriptPath: ref, now }, cwd);
