@@ -204,13 +204,17 @@ export function mineHostSession({ host, ref, sessionId }) {
   }
 }
 
-/** Run the full distill: mine sessions (all hosts) → candidates → ER → proposals. */
+/** Run the full distill: mine sessions (all hosts) → candidates → ER → proposals.
+ *  Candidates whose id is already resolved in proposals/archive/ are NOT
+ *  re-filed (a rejection is remembered) — they come back as `archivedSkips`. */
 export function distillSessions(agentDir, pairs) {
   const mined = pairs.map(mineHostSession).filter(Boolean);
   const candidates = aggregate(mined);
-  const proposals = candidates.map((c) => createProposal(agentDir, { candidate: c.candidate, source: 'distill', evidence: c.evidence }));
+  const results = candidates.map((c) => createProposal(agentDir, { candidate: c.candidate, source: 'distill', evidence: c.evidence }));
+  const proposals = results.filter((p) => p.status !== 'archived-skip');
+  const archivedSkips = results.filter((p) => p.status === 'archived-skip');
   const registryProposals = fileRegistryProposals(agentDir);
-  return { sessionsMined: mined.length, proposals, registryProposals };
+  return { sessionsMined: mined.length, proposals, registryProposals, archivedSkips };
 }
 
 /**

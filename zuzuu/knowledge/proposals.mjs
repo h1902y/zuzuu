@@ -15,6 +15,7 @@ import { allItems, readItem, writeItem, slugify } from './items.mjs';
 import { upsertItem } from './index.mjs';
 import { resolve as erResolve, merge } from './er.mjs';
 import { mechanicalScore } from '../eval/score.mjs';
+import { readArchived } from '../faculty/proposal.mjs';
 
 export const proposalsDir = (agentDir) => join(agentDir, 'knowledge', 'proposals');
 const archiveDir = (agentDir) => join(proposalsDir(agentDir), 'archive');
@@ -27,12 +28,20 @@ function writeProposal(agentDir, p) {
   return p;
 }
 
-/** Run ER for a candidate and file a pending proposal (deduped per candidate). */
+/** Run ER for a candidate and file a pending proposal (deduped per candidate).
+ *  A rejection is remembered: if the derived id is already RESOLVED in
+ *  proposals/archive/ (rejected or approved), nothing is filed — the call
+ *  returns `{ id, status: 'archived-skip', archived: <resolved status> }` so
+ *  callers can count/report the skip instead of resurrecting the proposal. */
 export function createProposal(agentDir, { candidate, source, evidence = {} }) {
   const { items } = allItems(agentDir);
   candidate.id = candidate.id || slugify(candidate.body);
   const er = erResolve(candidate, items);
   const id = `${candidate.id}-${shortHash(candidate.id + source)}`;
+  const archived = readArchived(agentDir, 'knowledge', id);
+  if (archived && (archived.status === 'rejected' || archived.status === 'approved')) {
+    return { id, status: 'archived-skip', archived: archived.status };
+  }
   const existing = join(proposalsDir(agentDir), `${id}.json`);
   if (existsSync(existing)) {
     // refresh evidence on the pending proposal instead of duplicating it

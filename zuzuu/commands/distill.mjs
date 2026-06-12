@@ -40,7 +40,10 @@ export function distill(args) {
   }
 
   const r = distillSessions(agentDir, pairs);
-  console.log(`distilled ${r.sessionsMined} session(s) → ${r.proposals.length} proposal(s)${r.registryProposals.length ? ` (+${r.registryProposals.length} registry)` : ''}`);
+  const skips = r.archivedSkips ?? [];
+  console.log(`distilled ${r.sessionsMined} session(s) → ${r.proposals.length} proposal(s)${r.registryProposals.length ? ` (+${r.registryProposals.length} registry)` : ''}${skips.length ? ` (${skips.length} archived-skip)` : ''}`);
   for (const p of r.proposals) console.log(`  ${p.er.verdict.padEnd(9)} ${p.id}`);
+  // already resolved (rejected/approved) in proposals/archive/ — not re-filed
+  for (const p of skips) console.log(`  archived-skip ${p.id} (${p.archived})`);
   if (r.proposals.length) console.log('next: zuzuu review');
 }

@@ -97,6 +97,32 @@ export function readProposal(agentDir, faculty, id) {
 }
 
 /**
+ * Read and normalise a resolved proposal from the faculty's archive.
+ * Returns null if no archive record exists or it is unreadable (never throws).
+ */
+export function readArchived(agentDir, faculty, id) {
+  const path = join(archiveDir(agentDir, faculty), `${id}.json`);
+  if (!existsSync(path)) return null;
+  try {
+    return normalise(JSON.parse(readFileSync(path, 'utf8')), faculty);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * True when an id is already resolved in the archive (rejected OR approved).
+ * Policy: a rejection is remembered — filing layers must skip these ids so a
+ * re-distill over the same sessions never resurrects a resolved proposal.
+ * (Approved ids are skipped too: the work is done; ER handles enrichment.)
+ * Gate at the CALLERS — writeProposal stays a dumb writer.
+ */
+export function isArchivedResolved(agentDir, faculty, id) {
+  const rec = readArchived(agentDir, faculty, id);
+  return !!rec && (rec.status === 'rejected' || rec.status === 'approved');
+}
+
+/**
  * List all pending proposals for a faculty (files in proposals/ not in archive/).
  * Normalises each record. Skips unreadable files (fail-soft).
  */

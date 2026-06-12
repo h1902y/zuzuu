@@ -18,7 +18,7 @@
 import { join } from 'node:path';
 import { existsSync, readFileSync } from 'node:fs';
 import { slugify } from '../knowledge/items.mjs';
-import { makeProposal, writeProposal, listProposals } from '../faculty/proposal.mjs';
+import { makeProposal, writeProposal, listProposals, isArchivedResolved } from '../faculty/proposal.mjs';
 import { register } from './registry.mjs';
 
 // ---------------------------------------------------------------------------
@@ -127,6 +127,8 @@ export function aggregate(sessions, { minFailures = 3, minSessions = 2 } = {}) {
  * Idempotent:
  *   - skips if a guardrails proposal with the same payload.id already exists
  *   - skips if rules.json already has a rule with that id
+ *   - skips if the id is already resolved in proposals/archive/ — a rejection
+ *     is remembered; re-distilling never resurrects it
  *
  * The proposals flow through `zuzuu review` → guardrails adapter on approval.
  *
@@ -158,6 +160,9 @@ export function propose(agentDir, aggregated) {
       payload,
       evidence,
     });
+
+    // A rejection is remembered: never resurrect an archive-resolved id.
+    if (isArchivedResolved(agentDir, 'guardrails', proposal.id)) continue;
 
     writeProposal(agentDir, proposal);
     count++;

@@ -7,12 +7,15 @@ import { aggregate } from '../knowledge/distill.mjs';
 import { createProposal } from '../knowledge/proposals.mjs';
 import { register } from './registry.mjs';
 
-/** File one knowledge proposal per aggregated candidate; return the count. */
+/** File one knowledge proposal per aggregated candidate; return the count of
+ *  actually-filed proposals (archive-resolved ids are skipped, not re-filed). */
 export function propose(agentDir, aggregated) {
+  let count = 0;
   for (const c of aggregated) {
-    createProposal(agentDir, { candidate: c.candidate, source: 'distill', evidence: c.evidence });
+    const p = createProposal(agentDir, { candidate: c.candidate, source: 'distill', evidence: c.evidence });
+    if (p && p.status !== 'archived-skip') count++;
   }
-  return aggregated.length;
+  return count;
 }
 
 export const miner = { faculty: 'knowledge', aggregate, propose };

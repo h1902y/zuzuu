@@ -11,7 +11,7 @@
 
 import { join } from 'node:path';
 import { existsSync, readFileSync } from 'node:fs';
-import { makeProposal, writeProposal, listProposals } from '../faculty/proposal.mjs';
+import { makeProposal, writeProposal, listProposals, isArchivedResolved } from '../faculty/proposal.mjs';
 import { register } from './registry.mjs';
 
 // ---------------------------------------------------------------------------
@@ -103,6 +103,8 @@ export function aggregate(sessions, { minSessions = 2 } = {}) {
  * Idempotent:
  *   - skips if an instructions proposal with the same derived id already exists
  *   - skips if the text is already present in project.md
+ *   - skips if the id is already resolved in proposals/archive/ — a rejection
+ *     is remembered; re-distilling never resurrects it
  *
  * @param {string} agentDir
  * @param {ReturnType<typeof aggregate>} aggregated
@@ -136,6 +138,9 @@ export function propose(agentDir, aggregated) {
       payload,
       evidence,
     });
+
+    // A rejection is remembered: never resurrect an archive-resolved id.
+    if (isArchivedResolved(agentDir, 'instructions', proposal.id)) continue;
 
     writeProposal(agentDir, proposal);
     count++;
