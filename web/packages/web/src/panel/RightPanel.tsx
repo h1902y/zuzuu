@@ -1,10 +1,15 @@
+import { lazy, Suspense } from "react";
 import { useEditor } from "../state/editor";
 import { useRightPanel } from "../state/right-panel";
-import { EditorPane } from "../editor/EditorPane";
 import { Bar, IconButton } from "../components/ui";
 import { Dashboard } from "./Dashboard";
 import { FacultyView } from "./FacultyView";
 import { FACULTY_META } from "./kit";
+
+// Lazy boundary: the editor pane graph (Monaco wrapper, markdown/CSV/cast
+// previews) rides its own chunk — loaded the first time a file opens.
+const EditorPane = lazy(() =>
+  import("../editor/EditorPane").then((m) => ({ default: m.EditorPane })));
 
 /**
  * The right panel — ONE surface, two modes:
@@ -33,17 +38,19 @@ export function RightPanel({
   // covers the first render after a reload with a stale 'files' mode
   if (mode === "files" && hasEditor) {
     return (
-      <EditorPane
-        leading={
-          <button
-            onClick={showFaculties}
-            className="shrink-0 self-stretch border-r border-border px-2 text-meta text-ink-500 transition-colors hover:text-accent"
-            title="Show faculties (editor tabs stay open)"
-          >
-            ‹ faculties
-          </button>
-        }
-      />
+      <Suspense fallback={<div className="flex h-full items-center justify-center text-ui text-ink-500">loading editor…</div>}>
+        <EditorPane
+          leading={
+            <button
+              onClick={showFaculties}
+              className="shrink-0 self-stretch border-r border-border px-2 text-meta text-ink-500 transition-colors hover:text-accent"
+              title="Show faculties (editor tabs stay open)"
+            >
+              ‹ faculties
+            </button>
+          }
+        />
+      </Suspense>
     );
   }
 
