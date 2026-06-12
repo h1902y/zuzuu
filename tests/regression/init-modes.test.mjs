@@ -85,7 +85,7 @@ test('mode 3 — reinit: byte-identical no-op on a complete home; user edits sur
     writeFileSync(join(cwd, 'CLAUDE.md'), '# Mine\n');
     run(cwd);
     // user customizes a seeded file
-    writeFileSync(join(cwd, '.zuzuu', 'instructions', 'project.md'), 'CUSTOM\n');
+    writeFileSync(join(cwd, '.zuzuu', 'instructions', 'items', 'steering.md'), 'CUSTOM\n');
     const before = snapshot(cwd);
     const out = run(cwd);
     assert.match(out, /Reinitialized existing zuzuu home/);
