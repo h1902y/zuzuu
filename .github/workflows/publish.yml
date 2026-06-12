@@ -25,7 +25,7 @@ jobs:
         id: check
         run: |
           LOCAL=$(node -p "require('./package.json').version")
-          PUBLISHED=$(npm view @zuzuu/cli version 2>/dev/null || echo "none")
+          PUBLISHED=$(npm view @zuzuucodes/cli version 2>/dev/null || echo "none")
           echo "local=$LOCAL published=$PUBLISHED"
           [ "$LOCAL" != "$PUBLISHED" ] && echo "publish=true" >> "$GITHUB_OUTPUT" || echo "publish=false" >> "$GITHUB_OUTPUT"
       - if: steps.check.outputs.publish == 'true'

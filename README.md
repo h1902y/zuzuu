@@ -1,6 +1,6 @@
 # zuzuu
 
-[![ci](https://github.com/h1902y/zuzuu/actions/workflows/ci.yml/badge.svg)](https://github.com/h1902y/zuzuu/actions/workflows/ci.yml) [![npm](https://img.shields.io/npm/v/@zuzuu/cli)](https://www.npmjs.com/package/@zuzuu/cli) [![node](https://img.shields.io/node/v/@zuzuu/cli)](package.json) [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![ci](https://github.com/h1902y/zuzuu/actions/workflows/ci.yml/badge.svg)](https://github.com/h1902y/zuzuu/actions/workflows/ci.yml) [![npm](https://img.shields.io/npm/v/@zuzuucodes/cli)](https://www.npmjs.com/package/@zuzuucodes/cli) [![node](https://img.shields.io/node/v/@zuzuucodes/cli)](package.json) [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 **Give the coding agent you already run an evolving Memory, Knowledge, Actions, and Guardrails — grown from how you actually work.**
 
@@ -13,7 +13,7 @@ Your host agent — Claude Code, Codex, Gemini CLI, OpenCode — supplies the *b
 ## What works today
 
 ```bash
-npm install -g @zuzuu/cli   # zero dependencies — installs the `zuzuu` command
+npm install -g @zuzuucodes/cli   # zero dependencies — installs the `zuzuu` command
 
 # no coding agent yet? one command gives you a fully faculty-equipped one:
 zuzuu code        # scaffold the faculty home, install + wire OpenCode, launch it (capture + gate + grounding)
