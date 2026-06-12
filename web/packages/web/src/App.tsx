@@ -29,6 +29,7 @@ import { ReviewFlow } from "./faculties/ReviewFlow";
 import { useReviewOpen } from "./state/review";
 import { pendingReviewCount } from "./faculties/review-queue";
 import { zuzuuApi } from "./lib/zuzuu-api";
+import { capRecents, menuSubdirs, parentDir, tilde } from "./onboarding/vault-picker-logic";
 
 const parentOf = (path: string) => path.split("/").slice(0, -1).join("/");
 
@@ -65,6 +66,18 @@ export default function App() {
   const reviewCount = pendingReviewCount(zuzuuEval.data?.ranked ?? [], zuzuuActions.data?.proposals ?? []);
   const [vaultPickerOpen, setVaultPickerOpen] = useState(false);
   const [vaultMenuOpen, setVaultMenuOpen] = useState(false);
+  // status-bar vault menu: one-click parent + subdirectory switching. The
+  // root listing shares FileTree's ["dir",""] cache, so it's usually instant.
+  const rootList = useQuery({
+    queryKey: ["dir", ""],
+    queryFn: () => api.listDir(""),
+    enabled: vaultMenuOpen,
+    placeholderData: keepPreviousData,
+  });
+  const vaultRoot = workspace.data?.root;
+  const vaultParent = vaultRoot ? parentDir(vaultRoot) : null;
+  const vaultSubdirs = menuSubdirs(rootList.data?.entries ?? [], 8);
+  const vaultRecents = capRecents(wsConfig.data?.recent ?? [], vaultRoot, 5);
 
   useEffect(() => {
     init().catch((err: Error) => setInitError(err.message));
@@ -376,7 +389,7 @@ export default function App() {
               <div className="fixed inset-0 z-40" onClick={() => setVaultMenuOpen(false)} />
               <div
                 style={{ boxShadow: "var(--shadow-menu)" }}
-                className="absolute bottom-full left-0 z-50 mb-1 w-64 overflow-hidden rounded-[var(--radius-ui)] border border-border bg-elevated py-1"
+                className="absolute bottom-full left-0 z-50 mb-1 max-h-[60vh] w-64 overflow-y-auto rounded-[var(--radius-ui)] border border-border bg-elevated py-1"
               >
                 <button
                   onClick={() => {
@@ -385,24 +398,45 @@ export default function App() {
                   }}
                   className="block w-full px-3 py-1.5 text-left text-ui text-ink-100 hover:bg-hover"
                 >
-                  Switch vault… <span className="text-ink-500">⌘⇧O</span>
+                  Browse… <span className="text-ink-500">⌘⇧O</span>
                 </button>
-                {(wsConfig.data?.recent ?? []).filter((r) => r !== workspace.data?.root).length > 0 && (
+                {vaultParent && (
+                  <button
+                    onClick={() => void switchVault(vaultParent)}
+                    className="block w-full truncate px-3 py-1 text-left text-ui text-ink-300 hover:bg-hover hover:text-ink-100"
+                    title={`Switch vault to ${vaultParent}`}
+                  >
+                    ↑ {tilde(vaultParent)}
+                  </button>
+                )}
+                {vaultSubdirs.length > 0 && vaultRoot && (
+                  <div className="mt-1 border-t border-border pt-1">
+                    <div className="px-3 py-0.5 text-meta uppercase tracking-wider text-ink-500">Subfolders</div>
+                    {vaultSubdirs.map((name) => (
+                      <button
+                        key={name}
+                        onClick={() => void switchVault(`${vaultRoot}/${name}`)}
+                        className="block w-full truncate px-3 py-1 text-left text-ui text-ink-300 hover:bg-hover hover:text-ink-100"
+                        title={`Switch vault to ${vaultRoot}/${name}`}
+                      >
+                        {name}/
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {vaultRecents.length > 0 && (
                   <div className="mt-1 border-t border-border pt-1">
                     <div className="px-3 py-0.5 text-meta uppercase tracking-wider text-ink-500">Recent</div>
-                    {(wsConfig.data?.recent ?? [])
-                      .filter((r) => r !== workspace.data?.root)
-                      .slice(0, 6)
-                      .map((r) => (
-                        <button
-                          key={r}
-                          onClick={() => void switchVault(r)}
-                          className="block w-full truncate px-3 py-1 text-left text-ui text-ink-300 hover:bg-hover hover:text-ink-100"
-                          title={r}
-                        >
-                          {r.replace(/^\/Users\/[^/]+/, "~")}
-                        </button>
-                      ))}
+                    {vaultRecents.map((r) => (
+                      <button
+                        key={r}
+                        onClick={() => void switchVault(r)}
+                        className="block w-full truncate px-3 py-1 text-left text-ui text-ink-300 hover:bg-hover hover:text-ink-100"
+                        title={r}
+                      >
+                        {tilde(r)}
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>
