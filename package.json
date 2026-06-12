@@ -10,7 +10,7 @@
     "dev:daemon": "npm run dev -w packages/daemon",
     "dev:web": "npm run dev -w @zuzuu-web/web",
     "build": "npm run build -w @zuzuu-web/protocol && npm run build -w @zuzuu-web/web && npm run build -w packages/daemon",
-    "test": "npm run test -w packages/daemon",
+    "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present"
   },
   "devDependencies": {
