@@ -41,6 +41,7 @@ The **workbench** lives at `web/` — a self-contained nested project (own packa
 
 - **Real-wire-data rule:** adapters/integrations are built and verified against output the host *actually produced* — never from docs alone, never against self-invented fixtures (that's circular). Observe real events **before** wiring lifecycle semantics (docs lied twice: Claude `Stop` and OpenCode `session.idle` are per-*turn*, not end; OpenCode `session.deleted` is delete-only).
 - **Golden ids in regression tests are pasted from a real run** — never hand-computed. If the id scheme changes intentionally, regenerate and review.
+- **Verify fixes with `node bin/zuzuu.mjs`, never the PATH `zuzuu`** — the global is the *published* version and silently lacks unpushed code (a live bug-fix verification ran the old binary once and the bug "survived" its own fix).
 - **Playground exit contract:** 0 = pass, **2 = skip** (host data absent — not a failure), anything else = fail. Don't "fix" skips to passes.
 - **Hooks/plugins must never break the host:** always exit 0 (`… || true` wrappers, try-wrapped plugin), spawn detached, degrade silently. The guardrails **gate fails open** — engine/rule errors emit no decision (host's normal flow), never a block.
 - **Home deny rules are narrow** (`.zuzuu/.traces/`, `.zuzuu/.live/` only) — a blanket `.zuzuu/**` deny starves the agent of its own faculties (which it's meant to read).
