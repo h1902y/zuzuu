@@ -1,7 +1,10 @@
 {
-  "name": "zuzuu",
+  "name": "@zuzuu/cli",
   "version": "1.0.0",
   "private": false,
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "description": "Give the coding agent you already run (Claude Code, Codex, Gemini CLI, OpenCode) evolving faculties — knowledge, memory, actions, instructions, guardrails — with host-agnostic OpenTelemetry session tracing. Zero dependencies.",
   "keywords": [
