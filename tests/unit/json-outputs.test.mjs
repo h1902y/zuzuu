@@ -9,7 +9,7 @@ import { statusData } from '../../zuzuu/commands/status.mjs';
 import { inboxData } from '../../zuzuu/commands/inbox.mjs';
 import { generationListData, generationShowData, mintGenerationData, rollbackData } from '../../zuzuu/commands/generation.mjs';
 import { evalData } from '../../zuzuu/commands/eval.mjs';
-import { proposalsListData, approveResultData, rejectResultData } from '../../zuzuu/commands/review.mjs';
+import { proposalsListData, approveData, rejectData } from '../../zuzuu/commands/review.mjs';
 import { actInboxData, actApproveData, actRejectData } from '../../zuzuu/commands/act.mjs';
 import { mintGeneration } from '../../zuzuu/faculty/generation.mjs';
 import { writeProposal, makeProposal } from '../../zuzuu/faculty/proposal.mjs';
@@ -184,7 +184,7 @@ test('approveResultData: approve a seeded knowledge proposal → {ok,action,...}
     const listed = proposalsListData(dir);
     assert.ok(listed.pending.length > 0, 'proposal exists');
     const { id, faculty } = listed.pending[0];
-    const r = approveResultData(dir, id, faculty);
+    const r = approveData(dir, id, faculty);
     assert.equal(r.ok, true, 'ok is true');
     assert.ok('action' in r, 'has action');
     // JSON-serialisable
@@ -200,7 +200,7 @@ test('rejectResultData: reject a seeded knowledge proposal → {ok,id}', () => {
     const listed = proposalsListData(dir);
     assert.ok(listed.pending.length > 0, 'proposal exists');
     const { id, faculty } = listed.pending[0];
-    const r = rejectResultData(dir, id, faculty, 'test-reason');
+    const r = rejectData(dir, id, faculty, 'test-reason');
     assert.equal(r.ok, true, 'ok is true');
     assert.equal(r.id, id, 'id echoed');
     // JSON-serialisable

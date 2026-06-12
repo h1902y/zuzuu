@@ -6,6 +6,7 @@
 // Also exports `evalLine` — a small pure helper used by `zuzuu review` to render
 // a one-line eval annotation per proposal card.
 
+import { join } from 'node:path';
 import { paths, readIndex } from '../store.mjs';
 import * as registry from '../faculty/registry.mjs';
 import { listProposals as spineListProposals } from '../faculty/proposal.mjs';
@@ -60,6 +61,7 @@ function collectProposals(agentDir, adapter) {
 /**
  * Pure: gather + rank all pending proposals, returning structured data for JSON output.
  * The zuzuu-web /eval source.
+ * Touches FS via buildSessionMtimes (fail-open) and collectProposals.
  *
  * @param {string} agentDir   Resolved .zuzuu/ path.
  * @param {object} [opts]
@@ -68,7 +70,7 @@ function collectProposals(agentDir, adapter) {
  */
 export function evalData(agentDir, { faculty: onlyFaculty = null } = {}) {
   const adapters = registry.all();
-  const sessionMtimes = buildSessionMtimes();
+  const sessionMtimes = buildSessionMtimes(join(agentDir, '..'));
   const now = Date.now();
   const scorer = getScorer();
 
@@ -111,40 +113,14 @@ export function evalCmd(args, log = console.log) {
 
   if (args?.json) {
     const d = evalData(agentDir, { faculty: onlyFaculty });
-    console.log(JSON.stringify(d));
+    log(JSON.stringify(d));
     return;
   }
 
-  const adapters = registry.all();
-  const sessionMtimes = buildSessionMtimes();
-  const now = Date.now();
-  const scorer = getScorer();
-
-  // Gather proposals from all (or the one filtered) faculty adapters.
-  const allEntries = [];
-  for (const adapter of adapters) {
-    if (onlyFaculty && adapter.name !== onlyFaculty) continue;
-    const proposals = collectProposals(agentDir, adapter);
-    for (const proposal of proposals) {
-      allEntries.push({ proposal, faculty: adapter.name });
-    }
-  }
-
-  if (!allEntries.length) {
-    log('no pending proposals');
-    return;
-  }
-
-  // Rank all entries together.
-  const rawProposals = allEntries.map((e) => e.proposal);
-  const ranked = rank(rawProposals, scorer, { now, sessionMtimes });
-
-  // Build faculty lookup for display: proposal.id → faculty name.
-  const facultyByProposalId = new Map(allEntries.map((e) => [e.proposal.id, e.faculty]));
-
-  for (const { proposal, score, confidence, rationale } of ranked) {
-    const faculty = facultyByProposalId.get(proposal.id) ?? '?';
+  const { ranked } = evalData(agentDir, { faculty: onlyFaculty });
+  if (!ranked.length) { log('no pending proposals'); return; }
+  for (const { id, faculty, score, confidence, rationale } of ranked) {
     const warn = confidence === 'low' ? ' ⚠' : '';
-    log(`${String(score).padEnd(6)} [${confidence}]  ${faculty}/${proposal.id}  — ${rationale}${warn}`);
+    log(`${String(score).padEnd(6)} [${confidence}]  ${faculty}/${id}  — ${rationale}${warn}`);
   }
 }

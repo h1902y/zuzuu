@@ -254,7 +254,7 @@ function facultyOf(agentDir, id, only) {
  * @param {string} faculty
  * @returns {object}  the gate result (contains ok, action, etc.)
  */
-export function approveResultData(agentDir, id, faculty) {
+export function approveData(agentDir, id, faculty) {
   return gate.approve(agentDir, faculty, id);
 }
 
@@ -267,7 +267,7 @@ export function approveResultData(agentDir, id, faculty) {
  * @param {string} [reason]
  * @returns {object}  { ok, id, ... }
  */
-export function rejectResultData(agentDir, id, faculty, reason = '') {
+export function rejectData(agentDir, id, faculty, reason = '') {
   const r = gate.reject(agentDir, faculty, id, reason);
   return { ...r, id };
 }
@@ -342,7 +342,7 @@ export function proposals(args) {
   }
   if (sub === 'approve') {
     const faculty = facultyOf(agentDir, id, only);
-    const r = approveResultData(agentDir, id, faculty);
+    const r = approveData(agentDir, id, faculty);
     if (args.json) {
       console.log(JSON.stringify(r));
     } else {
@@ -353,7 +353,7 @@ export function proposals(args) {
   }
   if (sub === 'reject') {
     const faculty = facultyOf(agentDir, id, only);
-    const r = rejectResultData(agentDir, id, faculty, args.reason || '');
+    const r = rejectData(agentDir, id, faculty, args.reason || '');
     if (args.json) {
       console.log(JSON.stringify(r));
     } else {
