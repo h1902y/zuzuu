@@ -1,8 +1,7 @@
-// Pure mapping from the daemon's detected-hosts response to the "Start agent
-// session" rows (the start card + StartAgentButton render these), and from a
-// row to the direct-spawn argv (POST /api/sessions {type:'agent',...}). Kept
-// React-free so the detected/disabled rules and the host→command mapping are
-// unit-testable.
+// Pure mapping from the daemon's detected-hosts response to the session
+// composer's host rows, and from a row to the direct-spawn argv
+// (POST /api/sessions {type:'agent',...}). Kept React-free so the
+// detected/disabled rules and the host→command mapping are unit-testable.
 
 /** Argv an agent session spawns directly on the PTY (no shell, no injection). */
 export interface AgentSpawnSpec {
