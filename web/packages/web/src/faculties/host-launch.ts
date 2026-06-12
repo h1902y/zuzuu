@@ -45,6 +45,12 @@ export function buildHostRows(hosts: { name: string }[]): HostRow[] {
   ];
 }
 
+/** The composer's Enter target: the FIRST detected row in menu order
+ *  (OpenCode is always detected — bundled — so a default always exists). */
+export function composerDefaultHost(rows: HostRow[]): HostRow | null {
+  return rows.find((r) => r.detected) ?? null;
+}
+
 /** Row command → direct-spawn argv (opencode → `zuzuu code`); null for unknown. */
 export function hostSpawnSpec(rowCommand: string): AgentSpawnSpec | null {
   if (rowCommand === OPENCODE.command) return { ...OPENCODE.spawn, args: [...OPENCODE.spawn.args] };

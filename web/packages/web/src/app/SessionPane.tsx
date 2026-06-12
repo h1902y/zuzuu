@@ -1,13 +1,14 @@
 // The center session pane: agent-session tabs, the always-mounted terminals,
-// and the session-surface center cards (start / setup / recovery).
-import { useState } from "react";
+// the load-time center cards (recovery / setup) and the bottom session
+// composer — the start surface ("Start a session with…" + host chips).
+import { useRef } from "react";
 import { useSessions } from "../state/sessions";
 import { TermView } from "../term/TermView";
 import { Bar, Tab, TabBar, IconButton, StatusDot } from "../components/ui";
-import { StartSessionCard, RecoveryCard, SetupZuzuuCard } from "../components/SessionCards";
+import { RecoveryCard, SetupZuzuuCard } from "../components/SessionCards";
+import { SessionComposer } from "../components/SessionComposer";
 import { centerCard } from "../lib/session-cards";
-import { agentTabTitle, hostSpawnSpec } from "../faculties/host-launch";
-import { startAgentSession } from "../lib/agent-launch";
+import { agentTabTitle } from "../faculties/host-launch";
 import { useSessionGitQuery, useZuzuuHealthQuery } from "./queries";
 
 export function SessionPane() {
@@ -16,25 +17,18 @@ export function SessionPane() {
   const zuzuuHome = zuzuuHealth.data?.home === true;
   // session-git status for the recovery card (shares the footer indicator's cache)
   const sessionGit = useSessionGitQuery(zuzuuHome);
+  const composerRef = useRef<HTMLDivElement>(null);
+  const focusComposer = () => composerRef.current?.focus();
 
-  // startOverlay = the user asked for an agent session while sessions exist
-  // (+ button / end-card CTA); with zero sessions the start card is the default.
-  const [startOverlay, setStartOverlay] = useState(false);
   // hold the boot-time card until health + session-git have answered once, so
-  // a leftover branch renders recovery directly instead of flashing the start card
-  const recoveryUnknown =
-    tabs.length === 0 && !startOverlay && (zuzuuHealth.isPending || (zuzuuHome && sessionGit.isPending));
+  // a leftover branch renders recovery directly instead of flashing the rest state
+  const bootUnknown =
+    tabs.length === 0 && (zuzuuHealth.isPending || (zuzuuHome && sessionGit.isPending));
   const card =
-    sessionsLoaded && !recoveryUnknown
-      ? centerCard(tabs.length, startOverlay, sessionGit.data)
-      : { kind: "none" as const };
-  const startHost = (rowCommand: string) => {
-    setStartOverlay(false);
-    const spec = hostSpawnSpec(rowCommand);
-    // single-active-agent rule lives in startAgentSession: while one is
-    // alive, picking a host focuses it instead of spawning a second one
-    if (spec) void startAgentSession(spec).catch((err: Error) => window.alert(err.message));
-  };
+    sessionsLoaded && !bootUnknown ? centerCard(tabs.length, sessionGit.data) : { kind: "none" as const };
+  // onboarding owns the empty pane until a zuzuu home exists
+  const showSetup =
+    sessionsLoaded && !bootUnknown && tabs.length === 0 && zuzuuHealth.data?.home === false;
 
   return (
     <div className="flex h-full min-w-0 flex-col">
@@ -58,10 +52,10 @@ export function SessionPane() {
           })}
         </TabBar>
         <IconButton
-          title="New agent session"
+          title="New agent session — pick a host below"
           iconPath="M8 3v10M3 8h10"
           className="mx-1"
-          onClick={() => setStartOverlay(true)}
+          onClick={focusComposer}
         />
       </Bar>
       {/* terminals — all kept mounted so sessions survive tab switches */}
@@ -77,32 +71,31 @@ export function SessionPane() {
               active={tab.id === activeId}
               sessionType={tab.type}
               host={tab.host}
-              onStartNew={() => setStartOverlay(true)}
+              onStartNew={focusComposer}
               onCloseTab={() => void close(tab.id)}
             />
           </div>
         ))}
-        {/* session-surface cards: start (default with zero sessions, or
-            requested via +) and recovery (leftover session branch on load) */}
-        {card.kind !== "none" && (
+        {/* the calm resting state — nothing but the mark above the composer */}
+        {tabs.length === 0 && card.kind === "none" && !showSetup && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="select-none text-2xl text-ink-600">❯_</span>
+          </div>
+        )}
+        {/* load-time center cards: recovery (leftover session branch) and
+            setup (no zuzuu home yet) keep their center placement */}
+        {(card.kind === "recovery" || showSetup) && (
           <div className="absolute inset-0 z-30 flex items-center justify-center bg-app/90 p-6">
             {card.kind === "recovery" ? (
               <RecoveryCard branch={card.branch} checkpoints={card.checkpoints} />
-            ) : zuzuuHealth.data?.home === false ? (
-              // onboarding takes the start card's slot until a home exists
-              <SetupZuzuuCard
-                zuzuuBin={zuzuuHealth.data.zuzuuBin}
-                {...(tabs.length > 0 ? { onDismiss: () => setStartOverlay(false) } : {})}
-              />
             ) : (
-              <StartSessionCard
-                onHost={startHost}
-                {...(tabs.length > 0 ? { onDismiss: () => setStartOverlay(false) } : {})}
-              />
+              <SetupZuzuuCard zuzuuBin={zuzuuHealth.data?.zuzuuBin ?? false} />
             )}
           </div>
         )}
       </div>
+      {/* the composer — the one way to start a session (hosts only) */}
+      {zuzuuHome && <SessionComposer ref={composerRef} />}
     </div>
   );
 }
