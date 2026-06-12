@@ -17,13 +17,13 @@
     "agent-memory",
     "cli"
   ],
-  "homepage": "https://github.com/h1902y/motorsandsensors#readme",
+  "homepage": "https://github.com/h1902y/zuzuu#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/h1902y/motorsandsensors.git"
+    "url": "git+https://github.com/h1902y/zuzuu.git"
   },
   "bugs": {
-    "url": "https://github.com/h1902y/motorsandsensors/issues"
+    "url": "https://github.com/h1902y/zuzuu/issues"
   },
   "license": "MIT",
   "author": "Harshit Krishna Choudhary (https://x.com/h1902y)",

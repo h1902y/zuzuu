@@ -1,6 +1,6 @@
 # zuzuu
 
-[![ci](https://github.com/h1902y/motorsandsensors/actions/workflows/ci.yml/badge.svg)](https://github.com/h1902y/motorsandsensors/actions/workflows/ci.yml) [![npm](https://img.shields.io/npm/v/zuzuu)](https://www.npmjs.com/package/zuzuu) [![node](https://img.shields.io/node/v/zuzuu)](package.json) [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![ci](https://github.com/h1902y/zuzuu/actions/workflows/ci.yml/badge.svg)](https://github.com/h1902y/zuzuu/actions/workflows/ci.yml) [![npm](https://img.shields.io/npm/v/zuzuu)](https://www.npmjs.com/package/zuzuu) [![node](https://img.shields.io/node/v/zuzuu)](package.json) [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 **Give the coding agent you already run an evolving Memory, Knowledge, Actions, and Guardrails — grown from how you actually work.**
 
@@ -40,7 +40,7 @@ zuzuu doctor      # health + lost-session reconciliation
 
 All five verified against **real sessions** — never fixtures; every host's live capture + gate was wired from **real captured hook payloads** and dogfooded end-to-end ([`experiments/LOG.md`](experiments/LOG.md) exp-11 Gemini/Codex, exp-12 OpenCode/pi). Gate semantics are host-honest: deny hard-blocks everywhere; `ask` maps to a native prompt on Claude, defers to the host elsewhere.
 
-**Prerequisites:** Node ≥ 22 — that's it. You need at least one supported agent you've already used, so a session exists to capture. (Hacking on zuzuu itself? `git clone https://github.com/h1902y/motorsandsensors && cd motorsandsensors && npm link`.)
+**Prerequisites:** Node ≥ 22 — that's it. You need at least one supported agent you've already used, so a session exists to capture. (Hacking on zuzuu itself? `git clone https://github.com/h1902y/zuzuu && cd zuzuu && npm link`.)
 
 **`zuzuu init`** behaves like `git init`: empty dir → scaffolds the agent home + `AGENTS.md`/`CLAUDE.md`; existing project → adds `agent/` and injects a small delimiter-marked block into your existing instruction files (your text is never touched); already initialized → restores missing pieces only. The home is **open and self-explaining** — a visible `agent/` dir you can read and version in git: `agent/README.md` (the explainer) · `knowledge/` (verified facts) · `memory/` (curated episodes) · `actions/` (runbooks) · `instructions/` (steering) · `guardrails/` (enforced rules), plus `generations/` (your checkpoints). Machine internals are dot-prefixed + git-ignored (`agent/.traces/`, `agent/.live/`). Legacy `.mns/` projects auto-migrate on the next `zuzuu init` (or `zuzuu migrate --home`).
 

@@ -12,7 +12,7 @@
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 
-const SCOPE = { name: 'motorsandsensors/trace-capture', version: '0.1.0' };
+const SCOPE = { name: 'zuzuu/trace-capture', version: '0.1.0' };
 
 function strAttr(key, value) {
   return { key, value: { stringValue: String(value) } };
@@ -29,7 +29,7 @@ export function toExportRequest(built, meta) {
       {
         resource: {
           attributes: [
-            strAttr('service.name', 'motorsandsensors'),
+            strAttr('service.name', 'zuzuu'),
             strAttr('service.version', '0.1.0'),
             strAttr('host.name', meta.host), // which host CLI this trace was observed from
             strAttr('session.id', meta.sessionId),

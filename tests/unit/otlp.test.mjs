@@ -17,7 +17,7 @@ test('toExportRequest nests resourceSpans -> resource + scopeSpans -> scope + sp
 test('resource attributes carry service.name, host.name, session.id', () => {
   const rs = toExportRequest(built, meta).resourceSpans[0];
   const attrs = Object.fromEntries(rs.resource.attributes.map((a) => [a.key, a.value.stringValue]));
-  assert.equal(attrs['service.name'], 'motorsandsensors');
+  assert.equal(attrs['service.name'], 'zuzuu');
   assert.equal(attrs['host.name'], 'claude-code');
   assert.equal(attrs['session.id'], 'sess');
 });
