@@ -1,10 +1,14 @@
 {
-  "version": 1,
+  "version": 2,
   "initializedAt": "2026-06-09T17:51:59.673Z",
   "layout": [
     "knowledge",
     "memory",
     "actions",
     "instructions"
-  ]
+  ],
+  "agent": {
+    "id": "agt_2f237aa8f3e5",
+    "createdAt": "2026-06-12T10:47:36.446Z"
+  }
 }
