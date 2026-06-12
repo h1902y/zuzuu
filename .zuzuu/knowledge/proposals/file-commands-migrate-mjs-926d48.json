@@ -1,0 +1,58 @@
+{
+  "id": "file-commands-migrate-mjs-926d48",
+  "kind": "item",
+  "status": "pending",
+  "created_at": "2026-06-12T11:55:22.721Z",
+  "source": "distill",
+  "candidate": {
+    "id": "file-commands-migrate-mjs",
+    "type": "entity",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/commands/migrate.mjs` (touched 9× across 7 sessions).",
+    "attributes": {
+      "path": "/Users/hkc/Documents/zuzuu/zuzuu/commands/migrate.mjs"
+    },
+    "relations": [],
+    "provenance": [
+      {
+        "session": "claude-code:18e6ce93-8a46-4457-92f2-43e991a91de9",
+        "ref": "distill:hot-files"
+      },
+      {
+        "session": "claude-code:e92388d8-6868-40ef-8542-703a9b060bce",
+        "ref": "distill:hot-files"
+      },
+      {
+        "session": "claude-code:b4d0bc8e-9fa0-447d-81d3-82dfaa4ee5fe",
+        "ref": "distill:hot-files"
+      },
+      {
+        "session": "claude-code:ba274a37-052e-42b1-aa35-9d8bc21aa6db",
+        "ref": "distill:hot-files"
+      },
+      {
+        "session": "claude-code:62416034-0de2-48c1-a2a5-20d328609b3b",
+        "ref": "distill:hot-files"
+      }
+    ]
+  },
+  "evidence": {
+    "occurrences": 9,
+    "sessions": 7
+  },
+  "er": {
+    "verdict": "enrich",
+    "match": "file-commands-hook-mjs",
+    "confidence": 0.5714285714285714,
+    "reason": "token overlap"
+  },
+  "analysis": {
+    "er": {
+      "verdict": "enrich"
+    }
+  },
+  "score": {
+    "score": 0.695,
+    "confidence": "high",
+    "rationale": "recurring + cross-session"
+  }
+}

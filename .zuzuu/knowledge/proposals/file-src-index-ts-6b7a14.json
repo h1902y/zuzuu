@@ -1,0 +1,41 @@
+{
+  "id": "file-src-index-ts-6b7a14",
+  "kind": "item",
+  "status": "pending",
+  "created_at": "2026-06-12T11:55:22.723Z",
+  "source": "distill",
+  "candidate": {
+    "id": "file-src-index-ts",
+    "type": "entity",
+    "body": "Hot file in this project: `/Users/hkc/Documents/webcode/packages/protocol/src/index.ts` (touched 9× across 1 sessions).",
+    "attributes": {
+      "path": "/Users/hkc/Documents/webcode/packages/protocol/src/index.ts"
+    },
+    "relations": [],
+    "provenance": [
+      {
+        "session": "claude-code:6175fb13-f030-4445-878d-85d5abd43f87",
+        "ref": "distill:hot-files"
+      }
+    ]
+  },
+  "evidence": {
+    "occurrences": 6,
+    "sessions": 1
+  },
+  "er": {
+    "verdict": "new",
+    "confidence": 0.736842105263158,
+    "reason": "no sufficiently similar item"
+  },
+  "analysis": {
+    "er": {
+      "verdict": "new"
+    }
+  },
+  "score": {
+    "score": 0.455,
+    "confidence": "med",
+    "rationale": "novel signal"
+  }
+}

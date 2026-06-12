@@ -1,0 +1,57 @@
+{
+  "id": "file-faculty-generation-mjs-eee631",
+  "kind": "item",
+  "status": "pending",
+  "created_at": "2026-06-12T11:55:22.723Z",
+  "source": "distill",
+  "candidate": {
+    "id": "file-faculty-generation-mjs",
+    "type": "entity",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/faculty/generation.mjs` (touched 5× across 5 sessions).",
+    "attributes": {
+      "path": "/Users/hkc/Documents/zuzuu/zuzuu/faculty/generation.mjs"
+    },
+    "relations": [],
+    "provenance": [
+      {
+        "session": "claude-code:0a3c9e56-befc-478e-b79c-aebae32bdd91",
+        "ref": "distill:hot-files"
+      },
+      {
+        "session": "claude-code:c505685b-6f77-443a-9b72-f0a4221dcfeb",
+        "ref": "distill:hot-files"
+      },
+      {
+        "session": "claude-code:b79e45d6-4ba8-497d-a024-e8f1f1a09161",
+        "ref": "distill:hot-files"
+      },
+      {
+        "session": "claude-code:aa667cac-6018-426c-ba8f-175b6fcaeb51",
+        "ref": "distill:hot-files"
+      },
+      {
+        "session": "claude-code:697f71e8-435a-4c01-ace3-6681dcb1115b",
+        "ref": "distill:hot-files"
+      }
+    ]
+  },
+  "evidence": {
+    "occurrences": 5,
+    "sessions": 5
+  },
+  "er": {
+    "verdict": "new",
+    "confidence": 0.5333333333333333,
+    "reason": "no sufficiently similar item"
+  },
+  "analysis": {
+    "er": {
+      "verdict": "new"
+    }
+  },
+  "score": {
+    "score": 0.625,
+    "confidence": "med",
+    "rationale": "strong cross-session coverage"
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "id": "file-zuzuu-guardrails-mjs-3540f6",
+  "kind": "item",
+  "status": "pending",
+  "created_at": "2026-06-12T11:55:22.723Z",
+  "source": "distill",
+  "candidate": {
+    "id": "file-zuzuu-guardrails-mjs",
+    "type": "entity",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/guardrails.mjs` (touched 6× across 6 sessions).",
+    "attributes": {
+      "path": "/Users/hkc/Documents/zuzuu/zuzuu/guardrails.mjs"
+    },
+    "relations": [],
+    "provenance": [
+      {
+        "session": "claude-code:554f9b5a-d02a-4d0e-856d-f58c9ccc78cf",
+        "ref": "distill:hot-files"
+      },
+      {
+        "session": "claude-code:4cf290b2-d66b-4840-acdb-d79f0f3562cb",
+        "ref": "distill:hot-files"
+      },
+      {
+        "session": "claude-code:9314c786-e9b6-4988-b39a-e890d3e8cfdd",
+        "ref": "distill:hot-files"
+      },
+      {
+        "session": "claude-code:998212c1-bbc9-4bbc-9911-ff43ab617c81",
+        "ref": "distill:hot-files"
+      },
+      {
+        "session": "claude-code:76ef394c-01d6-458a-9bf3-fa9ca302dad8",
+        "ref": "distill:hot-files"
+      }
+    ]
+  },
+  "evidence": {
+    "occurrences": 6,
+    "sessions": 6
+  },
+  "er": {
+    "verdict": "enrich",
+    "match": "file-commands-hook-mjs",
+    "confidence": 0.5,
+    "reason": "token overlap"
+  },
+  "analysis": {
+    "er": {
+      "verdict": "enrich"
+    }
+  },
+  "score": {
+    "score": 0.605,
+    "confidence": "med",
+    "rationale": "strong cross-session coverage"
+  }
+}

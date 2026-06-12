@@ -1,0 +1,57 @@
+{
+  "id": "file-workflows-publish-yml-63b4d6",
+  "kind": "item",
+  "status": "pending",
+  "created_at": "2026-06-12T11:55:22.722Z",
+  "source": "distill",
+  "candidate": {
+    "id": "file-workflows-publish-yml",
+    "type": "entity",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/.github/workflows/publish.yml` (touched 6× across 6 sessions).",
+    "attributes": {
+      "path": "/Users/hkc/Documents/zuzuu/.github/workflows/publish.yml"
+    },
+    "relations": [],
+    "provenance": [
+      {
+        "session": "claude-code:18e6ce93-8a46-4457-92f2-43e991a91de9",
+        "ref": "distill:hot-files"
+      },
+      {
+        "session": "claude-code:cf5e0429-a4b6-4662-bbf6-c3a6f3450d26",
+        "ref": "distill:hot-files"
+      },
+      {
+        "session": "claude-code:debdb80c-5679-4aeb-a4cc-cf178b734fc7",
+        "ref": "distill:hot-files"
+      },
+      {
+        "session": "claude-code:c3ebf41a-65ff-4bbd-954c-13143273d2fc",
+        "ref": "distill:hot-files"
+      },
+      {
+        "session": "claude-code:e9a2dcf7-0888-4921-ae2f-4537696ac7cd",
+        "ref": "distill:hot-files"
+      }
+    ]
+  },
+  "evidence": {
+    "occurrences": 6,
+    "sessions": 6
+  },
+  "er": {
+    "verdict": "new",
+    "confidence": 0.6470588235294117,
+    "reason": "no sufficiently similar item"
+  },
+  "analysis": {
+    "er": {
+      "verdict": "new"
+    }
+  },
+  "score": {
+    "score": 0.655,
+    "confidence": "med",
+    "rationale": "strong cross-session coverage"
+  }
+}

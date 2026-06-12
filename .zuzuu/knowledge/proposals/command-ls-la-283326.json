@@ -1,0 +1,58 @@
+{
+  "id": "command-ls-la-283326",
+  "kind": "item",
+  "status": "pending",
+  "created_at": "2026-06-12T11:55:22.721Z",
+  "source": "distill",
+  "candidate": {
+    "id": "command-ls-la",
+    "type": "command",
+    "body": "Recurring project command: `ls -la` (used 6× across 6 sessions).",
+    "attributes": {
+      "command": "ls -la"
+    },
+    "relations": [],
+    "provenance": [
+      {
+        "session": "pi:019eb649-dd9d-7250-a773-ae4e36d61c7b",
+        "ref": "distill:commands"
+      },
+      {
+        "session": "codex:019eb649-e2ac-7f10-96b7-3cf697aac928",
+        "ref": "distill:commands"
+      },
+      {
+        "session": "pi:019eb29f-8fc2-7851-9a29-ca8e39611a26",
+        "ref": "distill:commands"
+      },
+      {
+        "session": "opencode:ses_14d60b930ffenXcp2NTsEjcF9a",
+        "ref": "distill:commands"
+      },
+      {
+        "session": "codex:019eb21f-54c6-7090-8df2-0a3568d4b659",
+        "ref": "distill:commands"
+      }
+    ]
+  },
+  "evidence": {
+    "occurrences": 6,
+    "sessions": 6,
+    "failures": 0
+  },
+  "er": {
+    "verdict": "new",
+    "confidence": 1,
+    "reason": "no sufficiently similar item"
+  },
+  "analysis": {
+    "er": {
+      "verdict": "new"
+    }
+  },
+  "score": {
+    "score": 0.655,
+    "confidence": "med",
+    "rationale": "strong cross-session coverage"
+  }
+}

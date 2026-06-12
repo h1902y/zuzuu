@@ -1,0 +1,41 @@
+{
+  "id": "file-preview-previewpane-tsx-09a8b9",
+  "kind": "item",
+  "status": "pending",
+  "created_at": "2026-06-12T11:55:22.725Z",
+  "source": "distill",
+  "candidate": {
+    "id": "file-preview-previewpane-tsx",
+    "type": "entity",
+    "body": "Hot file in this project: `/Users/hkc/Documents/webcode/packages/web/src/preview/PreviewPane.tsx` (touched 8× across 1 sessions).",
+    "attributes": {
+      "path": "/Users/hkc/Documents/webcode/packages/web/src/preview/PreviewPane.tsx"
+    },
+    "relations": [],
+    "provenance": [
+      {
+        "session": "claude-code:6175fb13-f030-4445-878d-85d5abd43f87",
+        "ref": "distill:hot-files"
+      }
+    ]
+  },
+  "evidence": {
+    "occurrences": 8,
+    "sessions": 1
+  },
+  "er": {
+    "verdict": "new",
+    "confidence": 0.75,
+    "reason": "no sufficiently similar item"
+  },
+  "analysis": {
+    "er": {
+      "verdict": "new"
+    }
+  },
+  "score": {
+    "score": 0.515,
+    "confidence": "med",
+    "rationale": "high occurrence"
+  }
+}
