@@ -1,12 +1,13 @@
 import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { zuzuuApi } from "../lib/zuzuu-api";
-import { launchInTerminal } from "../lib/agent-launch";
+import { startAgentSession } from "../lib/agent-launch";
 import { Button, MenuPopover, type MenuItem } from "../components/ui";
-import { buildHostRows } from "./host-launch";
+import { buildHostRows, hostSpawnSpec } from "./host-launch";
 
-/** "Start agent session ▾" + the detected-hosts popover — launches a wrapped
- *  host in a fresh terminal. Shared by the Home CTAs and the agent sidebar. */
+/** "Start agent session ▾" + the detected-hosts popover — direct-spawns the
+ *  host as an agent session (no shell, no text injection). Shared by the Home
+ *  CTAs and the agent sidebar. */
 export function StartAgentButton({ size = "md" }: { size?: "sm" | "md" }) {
   const hostsQ = useQuery({ queryKey: ["zuzuu", "hosts"], queryFn: zuzuuApi.hosts, refetchInterval: 8000 });
   const [open, setOpen] = useState(false);
@@ -16,7 +17,10 @@ export function StartAgentButton({ size = "md" }: { size?: "sm" | "md" }) {
     label: row.label,
     disabled: !row.detected,
     hint: row.detected ? undefined : "not installed",
-    onClick: () => void launchInTerminal(row.command),
+    onClick: () => {
+      const spec = hostSpawnSpec(row.command);
+      if (spec) void startAgentSession(spec).catch((err: Error) => window.alert(err.message));
+    },
   }));
 
   return (

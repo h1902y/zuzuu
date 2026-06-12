@@ -6,8 +6,13 @@ import { SearchAddon } from "@xterm/addon-search";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { ClipboardAddon } from "@xterm/addon-clipboard";
-import { useQueryClient } from "@tanstack/react-query";
-import type { WorkspaceInfo } from "@zuzuu-web/protocol";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { SessionType, WorkspaceInfo } from "@zuzuu-web/protocol";
+import { api } from "../lib/api";
+import { endCard } from "../lib/session-cards";
+import { refreshSessionGit } from "../lib/session-git-actions";
+import { SessionEndCard } from "../components/SessionCards";
+import { Spinner } from "../components/ui";
 import { TermConnection } from "./connection";
 import { termRegistry } from "./registry";
 import { registerPathLinks } from "./links";
@@ -46,7 +51,21 @@ const THEME = {
 
 type Status = "connecting" | "open" | "reconnecting" | "closed";
 
-export function TermView({ sessionId, active }: { sessionId: string; active: boolean }) {
+export function TermView({
+  sessionId,
+  active,
+  sessionType = "shell",
+  onStartNew,
+  onCloseTab,
+}: {
+  sessionId: string;
+  active: boolean;
+  /** agent sessions get the end-of-session card instead of the exit banner */
+  sessionType?: SessionType;
+  /** open the start-a-session card (end-card CTA) */
+  onStartNew?: () => void;
+  onCloseTab?: () => void;
+}) {
   const hostRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const trackerRef = useRef<BlockTracker | null>(null);
@@ -212,6 +231,25 @@ export function TermView({ sessionId, active }: { sessionId: string; active: boo
   const reRun = (command: string) =>
     termRegistry.get(sessionId)?.sendInput(`\x15${command}\r`);
 
+  // Agent exit → fetch the daemon-recorded auto-merge outcome (the GET awaits
+  // whenClosed(), so a fetch that races the merge still gets closeResult) and
+  // render the end-of-session card over the dead terminal.
+  const isAgent = sessionType === "agent";
+  const [endDismissed, setEndDismissed] = useState(false);
+  const detail = useQuery({
+    queryKey: ["session-detail", sessionId, exitCode],
+    queryFn: () => api.sessionDetail(sessionId),
+    enabled: isAgent && exitCode !== null,
+    staleTime: Infinity,
+  });
+  const closeResult = detail.data?.closeResult;
+  useEffect(() => {
+    // the merge already ran server-side at PTY exit — pull the SPA caches up
+    if (closeResult !== undefined) refreshSessionGit(queryClient);
+  }, [closeResult, queryClient]);
+  const end = endCard(sessionType, closeResult);
+  const showEndCard = isAgent && exitCode !== null && !endDismissed;
+
   return (
     <div className="relative h-full w-full bg-ink-950">
       <div ref={hostRef} className="term-host h-full w-full" />
@@ -245,9 +283,28 @@ export function TermView({ sessionId, active }: { sessionId: string; active: boo
           reconnecting…
         </div>
       )}
-      {exitCode !== null && (
+      {/* shell sessions keep the plain exit banner; agent sessions get the
+          end-of-session card (or the banner once dismissed / outcome unknown) */}
+      {exitCode !== null && (!showEndCard || end.kind === "banner") && (
         <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 border-t border-border bg-surface/95 px-3 py-1.5 text-ui text-ink-300">
           process exited with code {exitCode}
+        </div>
+      )}
+      {showEndCard && detail.isPending && (
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-ink-950/70 p-6">
+          <div className="flex items-center gap-2 text-ui text-ink-300">
+            <Spinner /> session ended — merging checkpoints…
+          </div>
+        </div>
+      )}
+      {showEndCard && !detail.isPending && end.kind !== "banner" && (
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-ink-950/70 p-6">
+          <SessionEndCard
+            state={end}
+            onStartNew={onStartNew ?? (() => {})}
+            onCloseTab={onCloseTab ?? (() => {})}
+            onDismiss={() => setEndDismissed(true)}
+          />
         </div>
       )}
       {status === "closed" && exitCode === null && (

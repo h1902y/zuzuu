@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { CwdPayload, SessionInfo } from "@zuzuu-web/protocol";
+import type { CreateSessionRequest, CwdPayload, SessionInfo } from "@zuzuu-web/protocol";
 import { api } from "../lib/api";
 
 export type SessionTab = SessionInfo & {
@@ -12,7 +12,7 @@ interface SessionsState {
   activeId: string | null;
   loaded: boolean;
   init: () => Promise<void>;
-  create: (cwd?: string) => Promise<void>;
+  create: (req?: CreateSessionRequest) => Promise<void>;
   close: (id: string) => Promise<void>;
   setActive: (id: string) => void;
   setTitle: (id: string, title: string) => void;
@@ -29,15 +29,14 @@ export const useSessions = create<SessionsState>((set, get) => ({
 
   init: async () => {
     if (get().loaded) return;
-    let tabs = await api.listSessions();
-    if (tabs.length === 0) {
-      tabs = [await api.createSession()];
-    }
+    // no auto-created shell: zero sessions is the default state — the
+    // terminal pane shows the start-a-session card instead (Phase ④)
+    const tabs = await api.listSessions();
     set({ tabs, activeId: tabs[tabs.length - 1]?.id ?? null, loaded: true });
   },
 
-  create: async (cwd) => {
-    const session = await api.createSession(cwd ? { cwd } : {});
+  create: async (req = {}) => {
+    const session = await api.createSession(req);
     set((s) => ({ tabs: [...s.tabs, session], activeId: session.id }));
   },
 

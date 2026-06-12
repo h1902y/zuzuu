@@ -8,6 +8,7 @@ import type {
   HistoryResponse,
   ListResponse,
   SearchResponse,
+  SessionDetail,
   SessionInfo,
   Workflow,
   WorkflowListResponse,
@@ -51,6 +52,9 @@ export const api = {
     request<SessionInfo>("/api/sessions", json(body)),
   closeSession: (id: string) =>
     request<{ ok: true }>(`/api/sessions/${id}`, { method: "DELETE" }),
+  /** single-session read — after an agent exits this carries closeResult
+   *  (the daemon awaits the auto-merge before responding) */
+  sessionDetail: (id: string) => request<SessionDetail>(`/api/sessions/${id}`),
 
   listDir: (path: string) =>
     request<ListResponse>(`/api/fs/list?path=${encodeURIComponent(path)}`),

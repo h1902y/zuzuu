@@ -180,7 +180,7 @@ export function FileTree() {
   const rowActions = (row: Row): MenuItem[] => {
     const dirItems: MenuItem[] = row.isDir
       ? [
-          { label: "Open terminal here", iconPath: "M3 4l4 4-4 4M8 12h5", onClick: () => void createSession(row.path) },
+          { label: "Open terminal here", iconPath: "M3 4l4 4-4 4M8 12h5", onClick: () => void createSession({ cwd: row.path }) },
           { label: "cd here", iconPath: "M2 8h9m0 0L8 5m3 3l-3 3M13 3v10", onClick: () => cdHere(row) },
           { label: "New folder", iconPath: "M8 4v8M4 8h8", onClick: () => void newFolderIn(row.path) },
         ]

@@ -22,6 +22,10 @@ import { WelcomeOverlay } from "./onboarding/WelcomeOverlay";
 import { VaultPicker } from "./onboarding/VaultPicker";
 import { Bar, ModeTabs, Tab, TabBar, IconButton, StatusDot, DialogHost, prompt, ActionMenu, type MenuItem } from "./components/ui";
 import { SessionIndicator } from "./components/SessionIndicator";
+import { StartSessionCard, RecoveryCard } from "./components/SessionCards";
+import { centerCard, hasAliveAgent } from "./lib/session-cards";
+import { agentTabTitle, hostSpawnSpec } from "./faculties/host-launch";
+import { startAgentSession } from "./lib/agent-launch";
 import { useView } from "./state/view";
 import { FacultiesView } from "./faculties/FacultiesView";
 import { ReviewFlow } from "./faculties/ReviewFlow";
@@ -44,7 +48,7 @@ const fmtMB = (bytes: number) => `${Math.round(bytes / 1024 / 1024)} MB`;
 
 export default function App() {
   const queryClient = useQueryClient();
-  const { tabs, activeId, init, create, close, setActive } = useSessions();
+  const { tabs, activeId, loaded: sessionsLoaded, init, create, close, setActive } = useSessions();
   const [initError, setInitError] = useState<string | null>(null);
 
   const workspace = useQuery({ queryKey: ["workspace"], queryFn: api.workspace });
@@ -58,6 +62,8 @@ export default function App() {
   const zuzuuHealth = useQuery({ queryKey: ["zuzuu", "health"], queryFn: zuzuuApi.health, refetchInterval: 8000 });
   const zuzuuHome = zuzuuHealth.data?.home === true;
   const zuzuuStatus = useQuery({ queryKey: ["zuzuu", "status"], queryFn: zuzuuApi.status, refetchInterval: 8000, enabled: zuzuuHome });
+  // session-git status for the recovery card (shares the footer indicator's cache)
+  const sessionGit = useQuery({ queryKey: ["zuzuu", "session"], queryFn: zuzuuApi.sessionGit, refetchInterval: 6000, enabled: zuzuuHome });
   const zuzuuEval = useQuery({ queryKey: ["zuzuu", "eval"], queryFn: zuzuuApi.evalRanked, refetchInterval: 8000, enabled: zuzuuHome });
   const zuzuuActions = useQuery({ queryKey: ["zuzuu", "faculty", "actions"], queryFn: () => zuzuuApi.faculty("actions"), refetchInterval: 8000, enabled: zuzuuHome });
   const openReview = useReviewOpen((s) => s.setOpen);
@@ -119,6 +125,34 @@ export default function App() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteMode, setPaletteMode] = useState<"all" | "history">("all");
   const [runWorkflow, setRunWorkflow] = useState<Workflow | null>(null);
+
+  // ── session-surface cards (Phase ④) ─────────────────────────────────
+  // startOverlay = the user asked for an agent session while terminals exist
+  // (+ menu / end-card CTA); with zero sessions the start card is the default.
+  const [startOverlay, setStartOverlay] = useState(false);
+  // hold the boot-time card until health + session-git have answered once, so
+  // a leftover branch renders recovery directly instead of flashing the start card
+  const recoveryUnknown =
+    tabs.length === 0 && !startOverlay && (zuzuuHealth.isPending || (zuzuuHome && sessionGit.isPending));
+  const card =
+    sessionsLoaded && !recoveryUnknown
+      ? centerCard(tabs.length, startOverlay, sessionGit.data)
+      : { kind: "none" as const };
+  const agentAlive = hasAliveAgent(tabs);
+  const startHost = (rowCommand: string) => {
+    setStartOverlay(false);
+    const spec = hostSpawnSpec(rowCommand);
+    if (spec) void startAgentSession(spec).catch((err: Error) => window.alert(err.message));
+  };
+  const addMenu: MenuItem[] = [
+    {
+      label: "Agent session",
+      disabled: agentAlive,
+      hint: agentAlive ? "one already running" : undefined,
+      onClick: () => setStartOverlay(true),
+    },
+    { label: "Terminal", onClick: () => void create() },
+  ];
 
   // global shortcuts: ⌘K palette, ⌘R run-recent, ⌘F workspace search, ⌘S save
   useEffect(() => {
@@ -208,7 +242,7 @@ export default function App() {
       useExplorer.getState().resetAll();
       useSessions.getState().reset(); // unmounts terminals → disposes their sockets
       queryClient.clear();
-      await useSessions.getState().init(); // fresh session in the new root
+      await useSessions.getState().init(); // re-seed for the new root (start card if none)
       await queryClient.invalidateQueries(); // workspace/config/files/git…
     } catch (err) {
       window.alert(`Could not open vault: ${(err as Error).message}`);
@@ -245,7 +279,9 @@ export default function App() {
   };
   useEffect(() => {
     const name = workspace.data?.name ?? "zuzuu-web";
-    document.title = activeTab ? `${activeTab.title} — ${name}` : name;
+    const tabLabel =
+      activeTab && (activeTab.type === "agent" ? agentTabTitle(activeTab.host) : activeTab.title);
+    document.title = tabLabel ? `${tabLabel} — ${name}` : name;
   }, [activeTab, workspace.data]);
 
   // the active session's live cwd — folded into the vault menu button
@@ -292,20 +328,30 @@ export default function App() {
         <Panel className="flex min-w-0 flex-col">
           <Bar border="b" surface="surface" className="!gap-0 overflow-x-auto !px-0">
             <TabBar>
-              {tabs.map((tab) => (
-                <Tab
-                  key={tab.id}
-                  active={tab.id === activeId}
-                  onClick={() => setActive(tab.id)}
-                  onClose={() => void close(tab.id)}
-                  title={tab.cwdLive ? `${tab.title} · ${tab.cwdLive.cwd}` : tab.title}
-                  leading={<StatusDot tone={tab.alive ? "ok" : "idle"} />}
-                >
-                  {tab.title}
-                </Tab>
-              ))}
+              {tabs.map((tab) => {
+                // agent tabs carry the host's display name; shells keep the live title
+                const label = tab.type === "agent" ? agentTabTitle(tab.host) : tab.title;
+                return (
+                  <Tab
+                    key={tab.id}
+                    active={tab.id === activeId}
+                    onClick={() => setActive(tab.id)}
+                    onClose={() => void close(tab.id)}
+                    title={tab.cwdLive ? `${label} · ${tab.cwdLive.cwd}` : label}
+                    leading={<StatusDot tone={tab.alive ? "ok" : "idle"} />}
+                  >
+                    {label}
+                  </Tab>
+                );
+              })}
             </TabBar>
-            <IconButton title="New terminal" iconPath="M8 3v10M3 8h10" onClick={() => void create()} className="mx-1" />
+            <ActionMenu
+              items={addMenu}
+              title="New session"
+              iconPath="M8 3v10M3 8h10"
+              align="left"
+              className="mx-1"
+            />
           </Bar>
           {/* terminals — all kept mounted so sessions survive tab switches */}
           <div className="relative min-h-0 flex-1">
@@ -315,12 +361,31 @@ export default function App() {
                 className="absolute inset-0"
                 style={{ visibility: tab.id === activeId ? "visible" : "hidden" }}
               >
-                <TermView sessionId={tab.id} active={tab.id === activeId} />
+                <TermView
+                  sessionId={tab.id}
+                  active={tab.id === activeId}
+                  sessionType={tab.type}
+                  onStartNew={() => setStartOverlay(true)}
+                  onCloseTab={() => void close(tab.id)}
+                />
               </div>
             ))}
-            {tabs.length === 0 && (
-              <div className="flex h-full items-center justify-center text-ui text-ink-600">
-                no terminal — press + above
+            {/* session-surface cards: start (default with zero sessions, or
+                requested via +) and recovery (leftover session branch on load) */}
+            {card.kind !== "none" && (
+              <div className="absolute inset-0 z-30 flex items-center justify-center bg-app/90 p-6">
+                {card.kind === "recovery" ? (
+                  <RecoveryCard branch={card.branch} checkpoints={card.checkpoints} />
+                ) : (
+                  <StartSessionCard
+                    onHost={startHost}
+                    onPlainTerminal={() => {
+                      setStartOverlay(false);
+                      void create();
+                    }}
+                    {...(tabs.length > 0 ? { onDismiss: () => setStartOverlay(false) } : {})}
+                  />
+                )}
               </div>
             )}
           </div>

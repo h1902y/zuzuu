@@ -1,0 +1,139 @@
+// Pure logic tests for the session-surface card-state machine (no DOM needed).
+import { describe, expect, it } from "vitest";
+import type { SessionCloseResult, SessionGitStatus } from "@zuzuu-web/protocol";
+import { centerCard, endCard, hasAliveAgent } from "./session-cards";
+
+const leftover: SessionGitStatus = {
+  enabled: true,
+  mainBranch: "main",
+  active: { branch: "zz/session-abc", checkpoints: 3, dirty: false, noNetChanges: false },
+  onSessionBranch: false,
+};
+
+describe("centerCard (none / start / recovery)", () => {
+  it("shows nothing while sessions exist and none was requested", () => {
+    expect(centerCard(2, false, undefined)).toEqual({ kind: "none" });
+    expect(centerCard(1, false, leftover)).toEqual({ kind: "none" }); // tabs win over leftover
+  });
+
+  it("shows the start card when the user requested one over existing terminals", () => {
+    expect(centerCard(2, true, undefined)).toEqual({ kind: "start" });
+    expect(centerCard(1, true, leftover)).toEqual({ kind: "start" }); // recovery is a load-time card only
+  });
+
+  it("defaults to the start card with zero sessions (no auto-shell)", () => {
+    expect(centerCard(0, false, undefined)).toEqual({ kind: "start" });
+  });
+
+  it("shows recovery instead of start for a leftover session branch", () => {
+    expect(centerCard(0, false, leftover)).toEqual({
+      kind: "recovery",
+      branch: "zz/session-abc",
+      checkpoints: 3,
+    });
+  });
+
+  it("treats on-branch / disabled / cli-absent / branchless states as start, not recovery", () => {
+    expect(centerCard(0, false, { ...leftover, onSessionBranch: true })).toEqual({ kind: "start" });
+    expect(centerCard(0, false, { ...leftover, enabled: false })).toEqual({ kind: "start" });
+    expect(centerCard(0, false, { ...leftover, cliAbsent: true })).toEqual({ kind: "start" });
+    expect(centerCard(0, false, { ...leftover, active: null })).toEqual({ kind: "start" });
+  });
+});
+
+describe("hasAliveAgent (single-active-agent v1 rule)", () => {
+  it("is true only for an alive type:'agent' tab", () => {
+    expect(hasAliveAgent([])).toBe(false);
+    expect(hasAliveAgent([{ type: "shell", alive: true }])).toBe(false);
+    expect(hasAliveAgent([{ type: "agent", alive: false }])).toBe(false);
+    expect(hasAliveAgent([{ type: "agent", alive: true }])).toBe(true);
+    expect(
+      hasAliveAgent([
+        { type: "shell", alive: true },
+        { type: "agent", alive: false },
+        { type: "agent", alive: true },
+      ]),
+    ).toBe(true);
+  });
+});
+
+describe("endCard (agent exit outcome → card variant)", () => {
+  const merged: SessionCloseResult = {
+    ok: true,
+    merge: { ok: true, mergedAs: "abc123", mergedTo: "main", commits: 4, branch: "zz/session-abc" },
+  };
+
+  it("keeps the plain banner for shell sessions and unknown outcomes", () => {
+    expect(endCard("shell", merged)).toEqual({ kind: "banner" });
+    expect(endCard(undefined, merged)).toEqual({ kind: "banner" });
+    expect(endCard("agent", undefined)).toEqual({ kind: "banner" });
+  });
+
+  it("merged → checkpoint count from the merge result", () => {
+    expect(endCard("agent", merged)).toEqual({ kind: "merged", commits: 4 });
+  });
+
+  it("merged with no commit count defaults to 1", () => {
+    expect(
+      endCard("agent", { ok: true, merge: { ok: true, mergedAs: "abc123" } }),
+    ).toEqual({ kind: "merged", commits: 1 });
+  });
+
+  it("clean exit with nothing to merge → no-changes", () => {
+    expect(
+      endCard("agent", { ok: true, merge: { ok: true, mergedAs: null } }),
+    ).toEqual({ kind: "no-changes" });
+  });
+
+  it("absent CLI → install hint", () => {
+    expect(endCard("agent", { cliAbsent: true })).toEqual({ kind: "cli-absent" });
+  });
+
+  it("empty-squash refusal → no-net-changes with retained checkpoint count", () => {
+    expect(
+      endCard("agent", {
+        ok: false,
+        refusal: { reason: "empty-squash-with-checkpoints", commits: 3 },
+      }),
+    ).toEqual({ kind: "no-net-changes", checkpoints: 3 });
+    // count may be absent from the refusal payload
+    expect(
+      endCard("agent", { ok: false, refusal: { reason: "empty-squash-with-checkpoints" } }),
+    ).toEqual({ kind: "no-net-changes", checkpoints: null });
+    // ...or arrive inside an exit-0 merge result
+    expect(
+      endCard("agent", {
+        ok: true,
+        merge: { ok: false, reason: "empty-squash-with-checkpoints", commits: 2 },
+      }),
+    ).toEqual({ kind: "no-net-changes", checkpoints: 2 });
+  });
+
+  it("no-session-branch refusal reads as a plain clean end", () => {
+    expect(
+      endCard("agent", { ok: false, refusal: { reason: "no-session-branch" } }),
+    ).toEqual({ kind: "no-changes" });
+  });
+
+  it("conflicts → conflict card (both refusal and merge-result shapes)", () => {
+    expect(endCard("agent", { ok: false, refusal: { conflict: true } })).toEqual({ kind: "conflict" });
+    expect(
+      endCard("agent", { ok: true, merge: { ok: false, conflict: true } }),
+    ).toEqual({ kind: "conflict" });
+  });
+
+  it("other failures carry an honest message (stderr preferred)", () => {
+    expect(endCard("agent", { ok: false, stderr: "fatal: boom\n" })).toEqual({
+      kind: "failed",
+      message: "fatal: boom",
+    });
+    expect(endCard("agent", { ok: false, refusal: { reason: "weird" } })).toEqual({
+      kind: "failed",
+      message: "weird",
+    });
+    expect(endCard("agent", { ok: false })).toEqual({
+      kind: "failed",
+      message: "session merge failed",
+    });
+  });
+});

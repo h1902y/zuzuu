@@ -1,0 +1,231 @@
+import { useState, type ReactNode } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { zuzuuApi, describeZuzuuError } from "../lib/zuzuu-api";
+import { mergeSessionWithFallback, refreshSessionGit } from "../lib/session-git-actions";
+import { buildHostRows } from "../faculties/host-launch";
+import type { EndCard } from "../lib/session-cards";
+import { Button, Spinner, confirm } from "./ui";
+
+/**
+ * The Phase ④ session-surface cards: start (host picker), recovery (leftover
+ * session branch) and end-of-session (agent exit outcome). All render the same
+ * centered card shell over the terminal area — chat-feel, not shell-feel.
+ */
+function Card({ children, onDismiss }: { children: ReactNode; onDismiss?: () => void }) {
+  return (
+    <div
+      className="relative w-full max-w-sm rounded-ui border border-border bg-elevated p-5"
+      style={{ boxShadow: "var(--shadow-menu)" }}
+    >
+      {onDismiss && (
+        <button
+          onClick={onDismiss}
+          title="Dismiss"
+          className="absolute right-2.5 top-2.5 flex h-6 w-6 items-center justify-center rounded-[var(--radius-sm)] text-ink-500 hover:bg-hover hover:text-ink-100"
+        >
+          ✕
+        </button>
+      )}
+      {children}
+    </div>
+  );
+}
+
+/** "Start a session" — host buttons (detected enabled, others greyed) + a quiet plain-terminal escape hatch. */
+export function StartSessionCard({
+  onHost,
+  onPlainTerminal,
+  onDismiss,
+}: {
+  /** row command from buildHostRows (e.g. "claude", "zuzuu code") */
+  onHost: (rowCommand: string) => void;
+  onPlainTerminal: () => void;
+  /** present when the card overlays existing terminals (the + menu path) */
+  onDismiss?: () => void;
+}) {
+  const hostsQ = useQuery({ queryKey: ["zuzuu", "hosts"], queryFn: zuzuuApi.hosts, refetchInterval: 8000 });
+  const rows = buildHostRows(hostsQ.data?.hosts ?? []);
+  return (
+    <Card onDismiss={onDismiss}>
+      <div className="text-base font-medium text-ink-100">Start a session</div>
+      <p className="mt-1 text-ui leading-relaxed text-ink-400">
+        Pick a host — zuzuu wraps it, observes the session, and checkpoints your work.
+      </p>
+      <div className="mt-4 flex flex-col gap-1.5">
+        {rows.map((row) => (
+          <button
+            key={row.command}
+            disabled={!row.detected}
+            onClick={() => onHost(row.command)}
+            className={`wc-focus flex items-center rounded-[var(--radius-sm)] border px-3 py-2 text-left text-ui transition-colors ${
+              row.detected
+                ? "border-border text-ink-100 hover:border-accent-dim hover:bg-hover"
+                : "cursor-default border-border/60 text-ink-600"
+            }`}
+          >
+            {row.label}
+            {!row.detected && <span className="ml-auto pl-4 text-meta text-ink-600">not installed</span>}
+          </button>
+        ))}
+      </div>
+      <button
+        onClick={onPlainTerminal}
+        className="mt-4 text-meta text-ink-500 underline decoration-dotted underline-offset-2 hover:text-ink-300"
+      >
+        or open a plain terminal
+      </button>
+    </Card>
+  );
+}
+
+/** "You left work here" — a leftover session branch found on load. */
+export function RecoveryCard({ branch, checkpoints }: { branch: string; checkpoints: number }) {
+  const queryClient = useQueryClient();
+  const [busy, setBusy] = useState(false);
+
+  const act = (fn: () => Promise<unknown>) => {
+    setBusy(true);
+    void fn()
+      .catch((err: unknown) => window.alert(describeZuzuuError(err)))
+      .finally(() => {
+        setBusy(false);
+        refreshSessionGit(queryClient);
+      });
+  };
+
+  return (
+    <Card>
+      <div className="text-base font-medium text-ink-100">You left work here</div>
+      <p className="mt-1 text-ui leading-relaxed text-ink-400">
+        <span className="text-accent-dim">{branch}</span> — {checkpoints} checkpoint
+        {checkpoints === 1 ? "" : "s"} from an earlier session.
+      </p>
+      <div className="mt-4 flex items-center gap-2">
+        {/* continue re-checkouts the branch; the host picker then shows so you relaunch */}
+        <Button variant="primary" disabled={busy} onClick={() => act(zuzuuApi.sessionContinue)}>
+          Continue session
+        </Button>
+        <Button disabled={busy} onClick={() => act(mergeSessionWithFallback)}>
+          Merge &amp; start fresh
+        </Button>
+        {busy && <Spinner />}
+      </div>
+    </Card>
+  );
+}
+
+/** End-of-session card over a dead agent terminal (TermView renders it). */
+export function SessionEndCard({
+  state,
+  onStartNew,
+  onCloseTab,
+  onDismiss,
+}: {
+  state: Exclude<EndCard, { kind: "banner" }>;
+  onStartNew: () => void;
+  onCloseTab: () => void;
+  /** fall back to the plain exit banner (e.g. "Keep" on no-net-changes) */
+  onDismiss: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const [busy, setBusy] = useState(false);
+
+  const discard = async () => {
+    const ok = await confirm({
+      title: "Discard exploration checkpoints",
+      message: "Delete the session branch and its checkpoints? main is untouched either way.",
+      okLabel: "Discard checkpoints",
+      danger: true,
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      await zuzuuApi.sessionDiscard();
+    } catch (err) {
+      window.alert(describeZuzuuError(err));
+    }
+    setBusy(false);
+    refreshSessionGit(queryClient);
+    onDismiss();
+  };
+
+  const startClose = (
+    <div className="mt-4 flex items-center gap-2">
+      <Button variant="primary" onClick={onStartNew}>Start new session</Button>
+      <Button onClick={onCloseTab}>Close tab</Button>
+    </div>
+  );
+
+  switch (state.kind) {
+    case "merged":
+      return (
+        <Card>
+          <div className="text-base font-medium text-ink-100">Session ended — merged to main ✓</div>
+          <p className="mt-1 text-ui text-ink-400">
+            {state.commits} checkpoint{state.commits === 1 ? "" : "s"} → 1 commit
+          </p>
+          {startClose}
+        </Card>
+      );
+    case "no-changes":
+      return (
+        <Card>
+          <div className="text-base font-medium text-ink-100">Session ended</div>
+          <p className="mt-1 text-ui text-ink-400">No changes to merge — main is untouched.</p>
+          {startClose}
+        </Card>
+      );
+    case "cli-absent":
+      return (
+        <Card onDismiss={onDismiss}>
+          <div className="text-base font-medium text-ink-100">Session ended</div>
+          <div className="mt-3 rounded-[var(--radius-sm)] border border-warn/40 bg-[color-mix(in_oklab,var(--color-warn)_10%,transparent)] px-3 py-2 text-ui text-warn">
+            zuzuu CLI required to merge session checkpoints —{" "}
+            <code>npm i -g @zuzuucodes/cli</code>
+          </div>
+          {startClose}
+        </Card>
+      );
+    case "no-net-changes":
+      return (
+        <Card>
+          <div className="text-base font-medium text-ink-100">No net changes</div>
+          <p className="mt-1 text-ui leading-relaxed text-ink-400">
+            {state.checkpoints !== null
+              ? `${state.checkpoints} exploration checkpoint${state.checkpoints === 1 ? "" : "s"} retained`
+              : "Exploration checkpoints retained"}{" "}
+            — the tree ended identical to main.
+          </p>
+          <div className="mt-4 flex items-center gap-2">
+            <Button variant="danger" disabled={busy} onClick={() => void discard()}>
+              Discard checkpoints
+            </Button>
+            <Button disabled={busy} onClick={onDismiss}>Keep</Button>
+            {busy && <Spinner />}
+          </div>
+        </Card>
+      );
+    case "conflict":
+      return (
+        <Card onDismiss={onDismiss}>
+          <div className="text-base font-medium text-ink-100">Merge hit a conflict</div>
+          <p className="mt-1 text-ui leading-relaxed text-ink-400">
+            Your checkpoints are safe on the session branch. Resolve in a terminal:{" "}
+            <code className="text-accent-dim">zuzuu session merge</code>.
+          </p>
+          {startClose}
+        </Card>
+      );
+    case "failed":
+      return (
+        <Card onDismiss={onDismiss}>
+          <div className="text-base font-medium text-ink-100">Session merge failed</div>
+          <p className="mt-1 break-words text-ui leading-relaxed text-ink-400">{state.message}</p>
+          <p className="mt-2 text-meta text-ink-500">
+            Checkpoints stay on the session branch — resolve in a terminal.
+          </p>
+          {startClose}
+        </Card>
+      );
+  }
+}
