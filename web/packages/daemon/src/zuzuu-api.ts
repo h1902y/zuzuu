@@ -107,6 +107,14 @@ function binAvailable(binary: string): boolean {
   } catch { return false; }
 }
 
+/** Count item FILES in a faculty dir — knowledge items are .md, others .json/.md. */
+async function countItemFiles(dir: string): Promise<{ count: number; names: string[] }> {
+  try {
+    const names = (await fsp.readdir(dir)).filter((n) => n.endsWith(".json") || n.endsWith(".md"));
+    return { count: names.length, names };
+  } catch { return { count: 0, names: [] }; }
+}
+
 /** Read every *.json in a dir into objects; missing dir → [], corrupt file → skipped. */
 async function readJsonDir(dir: string): Promise<Record<string, unknown>[]> {
   let names: string[] = [];
@@ -156,7 +164,7 @@ export function createZuzuuApi(getRoot: () => string, opts: ApiOpts = {}): Hono 
     const faculties = [];
     for (const key of FACULTIES) {
       const itemsDir = itemsDirOf(agent, key);
-      const count = itemsDir ? (await readJsonDir(itemsDir)).length : 0;
+      const count = itemsDir ? (await countItemFiles(itemsDir)).count : 0;
       const pending = (await proposalsOf(agent, key)).length;
       faculties.push({ key, count, pending });
     }
@@ -169,7 +177,7 @@ export function createZuzuuApi(getRoot: () => string, opts: ApiOpts = {}): Hono 
     const agent = await agentDir();
     const itemsDir = itemsDirOf(agent, key);
     const items = itemsDir
-      ? (await readJsonDir(itemsDir)).map((it) => ({ id: String(it.id ?? "?"), title: firstLine(it.body ?? it.id) }))
+      ? (await countItemFiles(itemsDir)).names.map((n) => ({ id: n.replace(/\.(json|md)$/, ""), title: n.replace(/\.(json|md)$/, "") }))
       : [];
     const proposals = (await proposalsOf(agent, key)).map((p) => ({ id: String(p.id ?? "?"), faculty: key, title: proposalTitle(p) }));
     return c.json({ key, items, proposals });
