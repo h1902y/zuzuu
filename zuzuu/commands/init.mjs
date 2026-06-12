@@ -31,7 +31,7 @@ function serveInstructions(cwd, { greenfield }) {
     const text = readFileSync(path, 'utf8');
     // current-version block present → nothing to do; older version → replace in
     // place (the markers are versioned for exactly this); absent → append.
-    if (text.includes(`mns:faculties:v${BLOCK_VERSION}`)) continue;
+    if (text.includes(`zuzuu:faculties:v${BLOCK_VERSION}`)) continue;
     writeFileSync(path, injectBlock(text));
     injected.push(hasBlock(text) ? `${f} (upgraded → v${BLOCK_VERSION})` : f);
   }
