@@ -64,23 +64,35 @@ function propose(agentDir, slug) {
   else console.log(`proposed action '${slug}' already complete — nothing to do`);
 }
 
-function inbox(agentDir) {
+function inbox(agentDir, args = {}) {
   const pending = listProposedActions(agentDir);
+  if (args.json) {
+    console.log(JSON.stringify({ pending }));
+    return;
+  }
   if (!pending.length) return console.log('no proposed actions — inbox empty');
   for (const a of pending.sort((x, y) => x.slug.localeCompare(y.slug))) {
     console.log(`  ${a.slug}  [${a.kind}]  ${a.promptSnippet}`);
   }
 }
 
-function approve(agentDir, slug) {
+function approve(agentDir, slug, args = {}) {
   const r = activateAction(agentDir, slug);
-  console.log(r.ok ? `✓ activated '${slug}'` : `✗ ${r.error}`);
+  if (args.json) {
+    console.log(JSON.stringify({ ok: r.ok, action: r.ok ? `activated ${slug}` : r.error, slug }));
+  } else {
+    console.log(r.ok ? `✓ activated '${slug}'` : `✗ ${r.error}`);
+  }
   process.exit(r.ok ? 0 : 1);
 }
 
-function reject(agentDir, slug) {
+function reject(agentDir, slug, args = {}) {
   const r = rejectAction(agentDir, slug);
-  console.log(r.ok ? `✓ rejected '${slug}'` : `✗ ${r.error}`);
+  if (args.json) {
+    console.log(JSON.stringify({ ok: r.ok, action: r.ok ? `rejected ${slug}` : r.error, slug }));
+  } else {
+    console.log(r.ok ? `✓ rejected '${slug}'` : `✗ ${r.error}`);
+  }
   process.exit(r.ok ? 0 : 1);
 }
 
@@ -92,9 +104,9 @@ export function act(args) {
   if (sub === 'new') return newAction(agentDir, requireSlug(args._[1], 'usage: zuzuu act new <slug>'));
   if (sub === 'schema') return schemaCmd(agentDir, requireSlug(args._[1], 'usage: zuzuu act schema <slug> [--openai|--anthropic]'), args);
   if (sub === 'propose') return propose(agentDir, requireSlug(args._[1], 'usage: zuzuu act propose <slug>'));
-  if (sub === 'inbox') return inbox(agentDir);
-  if (sub === 'approve') return approve(agentDir, requireSlug(args._[1], 'usage: zuzuu act approve <slug>'));
-  if (sub === 'reject') return reject(agentDir, requireSlug(args._[1], 'usage: zuzuu act reject <slug>'));
+  if (sub === 'inbox') return inbox(agentDir, args);
+  if (sub === 'approve') return approve(agentDir, requireSlug(args._[1], 'usage: zuzuu act approve <slug>'), args);
+  if (sub === 'reject') return reject(agentDir, requireSlug(args._[1], 'usage: zuzuu act reject <slug>'), args);
   // future-reserved guard: extend RESERVED + add a handler above in tandem
   if (RESERVED.has(sub)) { console.error(`unknown: zuzuu act ${sub}`); process.exit(1); }
   return run(agentDir, requireSlug(sub, 'usage: zuzuu act <slug> [--args JSON]'), args);
