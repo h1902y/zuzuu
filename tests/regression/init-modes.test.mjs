@@ -98,7 +98,7 @@ test('mode 3 — reinit restores missing pieces only', () => {
     run(cwd);
     rmSync(join(cwd, '.zuzuu', 'actions'), { recursive: true });
     const out = run(cwd);
-    assert.match(out, /restored : 3 missing piece/);
+    assert.match(out, /restored : 4 missing piece/);
     assert.ok(existsSync(join(cwd, '.zuzuu', 'actions', 'README.md')));
   });
 });
