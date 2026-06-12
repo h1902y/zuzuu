@@ -11,7 +11,7 @@ beforeEach(() => { root = realpathSync(mkdtempSync(path.join(tmpdir(), "zw-")));
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 function fixtureHome(r: string) {
-  const agent = path.join(r, "agent");
+  const agent = path.join(r, ".zuzuu");
   for (const f of ["knowledge", "memory", "actions", "instructions", "guardrails"])
     mkdirSync(path.join(agent, f, "proposals"), { recursive: true });
   mkdirSync(path.join(agent, "knowledge", "items"), { recursive: true });
@@ -52,7 +52,7 @@ describe("createZuzuuApi file routes", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({ home: true, zuzuuBin: false });
   });
-  it("missing agent/ → /health home:false (no throw)", async () => {
+  it("missing .zuzuu/ → /health home:false (no throw)", async () => {
     const app = createZuzuuApi(() => root, { binary: "x" });
     expect((await (await app.request("/health")).json()).home).toBe(false);
   });

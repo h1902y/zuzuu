@@ -1,4 +1,4 @@
-// /api/zuzuu/* — read-only observe routes over a project's zuzuu `agent/` home.
+// /api/zuzuu/* — read-only observe routes over a project's zuzuu `.zuzuu/` home.
 // Raw data (proposals, generations, sessions, digest) is read from disk; computed
 // views (status, inbox, generation diff) shell out to `zuzuu <cmd> --json` and
 // fall back to file-reads when the binary is absent. Mirrors fs-api.ts.
@@ -83,7 +83,7 @@ export function createZuzuuApi(getRoot: () => string, opts: ApiOpts = {}): Hono 
     return c.json({ error: "internal error" }, 500);
   });
 
-  const agentDir = () => resolveSafe(root, "agent");
+  const agentDir = () => resolveSafe(root, ".zuzuu");
   const proposalsOf = async (agent: string, key: string) => readJsonDir(path.join(agent, key, "proposals"));
 
   app.get("/health", async (c) => {
