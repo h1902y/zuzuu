@@ -61,7 +61,9 @@ function help() {
 usage: zuzuu <command> [options]
 
   code [dir]                launch OpenCode as the bundled default host (faculty home + capture + gate + digest)
-  web [dir]                 launch the visual workbench (installs @zuzuucodes/web on demand)
+  web [dir] [--stop|--status]
+                            launch the visual workbench (reuses a running one;
+                            --stop ends it, --status reports it)
   init                      scaffold the faculty home (.zuzuu/) — git-style, idempotent
   status                    detected hosts + recorded sessions
   capture [--host NAME]     capture a session → .zuzuu/.traces + .zuzuu/sessions.json
@@ -108,7 +110,7 @@ const args = parseArgs(rest);
 
 switch (cmd) {
   case 'code': process.exit(code(args)); break;
-  case 'web': web(args); break;
+  case 'web': await web(args); break;
   case 'init': init(args); break;
   case 'remember': remember(args); break;
   case 'recall': await recall(args); break;
