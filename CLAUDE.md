@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Built so far (verified): the **observe** layer — host-agnostic trace capture (OTLP/JSON) across 4 real hosts + the `zuzuu` CLI + live capture — and the first **serve** slice (`zuzuu init` faculty home). The **evolve** engine is design-only. Don't claim unbuilt parts work; don't treat designed parts as absent — check `experiments/LOG.md` for what’s proven.
 
-Naming: the project is **zuzuu** (current name; a return to the original concept) — was **motorsandsensors / mns** in the v0 phase. The CLI is `zuzuu` (package `zuzuu`, v1.0.0).
+Naming: the project is **zuzuu** (current name; a return to the original concept) — was **motorsandsensors / mns** in the v0 phase (no `mns` alias remains — all backward-compat was removed). The **command is `zz`** (and `zuzuu`); the npm package is **`@zuzuucodes/cli`** (unscoped `zuzuu` is blocked by npm as too-similar to `zuul`; the `@zuzuucodes` org holds it). Repo: `~/Documents/zuzuu` → `github.com/h1902y/zuzuu`. Releases auto-publish from `main` via OIDC trusted publishing (`.github/workflows/publish.yml`, version-bump-driven).
 
 ## Commands
 
