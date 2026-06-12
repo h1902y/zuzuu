@@ -7,7 +7,7 @@ import { sessionStatus } from '../sessions/session-git.mjs';
 import { readIndex, paths } from '../core/store.mjs';
 import { FACULTIES } from '../faculty/contract.mjs';
 import { listProposals } from '../faculty/proposal.mjs';
-import { activeGeneration as activeGenerationFn } from '../faculty/generation.mjs';
+import { activeGeneration as activeGenerationFn } from '../faculty/generation/read.mjs';
 import { detectDrift } from './doctor.mjs';
 
 const fmtDur = (ms) => (ms < 60_000 ? `${(ms / 1000).toFixed(0)}s` : `${(ms / 60_000).toFixed(1)}m`);

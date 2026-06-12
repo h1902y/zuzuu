@@ -5,9 +5,8 @@
 //   zuzuu generation rollback <id>    restore a past generation by content (flip active + restore)
 
 import { paths, repoRoot } from '../core/store.mjs';
-import {
-  listGenerations, readGeneration, activeGeneration, mintGeneration, rollback, diffGenerations,
-} from '../faculty/generation.mjs';
+import { listGenerations, readGeneration, activeGeneration, diffGenerations } from '../faculty/generation/read.mjs';
+import { mintGeneration, rollback } from '../faculty/generation/write.mjs';
 
 function agentDir() {
   return paths(repoRoot(process.cwd())).dir;

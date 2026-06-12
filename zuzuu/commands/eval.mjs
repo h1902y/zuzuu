@@ -7,9 +7,9 @@
 // a one-line eval annotation per proposal card.
 
 import { join } from 'node:path';
-import { paths, readIndex } from '../core/store.mjs';
+import { paths } from '../core/store.mjs';
 import * as registry from '../faculty/registry.mjs';
-import { listProposals as spineListProposals } from '../faculty/proposal.mjs';
+import { buildSessionMtimes, facultyPending } from '../faculty/pending.mjs';
 import { rank } from '../eval/rank.mjs';
 import { getScorer } from '../eval/score.mjs';
 import '../knowledge/adapter.mjs';    // self-registers the 'knowledge' adapter
@@ -31,34 +31,6 @@ export function evalLine({ score, confidence, rationale }) {
 }
 
 /**
- * Build sessionMtimes from the sessions index — cheap best-effort.
- * Falls back to {} on any error.
- * @param {string} [cwd]
- * @returns {Record<string, number>}
- */
-function buildSessionMtimes(cwd) {
-  try {
-    const idx = readIndex(cwd);
-    const map = {};
-    for (const s of idx.sessions ?? []) {
-      if (!s.id) continue;
-      // prefer startedAt ms; fall back to 0 (neutral recency)
-      const ms = s.startedAt ? Date.parse(s.startedAt) : 0;
-      if (!isNaN(ms) && ms > 0) map[s.id] = ms;
-    }
-    return map;
-  } catch {
-    return {};
-  }
-}
-
-/** Collect proposals for a given adapter (mirrors review.mjs's facultyPending). */
-function collectProposals(agentDir, adapter) {
-  if (typeof adapter.listProposals === 'function') return adapter.listProposals(agentDir);
-  return spineListProposals(agentDir, adapter.name);
-}
-
-/**
  * Pure: gather + rank all pending proposals, returning structured data for JSON output.
  * The zuzuu-web /eval source.
  * Touches FS via buildSessionMtimes (fail-open) and collectProposals.
@@ -77,7 +49,7 @@ export function evalData(agentDir, { faculty: onlyFaculty = null } = {}) {
   const allEntries = [];
   for (const adapter of adapters) {
     if (onlyFaculty && adapter.name !== onlyFaculty) continue;
-    const proposals = collectProposals(agentDir, adapter);
+    const proposals = facultyPending(agentDir, adapter);
     for (const proposal of proposals) {
       allEntries.push({ proposal, faculty: adapter.name });
     }

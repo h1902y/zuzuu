@@ -21,7 +21,7 @@ import { sessionGitEnabled, openSession, checkpoint, closeSession } from '../ses
 import { loadRules, evaluate, toPreToolUseDecision, toGeminiDecision } from '../guardrails/engine.mjs';
 import { paths, liveDir as liveDirOf } from '../core/store.mjs';
 import { computeDigest } from '../digest/compose.mjs';
-import { activeGeneration } from '../faculty/generation.mjs';
+import { activeGeneration } from '../faculty/generation/read.mjs';
 
 // Lifecycle events, normalized across hosts (verified by observing each host):
 //   open  — session starts

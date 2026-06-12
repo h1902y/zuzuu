@@ -11,7 +11,7 @@ import { loadRegistry } from '../knowledge/registry.mjs';
 import { allItems } from '../knowledge/items.mjs';
 import { listProposals } from '../knowledge/proposals.mjs';
 import { detectEmbedder } from '../knowledge/embed.mjs';
-import { activeGeneration, readGeneration, snapshotFaculties } from '../faculty/generation.mjs';
+import { activeGeneration, readGeneration, snapshotFaculties } from '../faculty/generation/read.mjs';
 import { sessionStatus } from '../sessions/session-git.mjs';
 import { leftoverLine } from './session.mjs';
 
