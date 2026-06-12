@@ -56,8 +56,9 @@ export function menuSubdirs(
   entries: { name: string; kind: string; targetKind?: string }[],
   max = 8,
 ): string[] {
-  return entries
+  const dirs = entries
     .filter((e) => e.kind === "dir" || e.targetKind === "dir")
-    .map((e) => e.name)
-    .slice(0, max);
+    .map((e) => e.name);
+  // visible dirs first — dot-dirs are rarely switch targets and crowd the menu
+  return [...dirs.filter((n) => !n.startsWith(".")), ...dirs.filter((n) => n.startsWith("."))].slice(0, max);
 }

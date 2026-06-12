@@ -109,3 +109,8 @@ describe("tilde", () => {
     expect(tilde("/opt/data")).toBe("/opt/data");
   });
 });
+
+it("menuSubdirs lists visible dirs before dot-dirs", () => {
+  const rows = [".git", ".zuzuu", "docs", "web", "bin"].map((name) => ({ name, kind: "dir" }));
+  expect(menuSubdirs(rows, 4)).toEqual(["docs", "web", "bin", ".git"]);
+});
