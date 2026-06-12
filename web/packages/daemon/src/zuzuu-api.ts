@@ -48,7 +48,7 @@ export function runZuzuu(root: string, args: string[], opts: RunOpts = {}): Prom
 
 export type ZuzuuMutResult =
   | { ok: true; data: unknown }
-  | { ok: false; code: "absent" | "failed"; stderr?: string };
+  | { ok: false; code: "absent" | "failed"; stderr?: string; data?: unknown };
 
 const STDERR_TAIL = 2048;
 
@@ -83,7 +83,16 @@ export function runZuzuuMut(root: string, args: string[], opts: RunOpts = {}): P
     });
     child.on("close", (code) => {
       clearTimeout(timer);
-      if (code !== 0) return finish({ ok: false, code: "failed", stderr: err.slice(-STDERR_TAIL) });
+      if (code !== 0) {
+        // zuzuu prints structured JSON even on refusals (exit 1, e.g.
+        // empty-squash-with-checkpoints) — keep it so the UI can act on reason.
+        try {
+          const parsed: unknown = JSON.parse(out);
+          return finish({ ok: false, code: "failed", stderr: err.slice(-STDERR_TAIL), data: parsed });
+        } catch {
+          return finish({ ok: false, code: "failed", stderr: err.slice(-STDERR_TAIL) });
+        }
+      }
       try { finish({ ok: true, data: JSON.parse(out) }); }
       catch { finish({ ok: false, code: "failed", stderr: "unparseable JSON from zuzuu" }); }
     });
@@ -234,7 +243,7 @@ export function createZuzuuApi(getRoot: () => string, opts: ApiOpts = {}): Hono 
     if (!r.ok) {
       return r.code === "absent"
         ? c.json({ error: "zuzuu CLI required" }, 503)
-        : c.json({ error: "zuzuu command failed", stderr: r.stderr ?? "" }, 502);
+        : c.json({ error: "zuzuu command failed", stderr: r.stderr ?? "", data: r.data ?? null }, 502);
     }
     return c.json(r.data as Record<string, unknown>);
   };

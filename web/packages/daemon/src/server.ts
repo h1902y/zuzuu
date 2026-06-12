@@ -138,7 +138,7 @@ export class WebcodeServer {
     });
     if (r.ok) return { ok: true, merge: r.data as SessionMergeResult };
     if (r.code === "absent") return { cliAbsent: true };
-    return { ok: false, ...(r.stderr !== undefined ? { stderr: r.stderr } : {}) };
+    return { ok: false, ...(r.stderr !== undefined ? { stderr: r.stderr } : {}), ...(r.data !== undefined ? { refusal: r.data as Record<string, unknown> } : {}) };
   }
 
   // ── security gates ─────────────────────────────────────────────────

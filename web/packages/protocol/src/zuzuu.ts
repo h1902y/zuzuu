@@ -160,4 +160,4 @@ export interface SessionMergeResult {
 export type SessionCloseResult =
   | { cliAbsent: true }
   | { ok: true; merge: SessionMergeResult }
-  | { ok: false; stderr?: string };
+  | { ok: false; stderr?: string; refusal?: Record<string, unknown> };
