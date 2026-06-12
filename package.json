@@ -1,12 +1,12 @@
 {
   "name": "@zuzuucodes/cli",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": false,
   "publishConfig": {
     "access": "public"
   },
   "type": "module",
-  "description": "Give the coding agent you already run (Claude Code, Codex, Gemini CLI, OpenCode) evolving faculties — knowledge, memory, actions, instructions, guardrails — with host-agnostic OpenTelemetry session tracing. Zero dependencies.",
+  "description": "Give the coding agent you already run (Claude Code, Codex, Gemini CLI, OpenCode) evolving faculties \u2014 knowledge, memory, actions, instructions, guardrails \u2014 with host-agnostic OpenTelemetry session tracing. Zero dependencies.",
   "keywords": [
     "ai-agents",
     "claude-code",
@@ -35,11 +35,13 @@
   },
   "bin": {
     "zz": "bin/zuzuu.mjs",
-    "zuzuu": "bin/zuzuu.mjs"
+    "zuzuu": "bin/zuzuu.mjs",
+    "zuzuu-web": "bin/zuzuu-web.mjs"
   },
   "files": [
     "bin/",
     "zuzuu/",
+    "web-app/",
     "experiments/experiment-1-trace-capture/core/",
     "experiments/experiment-1-trace-capture/adapters/",
     "LICENSE",
@@ -51,6 +53,17 @@
     "inspect": "node experiments/experiment-1-trace-capture/bin/inspect-trace.mjs",
     "test": "node --test 'tests/**/*.test.mjs'",
     "playground": "node tests/playground/run.mjs",
-    "prepublishOnly": "npm test"
+    "prepublishOnly": "npm test",
+    "build:web": "node scripts/build-web.mjs"
+  },
+  "optionalDependencies": {
+    "@hono/node-server": "^2.0.4",
+    "@lydell/node-pty": "^1.2.0-beta.12",
+    "@xterm/addon-serialize": "^0.14.0",
+    "@xterm/headless": "^6.0.0",
+    "archiver": "^8.0.0",
+    "chokidar": "^5.0.0",
+    "hono": "^4.12.25",
+    "ws": "^8.21.0"
   }
 }

@@ -30,6 +30,10 @@ jobs:
           [ "$LOCAL" != "$PUBLISHED" ] && echo "publish=true" >> "$GITHUB_OUTPUT" || echo "publish=false" >> "$GITHUB_OUTPUT"
       - if: steps.check.outputs.publish == 'true'
         run: npm test
+      # stage the bundled workbench (web/ → web-app/) — single-package design:
+      # the web app ships inside @zuzuucodes/cli; its deps are optionalDependencies
+      - if: steps.check.outputs.publish == 'true'
+        run: node scripts/build-web.mjs
       # trusted publishing needs npm >= 11.5.1 (node 22 ships an older npm)
       - if: steps.check.outputs.publish == 'true'
         run: npm install -g npm@latest

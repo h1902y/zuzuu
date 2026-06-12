@@ -6,9 +6,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/h1902y/zuzuu-web.git"
+    "url": "git+https://github.com/h1902y/zuzuu.git",
+    "directory": "web/packages/daemon"
   },
-  "homepage": "https://github.com/h1902y/zuzuu-web",
+  "homepage": "https://github.com/h1902y/zuzuu/tree/main/web#readme",
   "bin": {
     "zuzuu-web": "bin/zuzuu-web.js"
   },
@@ -49,5 +50,8 @@
     "@types/ws": "^8.18.1",
     "tsx": "^4.22.4",
     "vitest": "^4.1.8"
+  },
+  "bugs": {
+    "url": "https://github.com/h1902y/zuzuu/issues"
   }
 }

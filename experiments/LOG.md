@@ -771,3 +771,13 @@ Product-experience workstream 2 (DESIGN §13). The audit finding that set the sc
 **Verified:** 371 zuzuu tests + 4 playgrounds; 103 zuzuu-web tests (80 daemon + 23 web); **live browser E2E on this repo** — rejected a stale proposal with a reason, approved one, closed mid-ceremony → **`gen_001` minted** (the repo's first generation, committed as dogfood `ad163b6`); CLI cross-check agreed (`zuzuu generation list`, `status --json`). Found-and-fixed during review/E2E: claude host detection used `claude` instead of the adapter name `claude-code`; mint-on-close missing; eval text path duplicated the rank pipeline.
 
 **Open:** `@zuzuucodes/web` npm publish awaits the one-time trusted-publisher registration on npmjs.com (repo + OIDC workflow are live at `h1902y/zuzuu-web`); until then `zz web`'s install-on-demand path can't complete on a clean machine (manual `npm i -g` works once published). Remaining 21 mns-era proposals await a real human review pass.
+
+### W2 addendum — one repo, one package (2026-06-12, later the same day)
+
+Two product decisions superseded the morning's two-package design, both user-driven:
+
+**① webcode absorbed → `web/`** (git subtree, full history). The workbench is core product (DESIGN §13), so it lives in the product's repo. `web/` stays a self-contained nested project — own lockfile/vitest/build, NOT a root workspace — so the root keeps its zero-dep, no-build, hermetic `npm test`.
+
+**② One npm package.** The workbench ships INSIDE `@zuzuucodes/cli` as `web-app/` (staged by `scripts/build-web.mjs`: web build → copy daemon dist + web-dist + minimal nested package.json). The web runtime's 8 deps became the CLI's **`optionalDependencies`** — `dependencies` stays empty, CLI code never imports them, so a failed node-pty native build degrades the workbench, never the CLI; `--omit=optional` = light install. ADK-style: `npm i -g @zuzuucodes/cli` is the whole product. **This dissolved the publish blocker entirely** — no second package, no first-publish OTP, no extra trusted-publisher registration; the existing OIDC pipeline ships everything (publish.yml gained one `build-web` step). `@zuzuucodes/web` was never published; the interim `h1902y/zuzuu-web` repo is archived.
+
+**Verified:** 370 hermetic tests + web's 103 in place under `web/`; `npm pack` = 519 files / 5.6MB; the tarball installed globally for real — optional deps resolved, node-pty built, `zuzuu-web` booted a tmp workspace, SPA served HTTP 200, `/api/zuzuu/health` answered. v1.2.0.

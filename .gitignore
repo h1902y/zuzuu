@@ -34,3 +34,4 @@ experiments/**/out/
 .zuzuu/.traces/
 .zuzuu/.live/
 .zuzuu/knowledge/.index.db
+web-app/
