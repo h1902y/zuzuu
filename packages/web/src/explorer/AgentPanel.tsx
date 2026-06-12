@@ -22,7 +22,11 @@ export function AgentPanel() {
   const setView = useView((s) => s.setMode);
   const openPath = useExplorer((s) => s.openPreviewPath);
 
-  if (health.data && !homeExists) {
+  // health still loading → don't flash the full panel (or fire the hosts fetch)
+  if (!health.data) {
+    return <div className="p-3 text-meta text-ink-600">…</div>;
+  }
+  if (!homeExists) {
     return (
       <div className="flex flex-col gap-3 p-3 text-ui text-ink-300">
         <div>No zuzuu home here yet.</div>

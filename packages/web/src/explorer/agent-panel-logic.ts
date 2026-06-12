@@ -8,9 +8,10 @@ export function digestPeek(text: string, max = 20): { text: string; truncated: b
   return { text: lines.slice(0, max).join("\n"), truncated: true };
 }
 
-/** The status-bar chip: `⟡ <active generation> · N pending`. */
+/** The status-bar chip: `⟡ <active generation>` (+ ` · N pending` only when N > 0). */
 export function agentChipLabel(activeGeneration: string | null | undefined, pendingCount: number): string {
-  return `⟡ ${activeGeneration ?? "no gen"} · ${pendingCount} pending`;
+  const gen = `⟡ ${activeGeneration ?? "no gen"}`;
+  return pendingCount > 0 ? `${gen} · ${pendingCount} pending` : gen;
 }
 
 export interface FacultyLink {

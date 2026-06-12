@@ -32,7 +32,7 @@ describe("agentChipLabel", () => {
   });
 
   it("falls back to 'no gen' when no generation is active", () => {
-    expect(agentChipLabel(null, 0)).toBe("⟡ no gen · 0 pending");
+    expect(agentChipLabel(null, 0)).toBe("⟡ no gen");
     expect(agentChipLabel(undefined, 2)).toBe("⟡ no gen · 2 pending");
   });
 });
