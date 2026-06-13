@@ -43,27 +43,38 @@ function rewriteEnvelopeKey(text) {
   return open + fm.replace(/^faculty:/m, 'module:') + close + text.slice(open.length + fm.length + close.length);
 }
 
-/** Recursively copy a snapshot subtree, rewriting *.md `faculty:`→`module:`. */
-function copySnapshotTree(srcDir, destDir, out) {
-  let entries;
-  try { entries = readdirSync(srcDir, { withFileTypes: true }); } catch { return; }
+/** Recursively copy a snapshot subtree, rewriting *.md `faculty:`→`module:`.
+ *  THROWS on any file-copy failure (the caller's per-module try/catch records it
+ *  and leaves that module unpinned + the global dir intact — a partial snapshot
+ *  must never become a completion marker, or a re-run would skip it and the
+ *  rmSync would delete the only complete copy). */
+function copySnapshotTree(srcDir, destDir) {
+  const entries = readdirSync(srcDir, { withFileTypes: true });
   for (const e of entries) {
     const src = join(srcDir, e.name);
     const dest = join(destDir, e.name);
     let isDir = e.isDirectory();
-    if (!isDir && !e.isFile()) { try { isDir = statSync(src).isDirectory(); } catch { continue; } }
-    if (isDir) { copySnapshotTree(src, dest, out); continue; }
-    try {
-      mkdirSync(dirname(dest), { recursive: true });
-      if (e.name.endsWith('.md')) {
-        writeFileSync(dest, rewriteEnvelopeKey(readFileSync(src, 'utf8')));
-      } else {
-        writeFileSync(dest, readFileSync(src)); // byte-exact for non-envelope bytes
-      }
-    } catch (err) {
-      out.errors.push({ file: src, error: err.message });
+    if (!isDir && !e.isFile()) isDir = statSync(src).isDirectory();
+    if (isDir) { copySnapshotTree(src, dest); continue; }
+    mkdirSync(dirname(dest), { recursive: true });
+    if (e.name.endsWith('.md')) {
+      writeFileSync(dest, rewriteEnvelopeKey(readFileSync(src, 'utf8')));
+    } else {
+      writeFileSync(dest, readFileSync(src)); // byte-exact for non-envelope bytes
     }
   }
+}
+
+/** True if the per-module gen_001 snapshot holds every expected item — a flat
+ *  module wants <id>.md, actions wants a <slug>/ dir. Empty expected → trivially
+ *  complete. Guards the idempotency skip so a partial snapshot is never accepted. */
+function snapshotComplete(agentDir, module, items) {
+  const snapDir = join(agentDir, module, 'generations', 'snapshots', 'gen_001');
+  for (const { id } of items) {
+    const p = module === 'actions' ? join(snapDir, id) : join(snapDir, `${id}.md`);
+    if (!existsSync(p)) return false;
+  }
+  return true;
 }
 
 const globalGenerationsDir = (agentDir) => join(agentDir, 'generations');
@@ -115,15 +126,17 @@ export function migrateGenerations(agentDir) {
   for (const module of MODULES) {
     const sec = sections[module];
     if (!sec) continue; // module not pinned by the global gen → no per-module gen
-    // Idempotency / partial-re-run: the lockfile is the COMPLETION marker. If a
-    // gen_001.json already exists, this module is done — just pin it (don't
-    // re-copy). A bare generations/ dir with no lockfile is an incomplete prior
-    // run → fall through and (re)complete it; writeJson overwrites cleanly.
-    if (existsSync(join(agentDir, module, 'generations', 'gen_001.json'))) {
+    const items = Array.isArray(sec.items) ? sec.items.map(({ id, hash }) => ({ id, hash })) : [];
+    // Idempotency / partial-re-run: a module is "already migrated" ONLY if BOTH
+    // its lockfile AND its complete snapshot (every expected item file present)
+    // exist. A lockfile without its snapshot bytes is a partial prior run — fall
+    // through and re-copy, never skip (skipping would let the rmSync below delete
+    // the only complete copy). writeJson/copy overwrite cleanly.
+    if (existsSync(join(agentDir, module, 'generations', 'gen_001.json'))
+        && snapshotComplete(agentDir, module, items)) {
       pins[module] = 'gen_001';
       continue;
     }
-    const items = Array.isArray(sec.items) ? sec.items.map(({ id, hash }) => ({ id, hash })) : [];
     const perModuleLock = {
       id: 'gen_001',
       module,
@@ -137,7 +150,7 @@ export function migrateGenerations(agentDir) {
       // copy this module's snapshot bytes (faculty:→module:) into the per-module snapshot
       const srcModuleSnap = join(snapBase, module);
       if (existsSync(srcModuleSnap)) {
-        copySnapshotTree(srcModuleSnap, join(agentDir, module, 'generations', 'snapshots', 'gen_001'), out);
+        copySnapshotTree(srcModuleSnap, join(agentDir, module, 'generations', 'snapshots', 'gen_001'));
       } else {
         mkdirSync(join(agentDir, module, 'generations', 'snapshots', 'gen_001'), { recursive: true });
       }

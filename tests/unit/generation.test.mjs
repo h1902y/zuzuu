@@ -224,6 +224,72 @@ test('double rollback with the same displaced item never crashes and keeps both 
   });
 });
 
+test('mint after rollback forks from the ACTIVE generation, not the max-numbered one', () => {
+  freshHome((agentDir) => {
+    mintModuleGeneration(agentDir, 'knowledge'); // gen_001
+    writeFileSync(join(agentDir, 'knowledge', 'items', 'alpha.md'), KITEM('alpha', 'Alpha v2.'));
+    mintModuleGeneration(agentDir, 'knowledge'); // gen_002
+    rollbackModule(agentDir, 'knowledge', 'gen_001'); // active back to gen_001
+    assert.equal(activeModuleGeneration(agentDir, 'knowledge'), 'gen_001');
+    // edit an item, then mint — the new gen must fork from the ACTIVE (gen_001),
+    // not the highest-numbered gen (gen_002), or the lineage/diff is garbage.
+    writeFileSync(join(agentDir, 'knowledge', 'items', 'alpha.md'), KITEM('alpha', 'Alpha v3.'));
+    const g3 = mintModuleGeneration(agentDir, 'knowledge'); // gen_003
+    assert.equal(g3.id, 'gen_003');
+    assert.equal(g3.forkedFrom, 'gen_001', 'forked from the active gen, not the max-numbered');
+  });
+});
+
+test('rollback is honest about a missing snapshot file: ok:false, missing counted, live item NOT lost', () => {
+  freshHome((agentDir) => {
+    mintModuleGeneration(agentDir, 'knowledge'); // gen_001: alpha, beta
+    // delete one snapshot file so it cannot be restored
+    rmSync(join(agentDir, 'knowledge', 'generations', 'snapshots', 'gen_001', 'beta.md'));
+    // mutate the live beta so we can prove it stays in place (not archived/lost)
+    const liveBeta = join(agentDir, 'knowledge', 'items', 'beta.md');
+    writeFileSync(liveBeta, KITEM('beta', 'Beta MUTATED.'));
+    const r = rollbackModule(agentDir, 'knowledge', 'gen_001');
+    assert.equal(r.ok, false, 'partial restore is reported as not-ok');
+    assert.equal(r.missing, 1, 'one item could not be restored');
+    assert.equal(r.restored, 1, 'the other item was restored');
+    // beta (the one that could not be restored) must NOT be archived/lost — it
+    // is a target item, so it stays live exactly as-is.
+    assert.ok(existsSync(liveBeta), 'unrestorable live item stays in place');
+    assert.equal(readFileSync(liveBeta, 'utf8'), KITEM('beta', 'Beta MUTATED.'), 'unrestored item untouched');
+    assert.equal(existsSync(join(agentDir, 'knowledge', '_rolledback', 'beta.md')), false, 'not archived');
+  });
+});
+
+test('a fully-intact rollback still returns ok:true with missing 0', () => {
+  freshHome((agentDir) => {
+    mintModuleGeneration(agentDir, 'knowledge'); // gen_001: alpha, beta
+    writeFileSync(join(agentDir, 'knowledge', 'items', 'alpha.md'), KITEM('alpha', 'X.'));
+    mintModuleGeneration(agentDir, 'knowledge'); // gen_002
+    const r = rollbackModule(agentDir, 'knowledge', 'gen_001');
+    assert.equal(r.ok, true);
+    assert.equal(r.missing, 0);
+    assert.equal(r.restored, 2);
+  });
+});
+
+test('actions rollback is honest about a missing snapshot base: ok:false, missing counted', () => {
+  freshHome((agentDir) => {
+    const slug = join(agentDir, 'actions', 'run-tests');
+    mkdirSync(slug, { recursive: true });
+    writeFileSync(join(slug, 'ACTION.md'), '---\nid: run-tests\nmodule: actions\n---\nrun the tests\n');
+    writeFileSync(join(slug, 'run.mjs'), 'export default () => {};\n');
+    mintModuleGeneration(agentDir, 'actions'); // gen_001 pins run-tests
+    // delete the snapshotted slug dir so it cannot be restored
+    rmSync(join(agentDir, 'actions', 'generations', 'snapshots', 'gen_001', 'run-tests'), { recursive: true, force: true });
+    const r = rollbackModule(agentDir, 'actions', 'gen_001');
+    assert.equal(r.ok, false, 'a pinned slug that cannot be restored is reported');
+    assert.equal(r.missing, 1);
+    // the live slug is a target item → must stay in place (not archived)
+    assert.ok(existsSync(slug), 'pinned live slug stays in place');
+    assert.equal(existsSync(join(agentDir, 'actions', '_rolledback', 'run-tests')), false, 'not archived');
+  });
+});
+
 test('agentId stable; agent.json bumped to v2 preserving fields', () => {
   freshHome((agentDir) => {
     const a1 = agentId(agentDir);

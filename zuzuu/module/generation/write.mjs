@@ -15,6 +15,7 @@ import { reindex } from '../../knowledge/index.mjs';
 import {
   moduleSnapshotsDir, moduleActivePath, moduleLockfilePath, agentJsonPath, readJson,
   moduleItemFiles, snapshotModuleItems, agentId, listModuleGenerations, readModuleGeneration,
+  activeModuleGeneration,
 } from './read.mjs';
 
 const writeJson = (p, obj) => {
@@ -72,9 +73,13 @@ function copyModuleSnapshot(agentDir, module, id) {
 export function mintModuleGeneration(agentDir, module, { forkedFrom = undefined, mintedFrom = [] } = {}) {
   const agent = ensureAgent(agentDir).id;
   const id = nextModuleGenId(agentDir, module);
+  // Default the lineage parent to the module's ACTIVE generation — NOT its
+  // max-numbered one. After a rollback-then-mint, the active is an older gen,
+  // and forking from the max-numbered gen would record the wrong parent (garbage
+  // diffs). An explicit forkedFrom always wins.
   const parent = forkedFrom !== undefined
     ? forkedFrom
-    : (listModuleGenerations(agentDir, module).slice(-1)[0] ?? null);
+    : (activeModuleGeneration(agentDir, module) ?? null);
   const lockfile = {
     id,
     module,
@@ -129,22 +134,23 @@ export function rollbackModule(agentDir, module, id) {
   const target = readModuleGeneration(agentDir, module, id);
   if (!target) throw new Error(`no ${module} generation '${id}'`);
   const base = join(moduleSnapshotsDir(agentDir, module), id);
-  const targetIds = new Set((target.items ?? []).map((i) => i.id));
+  const targetItems = target.items ?? [];
+  const targetIds = new Set(targetItems.map((i) => i.id));
+  const expected = targetItems.length;
   let restored = 0;
 
   if (module === 'actions') {
-    // dir-shaped: restore each pinned slug's files, archive extra slug dirs.
-    if (existsSync(base)) {
-      for (const slugEnt of readdirSync(base, { withFileTypes: true })) {
-        if (!slugEnt.isDirectory()) continue;
-        const sdir = join(base, slugEnt.name);
-        for (const f of readdirSync(sdir)) {
-          const dest = join(agentDir, 'actions', slugEnt.name, f);
-          mkdirSync(dirname(dest), { recursive: true });
-          writeFileSync(dest, readFileSync(join(sdir, f)));
-        }
-        restored++;
+    // dir-shaped: restore each pinned slug's files from its snapshot dir. A slug
+    // counts as restored only if its snapshot dir is present (else it's missing).
+    for (const i of targetItems) {
+      const sdir = join(base, i.id);
+      if (!existsSync(sdir)) continue;
+      for (const f of readdirSync(sdir)) {
+        const dest = join(agentDir, 'actions', i.id, f);
+        mkdirSync(dirname(dest), { recursive: true });
+        writeFileSync(dest, readFileSync(join(sdir, f)));
       }
+      restored++;
     }
     const adir = join(agentDir, 'actions');
     if (existsSync(adir)) {
@@ -158,7 +164,7 @@ export function rollbackModule(agentDir, module, id) {
     const liveSeg = LIVE_ITEM_DIR[module];
     if (!liveSeg) throw new Error(`unknown module '${module}'`);
     // 1) restore snapshotted items
-    for (const i of target.items ?? []) {
+    for (const i of targetItems) {
       const snap = join(base, `${i.id}.md`);
       if (existsSync(snap)) {
         const dest = join(agentDir, ...liveSeg, `${i.id}.md`);
@@ -184,5 +190,11 @@ export function rollbackModule(agentDir, module, id) {
   }
   // 4) flip this module's pointer
   writeJson(moduleActivePath(agentDir, module), { active: id });
-  return { ok: true, module, restored };
+  // Honest result: ok ONLY if every pinned item was actually restored. A missing
+  // snapshot file/slug means the rollback is partial — report it so the caller
+  // (rollbackCheckpoint's every-ok) doesn't claim a clean restore. Items that
+  // couldn't be restored are target items, so they were never archived — they
+  // stay live in place, nothing lost.
+  const missing = expected - restored;
+  return { ok: restored === expected, module, restored, missing };
 }

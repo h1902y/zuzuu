@@ -12,7 +12,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import { migrateGenerations, needsGenerationsMigration } from '../../zuzuu/commands/migrations/generations.mjs';
 import {
   listModuleGenerations, readModuleGeneration, activeModuleGeneration,
@@ -172,6 +172,52 @@ test('re-completes a partial run: a bare <module>/generations/ dir with no lockf
     const cp = readCheckpoint(home, 'cp_001');
     assert.equal(cp.pins.knowledge, 'gen_001');
     assert.equal(existsSync(join(home, 'generations')), false, 'global dir removed');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('a partial snapshot copy throws → global dir kept, module unpinned, error reported', () => {
+  const { dir, home } = seedGlobalGenHome();
+  try {
+    // Force a copy failure for the guardrails module: pre-create a READ-ONLY
+    // FILE where the snapshot destination DIR must be written, so mkdirSync
+    // (and the file write) for no-wipe.md fails inside copySnapshotTree.
+    const destSnap = join(home, 'guardrails', 'generations', 'snapshots', 'gen_001');
+    mkdirSync(dirname(destSnap), { recursive: true });
+    // a regular file blocking the snapshot dir path → mkdirSync throws ENOTDIR/EEXIST
+    writeFileSync(destSnap, 'I am a file, not a dir');
+
+    const r = migrateGenerations(home);
+    assert.ok(r.errors.length >= 1, 'the partial copy is reported as an error');
+    assert.equal(r.removedGlobal, false, 'the old global dir is PRESERVED (only complete copy)');
+    assert.equal(existsSync(join(home, 'generations')), true, 'global dir still on disk');
+    // guardrails must NOT be pinned (its snapshot is incomplete)
+    assert.equal(activeModuleGeneration(home, 'guardrails'), null, 'failed module not pinned');
+    assert.equal(existsSync(join(home, 'guardrails', 'generations', 'gen_001.json')), false, 'no lockfile for failed module');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('re-run after a partial RE-COPIES the failed module and only then removes the global dir', () => {
+  const { dir, home } = seedGlobalGenHome();
+  try {
+    // First run: block guardrails snapshot dest → partial.
+    const destSnap = join(home, 'guardrails', 'generations', 'snapshots', 'gen_001');
+    mkdirSync(dirname(destSnap), { recursive: true });
+    writeFileSync(destSnap, 'blocker');
+    const r1 = migrateGenerations(home);
+    assert.ok(r1.errors.length >= 1);
+    assert.equal(r1.removedGlobal, false);
+    assert.equal(existsSync(join(home, 'guardrails', 'generations', 'gen_001.json')), false);
+
+    // Clear the blocker (the human un-sticks it), re-run.
+    rmSync(destSnap, { force: true });
+    const r2 = migrateGenerations(home);
+    assert.equal(r2.errors.length, 0, 'clean second run');
+    // guardrails was RE-COPIED (not skipped) — its lockfile + snapshot now exist
+    assert.ok(readModuleGeneration(home, 'guardrails', 'gen_001'), 'failed module re-completed');
+    assert.ok(existsSync(join(home, 'guardrails', 'generations', 'snapshots', 'gen_001', 'no-wipe.md')), 'snapshot bytes re-copied');
+    // only NOW is the global dir removed (all modules complete)
+    assert.equal(r2.removedGlobal, true);
+    assert.equal(existsSync(join(home, 'generations')), false, 'global dir removed once everything is complete');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
