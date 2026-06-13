@@ -1,6 +1,6 @@
-// Shared types for the zuzuu faculties dashboard (the /api/zuzuu/* contract).
+// Shared types for the zuzuu modules dashboard (the /api/zuzuu/* contract).
 
-export type FacultyKey = "knowledge" | "memory" | "actions" | "instructions" | "guardrails";
+export type ModuleKey = "knowledge" | "memory" | "actions" | "instructions" | "guardrails";
 
 export interface ZuzuuHealth {
   home: boolean;
@@ -14,20 +14,20 @@ export interface ZuzuuStatus {
   drift: { dirty: boolean; items: string[] };
 }
 
-export interface FacultySummary {
-  key: FacultyKey;
+export interface ModuleSummary {
+  key: ModuleKey;
   count: number;
   pending: number;
 }
 
-/** One Faculty Standard envelope item (one .md per item: strict frontmatter +
+/** One Module Standard envelope item (one .md per item: strict frontmatter +
  *  prose body). The daemon passes the CLI's parsed envelope through whole;
  *  when the CLI is absent it degrades to a frontmatter peek — id/kind/title/
  *  status survive, payload/body/provenance may be missing. */
-export interface FacultyItem {
+export interface ModuleItem {
   id: string;
-  faculty: string;
-  /** per-faculty kinds: fact|entity|command|… (knowledge is an open set),
+  module: string;
+  /** per-module kinds: fact|entity|command|… (knowledge is an open set),
    *  episode, runbook|script, steering|amendment, rule */
   kind: string;
   title: string;
@@ -41,30 +41,30 @@ export interface FacultyItem {
 }
 
 /** An envelope file the CLI could not parse (fail-soft listing). */
-export interface FacultyItemError {
+export interface ModuleItemError {
   file: string;
   error: string;
 }
 
 export interface ProposalSummary {
   id: string;
-  faculty: string;
+  module: string;
   title: string;
 }
 
-export interface FacultyDetail {
+export interface ModuleDetail {
   key: string;
-  items: FacultyItem[];
+  items: ModuleItem[];
   proposals: ProposalSummary[];
-  errors?: FacultyItemError[];
+  errors?: ModuleItemError[];
   /** true = zuzuu CLI absent; items are a best-effort frontmatter peek */
   degraded?: boolean;
 }
 
-/** GET /faculty/:key/schema — the faculty's payload schema (JSON-Schema
- *  subset) via `zuzuu faculty schema`, falling back to the seeded
- *  .zuzuu/<faculty>/schema.json when the CLI is absent. */
-export interface FacultySchema {
+/** GET /module/:key/schema — the module's payload schema (JSON-Schema
+ *  subset) via `zuzuu module schema`, falling back to the seeded
+ *  .zuzuu/<module>/schema.json when the CLI is absent. */
+export interface ModuleSchema {
   key: string;
   schema: unknown;
   source: "cli" | "home" | "absent";
@@ -90,14 +90,14 @@ export interface GenerationDiff {
   id: string;
   forkedFrom: string | null;
   mintedFrom: string[];
-  faculties: Record<string, { added?: string[]; changed?: string[] | boolean; removed?: string[] }>;
+  modules: Record<string, { added?: string[]; changed?: string[] | boolean; removed?: string[] }>;
 }
 
-// ── Faculty overview (ONE CLI spawn for the whole panel root) ──────────
+// ── Module overview (ONE CLI spawn for the whole panel root) ──────────
 
 /** The manifest `ui` block — the card descriptor the workbench renders from
- *  (no per-faculty frontend code needed for a new faculty). */
-export interface FacultyUiDescriptor {
+ *  (no per-module frontend code needed for a new module). */
+export interface ModuleUiDescriptor {
   /** icon name (book | clock | play | compass | shield | …) */
   icon: string;
   /** accent name (info | neutral | success | warning | danger) */
@@ -106,13 +106,13 @@ export interface FacultyUiDescriptor {
   teaching: string;
 }
 
-/** One faculty in GET /overview (`zuzuu faculty overview --json`). The peek
+/** One module in GET /overview (`zuzuu module overview --json`). The peek
  *  fallback (CLI absent) omits ui/tagline/kinds — counts and top survive. */
-export interface FacultyOverviewEntry {
+export interface ModuleOverviewEntry {
   id: string;
   title: string;
   tagline?: string;
-  ui?: FacultyUiDescriptor;
+  ui?: ModuleUiDescriptor;
   kinds?: string[];
   declarative?: boolean;
   counts: { items: number; pending: number; errors: number };
@@ -120,8 +120,8 @@ export interface FacultyOverviewEntry {
   top: string[];
 }
 
-export interface FacultyOverviewResponse {
-  faculties: FacultyOverviewEntry[];
+export interface ModuleOverviewResponse {
+  modules: ModuleOverviewEntry[];
   /** true = zuzuu CLI absent; counts come from a frontmatter peek */
   degraded?: boolean;
 }
@@ -156,7 +156,7 @@ export interface SessionsResponse {
 export interface SessionInspectResponse {
   session: ZuzuuSessionEntry;
   trace: { spans: number | null; tools: number | null; duration: number | null };
-  /** per-faculty mined signal counts, e.g. {knowledge: {commands: 3, …}} */
+  /** per-module mined signal counts, e.g. {knowledge: {commands: 3, …}} */
   signals: Record<string, Record<string, number>>;
   warnings: string[];
 }
@@ -171,7 +171,7 @@ export interface DigestResponse {
  *  absent and the daemon fell back to an unranked file-read listing. */
 export interface RankedProposal {
   id: string;
-  faculty: string;
+  module: string;
   title: string;
   score: number | null;
   confidence: string | null;

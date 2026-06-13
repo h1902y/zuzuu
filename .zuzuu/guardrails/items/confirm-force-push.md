@@ -1,6 +1,6 @@
 ---
 id: confirm-force-push
-faculty: guardrails
+module: guardrails
 kind: rule
 title: force-push rewrites shared history
 status: active

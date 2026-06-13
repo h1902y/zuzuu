@@ -1,26 +1,26 @@
-// §1 Needs you — the actionable section: per-faculty pending groups, the
+// §1 Needs you — the actionable section: per-module pending groups, the
 // Review CTA (lives HERE, not in the footer), and drift/CLI warnings.
 // Quiet "all caught up" when nothing needs the human.
-import type { FacultyOverviewEntry, ZuzuuStatus } from "@zuzuu-web/protocol";
+import type { ModuleOverviewEntry, ZuzuuStatus } from "@zuzuu-web/protocol";
 import { Button } from "../components/ui";
 import { useRightPanel } from "../state/right-panel";
 import { useReviewOpen } from "../state/review";
-import { MetricChip, Section, facultyDisplay } from "./kit";
+import { MetricChip, Section, moduleDisplay } from "./kit";
 import { needsYouGroups, pendingTotal } from "./sections";
 
 export function NeedsYou({
-  faculties,
+  modules,
   status,
   zuzuuBin,
 }: {
-  faculties: FacultyOverviewEntry[];
+  modules: ModuleOverviewEntry[];
   status: ZuzuuStatus | undefined;
   zuzuuBin: boolean;
 }) {
-  const openFaculty = useRightPanel((s) => s.openFaculty);
+  const openModule = useRightPanel((s) => s.openModule);
   const openReview = useReviewOpen((s) => s.setOpen);
-  const groups = needsYouGroups(faculties);
-  const total = pendingTotal(faculties);
+  const groups = needsYouGroups(modules);
+  const total = pendingTotal(modules);
   const drift = status?.drift?.dirty ?? false;
   const calm = groups.length === 0 && !drift && zuzuuBin;
 
@@ -52,11 +52,11 @@ export function NeedsYou({
       {groups.length > 0 && (
         <div className="flex flex-col">
           {groups.map((g) => {
-            const display = facultyDisplay(g.id, faculties.find((f) => f.id === g.id));
+            const display = moduleDisplay(g.id, modules.find((f) => f.id === g.id));
             return (
               <button
                 key={g.id}
-                onClick={() => openFaculty(g.id as Parameters<typeof openFaculty>[0])}
+                onClick={() => openModule(g.id as Parameters<typeof openModule>[0])}
                 className="flex w-full items-center gap-2 border-b border-border py-1.5 text-left text-ui transition-colors last:border-0 hover:bg-hover"
                 title={`Open ${g.title}`}
               >

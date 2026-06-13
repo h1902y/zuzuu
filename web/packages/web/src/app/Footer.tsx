@@ -60,8 +60,8 @@ export function Footer({
       onClick: () => { setHelpOpen(false); window.open(`${WIKI}/Workbench`, "_blank", "noopener"); },
     },
     {
-      label: "Faculty Standard ↗",
-      onClick: () => { setHelpOpen(false); window.open(`${WIKI}/Faculty-Standard`, "_blank", "noopener"); },
+      label: "Module Standard ↗",
+      onClick: () => { setHelpOpen(false); window.open(`${WIKI}/Module-Standard`, "_blank", "noopener"); },
     },
   ];
 

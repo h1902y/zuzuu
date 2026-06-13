@@ -4,7 +4,7 @@
 // `zuzuu <cmd> --json` (the spawn layer lives in zuzuu-cli.ts) and fall back
 // to file-reads when the binary is absent.
 // Writes: mutations (approve/reject, mint, rollback) are CLI-ONLY — the daemon
-// never reimplements faculty writes; no CLI → 503. Mirrors fs-api.ts.
+// never reimplements module writes; no CLI → 503. Mirrors fs-api.ts.
 
 import fsp from "node:fs/promises";
 import { existsSync } from "node:fs";
@@ -14,7 +14,7 @@ import type { Context } from "hono";
 import { PathError, resolveSafe } from "./safe-path.js";
 import { binAvailable, runZuzuu, runZuzuuMut } from "./zuzuu-cli.js";
 
-const FACULTIES = ["knowledge", "memory", "actions", "instructions", "guardrails"] as const;
+const MODULES = ["knowledge", "memory", "actions", "instructions", "guardrails"] as const;
 
 /** Ids/slugs/generation-ids that may ride into a zuzuu argv. Validated BEFORE any spawn. */
 const SAFE_ID = /^[a-z0-9][a-z0-9._-]{0,127}$/i;
@@ -22,14 +22,14 @@ const MAX_REASON_LEN = 500;
 
 interface ApiOpts { binary?: string; }
 
-// ── Faculty Standard envelope listing ────────────────────────────────────
-// The CLI is the parser of record (`zuzuu faculty items <f> --json` returns
+// ── Module Standard envelope listing ────────────────────────────────────
+// The CLI is the parser of record (`zuzuu module items <f> --json` returns
 // the full envelopes incl. payload/body). When it's absent we degrade to a
 // count-only frontmatter PEEK: read the items dir, lift the tiny top-level
 // scalar lines (title:/status:/kind:) best-effort — counts still render,
 // detail degrades. Never a re-implementation of the envelope grammar.
 
-/** Flat envelope item dirs per faculty; actions are dir-shaped (ACTION.md). */
+/** Flat envelope item dirs per module; actions are dir-shaped (ACTION.md). */
 const ITEM_DIRS: Record<string, string[]> = {
   knowledge: ["knowledge", "items"],
   memory: ["memory", "entries"],
@@ -37,7 +37,7 @@ const ITEM_DIRS: Record<string, string[]> = {
   guardrails: ["guardrails", "items"],
 };
 
-const PEEK_KEYS = new Set(["id", "faculty", "kind", "title", "status", "created_at", "updated_at"]);
+const PEEK_KEYS = new Set(["id", "module", "kind", "title", "status", "created_at", "updated_at"]);
 
 function unquoteScalar(s: string): string {
   const t = s.trim();
@@ -62,7 +62,7 @@ function peekFrontmatter(text: string): Record<string, string> {
 }
 
 /** CLI-less fallback: degraded envelope items (no payload/body) from disk. */
-async function peekFacultyItems(agent: string, key: string): Promise<Record<string, string>[]> {
+async function peekModuleItems(agent: string, key: string): Promise<Record<string, string>[]> {
   const files: { id: string; file: string }[] = [];
   if (key === "actions") {
     const base = path.join(agent, "actions");
@@ -87,7 +87,7 @@ async function peekFacultyItems(agent: string, key: string): Promise<Record<stri
   for (const { id, file } of files) {
     let fm: Record<string, string>;
     try { fm = peekFrontmatter(await fsp.readFile(file, "utf8")); } catch { continue; }
-    items.push({ kind: "?", ...fm, id: fm.id ?? id, faculty: key, title: fm.title ?? id });
+    items.push({ kind: "?", ...fm, id: fm.id ?? id, module: key, title: fm.title ?? id });
   }
   return items;
 }
@@ -98,13 +98,13 @@ interface EnvelopeListing {
   degraded: boolean;
 }
 
-/** One faculty's envelope items: CLI first (full envelopes), peek fallback. */
-async function facultyEnvelopeItems(root: string, agent: string, key: string, binary?: string): Promise<EnvelopeListing> {
-  const viaCli = await runZuzuu(root, ["faculty", "items", key], { binary }) as
+/** One module's envelope items: CLI first (full envelopes), peek fallback. */
+async function moduleEnvelopeItems(root: string, agent: string, key: string, binary?: string): Promise<EnvelopeListing> {
+  const viaCli = await runZuzuu(root, ["module", "items", key], { binary }) as
     { items?: unknown[]; errors?: { file: string; error: string }[] } | null;
   if (viaCli && Array.isArray(viaCli.items))
     return { items: viaCli.items, errors: Array.isArray(viaCli.errors) ? viaCli.errors : [], degraded: false };
-  return { items: await peekFacultyItems(agent, key), errors: [], degraded: true };
+  return { items: await peekModuleItems(agent, key), errors: [], degraded: true };
 }
 
 /** Read every *.json in a dir into objects; missing dir → [], corrupt file → skipped. */
@@ -144,30 +144,30 @@ export function createZuzuuApi(getRoot: () => string, opts: ApiOpts = {}): Hono 
     return c.json({ home: existsSync(agent), zuzuuBin: binAvailable(opts.binary ?? "zuzuu") });
   });
 
-  app.get("/faculties", async (c) => {
+  app.get("/modules", async (c) => {
     const agent = await agentDir();
-    const faculties = await Promise.all(FACULTIES.map(async (key) => {
+    const modules = await Promise.all(MODULES.map(async (key) => {
       const [{ items }, proposals] = await Promise.all([
-        facultyEnvelopeItems(root, agent, key, opts.binary),
+        moduleEnvelopeItems(root, agent, key, opts.binary),
         proposalsOf(agent, key),
       ]);
       return { key, count: items.length, pending: proposals.length };
     }));
-    return c.json({ faculties });
+    return c.json({ modules });
   });
 
-  // The batched faculty surface: ONE `zuzuu faculty overview --json` spawn
-  // covers all faculties (manifest ui descriptors + counts + top titles +
-  // pending) — replaces the 5-spawn-per-cycle /faculties pattern for the
+  // The batched module surface: ONE `zuzuu module overview --json` spawn
+  // covers all modules (manifest ui descriptors + counts + top titles +
+  // pending) — replaces the 5-spawn-per-cycle /modules pattern for the
   // panel root. CLI absent → peek fallback (counts survive, ui descriptors
   // degrade to the web kit's built-in metadata).
   app.get("/overview", async (c) => {
-    const viaCli = await runZuzuu(root, ["faculty", "overview"], { binary: opts.binary }) as
-      { faculties?: unknown[] } | null;
-    if (viaCli && Array.isArray(viaCli.faculties)) return c.json(viaCli);
+    const viaCli = await runZuzuu(root, ["module", "overview"], { binary: opts.binary }) as
+      { modules?: unknown[] } | null;
+    if (viaCli && Array.isArray(viaCli.modules)) return c.json(viaCli);
     const agent = await agentDir();
-    const faculties = await Promise.all(FACULTIES.map(async (id) => {
-      const [items, proposals] = await Promise.all([peekFacultyItems(agent, id), proposalsOf(agent, id)]);
+    const modules = await Promise.all(MODULES.map(async (id) => {
+      const [items, proposals] = await Promise.all([peekModuleItems(agent, id), proposalsOf(agent, id)]);
       return {
         id,
         title: id.charAt(0).toUpperCase() + id.slice(1),
@@ -176,22 +176,22 @@ export function createZuzuuApi(getRoot: () => string, opts: ApiOpts = {}): Hono 
         declarative: false,
       };
     }));
-    return c.json({ faculties, degraded: true });
+    return c.json({ modules, degraded: true });
   });
 
-  app.get("/faculty/:key", async (c) => {
+  app.get("/module/:key", async (c) => {
     const key = c.req.param("key");
-    if (!FACULTIES.includes(key as typeof FACULTIES[number])) return c.json({ error: "unknown faculty" }, 404);
+    if (!MODULES.includes(key as typeof MODULES[number])) return c.json({ error: "unknown module" }, 404);
     const agent = await agentDir();
-    const { items, errors, degraded } = await facultyEnvelopeItems(root, agent, key, opts.binary);
-    const proposals = (await proposalsOf(agent, key)).map((p) => ({ id: String(p.id ?? "?"), faculty: key, title: proposalTitle(p) }));
+    const { items, errors, degraded } = await moduleEnvelopeItems(root, agent, key, opts.binary);
+    const proposals = (await proposalsOf(agent, key)).map((p) => ({ id: String(p.id ?? "?"), module: key, title: proposalTitle(p) }));
     return c.json({ key, items, proposals, errors, ...(degraded ? { degraded: true } : {}) });
   });
 
-  app.get("/faculty/:key/schema", async (c) => {
+  app.get("/module/:key/schema", async (c) => {
     const key = c.req.param("key");
-    if (!FACULTIES.includes(key as typeof FACULTIES[number])) return c.json({ error: "unknown faculty" }, 404);
-    const viaCli = await runZuzuu(root, ["faculty", "schema", key], { binary: opts.binary });
+    if (!MODULES.includes(key as typeof MODULES[number])) return c.json({ error: "unknown module" }, 404);
+    const viaCli = await runZuzuu(root, ["module", "schema", key], { binary: opts.binary });
     if (viaCli) return c.json({ key, schema: viaCli, source: "cli" });
     // CLI absent → the seeded payload schema in the home (zuzuu init writes it)
     const agent = await agentDir();
@@ -230,7 +230,7 @@ export function createZuzuuApi(getRoot: () => string, opts: ApiOpts = {}): Hono 
   });
 
   // One session's observability document (`zuzuu session inspect <id> --json`:
-  // trace summary + per-faculty mined signals + warnings). CLI-only — the
+  // trace summary + per-module mined signals + warnings). CLI-only — the
   // daemon never re-mines transcripts; absent → 503, failed → 502.
   app.get("/session-inspect/:id", async (c) => {
     const id = c.req.param("id");
@@ -255,7 +255,7 @@ export function createZuzuuApi(getRoot: () => string, opts: ApiOpts = {}): Hono 
     if (viaCli) return c.json(viaCli);
     const agent = await agentDir();
     const pending: Record<string, number> = {};
-    for (const key of FACULTIES) pending[key] = (await proposalsOf(agent, key)).length;
+    for (const key of MODULES) pending[key] = (await proposalsOf(agent, key)).length;
     let active: string | null = null;
     try { active = (JSON.parse(await fsp.readFile(path.join(agent, "generations", "active"), "utf8")).active) ?? null; } catch { active = null; }
     return c.json({ home: existsSync(agent), activeGeneration: active, pending, drift: { dirty: false, items: [] } });
@@ -266,8 +266,8 @@ export function createZuzuuApi(getRoot: () => string, opts: ApiOpts = {}): Hono 
     if (viaCli) return c.json(viaCli);
     const agent = await agentDir();
     const pending = [];
-    for (const key of FACULTIES)
-      for (const p of await proposalsOf(agent, key)) pending.push({ id: String(p.id ?? "?"), faculty: key, title: proposalTitle(p) });
+    for (const key of MODULES)
+      for (const p of await proposalsOf(agent, key)) pending.push({ id: String(p.id ?? "?"), module: key, title: proposalTitle(p) });
     return c.json({ pending, total: pending.length });
   });
 
@@ -280,7 +280,7 @@ export function createZuzuuApi(getRoot: () => string, opts: ApiOpts = {}): Hono 
   });
 
   // ── Write side: mutations are CLI-only — every route below shells out to
-  // `zuzuu … --json` via runZuzuuMut and never touches faculty files itself.
+  // `zuzuu … --json` via runZuzuuMut and never touches module files itself.
 
   const readBody = async (c: Context): Promise<Record<string, unknown>> => {
     try { const b = await c.req.json(); return b && typeof b === "object" ? b as Record<string, unknown> : {}; }
@@ -296,26 +296,26 @@ export function createZuzuuApi(getRoot: () => string, opts: ApiOpts = {}): Hono 
     }
     return c.json(r.data as Record<string, unknown>);
   };
-  const isFaculty = (f: unknown): f is typeof FACULTIES[number] =>
-    typeof f === "string" && (FACULTIES as readonly string[]).includes(f);
+  const isModule = (f: unknown): f is typeof MODULES[number] =>
+    typeof f === "string" && (MODULES as readonly string[]).includes(f);
 
   app.post("/proposals/:id/approve", async (c) => {
     const id = c.req.param("id");
     if (!SAFE_ID.test(id)) return c.json({ error: "bad id" }, 400);
-    const { faculty } = await readBody(c);
-    if (!isFaculty(faculty)) return c.json({ error: "bad faculty" }, 400);
-    return mutate(c, ["proposals", "approve", id, "--faculty", faculty]);
+    const { module } = await readBody(c);
+    if (!isModule(module)) return c.json({ error: "bad module" }, 400);
+    return mutate(c, ["proposals", "approve", id, "--module", module]);
   });
 
   app.post("/proposals/:id/reject", async (c) => {
     const id = c.req.param("id");
     if (!SAFE_ID.test(id)) return c.json({ error: "bad id" }, 400);
-    const { faculty, reason } = await readBody(c);
-    if (!isFaculty(faculty)) return c.json({ error: "bad faculty" }, 400);
+    const { module, reason } = await readBody(c);
+    if (!isModule(module)) return c.json({ error: "bad module" }, 400);
     if (reason !== undefined && (typeof reason !== "string" || reason.length > MAX_REASON_LEN))
       return c.json({ error: "bad reason" }, 400);
     // reason rides as ONE argv element — spawn arrays make shell-meta inert
-    return mutate(c, ["proposals", "reject", id, "--faculty", faculty, ...(reason ? ["--reason", reason] : [])]);
+    return mutate(c, ["proposals", "reject", id, "--module", module, ...(reason ? ["--reason", reason] : [])]);
   });
 
   for (const verb of ["approve", "reject"] as const) {
@@ -361,9 +361,9 @@ export function createZuzuuApi(getRoot: () => string, opts: ApiOpts = {}): Hono 
     // Fallback: pending proposals, unranked (no CLI → no scoring).
     const agent = await agentDir();
     const ranked = [];
-    for (const key of FACULTIES)
+    for (const key of MODULES)
       for (const p of await proposalsOf(agent, key))
-        ranked.push({ id: String(p.id ?? "?"), faculty: key, title: proposalTitle(p), score: null, confidence: null, rationale: null });
+        ranked.push({ id: String(p.id ?? "?"), module: key, title: proposalTitle(p), score: null, confidence: null, rationale: null });
     return c.json({ ranked });
   });
 

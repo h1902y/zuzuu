@@ -5,7 +5,7 @@
 import { forwardRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { zuzuuApi } from "../lib/zuzuu-api";
-import { buildHostRows, composerDefaultHost, hostSpawnSpec } from "../faculties/host-launch";
+import { buildHostRows, composerDefaultHost, hostSpawnSpec } from "../modules/host-launch";
 import { startAgentSession } from "../lib/agent-launch";
 import { Bar, Kbd, cx } from "./ui";
 

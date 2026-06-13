@@ -40,7 +40,6 @@
     "confidence": 1,
     "reason": "no sufficiently similar item"
   },
-  "faculty": "knowledge",
   "payload": {
     "id": "file-commands-capture-mjs",
     "type": "entity",
@@ -78,5 +77,6 @@
   "provenance": [],
   "resolved_at": "2026-06-12T11:42:28.735Z",
   "reason": "mns-era mining — stale paths, superseded",
-  "applied": ""
+  "applied": "",
+  "module": "knowledge"
 }

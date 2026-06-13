@@ -41,7 +41,7 @@ export function SetupZuzuuCard({ zuzuuBin, onDismiss }: { zuzuuBin: boolean; onD
       <div className="text-base font-medium text-ink-100">Set up zuzuu</div>
       <p className="mt-1 text-ui leading-relaxed text-ink-400">
         zuzuu sets up a hidden <code className="text-accent-dim">.zuzuu/</code> home in this project
-        (like <code className="text-accent-dim">.git</code>) where your agent&apos;s faculties —
+        (like <code className="text-accent-dim">.git</code>) where your agent&apos;s modules —
         knowledge, memory, actions, instructions, guardrails — live and grow from real sessions.
       </p>
       {zuzuuBin ? (

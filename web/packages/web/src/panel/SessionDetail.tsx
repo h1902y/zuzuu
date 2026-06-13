@@ -1,15 +1,15 @@
-// One session's detail (slides over the panel root, like FacultyView):
-// trace summary (spans/tools/duration) + per-faculty mined signals from
+// One session's detail (slides over the panel root, like ModuleView):
+// trace summary (spans/tools/duration) + per-module mined signals from
 // `session inspect`, plus "graduated from this session" — items whose
-// provenance cites this session (filtered client-side from the faculty
+// provenance cites this session (filtered client-side from the module
 // details). v1 scope: counts + lists, no transcript viewer.
 import { useQueries, useQuery } from "@tanstack/react-query";
-import type { FacultyItem, FacultyKey } from "@zuzuu-web/protocol";
+import type { ModuleItem, ModuleKey } from "@zuzuu-web/protocol";
 import { isCliAbsent, describeZuzuuError, zuzuuApi } from "../lib/zuzuu-api";
 import { useExplorer } from "../state/explorer";
 import { useRightPanel } from "../state/right-panel";
-import { FACULTY_ORDER, ItemRow, MetricChip, Section, facultyDisplay } from "./kit";
-import { facultyItemPath } from "./faculty-paths";
+import { MODULE_ORDER, ItemRow, MetricChip, Section, moduleDisplay } from "./kit";
+import { moduleItemPath } from "./module-paths";
 import { fmtDuration, graduatedFromSession, sessionStateMeta, shortSessionId } from "./sections";
 
 export function SessionDetail({ sessionId }: { sessionId: string }) {
@@ -24,15 +24,15 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
   const list = useQuery({ queryKey: ["zuzuu", "sessions"], queryFn: zuzuuApi.sessions, refetchInterval: 6000 });
   const session = inspect.data?.session ?? list.data?.sessions.find((s) => s.id === sessionId);
 
-  // graduated-from-session: filter the faculty details' items by provenance
+  // graduated-from-session: filter the module details' items by provenance
   const details = useQueries({
-    queries: FACULTY_ORDER.map((key) => ({
-      queryKey: ["zuzuu", "faculty", key],
-      queryFn: () => zuzuuApi.faculty(key),
+    queries: MODULE_ORDER.map((key) => ({
+      queryKey: ["zuzuu", "module", key],
+      queryFn: () => zuzuuApi.module(key),
       staleTime: 8000,
     })),
   });
-  const allItems: FacultyItem[] = details.flatMap((d) => d.data?.items ?? []);
+  const allItems: ModuleItem[] = details.flatMap((d) => d.data?.items ?? []);
   const graduated = graduatedFromSession(allItems, sessionId);
 
   const meta = sessionStateMeta(session?.state);
@@ -80,18 +80,18 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
         </div>
       )}
 
-      {/* per-faculty mined signals — what this session offered each faculty */}
+      {/* per-module mined signals — what this session offered each module */}
       {inspect.data && (
         <Section label="signals">
           {signals.length === 0 ? (
             <div className="text-meta text-ink-600">no signals mined</div>
           ) : (
             <div className="flex flex-col">
-              {signals.map(([faculty, counts]) => {
-                const display = facultyDisplay(faculty);
+              {signals.map(([module, counts]) => {
+                const display = moduleDisplay(module);
                 const parts = Object.entries(counts).filter(([, n]) => n > 0);
                 return (
-                  <div key={faculty} className="flex items-center gap-2 border-b border-border py-1 text-ui last:border-0">
+                  <div key={module} className="flex items-center gap-2 border-b border-border py-1 text-ui last:border-0">
                     <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0 text-ink-500" fill="none" stroke="currentColor" strokeWidth="1.4">
                       <path d={display.icon} strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
@@ -115,12 +115,12 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
           <div className="flex flex-col">
             {graduated.map((it) => (
               <ItemRow
-                key={`${it.faculty}-${it.id}`}
+                key={`${it.module}-${it.id}`}
                 kind={it.kind}
                 title={it.title}
                 timestamp={it.updated_at ?? it.created_at}
-                onClick={() => useExplorer.getState().openPreviewPath(facultyItemPath(it.faculty as FacultyKey, it.id))}
-                titleAttr={facultyItemPath(it.faculty as FacultyKey, it.id)}
+                onClick={() => useExplorer.getState().openPreviewPath(moduleItemPath(it.module as ModuleKey, it.id))}
+                titleAttr={moduleItemPath(it.module as ModuleKey, it.id)}
               />
             ))}
           </div>

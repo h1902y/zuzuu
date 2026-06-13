@@ -8,7 +8,7 @@ import { Bar, Tab, TabBar, IconButton, StatusDot } from "../components/ui";
 import { RecoveryCard, SetupZuzuuCard } from "../components/SessionCards";
 import { SessionComposer } from "../components/SessionComposer";
 import { centerCard } from "../lib/session-cards";
-import { agentTabTitle } from "../faculties/host-launch";
+import { agentTabTitle } from "../modules/host-launch";
 import { useSessionGitQuery, useZuzuuHealthQuery } from "./queries";
 
 export function SessionPane() {

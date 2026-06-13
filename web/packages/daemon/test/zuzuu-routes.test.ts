@@ -26,73 +26,73 @@ describe("createZuzuuApi file routes", () => {
     const app = createZuzuuApi(() => root, { binary: "x" });
     expect((await (await app.request("/health")).json()).home).toBe(false);
   });
-  it("GET /faculties lists the five with counts (CLI absent → envelope peek)", async () => {
+  it("GET /modules lists the five with counts (CLI absent → envelope peek)", async () => {
     fixtureHome(root);
     const app = createZuzuuApi(() => root, { binary: "definitely-not-a-real-binary-zzz" });
-    const body = await (await app.request("/faculties")).json();
-    expect(body.faculties).toHaveLength(5);
-    const k = body.faculties.find((f: { key: string }) => f.key === "knowledge");
+    const body = await (await app.request("/modules")).json();
+    expect(body.modules).toHaveLength(5);
+    const k = body.modules.find((f: { key: string }) => f.key === "knowledge");
     expect(k.count).toBe(1);
     expect(k.pending).toBe(1);
   });
-  it("GET /faculties counts dir-shaped actions (ACTION.md) in the peek", async () => {
+  it("GET /modules counts dir-shaped actions (ACTION.md) in the peek", async () => {
     const agent = fixtureHome(root);
     mkdirSync(path.join(agent, "actions", "deploy"), { recursive: true });
     mkdirSync(path.join(agent, "actions", "inbox"), { recursive: true }); // never an item
     writeFileSync(path.join(agent, "actions", "deploy", "ACTION.md"),
-      envelope({ id: "deploy", faculty: "actions", kind: "runbook", title: "Deploy it" }));
+      envelope({ id: "deploy", module: "actions", kind: "runbook", title: "Deploy it" }));
     const app = createZuzuuApi(() => root, { binary: "definitely-not-a-real-binary-zzz" });
-    const body = await (await app.request("/faculties")).json();
-    expect(body.faculties.find((f: { key: string }) => f.key === "actions").count).toBe(1);
+    const body = await (await app.request("/modules")).json();
+    expect(body.modules.find((f: { key: string }) => f.key === "actions").count).toBe(1);
   });
-  it("GET /faculty/:key peek degrades to frontmatter fields; rejects unknown", async () => {
+  it("GET /module/:key peek degrades to frontmatter fields; rejects unknown", async () => {
     fixtureHome(root);
     const app = createZuzuuApi(() => root, { binary: "definitely-not-a-real-binary-zzz" });
-    const body = await (await app.request("/faculty/knowledge")).json();
+    const body = await (await app.request("/module/knowledge")).json();
     expect(body.degraded).toBe(true);
-    expect(body.items[0]).toMatchObject({ id: "k1", faculty: "knowledge", kind: "fact", title: "fact one", status: "active" });
+    expect(body.items[0]).toMatchObject({ id: "k1", module: "knowledge", kind: "fact", title: "fact one", status: "active" });
     expect(body.items[0].payload).toBeUndefined(); // detail degrades, counts survive
     expect(body.proposals[0].title).toMatch(/node:sqlite/);
-    expect((await app.request("/faculty/bogus")).status).toBe(404);
+    expect((await app.request("/module/bogus")).status).toBe(404);
   });
-  it("GET /faculty/:key passes the CLI's envelopes through whole (payload + body)", async () => {
+  it("GET /module/:key passes the CLI's envelopes through whole (payload + body)", async () => {
     fixtureHome(root);
     const item = {
-      id: "k1", faculty: "knowledge", kind: "command", title: "Test command",
+      id: "k1", module: "knowledge", kind: "command", title: "Test command",
       status: "active", created_at: "2026-06-12T00:00:00Z",
       provenance: [{ session: "ses_abc", ref: "occurrences=12" }],
       payload: { type: "command", attributes: { command: "npm test" } },
       body: "Run the suite.",
     };
-    const stub = jsonStub(root, JSON.stringify({ faculty: "knowledge", count: 1, items: [item], errors: [] }));
+    const stub = jsonStub(root, JSON.stringify({ module: "knowledge", count: 1, items: [item], errors: [] }));
     const app = createZuzuuApi(() => root, { binary: stub });
-    const body = await (await app.request("/faculty/knowledge")).json();
+    const body = await (await app.request("/module/knowledge")).json();
     expect(body.degraded).toBeUndefined();
     expect(body.items[0]).toEqual(item); // THE ENVELOPE, untouched
     expect(body.errors).toEqual([]);
   });
-  it("GET /faculties uses the CLI envelope listing when available", async () => {
+  it("GET /modules uses the CLI envelope listing when available", async () => {
     fixtureHome(root);
-    const stub = jsonStub(root, JSON.stringify({ faculty: "x", count: 2, items: [{ id: "a" }, { id: "b" }], errors: [] }));
+    const stub = jsonStub(root, JSON.stringify({ module: "x", count: 2, items: [{ id: "a" }, { id: "b" }], errors: [] }));
     const app = createZuzuuApi(() => root, { binary: stub });
-    const body = await (await app.request("/faculties")).json();
-    for (const f of body.faculties) expect(f.count).toBe(2);
+    const body = await (await app.request("/modules")).json();
+    for (const f of body.modules) expect(f.count).toBe(2);
   });
-  it("GET /faculty/:key/schema: CLI → builtin/home schema; absent CLI → seeded file; else null", async () => {
+  it("GET /module/:key/schema: CLI → builtin/home schema; absent CLI → seeded file; else null", async () => {
     const agent = fixtureHome(root);
     const schema = { type: "object", required: ["type"] };
     const viaCli = createZuzuuApi(() => root, { binary: jsonStub(root, JSON.stringify(schema)) });
-    expect(await (await viaCli.request("/faculty/knowledge/schema")).json())
+    expect(await (await viaCli.request("/module/knowledge/schema")).json())
       .toEqual({ key: "knowledge", schema, source: "cli" });
 
     const absent = createZuzuuApi(() => root, { binary: "definitely-not-a-real-binary-zzz" });
-    expect(await (await absent.request("/faculty/knowledge/schema")).json())
+    expect(await (await absent.request("/module/knowledge/schema")).json())
       .toEqual({ key: "knowledge", schema: null, source: "absent" });
 
     writeFileSync(path.join(agent, "knowledge", "schema.json"), JSON.stringify(schema));
-    expect(await (await absent.request("/faculty/knowledge/schema")).json())
+    expect(await (await absent.request("/module/knowledge/schema")).json())
       .toEqual({ key: "knowledge", schema, source: "home" });
-    expect((await absent.request("/faculty/bogus/schema")).status).toBe(404);
+    expect((await absent.request("/module/bogus/schema")).status).toBe(404);
   });
   it("GET /sessions falls back to the raw index when the CLI is absent", async () => {
     fixtureHome(root);
@@ -119,12 +119,12 @@ describe("createZuzuuApi file routes", () => {
   it("GET /digest reads the live digest", async () => {
     fixtureHome(root);
     const app = createZuzuuApi(() => root, { binary: "x" });
-    expect((await (await app.request("/digest")).json()).text).toMatch(/faculty digest/);
+    expect((await (await app.request("/digest")).json()).text).toMatch(/module digest/);
   });
   it("path escape is rejected (no traversal)", async () => {
     fixtureHome(root);
     const app = createZuzuuApi(() => root, { binary: "x" });
-    expect((await app.request("/faculty/..%2f..%2fetc")).status).toBe(404);
+    expect((await app.request("/module/..%2f..%2fetc")).status).toBe(404);
   });
 });
 
@@ -132,7 +132,7 @@ describe("createZuzuuApi overview + session-inspect", () => {
   it("GET /overview passes the CLI's batched payload through whole", async () => {
     fixtureHome(root);
     const payload = {
-      faculties: [{
+      modules: [{
         id: "knowledge", title: "Knowledge", tagline: "what is TRUE",
         ui: { icon: "book", accent: "info", teaching: "Facts land here." },
         kinds: ["fact"], declarative: false,
@@ -149,8 +149,8 @@ describe("createZuzuuApi overview + session-inspect", () => {
     const app = createZuzuuApi(() => root, { binary: "definitely-not-a-real-binary-zzz" });
     const body = await (await app.request("/overview")).json();
     expect(body.degraded).toBe(true);
-    expect(body.faculties).toHaveLength(5);
-    const k = body.faculties.find((f: { id: string }) => f.id === "knowledge");
+    expect(body.modules).toHaveLength(5);
+    const k = body.modules.find((f: { id: string }) => f.id === "knowledge");
     expect(k).toMatchObject({ title: "Knowledge", counts: { items: 1, pending: 1, errors: 0 } });
     expect(k.top).toEqual(["fact one"]);
     expect(k.ui).toBeUndefined();
@@ -214,7 +214,7 @@ describe("createZuzuuApi computed routes", () => {
     const app = createZuzuuApi(() => root, { binary: "definitely-not-real-zzz" });
     const body = await (await app.request("/inbox")).json();
     expect(body.total).toBe(1);
-    expect(body.pending[0].faculty).toBe("knowledge");
+    expect(body.pending[0].module).toBe("knowledge");
   });
 });
 
@@ -227,8 +227,8 @@ const post = (app: ReturnType<typeof createZuzuuApi>, p: string, body?: unknown)
 
 // Every mutation route: [path, request body, stub success payload]
 const MUTATIONS: [string, unknown, Record<string, unknown>][] = [
-  ["/proposals/p1/approve", { faculty: "knowledge" }, { ok: true, action: "approve", itemIds: ["k2"], warnings: [] }],
-  ["/proposals/p1/reject", { faculty: "knowledge", reason: "dup of k1" }, { ok: true, id: "p1" }],
+  ["/proposals/p1/approve", { module: "knowledge" }, { ok: true, action: "approve", itemIds: ["k2"], warnings: [] }],
+  ["/proposals/p1/reject", { module: "knowledge", reason: "dup of k1" }, { ok: true, id: "p1" }],
   ["/actions/my-slug/approve", {}, { ok: true, action: "approve", slug: "my-slug" }],
   ["/actions/my-slug/reject", {}, { ok: true, action: "reject", slug: "my-slug" }],
   ["/generation/mint", { from: ["p1", "p2"] }, { id: "gen_002", mintedFrom: ["p1", "p2"], forkedFrom: "gen_001" }],
@@ -276,7 +276,7 @@ describe("createZuzuuApi mutation routes", () => {
       "/actions/..%2fx/reject",
       "/generation/..%2fx/rollback",
     ]) {
-      const res = await post(app, route, { faculty: "knowledge" });
+      const res = await post(app, route, { module: "knowledge" });
       expect(res.status).toBe(400);
     }
     expect(existsSync(marker)).toBe(false);
@@ -285,16 +285,16 @@ describe("createZuzuuApi mutation routes", () => {
     fixtureHome(root);
     const { stub, marker } = markerStub(root);
     const app = createZuzuuApi(() => root, { binary: stub });
-    expect((await post(app, "/proposals/a;rm/approve", { faculty: "knowledge" })).status).toBe(400);
+    expect((await post(app, "/proposals/a;rm/approve", { module: "knowledge" })).status).toBe(400);
     expect((await post(app, "/actions/a;rm/reject", {})).status).toBe(400);
     expect(existsSync(marker)).toBe(false);
   });
-  it("bogus faculty → 400 without spawn", async () => {
+  it("bogus module → 400 without spawn", async () => {
     fixtureHome(root);
     const { stub, marker } = markerStub(root);
     const app = createZuzuuApi(() => root, { binary: stub });
-    expect((await post(app, "/proposals/p1/approve", { faculty: "bogus" })).status).toBe(400);
-    expect((await post(app, "/proposals/p1/reject", { faculty: "bogus" })).status).toBe(400);
+    expect((await post(app, "/proposals/p1/approve", { module: "bogus" })).status).toBe(400);
+    expect((await post(app, "/proposals/p1/reject", { module: "bogus" })).status).toBe(400);
     expect((await post(app, "/proposals/p1/approve", {})).status).toBe(400);
     expect(existsSync(marker)).toBe(false);
   });
@@ -302,7 +302,7 @@ describe("createZuzuuApi mutation routes", () => {
     fixtureHome(root);
     const { stub, marker } = markerStub(root);
     const app = createZuzuuApi(() => root, { binary: stub });
-    const res = await post(app, "/proposals/p1/reject", { faculty: "knowledge", reason: "x".repeat(501) });
+    const res = await post(app, "/proposals/p1/reject", { module: "knowledge", reason: "x".repeat(501) });
     expect(res.status).toBe(400);
     expect(existsSync(marker)).toBe(false);
   });
@@ -311,7 +311,7 @@ describe("createZuzuuApi mutation routes", () => {
     const { stub, marker } = markerStub(root);
     const app = createZuzuuApi(() => root, { binary: stub });
     const longId = "a".repeat(200);
-    expect((await post(app, `/proposals/${longId}/approve`, { faculty: "knowledge" })).status).toBe(400);
+    expect((await post(app, `/proposals/${longId}/approve`, { module: "knowledge" })).status).toBe(400);
     expect(existsSync(marker)).toBe(false);
   });
   it("mint with 201-element from[] → 400 without spawn", async () => {
@@ -325,9 +325,9 @@ describe("createZuzuuApi mutation routes", () => {
   it("reject reason rides as one argv element (shell-meta inert)", async () => {
     fixtureHome(root);
     const app = createZuzuuApi(() => root, { binary: argvStub(root) });
-    const res = await post(app, "/proposals/p1/reject", { faculty: "knowledge", reason: "dup; $(rm -rf) of k1" });
+    const res = await post(app, "/proposals/p1/reject", { module: "knowledge", reason: "dup; $(rm -rf) of k1" });
     expect(res.status).toBe(200);
-    expect((await res.json()).argv).toBe("proposals|reject|p1|--faculty|knowledge|--reason|dup; $(rm -rf) of k1|--json|");
+    expect((await res.json()).argv).toBe("proposals|reject|p1|--module|knowledge|--reason|dup; $(rm -rf) of k1|--json|");
   });
   it("mint with a bad from-id → 400 without spawn; mint with no body → 200", async () => {
     fixtureHome(root);
@@ -372,7 +372,7 @@ describe("createZuzuuApi session-git routes", () => {
 describe("createZuzuuApi eval + hosts", () => {
   it("GET /eval uses zuzuu eval --json when available", async () => {
     fixtureHome(root);
-    const payload = { ranked: [{ id: "p1", faculty: "knowledge", title: "t", score: 0.9, confidence: "high", rationale: "r" }] };
+    const payload = { ranked: [{ id: "p1", module: "knowledge", title: "t", score: 0.9, confidence: "high", rationale: "r" }] };
     const app = createZuzuuApi(() => root, { binary: jsonStub(root, JSON.stringify(payload)) });
     const res = await app.request("/eval");
     expect(res.status).toBe(200);
@@ -383,7 +383,7 @@ describe("createZuzuuApi eval + hosts", () => {
     const app = createZuzuuApi(() => root, { binary: "definitely-not-real-zzz" });
     const body = await (await app.request("/eval")).json();
     expect(body.ranked).toHaveLength(1);
-    expect(body.ranked[0]).toMatchObject({ id: "p1", faculty: "knowledge", score: null, confidence: null, rationale: null });
+    expect(body.ranked[0]).toMatchObject({ id: "p1", module: "knowledge", score: null, confidence: null, rationale: null });
     expect(body.ranked[0].title).toMatch(/node:sqlite/);
   });
   it("GET /hosts surfaces hosts from zuzuu status", async () => {

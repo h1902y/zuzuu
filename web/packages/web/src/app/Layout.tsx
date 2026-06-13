@@ -24,7 +24,7 @@ export function Layout({
         </Panel>
         <Separator className="w-px bg-border transition-colors hover:bg-accent-dim" />
         <Panel className="flex min-w-0 flex-col">{center}</Panel>
-        {/* the right panel: editor (files mode) or the faculties surface */}
+        {/* the right panel: editor (files mode) or the modules surface */}
         {!rightCollapsed && (
           <>
             <Separator className="w-px bg-border transition-colors hover:bg-accent-dim" />

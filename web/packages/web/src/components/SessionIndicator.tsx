@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { zuzuuApi, describeZuzuuError } from "../lib/zuzuu-api";
-import { sessionIndicator } from "../faculties/session-git";
+import { sessionIndicator } from "../modules/session-git";
 import { mergeSessionWithFallback, refreshSessionGit } from "../lib/session-git-actions";
 import { MenuPopover, type MenuItem } from "./ui";
 

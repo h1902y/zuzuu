@@ -13,7 +13,7 @@ export function ProposalRow({
 }) {
   return (
     <div className="group flex items-center gap-2 border-b border-border py-1 text-ui last:border-0">
-      <span className="shrink-0 text-meta text-ink-500">{data.faculty}</span>
+      <span className="shrink-0 text-meta text-ink-500">{data.module}</span>
       <span className="truncate text-ink-300">{data.title}</span>
       {(onApprove || onReject) && (
         <span className="ml-auto flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">

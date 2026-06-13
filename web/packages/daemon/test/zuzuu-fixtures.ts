@@ -4,13 +4,13 @@
 import { mkdirSync, writeFileSync, chmodSync } from "node:fs";
 import path from "node:path";
 
-/** A Faculty Standard envelope item (strict frontmatter + prose body). */
+/** A Module Standard envelope item (strict frontmatter + prose body). */
 export function envelope(fields: Record<string, string>, body = ""): string {
   const fm = Object.entries(fields).map(([k, v]) => `${k}: ${v}`).join("\n");
   return `---\n${fm}\n---\n${body}`;
 }
 
-/** Seed a minimal .zuzuu/ home under `r`: five faculties, one knowledge item,
+/** Seed a minimal .zuzuu/ home under `r`: five modules, one knowledge item,
  *  one pending proposal, a sessions index and a live digest. */
 export function fixtureHome(r: string): string {
   const agent = path.join(r, ".zuzuu");
@@ -21,10 +21,10 @@ export function fixtureHome(r: string): string {
   mkdirSync(path.join(agent, ".live"), { recursive: true });
   writeFileSync(path.join(agent, "sessions.json"), JSON.stringify({ version: 1, sessions: [{ id: "s1", host: "claude-code" }] }));
   writeFileSync(path.join(agent, "knowledge", "items", "k1.md"),
-    envelope({ id: "k1", faculty: "knowledge", kind: "fact", title: '"fact one"', status: "active", created_at: "2026-06-12T00:00:00Z" }, "fact one\n"));
+    envelope({ id: "k1", module: "knowledge", kind: "fact", title: '"fact one"', status: "active", created_at: "2026-06-12T00:00:00Z" }, "fact one\n"));
   writeFileSync(path.join(agent, "knowledge", "proposals", "p1.json"),
     JSON.stringify({ id: "p1", candidate: { body: "use node:sqlite" } }));
-  writeFileSync(path.join(agent, ".live", "digest.md"), "# zuzuu faculty digest\n");
+  writeFileSync(path.join(agent, ".live", "digest.md"), "# zuzuu module digest\n");
   return agent;
 }
 
@@ -37,7 +37,7 @@ export function jsonStub(r: string, payload: string): string {
 }
 
 /** A stub that exits non-zero after writing to stderr. */
-export function failStub(r: string, msg = "boom: faculty not found"): string {
+export function failStub(r: string, msg = "boom: module not found"): string {
   const stub = path.join(r, "zuzuu-fail.sh");
   writeFileSync(stub, `#!/bin/sh\necho '${msg}' >&2\nexit 1\n`);
   chmodSync(stub, 0o755);

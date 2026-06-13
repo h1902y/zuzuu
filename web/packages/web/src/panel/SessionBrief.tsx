@@ -6,7 +6,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { zuzuuApi } from "../lib/zuzuu-api";
 import { useExplorer } from "../state/explorer";
-import { DIGEST_PATH } from "./faculty-paths";
+import { DIGEST_PATH } from "./module-paths";
 
 export function SessionBrief() {
   const q = useQuery({ queryKey: ["zuzuu", "digest"], queryFn: zuzuuApi.digest, refetchInterval: 6000 });

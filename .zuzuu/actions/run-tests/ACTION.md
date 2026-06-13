@@ -1,6 +1,6 @@
 ---
 id: run-tests
-faculty: actions
+module: actions
 kind: script
 title: Run the mns test suite
 status: active

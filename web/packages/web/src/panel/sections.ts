@@ -1,7 +1,7 @@
 // Pure logic for the panel-v3 sections (React-free, unit-tested):
 // §1 needs-you grouping, §2 session splitting + state labelling and the
 // graduated-from-session provenance filter, plus duration formatting.
-import type { FacultyItem, FacultyOverviewEntry, ZuzuuSessionEntry } from "@zuzuu-web/protocol";
+import type { ModuleItem, ModuleOverviewEntry, ZuzuuSessionEntry } from "@zuzuu-web/protocol";
 
 // ── §1 Needs you ──────────────────────────────────────────────────────
 
@@ -11,17 +11,17 @@ export interface NeedsYouGroup {
   pending: number;
 }
 
-/** Per-faculty pending groups ("Knowledge · 3 to review"), faculties with
+/** Per-module pending groups ("Knowledge · 3 to review"), modules with
  *  nothing pending omitted — an empty result means "all caught up". */
-export function needsYouGroups(faculties: FacultyOverviewEntry[]): NeedsYouGroup[] {
-  return faculties
+export function needsYouGroups(modules: ModuleOverviewEntry[]): NeedsYouGroup[] {
+  return modules
     .filter((f) => f.counts.pending > 0)
     .map((f) => ({ id: f.id, title: f.title, pending: f.counts.pending }));
 }
 
-/** Total pending across all faculties — the Review CTA's count. */
-export const pendingTotal = (faculties: FacultyOverviewEntry[]): number =>
-  faculties.reduce((n, f) => n + f.counts.pending, 0);
+/** Total pending across all modules — the Review CTA's count. */
+export const pendingTotal = (modules: ModuleOverviewEntry[]): number =>
+  modules.reduce((n, f) => n + f.counts.pending, 0);
 
 // ── §2 Sessions ───────────────────────────────────────────────────────
 
@@ -58,7 +58,7 @@ export function sessionStateMeta(state: string | undefined): SessionStateMeta {
 
 /** Items whose provenance cites this session — "graduated from this session".
  *  (Filtered client-side; provenance rides only on full envelope items.) */
-export function graduatedFromSession(items: FacultyItem[], sessionId: string): FacultyItem[] {
+export function graduatedFromSession(items: ModuleItem[], sessionId: string): ModuleItem[] {
   if (!sessionId) return [];
   return items.filter((it) =>
     (it.provenance ?? []).some((p) => p.session === sessionId));
