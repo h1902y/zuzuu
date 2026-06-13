@@ -1,28 +1,16 @@
-// The status bar, pristine: the ❯_ connection mark · vault name (recents
-// menu) · session-git indicator · help ⓘ · ⌘K. Review lives in the panel's
-// "Needs you" section, not here.
-import { useRef, useState } from "react";
+// The status bar, calm (app-shell brief): a connection StatusDot · the
+// workspace name (still the recents switcher) · the session-git indicator ·
+// a quiet ⌘K hint. The dense mono ❯_ mark, the live-stats tooltip and the
+// help menu were retired here — review lives in the panel's "Needs you"
+// section, help in the palette.
+import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useConnection } from "../state/connection";
-import { useSessions } from "../state/sessions";
-import { Bar, IconButton, MenuPopover, type MenuItem } from "../components/ui";
+import { Bar, Kbd, StatusDot, cx } from "../components/ui";
 import { SessionIndicator } from "../components/SessionIndicator";
-import { startUtilityRun } from "../lib/agent-launch";
 import { capRecents, tilde } from "../onboarding/vault-picker-logic";
-import { useFilesQuery, useWorkspaceConfigQuery, useWorkspaceQuery } from "./queries";
+import { useWorkspaceConfigQuery, useWorkspaceQuery } from "./queries";
 import { switchVault } from "./vault";
-
-const WIKI = "https://github.com/h1902y/zuzuu/wiki";
-
-function fmtUptime(ms: number): string {
-  const s = Math.floor(ms / 1000);
-  if (s < 60) return `${s}s`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m`;
-  const h = Math.floor(m / 60);
-  return h < 24 ? `${h}h ${m % 60}m` : `${Math.floor(h / 24)}d ${h % 24}h`;
-}
-const fmtMB = (bytes: number) => `${Math.round(bytes / 1024 / 1024)} MB`;
 
 export function Footer({
   zuzuuHome,
@@ -35,14 +23,10 @@ export function Footer({
 }) {
   const queryClient = useQueryClient();
   const conn = useConnection();
-  const { tabs } = useSessions();
   const workspace = useWorkspaceQuery();
   const wsConfig = useWorkspaceConfigQuery();
-  const files = useFilesQuery();
 
   const [vaultMenuOpen, setVaultMenuOpen] = useState(false);
-  const [helpOpen, setHelpOpen] = useState(false);
-  const helpRef = useRef<HTMLSpanElement>(null);
   const vaultRecents = capRecents(wsConfig.data?.recent ?? [], workspace.data?.root, 5);
 
   const pickVault = (path: string) => {
@@ -50,54 +34,31 @@ export function Footer({
     void switchVault(queryClient, path);
   };
 
-  const helpItems: MenuItem[] = [
-    {
-      label: "What is zuzuu? — run zuzuu explain",
-      onClick: () => { setHelpOpen(false); void startUtilityRun(["explain"]); },
-    },
-    {
-      label: "Workbench guide ↗",
-      onClick: () => { setHelpOpen(false); window.open(`${WIKI}/Workbench`, "_blank", "noopener"); },
-    },
-    {
-      label: "Module Standard ↗",
-      onClick: () => { setHelpOpen(false); window.open(`${WIKI}/Module-Standard`, "_blank", "noopener"); },
-    },
-  ];
+  const connTone = conn.state === "connected" ? "ok" : conn.state === "reconnecting" ? "warn" : "bad";
+  const connLabel =
+    conn.state === "connected" ? "Connected" : conn.state === "reconnecting" ? "Reconnecting…" : "Disconnected";
 
   return (
     <Bar border="t" surface="surface" className="relative !gap-2.5 text-meta text-ink-500">
-      {/* the ❯_ mark carries connection health: calm when connected (live
-          stats on hover), warn/red + pulse only while reconnecting/down */}
-      <span
-        className={`shrink-0 ${
-          conn.state === "connected"
-            ? "text-accent-dim"
-            : conn.state === "reconnecting"
-              ? "animate-pulse text-warn"
-              : "text-danger"
-        }`}
-        title={[
-          `daemon ${conn.state}`,
-          files.data ? `${files.data.files.length}${files.data.truncated ? "+" : ""} files` : null,
-          `${tabs.filter((t) => t.alive).length} session(s)`,
-          conn.uptimeMs !== null ? `up ${fmtUptime(conn.uptimeMs)}` : null,
-          conn.rss !== null ? fmtMB(conn.rss) : null,
-        ]
-          .filter(Boolean)
-          .join(" · ")}
-      >
-        ❯_
+      {/* calm connection status */}
+      <span className="flex shrink-0 items-center gap-1.5" title={`daemon ${conn.state}`}>
+        <StatusDot tone={connTone} pulse={conn.state === "reconnecting"} />
+        <span className="wc-sans text-ink-400">{connLabel}</span>
       </span>
 
-      {/* vault name → recents menu (Browse stays; cwd lives in session detail) */}
+      <span aria-hidden className="text-ink-600">·</span>
+
+      {/* workspace name → recents switcher (Browse stays; restyled calm) */}
       <div className="relative shrink-0">
         <button
           onClick={() => setVaultMenuOpen((v) => !v)}
-          className="wc-sans max-w-72 truncate rounded-[var(--radius-sm)] px-1 text-ink-300 hover:text-accent"
+          className="wc-sans flex max-w-72 items-center gap-1 truncate rounded-[var(--radius-sm)] px-1 text-ink-300 transition-colors hover:text-ink-100"
           title={workspace.data?.root}
         >
-          {workspace.data?.name ?? "…"} ▾
+          <span className="truncate">{workspace.data?.name ?? "…"}</span>
+          <svg viewBox="0 0 16 16" className={cx("h-2.5 w-2.5 shrink-0 transition-transform", vaultMenuOpen && "rotate-180")} fill="none" stroke="currentColor" strokeWidth="1.6">
+            <path d="M4 6l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </button>
         {vaultMenuOpen && (
           <>
@@ -111,18 +72,18 @@ export function Footer({
                   setVaultMenuOpen(false);
                   onOpenVaultPicker();
                 }}
-                className="block w-full px-3 py-1.5 text-left text-ui text-ink-100 hover:bg-hover"
+                className="wc-sans flex w-full items-center px-3 py-1.5 text-left text-ui text-ink-100 transition-colors hover:bg-hover"
               >
-                Browse… <span className="text-ink-500">⌘⇧O</span>
+                Browse… <span className="ml-auto text-ink-500">⌘⇧O</span>
               </button>
               {vaultRecents.length > 0 && (
                 <div className="mt-1 border-t border-border pt-1">
-                  <div className="px-3 py-0.5 text-meta uppercase tracking-wider text-ink-500">Recent</div>
+                  <div className="wc-eyebrow px-3 py-0.5">Recent</div>
                   {vaultRecents.map((r) => (
                     <button
                       key={r}
                       onClick={() => pickVault(r)}
-                      className="block w-full truncate px-3 py-1 text-left text-ui text-ink-300 hover:bg-hover hover:text-ink-100"
+                      className="wc-sans block w-full truncate px-3 py-1.5 text-left text-ui text-ink-300 transition-colors hover:bg-hover hover:text-ink-100"
                       title={r}
                     >
                       {tilde(r)}
@@ -135,28 +96,17 @@ export function Footer({
         )}
       </div>
 
-      {/* session-git indicator (the old git-branch item's slot) */}
+      {/* session-git indicator (restyled context-only; its own quiet popover) */}
       <SessionIndicator enabled={zuzuuHome} />
 
-      <span className="ml-auto flex shrink-0 items-center gap-1">
-        <span ref={helpRef}>
-          <IconButton
-            title="Help — what is zuzuu?"
-            iconPath="M8 2.5a5.5 5.5 0 110 11 5.5 5.5 0 010-11M6.3 6.2a1.8 1.8 0 113 1.3c-.6.5-1.3.8-1.3 1.7M8 11.2v.3"
-            onClick={() => setHelpOpen((v) => !v)}
-          />
-        </span>
-        {helpOpen && (
-          <MenuPopover items={helpItems} onClose={() => setHelpOpen(false)} anchorEl={helpRef.current} ignore={helpRef} />
-        )}
-        <button
-          onClick={onOpenPalette}
-          className="shrink-0 rounded-[var(--radius-sm)] px-1.5 text-ink-500 hover:text-accent"
-          title="Command palette"
-        >
-          ⌘K
-        </button>
-      </span>
+      <button
+        onClick={onOpenPalette}
+        className="wc-sans ml-auto flex shrink-0 items-center gap-1.5 rounded-[var(--radius-sm)] px-1 text-ink-400 transition-colors hover:text-ink-100"
+        title="Command palette"
+      >
+        <span>Commands</span>
+        <Kbd>⌘K</Kbd>
+      </button>
     </Bar>
   );
 }

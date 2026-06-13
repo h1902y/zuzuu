@@ -38,9 +38,11 @@ export function Layout({
         <button
           onClick={onExpandRight}
           title="Show panel"
-          className="flex w-6 shrink-0 items-center justify-center border-l border-border bg-surface text-ink-500 transition-colors hover:text-accent"
+          className="flex w-6 shrink-0 items-center justify-center border-l border-border bg-surface text-ink-500 transition-colors hover:bg-hover hover:text-ink-100"
         >
-          ‹
+          <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M10 4l-4 4 4 4" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </button>
       )}
     </div>
