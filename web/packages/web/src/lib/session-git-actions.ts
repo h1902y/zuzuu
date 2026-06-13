@@ -3,7 +3,7 @@
 // handle the empty-squash refusal and cache refreshes identically.
 import type { QueryClient } from "@tanstack/react-query";
 import { zuzuuApi } from "./zuzuu-api";
-import { mergeRefusalReason } from "../faculties/session-git";
+import { mergeRefusalReason } from "../modules/session-git";
 import { confirm } from "../components/ui";
 
 /** merge/continue/discard all move branches around — refresh everything git-shaped. */

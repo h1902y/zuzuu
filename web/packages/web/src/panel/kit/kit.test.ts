@@ -1,14 +1,14 @@
 // Pure tests for the panel kit's logic: card status mapping, kind→icon
 // totality over every envelope kind, relative-time formatting.
 import { describe, expect, it } from "vitest";
-import type { FacultyOverviewEntry } from "@zuzuu-web/protocol";
+import type { ModuleOverviewEntry } from "@zuzuu-web/protocol";
 import {
-  ALL_ENVELOPE_KINDS, DEFAULT_KIND_ICON, FACULTY_META, FACULTY_ORDER,
-  KIND_ICONS, UI_ICON_PATHS, cardStatus, facultyDisplay, kindIcon, latestUpdate, relativeTime,
+  ALL_ENVELOPE_KINDS, DEFAULT_KIND_ICON, MODULE_META, MODULE_ORDER,
+  KIND_ICONS, UI_ICON_PATHS, cardStatus, moduleDisplay, kindIcon, latestUpdate, relativeTime,
 } from "./kit";
 
-describe("facultyDisplay (manifest ui descriptors first, FACULTY_META fallback)", () => {
-  const overviewEntry = (over: Partial<FacultyOverviewEntry>): FacultyOverviewEntry => ({
+describe("moduleDisplay (manifest ui descriptors first, MODULE_META fallback)", () => {
+  const overviewEntry = (over: Partial<ModuleOverviewEntry>): ModuleOverviewEntry => ({
     id: "knowledge",
     title: "Knowledge",
     counts: { items: 0, pending: 0, errors: 0 },
@@ -17,7 +17,7 @@ describe("facultyDisplay (manifest ui descriptors first, FACULTY_META fallback)"
   });
 
   it("prefers the overview's title + ui descriptor", () => {
-    const d = facultyDisplay("knowledge", overviewEntry({
+    const d = moduleDisplay("knowledge", overviewEntry({
       title: "Wissen",
       ui: { icon: "shield", accent: "info", teaching: "Custom teaching line." },
     }));
@@ -25,29 +25,29 @@ describe("facultyDisplay (manifest ui descriptors first, FACULTY_META fallback)"
     expect(d.icon).toBe(UI_ICON_PATHS.shield);
     expect(d.teach).toBe("Custom teaching line.");
   });
-  it("falls back to FACULTY_META without an overview entry (CLI absent)", () => {
-    const d = facultyDisplay("memory");
+  it("falls back to MODULE_META without an overview entry (CLI absent)", () => {
+    const d = moduleDisplay("memory");
     expect(d).toMatchObject({
-      label: FACULTY_META.memory.label,
-      icon: FACULTY_META.memory.icon,
-      teach: FACULTY_META.memory.teach,
-      emptyHeadline: FACULTY_META.memory.emptyHeadline,
+      label: MODULE_META.memory.label,
+      icon: MODULE_META.memory.icon,
+      teach: MODULE_META.memory.teach,
+      emptyHeadline: MODULE_META.memory.emptyHeadline,
     });
   });
-  it("unknown icon name keeps the built-in icon; unknown faculty gets generic display", () => {
-    const d = facultyDisplay("knowledge", overviewEntry({
+  it("unknown icon name keeps the built-in icon; unknown module gets generic display", () => {
+    const d = moduleDisplay("knowledge", overviewEntry({
       ui: { icon: "no-such-icon", accent: "info", teaching: "T." },
     }));
-    expect(d.icon).toBe(FACULTY_META.knowledge.icon);
+    expect(d.icon).toBe(MODULE_META.knowledge.icon);
 
-    const third = facultyDisplay("todo", overviewEntry({
+    const third = moduleDisplay("todo", overviewEntry({
       id: "todo", title: "Todo",
       ui: { icon: "book", accent: "neutral", teaching: "Tasks land here." },
     }));
     expect(third).toMatchObject({ label: "Todo", icon: UI_ICON_PATHS.book, teach: "Tasks land here." });
 
-    // declarative faculty with no ui block at all → still complete display
-    const bare = facultyDisplay("todo");
+    // declarative module with no ui block at all → still complete display
+    const bare = moduleDisplay("todo");
     expect(bare.label).toBe("Todo");
     expect(bare.icon).toBe(DEFAULT_KIND_ICON);
     expect(bare.emptyHeadline).toBe("No todo yet");
@@ -90,11 +90,11 @@ describe("kind→icon map", () => {
   });
 });
 
-describe("faculty metadata", () => {
-  it("covers the five faculties in display order with teaching copy", () => {
-    expect(FACULTY_ORDER).toEqual(["knowledge", "memory", "actions", "instructions", "guardrails"]);
-    for (const key of FACULTY_ORDER) {
-      const meta = FACULTY_META[key];
+describe("module metadata", () => {
+  it("covers the five modules in display order with teaching copy", () => {
+    expect(MODULE_ORDER).toEqual(["knowledge", "memory", "actions", "instructions", "guardrails"]);
+    for (const key of MODULE_ORDER) {
+      const meta = MODULE_META[key];
       expect(meta.label).toBeTruthy();
       expect(meta.icon).toBeTruthy();
       expect(meta.emptyHeadline).toMatch(/^No /);

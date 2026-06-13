@@ -1,13 +1,13 @@
 // Panel-v3 section logic: needs-you grouping, session split + state labels,
 // the graduated-from-session provenance filter, duration formatting.
 import { describe, expect, it } from "vitest";
-import type { FacultyItem, FacultyOverviewEntry, ZuzuuSessionEntry } from "@zuzuu-web/protocol";
+import type { ModuleItem, ModuleOverviewEntry, ZuzuuSessionEntry } from "@zuzuu-web/protocol";
 import {
   fmtDuration, graduatedFromSession, needsYouGroups, pendingTotal,
   sessionStateMeta, shortSessionId, splitSessions,
 } from "./sections";
 
-const entry = (id: string, pending: number, items = 0): FacultyOverviewEntry => ({
+const entry = (id: string, pending: number, items = 0): ModuleOverviewEntry => ({
   id,
   title: id.charAt(0).toUpperCase() + id.slice(1),
   counts: { items, pending, errors: 0 },
@@ -15,7 +15,7 @@ const entry = (id: string, pending: number, items = 0): FacultyOverviewEntry => 
 });
 
 describe("needsYouGroups (§1)", () => {
-  it("groups only faculties with pending > 0, in overview order", () => {
+  it("groups only modules with pending > 0, in overview order", () => {
     const groups = needsYouGroups([
       entry("knowledge", 3), entry("memory", 0), entry("actions", 1),
       entry("instructions", 0), entry("guardrails", 0),
@@ -28,7 +28,7 @@ describe("needsYouGroups (§1)", () => {
   it("empty when nothing is pending → 'all caught up'", () => {
     expect(needsYouGroups([entry("knowledge", 0, 5)])).toEqual([]);
   });
-  it("pendingTotal sums across faculties (the Review CTA count)", () => {
+  it("pendingTotal sums across modules (the Review CTA count)", () => {
     expect(pendingTotal([entry("knowledge", 3), entry("actions", 1)])).toBe(4);
     expect(pendingTotal([])).toBe(0);
   });
@@ -72,8 +72,8 @@ describe("sessionStateMeta (state labelling)", () => {
 });
 
 describe("graduatedFromSession (provenance filter)", () => {
-  const item = (id: string, provenance?: Record<string, string>[]): FacultyItem =>
-    ({ id, faculty: "knowledge", kind: "fact", title: id, ...(provenance ? { provenance } : {}) });
+  const item = (id: string, provenance?: Record<string, string>[]): ModuleItem =>
+    ({ id, module: "knowledge", kind: "fact", title: id, ...(provenance ? { provenance } : {}) });
 
   it("keeps items whose provenance cites the session id", () => {
     const hit = item("k1", [{ session: "ses_abc", ref: "occurrences=2" }]);

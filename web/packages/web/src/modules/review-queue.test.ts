@@ -5,12 +5,12 @@ import {
 } from "./review-queue";
 
 const ranked = [
-  { id: "p1", faculty: "knowledge", title: "fact one", score: 0.9, confidence: "high", rationale: "seen 4x" },
-  { id: "p2", faculty: "memory", title: "fact two", score: null, confidence: null, rationale: null },
+  { id: "p1", module: "knowledge", title: "fact one", score: 0.9, confidence: "high", rationale: "seen 4x" },
+  { id: "p2", module: "memory", title: "fact two", score: null, confidence: null, rationale: null },
 ];
 const actions = [
-  { id: "deploy-check", faculty: "actions", title: "deploy preflight" },
-  { id: "p2", faculty: "actions", title: "duplicate of a ranked id" },
+  { id: "deploy-check", module: "actions", title: "deploy preflight" },
+  { id: "p2", module: "actions", title: "duplicate of a ranked id" },
 ];
 
 describe("buildQueue", () => {
@@ -19,7 +19,7 @@ describe("buildQueue", () => {
     expect(q.map((i) => i.id)).toEqual(["p1", "p2", "deploy-check"]);
     expect(q[0]!.kind).toBe("proposal");
     expect(q[2]!.kind).toBe("action");
-    expect(q[2]!.faculty).toBe("actions");
+    expect(q[2]!.module).toBe("actions");
   });
 
   it("dedupes action items whose id already appears in the ranked list", () => {

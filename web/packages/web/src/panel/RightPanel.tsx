@@ -3,9 +3,9 @@ import { useEditor } from "../state/editor";
 import { useRightPanel } from "../state/right-panel";
 import { Bar, IconButton } from "../components/ui";
 import { PanelRoot } from "./PanelRoot";
-import { FacultyView } from "./FacultyView";
+import { ModuleView } from "./ModuleView";
 import { SessionDetail } from "./SessionDetail";
-import { facultyDisplay } from "./kit";
+import { moduleDisplay } from "./kit";
 import { shortSessionId } from "./sections";
 
 // Lazy boundary: the editor pane graph (Monaco wrapper, markdown/CSV/cast
@@ -15,10 +15,10 @@ const EditorPane = lazy(() =>
 
 /**
  * The right panel — ONE surface, two modes:
- * - files: the EditorPane (Monaco tabs + previews) with a `‹ faculties`
+ * - files: the EditorPane (Monaco tabs + previews) with a `‹ modules`
  *   affordance that flips modes without closing tabs;
- * - faculties (resting): the panel root (three sections — needs you /
- *   sessions / faculties); a tile click slides in that faculty's view, a
+ * - modules (resting): the panel root (three sections — needs you /
+ *   sessions / modules); a tile click slides in that module's view, a
  *   session row slides in its detail. Mode flips live in state/right-panel.
  */
 export function RightPanel({
@@ -33,10 +33,10 @@ export function RightPanel({
   const mode = useRightPanel((s) => s.mode);
   const drill = useRightPanel((s) => s.drill);
   const showFiles = useRightPanel((s) => s.showFiles);
-  const showFaculties = useRightPanel((s) => s.showFaculties);
+  const showModules = useRightPanel((s) => s.showModules);
   const hasEditor = useEditor((s) => s.openFiles.length > 0);
 
-  // the store flips to faculties when the last tab closes; this guard only
+  // the store flips to modules when the last tab closes; this guard only
   // covers the first render after a reload with a stale 'files' mode
   if (mode === "files" && hasEditor) {
     return (
@@ -44,11 +44,11 @@ export function RightPanel({
         <EditorPane
           leading={
             <button
-              onClick={showFaculties}
+              onClick={showModules}
               className="shrink-0 self-stretch border-r border-border px-2 text-meta text-ink-500 transition-colors hover:text-accent"
-              title="Show faculties (editor tabs stay open)"
+              title="Show modules (editor tabs stay open)"
             >
-              ‹ faculties
+              ‹ modules
             </button>
           }
         />
@@ -59,8 +59,8 @@ export function RightPanel({
   const title =
     drill === null
       ? "zuzuu"
-      : drill.kind === "faculty"
-        ? `zuzuu · ${facultyDisplay(drill.key).label}`
+      : drill.kind === "module"
+        ? `zuzuu · ${moduleDisplay(drill.key).label}`
         : `zuzuu · session ${shortSessionId(drill.id)}`;
 
   return (
@@ -88,8 +88,8 @@ export function RightPanel({
       <div className="min-h-0 flex-1 overflow-y-auto">
         {!zuzuuHome ? (
           <EmptyState zuzuuBin={zuzuuBin} />
-        ) : drill?.kind === "faculty" ? (
-          <FacultyView facultyKey={drill.key} />
+        ) : drill?.kind === "module" ? (
+          <ModuleView moduleKey={drill.key} />
         ) : drill?.kind === "session" ? (
           <SessionDetail sessionId={drill.id} />
         ) : (
@@ -106,7 +106,7 @@ function EmptyState({ zuzuuBin }: { zuzuuBin: boolean }) {
     <div className="flex flex-col gap-2 p-4 text-ui leading-relaxed text-ink-500">
       <div className="text-ink-300">No zuzuu home in this project yet.</div>
       <p>
-        Once set up, your agent&apos;s faculties — knowledge, memory, actions,
+        Once set up, your agent&apos;s modules — knowledge, memory, actions,
         instructions, guardrails — live here and grow from real sessions.
       </p>
       {!zuzuuBin && (

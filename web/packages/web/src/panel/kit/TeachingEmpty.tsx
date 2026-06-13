@@ -1,15 +1,15 @@
 import { Button } from "../../components/ui";
-import type { FacultyDisplay } from "./kit";
+import type { ModuleDisplay } from "./kit";
 
-/** The inline empty state that teaches: 48px muted faculty icon, a headline,
+/** The inline empty state that teaches: 48px muted module icon, a headline,
  *  ONE teaching sentence, and an optional CTA. Display comes from the
- *  manifest ui descriptor (facultyDisplay), so declarative faculties teach
+ *  manifest ui descriptor (moduleDisplay), so declarative modules teach
  *  too. */
 export function TeachingEmpty({
   display,
   cta,
 }: {
-  display: FacultyDisplay;
+  display: ModuleDisplay;
   cta?: { label: string; onClick: () => void };
 }) {
   return (

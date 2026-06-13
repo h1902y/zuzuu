@@ -7,7 +7,7 @@ export interface ReviewItem {
   /** which mutation endpoint it goes through: /proposals/:id/* vs /actions/:slug/* */
   kind: "proposal" | "action";
   id: string;
-  faculty: string;
+  module: string;
   title: string;
   score: number | null;
   confidence: string | null;
@@ -36,7 +36,7 @@ export function buildQueue(ranked: RankedProposal[], actionInbox: ProposalSummar
   const queue: ReviewItem[] = ranked.map((p) => ({
     kind: "proposal",
     id: p.id,
-    faculty: p.faculty,
+    module: p.module,
     title: p.title,
     score: p.score,
     confidence: p.confidence,
@@ -49,7 +49,7 @@ export function buildQueue(ranked: RankedProposal[], actionInbox: ProposalSummar
     queue.push({
       kind: "action",
       id: a.id,
-      faculty: "actions",
+      module: "actions",
       title: a.title,
       score: null,
       confidence: null,

@@ -254,7 +254,7 @@ export function TermView({
   const isUtility = end.kind === "utility";
   useEffect(() => {
     // utility run finished (zuzuu init / enable) — refresh the zuzuu queries
-    // so onboarding flips to the faculties dashboard without a reload
+    // so onboarding flips to the modules dashboard without a reload
     if (isUtility && exitCode !== null) {
       void queryClient.invalidateQueries({ queryKey: ["zuzuu"] });
     }

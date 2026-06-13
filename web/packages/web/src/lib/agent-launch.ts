@@ -6,7 +6,7 @@
 // plain-terminal path: the workbench surfaces host sessions and zuzuu utility
 // runs only.
 import { useSessions } from "../state/sessions";
-import type { AgentSpawnSpec } from "../faculties/host-launch";
+import type { AgentSpawnSpec } from "../modules/host-launch";
 
 /**
  * Start an agent session: direct-spawn the host, tab it, select it. Single-

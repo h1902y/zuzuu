@@ -1,14 +1,14 @@
-// Pure logic for the faculty panel kit (React-free, unit-tested):
+// Pure logic for the module panel kit (React-free, unit-tested):
 // card status mapping, the kind→icon map (universal over every envelope
-// kind), faculty display metadata (manifest ui descriptors first, built-in
-// FACULTY_META as the fallback), and relative-time formatting.
-import type { FacultyItem, FacultyKey, FacultyOverviewEntry } from "@zuzuu-web/protocol";
+// kind), module display metadata (manifest ui descriptors first, built-in
+// MODULE_META as the fallback), and relative-time formatting.
+import type { ModuleItem, ModuleKey, ModuleOverviewEntry } from "@zuzuu-web/protocol";
 
 // ── card status ───────────────────────────────────────────────────────
 
 export type CardStatus = "ok" | "pending" | "empty";
 
-/** FacultyCard's 3px top bar: pending (amber) wins; items alone = ok
+/** ModuleCard's 3px top bar: pending (amber) wins; items alone = ok
  *  (green); nothing = empty (gray). */
 export function cardStatus(count: number, pending: number): CardStatus {
   if (pending > 0) return "pending";
@@ -18,7 +18,7 @@ export function cardStatus(count: number, pending: number): CardStatus {
 
 // ── kind → icon (16×16 stroke paths, the IconButton convention) ──────
 
-/** Every envelope kind across the five faculties (knowledge is an open,
+/** Every envelope kind across the five modules (knowledge is an open,
  *  registry-governed set — these are its seeds; unknown kinds fall back). */
 export const ALL_ENVELOPE_KINDS = [
   "fact", "entity", "command", "decision", // knowledge (open set, seeded)
@@ -47,13 +47,13 @@ export const DEFAULT_KIND_ICON = "M4.5 2.5h5L12 5v8.5H4.5v-11M9 2.5V5.5H12";
 export const kindIcon = (kind: string | undefined): string =>
   (kind && KIND_ICONS[kind]) || DEFAULT_KIND_ICON;
 
-// ── faculty display metadata ──────────────────────────────────────────
+// ── module display metadata ──────────────────────────────────────────
 
-export const FACULTY_ORDER: FacultyKey[] = [
+export const MODULE_ORDER: ModuleKey[] = [
   "knowledge", "memory", "actions", "instructions", "guardrails",
 ];
 
-export interface FacultyMeta {
+export interface ModuleMeta {
   label: string;
   /** 16×16 stroke icon path */
   icon: string;
@@ -63,7 +63,7 @@ export interface FacultyMeta {
   teach: string;
 }
 
-export const FACULTY_META: Record<FacultyKey, FacultyMeta> = {
+export const MODULE_META: Record<ModuleKey, ModuleMeta> = {
   knowledge: {
     label: "Knowledge",
     icon: "M6.3 13.5h3.4M6.8 11.5h2.4M8 2.5a3.9 3.9 0 012.2 7.1c-.5.4-.7 1.1-.7 1.9H6.5c0-.8-.2-1.5-.7-1.9A3.9 3.9 0 018 2.5",
@@ -96,19 +96,19 @@ export const FACULTY_META: Record<FacultyKey, FacultyMeta> = {
   },
 };
 
-// ── manifest ui descriptors → display (FACULTY_META is the FALLBACK) ──
+// ── manifest ui descriptors → display (MODULE_META is the FALLBACK) ──
 
-/** Manifest `ui.icon` names → 16×16 stroke paths. New faculties pick from
+/** Manifest `ui.icon` names → 16×16 stroke paths. New modules pick from
  *  this set (or fall back to a neutral document icon) — no frontend code. */
 export const UI_ICON_PATHS: Record<string, string> = {
-  book: FACULTY_META.knowledge.icon,
-  clock: FACULTY_META.memory.icon,
-  play: FACULTY_META.actions.icon,
-  compass: FACULTY_META.instructions.icon,
-  shield: FACULTY_META.guardrails.icon,
+  book: MODULE_META.knowledge.icon,
+  clock: MODULE_META.memory.icon,
+  play: MODULE_META.actions.icon,
+  compass: MODULE_META.instructions.icon,
+  shield: MODULE_META.guardrails.icon,
 };
 
-export interface FacultyDisplay {
+export interface ModuleDisplay {
   label: string;
   /** resolved 16×16 stroke icon path */
   icon: string;
@@ -116,13 +116,13 @@ export interface FacultyDisplay {
   teach: string;
 }
 
-const isBuiltin = (id: string): id is FacultyKey => id in FACULTY_META;
+const isBuiltin = (id: string): id is ModuleKey => id in MODULE_META;
 
-/** A faculty's display block: the overview's manifest `ui` descriptor wins;
- *  the kit's built-in FACULTY_META covers CLI-less degradation; unknown
- *  (declarative third-party) faculties get generic-but-complete display. */
-export function facultyDisplay(id: string, entry?: FacultyOverviewEntry): FacultyDisplay {
-  const builtin = isBuiltin(id) ? FACULTY_META[id] : undefined;
+/** A module's display block: the overview's manifest `ui` descriptor wins;
+ *  the kit's built-in MODULE_META covers CLI-less degradation; unknown
+ *  (declarative third-party) modules get generic-but-complete display. */
+export function moduleDisplay(id: string, entry?: ModuleOverviewEntry): ModuleDisplay {
+  const builtin = isBuiltin(id) ? MODULE_META[id] : undefined;
   const label = entry?.title ?? builtin?.label ?? id.charAt(0).toUpperCase() + id.slice(1);
   const iconName = entry?.ui?.icon;
   const icon = (iconName && UI_ICON_PATHS[iconName]) ?? builtin?.icon ?? DEFAULT_KIND_ICON;
@@ -155,8 +155,8 @@ export function relativeTime(iso: string | null | undefined, now: number = Date.
   return `${Math.floor(d / 365)}y ago`;
 }
 
-/** The newest updated_at/created_at across a faculty's items (card meta line). */
-export function latestUpdate(items: Pick<FacultyItem, "created_at" | "updated_at">[]): string | null {
+/** The newest updated_at/created_at across a module's items (card meta line). */
+export function latestUpdate(items: Pick<ModuleItem, "created_at" | "updated_at">[]): string | null {
   let best: string | null = null;
   let bestT = -Infinity;
   for (const it of items) {

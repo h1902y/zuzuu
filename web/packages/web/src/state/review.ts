@@ -5,7 +5,7 @@ interface ReviewOpenState {
   setOpen: (open: boolean) => void;
 }
 
-/** Whether the review ceremony (faculties/ReviewFlow) is showing — its own
+/** Whether the review ceremony (modules/ReviewFlow) is showing — its own
  *  store so any surface (status header, sidebar, palette) can open it. */
 export const useReviewOpen = create<ReviewOpenState>((set) => ({
   open: false,

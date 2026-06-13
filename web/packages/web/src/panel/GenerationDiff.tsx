@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { zuzuuApi } from "../lib/zuzuu-api";
 
-function facultyLine(name: string, d: { added?: string[]; changed?: string[] | boolean; removed?: string[] }): string {
+function moduleLine(name: string, d: { added?: string[]; changed?: string[] | boolean; removed?: string[] }): string {
   const parts: string[] = [];
   if (Array.isArray(d.added) && d.added.length) parts.push(`+${d.added.length} added`);
   if (Array.isArray(d.changed) && d.changed.length) parts.push(`~${d.changed.length} changed`);
@@ -10,7 +10,7 @@ function facultyLine(name: string, d: { added?: string[]; changed?: string[] | b
   return `${name}: ${parts.length ? parts.join(" · ") : "no change"}`;
 }
 
-/** The per-faculty diff for one generation (needs the zuzuu CLI). */
+/** The per-module diff for one generation (needs the zuzuu CLI). */
 export function GenerationDiff({ id }: { id: string }) {
   const q = useQuery({ queryKey: ["zuzuu", "generation", id], queryFn: () => zuzuuApi.generation(id) });
   if (q.isLoading) return <div className="text-meta text-ink-500">loading diff…</div>;
@@ -24,7 +24,7 @@ export function GenerationDiff({ id }: { id: string }) {
         forkedFrom {d.forkedFrom ?? "(none)"} · from {d.mintedFrom.length} proposal(s)
       </div>
       <div className="flex flex-col gap-0.5 text-meta text-ink-300">
-        {Object.entries(d.faculties).map(([name, fd]) => <div key={name}>{facultyLine(name, fd)}</div>)}
+        {Object.entries(d.modules).map(([name, fd]) => <div key={name}>{moduleLine(name, fd)}</div>)}
       </div>
     </div>
   );

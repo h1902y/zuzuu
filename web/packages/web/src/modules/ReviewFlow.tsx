@@ -27,7 +27,7 @@ type MintState =
 function ReviewCeremony({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient();
   const evalQ = useQuery({ queryKey: ["zuzuu", "eval"], queryFn: zuzuuApi.evalRanked });
-  const actionsQ = useQuery({ queryKey: ["zuzuu", "faculty", "actions"], queryFn: () => zuzuuApi.faculty("actions") });
+  const actionsQ = useQuery({ queryKey: ["zuzuu", "module", "actions"], queryFn: () => zuzuuApi.module("actions") });
 
   // Snapshot the queue once both sources arrive; later invalidations must not
   // reshuffle the ceremony mid-flight.
@@ -55,7 +55,7 @@ function ReviewCeremony({ onClose }: { onClose: () => void }) {
     setBusy(true);
     try {
       if (item.kind === "action") await zuzuuApi.approveAction(item.id);
-      else await zuzuuApi.approveProposal(item.id, item.faculty);
+      else await zuzuuApi.approveProposal(item.id, item.module);
       dispatch({ type: "approved", id: item.id });
       invalidate();
     } catch (err) { fail(err); } finally { setBusy(false); }
@@ -65,7 +65,7 @@ function ReviewCeremony({ onClose }: { onClose: () => void }) {
     setBusy(true);
     try {
       if (item.kind === "action") await zuzuuApi.rejectAction(item.id);
-      else await zuzuuApi.rejectProposal(item.id, item.faculty, reason.trim() || undefined);
+      else await zuzuuApi.rejectProposal(item.id, item.module, reason.trim() || undefined);
       dispatch({ type: "rejected" });
       invalidate();
     } catch (err) { fail(err); } finally { setBusy(false); }
@@ -182,7 +182,7 @@ function ItemCard({ item }: { item: ReviewItem }) {
   return (
     <div className="rounded-ui border border-border bg-surface p-3">
       <div className="mb-2 flex items-center gap-2">
-        <span className="rounded-[var(--radius-sm)] bg-hover px-1.5 py-0.5 text-meta text-accent-dim">{item.faculty}</span>
+        <span className="rounded-[var(--radius-sm)] bg-hover px-1.5 py-0.5 text-meta text-accent-dim">{item.module}</span>
         {item.kind === "action" && (
           <span className="rounded-[var(--radius-sm)] border border-border px-1.5 py-0.5 text-meta text-ink-400">action inbox</span>
         )}

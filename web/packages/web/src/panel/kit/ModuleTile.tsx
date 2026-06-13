@@ -1,16 +1,16 @@
 import { cx } from "../../components/ui";
-import type { FacultyDisplay } from "./kit";
+import type { ModuleDisplay } from "./kit";
 
-/** One faculty in the §3 grid — a compact square card: icon · name · count,
+/** One module in the §3 grid — a compact square card: icon · name · count,
  *  with an amber pending dot when proposals await review. The WHOLE tile is
- *  the click target → that faculty's drill-in. */
-export function FacultyTile({
+ *  the click target → that module's drill-in. */
+export function ModuleTile({
   display,
   count,
   pending,
   onOpen,
 }: {
-  display: FacultyDisplay;
+  display: ModuleDisplay;
   count: number;
   pending: number;
   onOpen: () => void;
