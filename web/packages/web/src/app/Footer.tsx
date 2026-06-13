@@ -1,16 +1,80 @@
 // The status bar, calm (app-shell brief): a connection StatusDot · the
 // workspace name (still the recents switcher) · the session-git indicator ·
-// a quiet ⌘K hint. The dense mono ❯_ mark, the live-stats tooltip and the
-// help menu were retired here — review lives in the panel's "Needs you"
-// section, help in the palette.
+// agent progression pill · a quiet ⌘K hint. The dense mono ❯_ mark, the
+// live-stats tooltip and the help menu were retired here — review lives in
+// the panel's "Needs you" section, help in the palette.
 import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useConnection } from "../state/connection";
 import { Bar, Kbd, StatusDot, cx } from "../components/ui";
 import { SessionIndicator } from "../components/SessionIndicator";
 import { capRecents, tilde } from "../onboarding/vault-picker-logic";
 import { useWorkspaceConfigQuery, useWorkspaceQuery } from "./queries";
+import { zuzuuApi } from "../lib/zuzuu-api";
+import { pendingTotal } from "../panel/sections";
 import { switchVault } from "./vault";
+
+/** Ambient "Your agent" progression pill — calm, always-on evidence of growth.
+ *  Only renders when there is a zuzuu home; metrics appear only when present. */
+function AgentProgressionPill({ zuzuuHome }: { zuzuuHome: boolean }) {
+  const status = useQuery({
+    queryKey: ["zuzuu", "status"],
+    queryFn: zuzuuApi.status,
+    refetchInterval: 8000,
+    enabled: zuzuuHome,
+  });
+  const overview = useQuery({
+    queryKey: ["zuzuu", "overview"],
+    queryFn: zuzuuApi.overview,
+    refetchInterval: 8000,
+    enabled: zuzuuHome,
+  });
+
+  if (!zuzuuHome) return null;
+
+  // how many modules have a pinned generation
+  const pinnedGens = status.data?.generations
+    ? Object.values(status.data.generations).filter(Boolean).length
+    : null;
+  // total knowledge items (first approximation of "facts")
+  const knowledgeEntry = overview.data?.modules.find((m) => m.id === "knowledge");
+  const totalFacts = knowledgeEntry?.counts.items ?? null;
+  // total pending proposals across all modules
+  const totalPending = overview.data?.modules ? pendingTotal(overview.data.modules) : null;
+
+  // nothing loaded yet → don't render a skeleton
+  if (pinnedGens === null && totalFacts === null && totalPending === null) return null;
+
+  const hasPending = (totalPending ?? 0) > 0;
+
+  const parts: string[] = [];
+  if (pinnedGens !== null) parts.push(`Gen ${pinnedGens}`);
+  if (totalFacts !== null) parts.push(`${totalFacts} fact${totalFacts !== 1 ? "s" : ""}`);
+
+  return (
+    <span
+      className="flex shrink-0 items-center gap-1 rounded-[var(--radius-sm)] px-1.5 py-0.5 text-meta text-ink-500"
+      style={{ background: "color-mix(in oklab, var(--color-ink-600) 8%, transparent)" }}
+      title="Your agent's current state — generations pinned, facts known, proposals awaiting review"
+    >
+      <span className="wc-sans text-ink-400">Your agent:</span>
+      {parts.length > 0 && (
+        <span className="wc-sans text-ink-300">{parts.join(" · ")}</span>
+      )}
+      {hasPending && (
+        <>
+          <span aria-hidden className="text-ink-600">·</span>
+          <span
+            className="wc-sans font-medium tabular-nums"
+            style={{ color: "color-mix(in oklab, var(--color-warn) 82%, white)" }}
+          >
+            {totalPending} pending
+          </span>
+        </>
+      )}
+    </span>
+  );
+}
 
 export function Footer({
   zuzuuHome,
@@ -98,6 +162,9 @@ export function Footer({
 
       {/* session-git indicator (restyled context-only; its own quiet popover) */}
       <SessionIndicator enabled={zuzuuHome} />
+
+      {/* ambient agent progression pill — calm always-on evidence of growth */}
+      <AgentProgressionPill zuzuuHome={zuzuuHome} />
 
       <button
         onClick={onOpenPalette}

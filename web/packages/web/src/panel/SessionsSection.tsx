@@ -8,9 +8,43 @@ import { useQuery } from "@tanstack/react-query";
 import { zuzuuApi } from "../lib/zuzuu-api";
 import { Count, StatusPill, cx } from "../components/ui";
 import { useRightPanel } from "../state/right-panel";
-import { relativeTime } from "./kit";
+import { TeachingEmpty, moduleDisplay, relativeTime } from "./kit";
 import { SessionBrief } from "./SessionBrief";
 import { fmtDuration, sessionStateMeta, shortSessionId, splitSessions } from "./sections";
+
+// ── sessions empty-state preview mock ────────────────────────────────────────
+
+/** Faint mock rows that preview what the sessions list will look like once
+ *  the first session is captured. Pointer-events-none is set by TeachingEmpty's
+ *  preview wrapper; these are purely decorative. */
+function SessionsPreviewMock() {
+  const rows = [
+    { state: "completed", host: "claude code", ago: "2m ago", dur: "12.3m", id: "a1b2c3d4" },
+    { state: "captured",  host: "gemini cli",  ago: "1h ago", dur: "8.7m",  id: "e5f6g7h8" },
+    { state: "captured",  host: "claude code", ago: "3h ago", dur: "22.1m", id: "i9j0k1l2" },
+  ] as const;
+  const toneCls: Record<string, string> = {
+    completed: "text-ok border-ok/40 bg-[color-mix(in_oklab,var(--color-ok)_10%,transparent)]",
+    captured:  "text-ink-400 border-border bg-surface",
+  };
+  return (
+    <div className="flex flex-col divide-y divide-border overflow-hidden rounded-[var(--radius-ui)] border border-border">
+      {rows.map((r) => (
+        <div key={r.id} className="flex items-center gap-2 px-2 py-1.5">
+          <span className={cx("wc-sans inline-flex items-center rounded px-1.5 py-0.5 text-meta font-medium border", toneCls[r.state])}>
+            {r.state}
+          </span>
+          <span className="wc-sans min-w-0 flex-1 truncate text-ui font-medium text-ink-200">{r.host}</span>
+          <span className="flex shrink-0 items-baseline gap-3 text-meta text-ink-500">
+            <span className="wc-sans">{r.ago}</span>
+            <span className="wc-mono">{r.dur}</span>
+            <span className="wc-mono text-ink-600">{r.id}</span>
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 // ── recency bucketing ─────────────────────────────────────────────────────
 
@@ -174,12 +208,20 @@ export function SessionsSection() {
   const buckets = bucketSessions(rest);
 
   if (all.length === 0) {
+    // Build a ModuleDisplay-shaped object for the sessions surface
+    const sessionsDisplay = {
+      label: "Sessions",
+      icon: "M8 2.5a5.5 5.5 0 110 11 5.5 5.5 0 010-11M8 5v3.2l2.2 1.6",
+      emptyHeadline: "Your agent hasn't run yet",
+      teach: "Start a session and zuzuu watches over its shoulder — every run becomes something it can learn from.",
+    };
     return (
       <div className="flex flex-col gap-2">
         <div className="wc-eyebrow">sessions</div>
-        <div className="py-1 text-meta text-ink-600">
-          none yet — sessions are captured as you work with a host
-        </div>
+        <TeachingEmpty
+          display={sessionsDisplay}
+          preview={<SessionsPreviewMock />}
+        />
       </div>
     );
   }

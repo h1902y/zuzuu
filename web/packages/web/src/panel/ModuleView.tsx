@@ -6,7 +6,7 @@ import { useExplorer } from "../state/explorer";
 import { useRightPanel } from "../state/right-panel";
 import { confirm, PropertyRow, StatusPill } from "../components/ui";
 import { ProposalRow } from "./ProposalRow";
-import { ItemRow, Section, TeachingEmpty, moduleDisplay, moduleHue, kindIcon, relativeTime } from "./kit";
+import { ItemRow, Section, TeachingEmpty, moduleDisplay, moduleHue, kindIcon, relativeTime, KIND_ICONS, type ExplainerEntry } from "./kit";
 import { moduleItemPath } from "./module-paths";
 import { SchemaView, ReadmeView } from "./ModuleDocs";
 import { ModuleGenerations } from "./ModuleGenerations";
@@ -228,6 +228,63 @@ const readHintDismissed = (): boolean => {
   try { return localStorage.getItem(HINT_KEY) === "1"; } catch { return true; }
 };
 
+// ── per-module faint preview mocks ───────────────────────────────────────────
+
+/** Faint mock knowledge items — previews what the filled knowledge list looks
+ *  like (pointer-events-none is set by TeachingEmpty's preview wrapper). */
+function KnowledgePreviewMock() {
+  const rows = [
+    { kind: "fact",     title: "Prefer pnpm for dependency installs in this repo" },
+    { kind: "command",  title: "npm run typecheck — no errors before committing" },
+    { kind: "decision", title: "Zero runtime dependencies in the CLI core" },
+  ];
+  return (
+    <div className="flex flex-col divide-y divide-border text-left">
+      {rows.map((r) => (
+        <div key={r.title} className="flex items-start gap-2 px-2.5 py-2">
+          <svg viewBox="0 0 16 16" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-500" fill="none" stroke="currentColor" strokeWidth="1.3">
+            <path d={KIND_ICONS[r.kind] ?? ""} strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <span className="wc-sans min-w-0 truncate text-meta text-ink-300">{r.title}</span>
+          <span className="wc-sans ml-auto shrink-0 text-meta text-ink-600">{r.kind}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── per-module explainer triplets ─────────────────────────────────────────────
+
+/** Icon-row-triplet explainers for each built-in module — teach what the
+ *  faculty IS in three concrete beats before any items exist. */
+const MODULE_EXPLAINERS: Partial<Record<ModuleKey, ExplainerEntry[]>> = {
+  knowledge: [
+    { icon: KIND_ICONS.fact ?? "",     label: "Facts",     caption: "things zuzuu learned from your sessions" },
+    { icon: KIND_ICONS.command ?? "",  label: "Commands",  caption: "tools and invocations worth remembering" },
+    { icon: KIND_ICONS.decision ?? "", label: "Decisions", caption: "choices approved by you that shape future runs" },
+  ],
+  memory: [
+    { icon: KIND_ICONS.episode ?? "", label: "Episodes",  caption: "distilled records of past sessions" },
+    { icon: "M8 2.5a5.5 5.5 0 110 11 5.5 5.5 0 010-11M8 5v3", label: "Timeline", caption: "ordered so recency is visible at a glance" },
+    { icon: "M4 8h8M8 4v8",           label: "Recall",    caption: "surfaced in your digest at session start" },
+  ],
+  actions: [
+    { icon: KIND_ICONS.runbook ?? "", label: "Runbooks", caption: "step-by-step procedures your agent can run" },
+    { icon: KIND_ICONS.script ?? "",  label: "Scripts",  caption: "shell scripts promoted from repeated commands" },
+    { icon: "M4 13.5l1-3 7-7 2 2-7 7-3 1z", label: "Approved", caption: "only actions you've approved can execute" },
+  ],
+  instructions: [
+    { icon: KIND_ICONS.steering ?? "",   label: "Steering",   caption: "pinned guidance read at every session start" },
+    { icon: KIND_ICONS.amendment ?? "",  label: "Amendments", caption: "incremental refinements to the base steering" },
+    { icon: "M4 8h8",                    label: "Digest",     caption: "woven into the session-start digest automatically" },
+  ],
+  guardrails: [
+    { icon: KIND_ICONS.rule ?? "",  label: "Rules",    caption: "patterns that trigger deny / ask / allow decisions" },
+    { icon: LOCK_PATH,              label: "Enforced", caption: "gates run before every tool call — fail-open on errors" },
+    { icon: "M8 2l4.5 1.8v3.5c0 3-1.9 5.1-4.5 6.2-2.6-1.1-4.5-3.2-4.5-6.2V3.8L8 2", label: "Protective", caption: "a refusal here is policy, not preference" },
+  ],
+};
+
 /** One module's drill-in (slides over the dashboard): pending proposals
  *  first (inline ✓/✗ — the same mutations as the review ceremony), then the
  *  envelope items (click → the item's .md in the editor), then schema/README
@@ -325,7 +382,12 @@ export function ModuleView({ moduleKey }: { moduleKey: ModuleKey }) {
       )}
 
       {bare ? (
-        <TeachingEmpty display={display} moduleId={moduleKey} />
+        <TeachingEmpty
+          display={display}
+          moduleId={moduleKey}
+          preview={moduleKey === "knowledge" ? <KnowledgePreviewMock /> : undefined}
+          explainer={MODULE_EXPLAINERS[moduleKey]}
+        />
       ) : (
         <>
           {/* pending first — the human gate is the panel's headline */}
