@@ -28,7 +28,6 @@
     "confidence": 1,
     "reason": "no sufficiently similar item"
   },
-  "faculty": "knowledge",
   "payload": {
     "id": "file-plans-okay-let-s-start-the-fuzzy-scott-m",
     "type": "entity",
@@ -54,5 +53,6 @@
   "provenance": [],
   "resolved_at": "2026-06-12T11:42:28.814Z",
   "reason": "mns-era mining — stale paths, superseded",
-  "applied": ""
+  "applied": "",
+  "module": "knowledge"
 }

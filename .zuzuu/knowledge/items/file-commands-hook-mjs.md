@@ -1,6 +1,6 @@
 ---
 id: file-commands-hook-mjs
-faculty: knowledge
+module: knowledge
 kind: entity
 title: "Hot file in this project: `zuzuu/commands/hook.mjs` (touched 11× across 6 sessio"
 status: active

@@ -44,7 +44,6 @@
     "confidence": 1,
     "reason": "no sufficiently similar item"
   },
-  "faculty": "knowledge",
   "payload": {
     "id": "file-bin-mns-mjs",
     "type": "entity",
@@ -86,5 +85,6 @@
   "provenance": [],
   "resolved_at": "2026-06-12T10:45:31.418Z",
   "reason": "stale mns-era path — repo renamed to zuzuu",
-  "applied": ""
+  "applied": "",
+  "module": "knowledge"
 }

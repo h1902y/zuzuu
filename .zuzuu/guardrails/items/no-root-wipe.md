@@ -1,6 +1,6 @@
 ---
 id: no-root-wipe
-faculty: guardrails
+module: guardrails
 kind: rule
 title: destructive delete at filesystem root
 status: active

@@ -1,6 +1,6 @@
 ---
 id: steering
-faculty: instructions
+module: instructions
 kind: steering
 title: Project steering
 status: active

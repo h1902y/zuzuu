@@ -1,6 +1,6 @@
 ---
 id: no-secret-reads
-faculty: guardrails
+module: guardrails
 kind: rule
 title: secret material should not enter the context
 status: active

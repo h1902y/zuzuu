@@ -44,7 +44,6 @@
     "confidence": 1,
     "reason": "no sufficiently similar item"
   },
-  "faculty": "knowledge",
   "payload": {
     "id": "file-commands-hook-mjs",
     "type": "entity",
@@ -86,5 +85,6 @@
   "provenance": [],
   "resolved_at": "2026-06-12T10:47:29.887Z",
   "reason": "",
-  "applied": "created file-commands-hook-mjs"
+  "applied": "created file-commands-hook-mjs",
+  "module": "knowledge"
 }
