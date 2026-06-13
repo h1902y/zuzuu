@@ -1,76 +1,208 @@
-// §2 Sessions — observability v1: the ACTIVE session pinned (with the
-// Session brief beneath it), then completed/abandoned/captured rows.
-// Row click → that session's detail drill-in.
+// §2 Sessions — calm table with recency section headers, status as the
+// only color, faint-red failed-row tint on crashed rows, compact data
+// density (ids/durations mono), counts strip at the top.
+// Active session pins first (with SessionBrief beneath it); completed/etc
+// sorted into Today / Yesterday / This Week / Older buckets.
 import type { ZuzuuSessionEntry } from "@zuzuu-web/protocol";
 import { useQuery } from "@tanstack/react-query";
 import { zuzuuApi } from "../lib/zuzuu-api";
-import { StatusDot, cx } from "../components/ui";
+import { Count, StatusPill, cx } from "../components/ui";
 import { useRightPanel } from "../state/right-panel";
-import { Section, relativeTime } from "./kit";
+import { relativeTime } from "./kit";
 import { SessionBrief } from "./SessionBrief";
 import { fmtDuration, sessionStateMeta, shortSessionId, splitSessions } from "./sections";
 
-const TONE_TEXT = {
-  ok: "text-status-ok",
-  warn: "text-warn",
-  danger: "text-danger",
-  idle: "text-ink-500",
-} as const;
+// ── recency bucketing ─────────────────────────────────────────────────────
+
+type Bucket = "Today" | "Yesterday" | "This week" | "Older";
+
+function recencyBucket(iso: string | null | undefined): Bucket {
+  if (!iso) return "Older";
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return "Older";
+  const now = Date.now();
+  const age = now - t;
+  const day = 86_400_000;
+  if (age < day) return "Today";
+  if (age < 2 * day) return "Yesterday";
+  if (age < 7 * day) return "This week";
+  return "Older";
+}
+
+function bucketSessions(sessions: ZuzuuSessionEntry[]): { bucket: Bucket; items: ZuzuuSessionEntry[] }[] {
+  const order: Bucket[] = ["Today", "Yesterday", "This week", "Older"];
+  const map = new Map<Bucket, ZuzuuSessionEntry[]>();
+  for (const s of sessions) {
+    const b = recencyBucket(s.startedAt);
+    if (!map.has(b)) map.set(b, []);
+    map.get(b)!.push(s);
+  }
+  return order.filter((b) => map.has(b)).map((b) => ({ bucket: b, items: map.get(b)! }));
+}
+
+// ── status pill mapping ───────────────────────────────────────────────────
+
+function statusTone(tone: string): "ok" | "warn" | "bad" | "neutral" | "info" {
+  if (tone === "ok") return "ok";
+  if (tone === "warn") return "warn";
+  if (tone === "danger") return "bad";
+  return "neutral";
+}
+
+// ── summary counts strip ─────────────────────────────────────────────────
+
+function CountsStrip({ sessions }: { sessions: ZuzuuSessionEntry[] }) {
+  const total = sessions.length;
+  const completed = sessions.filter((s) => s.state === "completed" || s.state === "captured").length;
+  const active = sessions.filter((s) => s.state === "active" || s.state === "opening").length;
+  const crashed = sessions.filter((s) => s.state === "crashed").length;
+  return (
+    <div className="flex items-center gap-2 pb-2">
+      <span className="wc-sans text-meta text-ink-500">
+        <Count>{total}</Count>
+        <span className="ml-1.5">sessions</span>
+      </span>
+      {completed > 0 && (
+        <span className="text-meta text-ink-600">
+          <Count>{completed}</Count>
+          <span className="ml-1 text-ink-600">completed</span>
+        </span>
+      )}
+      {active > 0 && (
+        <span className="text-meta">
+          <Count>{active}</Count>
+          <span className="ml-1 text-ink-500">active</span>
+        </span>
+      )}
+      {crashed > 0 && (
+        <span className="text-meta text-error">
+          <Count>{crashed}</Count>
+          <span className="ml-1">crashed</span>
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ── a single session row (compact data table row) ─────────────────────────
 
 function SessionRow({ session, pinned = false }: { session: ZuzuuSessionEntry; pinned?: boolean }) {
   const openSession = useRightPanel((s) => s.openSession);
   const meta = sessionStateMeta(session.state);
   const dur = fmtDuration(session.durationMs);
   const when = relativeTime(session.startedAt ?? undefined);
+  const isCrashed = session.state === "crashed";
+  const pillTone = statusTone(meta.tone);
+
   return (
     <button
       onClick={() => openSession(session.id)}
       className={cx(
-        "flex w-full items-center gap-2 py-1.5 text-left text-ui transition-colors hover:bg-hover",
-        pinned ? "" : "border-b border-border last:border-0",
+        // compact table row — hover reveal, border between rows
+        "group flex w-full items-center gap-2 py-1.5 pl-2 pr-2 text-left transition-colors hover:bg-hover",
+        !pinned && "border-b border-border last:border-0",
+        // faint full-row tint on crashed/failed — the only status-driven fill
+        isCrashed && "bg-[var(--color-error-subtle)] hover:bg-[color-mix(in_oklab,var(--color-error-subtle)_80%,var(--color-hover))]",
       )}
       title={`Inspect session ${session.id}`}
     >
-      <StatusDot
-        tone={meta.tone === "danger" ? "bad" : meta.tone === "warn" ? "warn" : meta.tone === "ok" ? "ok" : "idle"}
-        pulse={meta.pulse}
-      />
-      <span className="wc-sans font-medium text-ink-100">{session.host ?? "?"}</span>
-      <span className={cx("text-meta", TONE_TEXT[meta.tone])}>{meta.label}</span>
-      <span className="ml-auto flex shrink-0 items-baseline gap-2 text-meta text-ink-600">
-        {when && <span>{when}</span>}
-        {dur && <span>{dur}</span>}
-        <span className="font-mono">{shortSessionId(session.id)}</span>
+      {/* status pill — the ONLY color in the row */}
+      <StatusPill tone={pillTone}>
+        {meta.label}
+      </StatusPill>
+
+      {/* host — sans, primary label */}
+      <span className="wc-sans min-w-0 flex-1 truncate text-ui font-medium text-ink-100">
+        {session.host ?? "session"}
+      </span>
+
+      {/* trailing metadata — all mono for machine values, muted */}
+      <span className="flex shrink-0 items-baseline gap-3 text-meta text-ink-500">
+        {when && <span className="wc-sans">{when}</span>}
+        {dur && <span className="wc-mono">{dur}</span>}
+        <span className="wc-mono text-ink-600">{shortSessionId(session.id)}</span>
       </span>
     </button>
   );
 }
 
+// ── pinned active session card ─────────────────────────────────────────────
+
+function ActiveCard({ session }: { session: ZuzuuSessionEntry }) {
+  const openSession = useRightPanel((s) => s.openSession);
+  const meta = sessionStateMeta(session.state);
+  const dur = fmtDuration(session.durationMs);
+  return (
+    <div className="mb-2 flex flex-col gap-2 rounded-[var(--radius-ui)] border border-border bg-surface px-2 pb-2.5 pt-1.5">
+      <button
+        onClick={() => openSession(session.id)}
+        className="flex w-full items-center gap-2 text-left transition-colors hover:opacity-80"
+        title={`Inspect session ${session.id}`}
+      >
+        <StatusPill tone="ok">
+          {meta.label}
+        </StatusPill>
+        <span className="wc-sans min-w-0 flex-1 truncate text-ui font-medium text-ink-100">
+          {session.host ?? "session"}
+        </span>
+        <span className="flex shrink-0 items-baseline gap-3 text-meta text-ink-500">
+          {dur && <span className="wc-mono">{dur}</span>}
+          <span className="wc-mono text-ink-600">{shortSessionId(session.id)}</span>
+        </span>
+      </button>
+      <SessionBrief />
+    </div>
+  );
+}
+
+// ── section header (recency bucket) ──────────────────────────────────────
+
+function BucketHeader({ label }: { label: string }) {
+  return (
+    <div className="wc-sans pb-0.5 pt-2 text-meta font-medium text-ink-500 first:pt-0">
+      {label}
+    </div>
+  );
+}
+
+// ── main component ────────────────────────────────────────────────────────
+
 export function SessionsSection() {
   const q = useQuery({ queryKey: ["zuzuu", "sessions"], queryFn: zuzuuApi.sessions, refetchInterval: 6000 });
-  const { active, rest } = splitSessions(q.data?.sessions ?? []);
-  const count = (q.data?.sessions ?? []).length;
+  const all = q.data?.sessions ?? [];
+  const { active, rest } = splitSessions(all);
+  const buckets = bucketSessions(rest);
 
-  return (
-    <Section label={`sessions${count > 0 ? ` (${count})` : ""}`}>
-      {count === 0 ? (
+  if (all.length === 0) {
+    return (
+      <div className="flex flex-col gap-2">
+        <div className="wc-eyebrow">sessions</div>
         <div className="py-1 text-meta text-ink-600">
           none yet — sessions are captured as you work with a host
         </div>
-      ) : (
-        <div className="flex flex-col">
-          {/* the live session pins to the top; its brief rides beneath it */}
-          {active && (
-            <div className="mb-1.5 flex flex-col gap-1 rounded-ui border border-border bg-surface px-2 pb-2 pt-0.5">
-              <SessionRow session={active} pinned />
-              <SessionBrief />
-            </div>
-          )}
-          {rest.map((s) => (
-            <SessionRow key={s.id} session={s} />
-          ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      {/* counts strip — sans, muted */}
+      <CountsStrip sessions={all} />
+
+      {/* active session pins at top with brief */}
+      {active && <ActiveCard session={active} />}
+
+      {/* bucketed history rows */}
+      {buckets.map(({ bucket, items }) => (
+        <div key={bucket}>
+          <BucketHeader label={bucket} />
+          <div className="flex flex-col rounded-[var(--radius-ui)] border border-border overflow-hidden">
+            {items.map((s) => (
+              <SessionRow key={s.id} session={s} />
+            ))}
+          </div>
         </div>
-      )}
-    </Section>
+      ))}
+    </div>
   );
 }
