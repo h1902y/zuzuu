@@ -233,12 +233,32 @@ body {
 .wc-approve-out {
   animation: wc-approve-out 200ms ease-in forwards;
 }
+/* receipt opens to reveal diff/output */
+@keyframes wc-receipt-expand { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: none; } }
+.wc-receipt-expand { animation: wc-receipt-expand 180ms ease-out both; }
+
+/* the ONLY expressive motion — inline, non-blocking, rare by design */
+@keyframes wc-graduate { 0% { transform: scale(0.96); opacity: 0; } 40% { transform: scale(1.02); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+.wc-graduate { animation: wc-graduate 700ms cubic-bezier(0.2,0.7,0.3,1) both; }
+
+/* detail/inspector rail slides in on selection */
+@keyframes wc-panel-enter { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: none; } }
+.wc-panel-enter { animation: wc-panel-enter 240ms cubic-bezier(0.2,0.7,0.3,1) both; }
+
+/* quiet toast */
+@keyframes wc-toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.wc-toast-in { animation: wc-toast-in 200ms ease-out both; }
+
 @media (prefers-reduced-motion: reduce) {
   .wc-slide-in,
   .wc-rise-in,
   .wc-pop-in,
   .wc-pulse-once,
-  .wc-approve-out {
+  .wc-approve-out,
+  .wc-receipt-expand,
+  .wc-graduate,
+  .wc-panel-enter,
+  .wc-toast-in {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
   }
