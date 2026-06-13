@@ -27,10 +27,11 @@
   --color-ink-500: #6B6862; /* faint text (timestamps, disabled) */
   --color-ink-300: #9A9690; /* muted text (labels, descriptions) */
   --color-ink-100: #E8E6E3; /* primary text/headings (warm) */
+  /* accent = primary action + active nav ONLY */
   --color-accent: #5be6c4;
   --color-accent-dim: #2f9a80;
   --color-danger: #f0726a;
-  --color-warn: #e0a23a;
+  --color-warn: oklch(0.78 0.13 80);
 
   /* ── semantic surface/line aliases (used by the ui kit) ────────────── */
   --color-app: var(--color-ink-950);
@@ -64,17 +65,29 @@
      accent / hover glow, and the module's section header in its detail
      view. Tasteful, not neon: chroma is held low so they read as
      branding, not alerts. Components tint these via color-mix. */
-  --color-module-knowledge: oklch(0.72 0.11 245); /* blue */
-  --color-module-memory: oklch(0.71 0.12 300); /* violet */
-  --color-module-actions: oklch(0.74 0.12 155); /* green */
-  --color-module-instructions: oklch(0.78 0.11 75); /* amber */
-  --color-module-guardrails: oklch(0.7 0.13 20); /* rose */
+  --color-module-knowledge: oklch(0.70 0.13 250); /* blue */
+  --color-module-memory: oklch(0.70 0.13 300); /* violet */
+  --color-module-actions: oklch(0.70 0.13 150); /* green */
+  /* note: shares hue family (~80) with --color-warn by design — context (icon chip = identity, pill = state) disambiguates */
+  --color-module-instructions: oklch(0.70 0.13 80); /* amber */
+  --color-module-guardrails: oklch(0.70 0.13 20); /* rose */
+  --color-module-knowledge-subtle: oklch(0.93 0.03 250);
+  --color-module-memory-subtle: oklch(0.93 0.03 300);
+  --color-module-actions-subtle: oklch(0.93 0.03 150);
+  --color-module-instructions-subtle: oklch(0.93 0.03 80);
+  --color-module-guardrails-subtle: oklch(0.93 0.03 20);
 
   /* ── semantic status (distinct from the per-module hues) ────────────
-     Proper success/pending/danger so confidence pills & status touches
-     stop borrowing the single cyan accent. */
-  --color-success: oklch(0.74 0.13 155); /* green — ok / high confidence */
-  --color-pending: oklch(0.78 0.12 75); /* amber — awaiting review */
+     success/warn/error/info/running cover run + health state; error-subtle
+     is the faint failed-row tint. Status colors mean STATE; module hues
+     mean IDENTITY (kept separate). */
+  --color-success: oklch(0.72 0.13 150); /* green — ok / high confidence */
+  /* --color-warn is defined above in the ramp (oklch(0.78 0.13 80)) */
+  --color-error: oklch(0.66 0.16 25); /* red — failure */
+  --color-info: oklch(0.70 0.10 250); /* blue — informational */
+  --color-running: oklch(0.68 0.15 300); /* violet — in-progress */
+  --color-error-subtle: oklch(0.30 0.06 25); /* faint full-row failed tint (dark) */
+  --color-pending: var(--color-warn); /* alias → warn hue; awaiting review */
   --color-status-ok: var(--color-success);
   --color-status-pending: var(--color-pending);
   --color-status-empty: var(--color-ink-600);
@@ -267,8 +280,8 @@ body {
   font-family: var(--font-sans);
   --tw-prose-invert-body: var(--color-ink-100);
   --tw-prose-invert-headings: #fff;
-  --tw-prose-invert-links: var(--color-accent);
-  --tw-prose-invert-code: var(--color-accent);
+  --tw-prose-invert-links: var(--color-info);
+  --tw-prose-invert-code: var(--color-ink-100);
   --tw-prose-invert-quotes: var(--color-ink-300);
   --tw-prose-invert-quote-borders: var(--color-ink-700);
   --tw-prose-invert-hr: var(--color-ink-700);
