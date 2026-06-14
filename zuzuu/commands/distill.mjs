@@ -22,7 +22,7 @@ export async function distill(args) {
   if (args['all-modules'] || args.allModules) {
     const sessions = pairs.map(mineHostSession).filter(Boolean);
     const hosts = new Set(sessions.map((s) => s.host));
-    const miners = registry.miners();
+    const miners = registry.minersFor(agentDir);
     console.log(`distilled ${sessions.length} session(s) across ${hosts.size} host(s) and ${miners.length} module miner(s):`);
     let total = 0;
     for (const miner of miners) {

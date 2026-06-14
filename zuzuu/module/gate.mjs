@@ -28,7 +28,7 @@ function trail(agentDir, module, entry) {
  * @returns the adapter's apply result, or {ok:false, errors} on a validation miss.
  */
 export function approve(agentDir, module, id) {
-  const a = registry.get(module);
+  const a = registry.adapterFor(agentDir, module);
   if (!a) return { ok: false, errors: [`no adapter for module '${module}'`] };
   // dir-shaped modules (Actions) carry no JSON record — let the adapter resolve.
   const p = (typeof a.getProposal === 'function')
@@ -54,7 +54,7 @@ export function approve(agentDir, module, id) {
  * @returns {{ok:true}}
  */
 export function reject(agentDir, module, id, reason = '') {
-  const a = registry.get(module);
+  const a = registry.adapterFor(agentDir, module);
   if (a && typeof a.rejectDir === 'function') {
     a.rejectDir(agentDir, id, reason);
   } else {

@@ -20,6 +20,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { MODULES } from './contract.mjs';
 import { normalizeManifest, compatibleContract } from './module.mjs';
+import { synthesizeModuleCached } from './capabilities.mjs';
 import * as knowledge from '../modules/knowledge/index.mjs';
 import * as memory from '../modules/memory/index.mjs';
 import * as actions from '../modules/actions/index.mjs';
@@ -74,6 +75,28 @@ export function minerOf(module) {
 }
 
 // ---------------------------------------------------------------------------
+// agentDir-aware seams — built-ins + composed (home) modules in one surface.
+// The static get()/all()/miners() above know only built-ins+overrides; these
+// also reach composed modules discovered per-home by modulesOf().
+// ---------------------------------------------------------------------------
+
+/** The adapter for a module: built-in/override first, else a composed module's. */
+export function adapterFor(agentDir, module) {
+  const a = get(module);
+  if (a) return a;
+  return moduleOf(agentDir, module)?.module?.adapter ?? null;
+}
+
+/** Every miner this home runs: the built-ins + every composed module's miner. */
+export function minersFor(agentDir) {
+  const out = miners();
+  for (const entry of modulesOf(agentDir)) {
+    if (!entry.builtin && entry.module?.miner) out.push(entry.module.miner);
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
 // module discovery — built-ins + declarative module.json folders
 // ---------------------------------------------------------------------------
 
@@ -125,12 +148,23 @@ export function modulesOf(agentDir) {
       if (MODULES.includes(e.name) || NON_MODULE_DIRS.has(e.name)) continue;
       const home = readHomeManifest(agentDir, e.name);
       if (!home.manifest && !home.error) continue; // no module.json → not a module
+      const manifest = home.manifest ?? normalizeManifest({}, e.name);
+      // A declarative module that declares capabilities is COMPOSED: the resolver
+      // synthesizes its hook set (adapter/miner/recall/run) from the catalogue —
+      // zero module code. Manifest-only folders with no capabilities stay
+      // items-only (module: null). Fail-soft: a resolver throw degrades to null.
+      let composed = null;
+      if (home.manifest && Object.keys(manifest.capabilities ?? {}).length) {
+        try { composed = synthesizeModuleCached(agentDir, manifest); }
+        catch (err) { recordFailure(e.name, 'resolve', err); }
+      }
       out.push({
         id: e.name,
         builtin: false,
         declarative: true,
-        module: null, // third-party CODE loading deferred to W4 — manifest-only today
-        manifest: home.manifest ?? normalizeManifest({}, e.name),
+        composed: !!composed,
+        module: composed, // null = items-only; otherwise the synthesized hook set
+        manifest,
         manifestSource: 'home',
         ...(home.error ? { manifestError: home.error } : {}),
       });
