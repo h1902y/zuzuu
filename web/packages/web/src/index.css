@@ -12,25 +12,29 @@
      This contrast is the single biggest "less terminal" lever. */
   --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
   --font-sans: "Geist Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Optional serif accent — used ONLY at display size on knowledge item reading bodies.
+     Kept minimal: ui-serif stack, no custom font download. */
+  --font-serif: ui-serif, Georgia, "Times New Roman", serif;
 
-  /* ── ink ramp — warmed a few degrees off the old cool blue-grey ─────
-     Old ramp sat near hue 220 (cool, clinical). These are nudged toward
-     a warm near-black (a touch of violet/taupe) so surfaces feel less
-     like raw DevTools while staying genuinely dark. Text rungs hold
-     WCAG-AA contrast on the app background. */
-  --color-ink-950: #0b0c10; /* app background (deepest, warm near-black) */
-  --color-ink-900: #111219; /* panel surface */
-  --color-ink-850: #1e2030; /* elevated: menus, dialogs, raised hover */
-  --color-ink-800: #262838; /* hover */
-  --color-ink-700: #2d2f3e; /* hairline border */
-  --color-ink-600: #3f4155; /* strong border / faint text */
-  --color-ink-500: #62657a; /* muted text */
-  --color-ink-300: #9ba2b4; /* secondary text */
-  --color-ink-100: #e2e5ee; /* primary text */
+  /* ── ink ramp ────────────────────────────────────────────────────────
+     Warm-charcoal ramp: a neutral taupe/brown near-black, no blue cast, so
+     surfaces read premium rather than like raw DevTools. Elevation is built
+     from lightness steps (one rung per surface level), not drop-shadows.
+     Text rungs hold WCAG-AA contrast on the app background. */
+  --color-ink-950: #0E0F12; /* app field — deepest */
+  --color-ink-900: #15171B; /* page panels, conversation canvas */
+  --color-ink-850: #1B1E23; /* cards, tiles, proposal cards */
+  --color-ink-800: #22262C; /* hover/active row fill (soft) */
+  --color-ink-700: #2A2E35; /* hairline border (one step off card) */
+  --color-ink-600: #3A3E45; /* strong border */
+  --color-ink-500: #6B6862; /* faint text (timestamps, disabled) */
+  --color-ink-300: #9A9690; /* muted text (labels, descriptions) */
+  --color-ink-100: #E8E6E3; /* primary text/headings (warm) */
+  /* accent = primary action + active nav ONLY */
   --color-accent: #5be6c4;
   --color-accent-dim: #2f9a80;
   --color-danger: #f0726a;
-  --color-warn: #e0a23a;
+  --color-warn: oklch(0.78 0.13 80);
 
   /* ── semantic surface/line aliases (used by the ui kit) ────────────── */
   --color-app: var(--color-ink-950);
@@ -58,23 +62,37 @@
   --text-title--line-height: 1.3;
   --text-display: 1.3125rem; /* 21px — module detail hero, section heroes (sans) */
   --text-display--line-height: 1.2;
+  --text-hero: 2rem; /* 32px — single large numeral per card (HeroNumber) */
+  --text-hero--line-height: 1;
 
   /* ── per-module accent hues (OKLCH, desaturated-for-dark) ──────────
      One identity hue per module — used on the tile icon, a subtle left
      accent / hover glow, and the module's section header in its detail
      view. Tasteful, not neon: chroma is held low so they read as
      branding, not alerts. Components tint these via color-mix. */
-  --color-module-knowledge: oklch(0.72 0.11 245); /* blue */
-  --color-module-memory: oklch(0.71 0.12 300); /* violet */
-  --color-module-actions: oklch(0.74 0.12 155); /* green */
-  --color-module-instructions: oklch(0.78 0.11 75); /* amber */
-  --color-module-guardrails: oklch(0.7 0.13 20); /* rose */
+  --color-module-knowledge: oklch(0.70 0.13 250); /* blue */
+  --color-module-memory: oklch(0.70 0.13 300); /* violet */
+  --color-module-actions: oklch(0.70 0.13 150); /* green */
+  /* note: shares hue family (~80) with --color-warn by design — context (icon chip = identity, pill = state) disambiguates */
+  --color-module-instructions: oklch(0.70 0.13 80); /* amber */
+  --color-module-guardrails: oklch(0.70 0.13 20); /* rose */
+  --color-module-knowledge-subtle: oklch(0.93 0.03 250);
+  --color-module-memory-subtle: oklch(0.93 0.03 300);
+  --color-module-actions-subtle: oklch(0.93 0.03 150);
+  --color-module-instructions-subtle: oklch(0.93 0.03 80);
+  --color-module-guardrails-subtle: oklch(0.93 0.03 20);
 
   /* ── semantic status (distinct from the per-module hues) ────────────
-     Proper success/pending/danger so confidence pills & status touches
-     stop borrowing the single cyan accent. */
-  --color-success: oklch(0.74 0.13 155); /* green — ok / high confidence */
-  --color-pending: oklch(0.78 0.12 75); /* amber — awaiting review */
+     success/warn/error/info/running cover run + health state; error-subtle
+     is the faint failed-row tint. Status colors mean STATE; module hues
+     mean IDENTITY (kept separate). */
+  --color-success: oklch(0.72 0.13 150); /* green — ok / high confidence */
+  /* --color-warn is defined above in the ramp (oklch(0.78 0.13 80)) */
+  --color-error: oklch(0.66 0.16 25); /* red — failure */
+  --color-info: oklch(0.70 0.10 250); /* blue — informational */
+  --color-running: oklch(0.68 0.15 300); /* violet — in-progress */
+  --color-error-subtle: oklch(0.30 0.06 25); /* faint full-row failed tint (dark) */
+  --color-pending: var(--color-warn); /* alias → warn hue; awaiting review */
   --color-status-ok: var(--color-success);
   --color-status-pending: var(--color-pending);
   --color-status-empty: var(--color-ink-600);
@@ -89,11 +107,25 @@
   --radius-dialog: 10px; /* overlays, dialogs, command palette */
 
   /* ── elevation ─────────────────────────────────────────────────────── */
-  --shadow-menu: 0 6px 20px -6px rgb(0 0 0 / 0.5), 0 2px 6px -2px rgb(0 0 0 / 0.4);
-  --shadow-dialog: 0 24px 64px -16px rgb(0 0 0 / 0.6), 0 8px 24px -8px rgb(0 0 0 / 0.45);
+  --shadow-menu: 0 0 0 1px var(--color-ink-700);
+  --shadow-dialog: 0 0 0 1px var(--color-ink-700);
 
   /* canonical bar height — every header / footer / tab strip */
   --height-bar: 34px;
+}
+
+:root[data-theme="light"] {
+  --color-ink-950: #FBFBFA; /* canvas */
+  --color-ink-900: #FFFFFF; /* cards float */
+  --color-ink-850: #F8F7F5; /* elevated — a hair off card */
+  --color-ink-800: #F2F1EF; /* hover */
+  --color-ink-700: #E6E4E1; /* hairline */
+  --color-ink-600: #D2CFC9; /* strong border */
+  --color-ink-500: #8C887F; /* faint */
+  --color-ink-300: #5C584F; /* muted */
+  --color-ink-100: #2E2C28; /* primary, warm near-black */
+  --shadow-menu: 0 4px 16px -6px rgb(0 0 0 / 0.08), 0 1px 3px rgb(0 0 0 / 0.06);
+  --shadow-dialog: 0 16px 48px -12px rgb(0 0 0 / 0.12), 0 4px 12px rgb(0 0 0 / 0.08);
 }
 
 html,
@@ -104,19 +136,23 @@ body,
 }
 
 body {
-  @apply bg-app text-ink-100 font-mono antialiased;
+  @apply bg-app text-ink-100 font-sans antialiased;
   font-size: var(--text-body);
 }
 
 /* ── duotype helpers ─────────────────────────────────────────────────
-   The app default is mono (terminal/data DNA). Headings, module names,
-   teaching prose and labels opt INTO the humanist sans for warmth and a
+   The app default is sans (Geist). Machine-data elements — ids, paths,
+   counts, log lines, the terminal — opt INTO mono via .wc-mono for a
    real type hierarchy. */
 .wc-sans {
   font-family: var(--font-sans);
   font-feature-settings: "cv01", "ss03";
   letter-spacing: -0.005em;
 }
+/* Machine data only: ids, paths, durations, span ops, log lines, literal patterns. */
+.wc-mono { font-family: var(--font-mono); font-feature-settings: normal; }
+/* Serif accent — display-size reading body only (knowledge item fact text). */
+.wc-serif { font-family: var(--font-serif); }
 /* Section eyebrow: small, tracked, uppercase, sans — the section rhythm. */
 .wc-eyebrow {
   font-family: var(--font-sans);
@@ -204,12 +240,32 @@ body {
 .wc-approve-out {
   animation: wc-approve-out 200ms ease-in forwards;
 }
+/* receipt opens to reveal diff/output */
+@keyframes wc-receipt-expand { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: none; } }
+.wc-receipt-expand { animation: wc-receipt-expand 180ms ease-out both; }
+
+/* the ONLY expressive motion — inline, non-blocking, rare by design */
+@keyframes wc-graduate { 0% { transform: scale(0.96); opacity: 0; } 40% { transform: scale(1.02); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+.wc-graduate { animation: wc-graduate 700ms cubic-bezier(0.2,0.7,0.3,1) both; }
+
+/* detail/inspector rail slides in on selection */
+@keyframes wc-panel-enter { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: none; } }
+.wc-panel-enter { animation: wc-panel-enter 240ms cubic-bezier(0.2,0.7,0.3,1) both; }
+
+/* quiet toast */
+@keyframes wc-toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.wc-toast-in { animation: wc-toast-in 200ms ease-out both; }
+
 @media (prefers-reduced-motion: reduce) {
   .wc-slide-in,
   .wc-rise-in,
   .wc-pop-in,
   .wc-pulse-once,
-  .wc-approve-out {
+  .wc-approve-out,
+  .wc-receipt-expand,
+  .wc-graduate,
+  .wc-panel-enter,
+  .wc-toast-in {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
   }
@@ -251,8 +307,8 @@ body {
   font-family: var(--font-sans);
   --tw-prose-invert-body: var(--color-ink-100);
   --tw-prose-invert-headings: #fff;
-  --tw-prose-invert-links: var(--color-accent);
-  --tw-prose-invert-code: var(--color-accent);
+  --tw-prose-invert-links: var(--color-info);
+  --tw-prose-invert-code: var(--color-ink-100);
   --tw-prose-invert-quotes: var(--color-ink-300);
   --tw-prose-invert-quote-borders: var(--color-ink-700);
   --tw-prose-invert-hr: var(--color-ink-700);
@@ -288,6 +344,32 @@ body {
 }
 .prose input[type="checkbox"] {
   accent-color: var(--color-accent);
+}
+/* README headings: product-sized, not document-sized. Tailwind prose defaults
+   scale h1 to ~2em; rein them in so a module README reads as product content
+   (sans, tighter top margins) without disturbing prose table/code styling. */
+.prose :where(h1, h2, h3, h4) {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  line-height: 1.3;
+}
+.prose :where(h1) {
+  font-size: 1.3rem;
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+}
+.prose :where(h2) {
+  font-size: 1.05rem;
+  margin-top: 1.1em;
+  margin-bottom: 0.45em;
+}
+.prose :where(h3) {
+  font-size: 0.95rem;
+  margin-top: 1em;
+  margin-bottom: 0.4em;
+}
+.prose :where(h1:first-child, h2:first-child, h3:first-child) {
+  margin-top: 0;
 }
 
 /* shiki emits its own inline-styled <pre> */
