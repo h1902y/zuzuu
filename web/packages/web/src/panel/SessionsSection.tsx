@@ -1,13 +1,15 @@
-// §2 Sessions — calm table with recency section headers, status as the
-// only color, faint-red failed-row tint on crashed rows, compact data
-// density (ids/durations mono), counts strip at the top.
-// Active session pins first (with SessionBrief beneath it); completed/etc
-// sorted into Today / Yesterday / This Week / Older buckets.
+// §2 Sessions — the ACTIVE session pinned at top (resumes its live terminal
+// when the workbench owns it; otherwise honestly says it's running outside),
+// and all past runs collapsed into ONE "Session history" card (expand to see
+// the recency-bucketed list). Status is the only color; ids/durations mono.
+import { useState } from "react";
 import type { ZuzuuSessionEntry } from "@zuzuu-web/protocol";
 import { useQuery } from "@tanstack/react-query";
 import { zuzuuApi } from "../lib/zuzuu-api";
 import { Count, InfoDot, StatusPill, cx } from "../components/ui";
 import { useRightPanel } from "../state/right-panel";
+import { useSessions } from "../state/sessions";
+import { agentTabTitle } from "../modules/host-launch";
 import { TeachingEmpty, relativeTime, GLOSSARY } from "./kit";
 import { SessionBrief } from "./SessionBrief";
 import { fmtDuration, sessionStateMeta, shortSessionId, splitSessions } from "./sections";
@@ -54,8 +56,7 @@ function recencyBucket(iso: string | null | undefined): Bucket {
   if (!iso) return "Older";
   const t = Date.parse(iso);
   if (Number.isNaN(t)) return "Older";
-  const now = Date.now();
-  const age = now - t;
+  const age = Date.now() - t;
   const day = 86_400_000;
   if (age < day) return "Today";
   if (age < 2 * day) return "Yesterday";
@@ -83,75 +84,28 @@ function statusTone(tone: string): "ok" | "warn" | "bad" | "neutral" | "info" {
   return "neutral";
 }
 
-// ── summary counts strip ─────────────────────────────────────────────────
-
-function CountsStrip({ sessions }: { sessions: ZuzuuSessionEntry[] }) {
-  const total = sessions.length;
-  const completed = sessions.filter((s) => s.state === "completed" || s.state === "captured").length;
-  const active = sessions.filter((s) => s.state === "active" || s.state === "opening").length;
-  const crashed = sessions.filter((s) => s.state === "crashed").length;
-  return (
-    <div className="flex items-center gap-2 pb-2">
-      <span className="inline-flex items-center wc-sans text-meta text-ink-500">
-        <Count>{total}</Count>
-        <span className="ml-1.5">sessions</span>
-        <InfoDot title={GLOSSARY.session!.term} className="ml-1">{GLOSSARY.session!.what}</InfoDot>
-      </span>
-      {completed > 0 && (
-        <span className="text-meta text-ink-600">
-          <Count>{completed}</Count>
-          <span className="ml-1 text-ink-600">completed</span>
-        </span>
-      )}
-      {active > 0 && (
-        <span className="text-meta">
-          <Count>{active}</Count>
-          <span className="ml-1 text-ink-500">active</span>
-        </span>
-      )}
-      {crashed > 0 && (
-        <span className="text-meta text-error">
-          <Count>{crashed}</Count>
-          <span className="ml-1">crashed</span>
-        </span>
-      )}
-    </div>
-  );
-}
-
 // ── a single session row (compact data table row) ─────────────────────────
 
-function SessionRow({ session, pinned = false }: { session: ZuzuuSessionEntry; pinned?: boolean }) {
+function SessionRow({ session }: { session: ZuzuuSessionEntry }) {
   const openSession = useRightPanel((s) => s.openSession);
   const meta = sessionStateMeta(session.state);
   const dur = fmtDuration(session.durationMs);
   const when = relativeTime(session.startedAt ?? undefined);
   const isCrashed = session.state === "crashed";
-  const pillTone = statusTone(meta.tone);
 
   return (
     <button
       onClick={() => openSession(session.id)}
       className={cx(
-        // compact table row — hover reveal, border between rows
-        "group flex w-full items-center gap-2 py-1.5 pl-2 pr-2 text-left transition-colors hover:bg-hover",
-        !pinned && "border-b border-border last:border-0",
-        // faint full-row tint on crashed/failed — the only status-driven fill
+        "group flex w-full items-center gap-2 border-b border-border py-1.5 pl-2 pr-2 text-left transition-colors last:border-0 hover:bg-hover",
         isCrashed && "bg-[var(--color-error-subtle)] hover:bg-[color-mix(in_oklab,var(--color-error-subtle)_80%,var(--color-hover))]",
       )}
       title={`Inspect session ${session.id}`}
     >
-      {/* status pill — the ONLY color in the row */}
-      <StatusPill tone={pillTone}>
-        {meta.label}
-      </StatusPill>
-
-      {/* host — sans, primary label */}
+      <StatusPill tone={statusTone(meta.tone)}>{meta.label}</StatusPill>
       <span className="wc-sans min-w-0 flex-1 truncate text-ui font-medium text-ink-100">
         {session.host ?? "session"}
       </span>
-
-      {/* trailing metadata — all mono for machine values, muted */}
       <span className="flex shrink-0 items-baseline gap-3 text-meta text-ink-500">
         {when && <span className="wc-sans">{when}</span>}
         {dur && <span className="wc-mono">{dur}</span>}
@@ -163,20 +117,21 @@ function SessionRow({ session, pinned = false }: { session: ZuzuuSessionEntry; p
 
 // ── pinned active session card ─────────────────────────────────────────────
 
+/** The active session pins at top. If the workbench owns a live agent terminal
+ *  (single-active-agent rule → at most one), the card resumes THAT terminal.
+ *  Otherwise the session is running outside the workbench (e.g. the user's own
+ *  Claude Code) — we say so honestly rather than imply a resume we can't do. */
 function ActiveCard({ session }: { session: ZuzuuSessionEntry }) {
   const openSession = useRightPanel((s) => s.openSession);
+  const liveAgent = useSessions((s) => s.tabs.find((t) => t.type === "agent" && t.alive));
+  const setActive = useSessions((s) => s.setActive);
   const meta = sessionStateMeta(session.state);
   const dur = fmtDuration(session.durationMs);
+
   return (
-    <div className="mb-2 flex flex-col gap-2 rounded-[var(--radius-ui)] border border-border bg-surface px-2 pb-2.5 pt-1.5">
-      <button
-        onClick={() => openSession(session.id)}
-        className="flex w-full items-center gap-2 text-left transition-colors hover:opacity-80"
-        title={`Inspect session ${session.id}`}
-      >
-        <StatusPill tone="ok">
-          {meta.label}
-        </StatusPill>
+    <div className="flex flex-col gap-2 rounded-[var(--radius-ui)] border border-border bg-surface px-2 pb-2.5 pt-1.5">
+      <div className="flex w-full items-center gap-2">
+        <StatusPill tone="ok">{meta.label}</StatusPill>
         <span className="wc-sans min-w-0 flex-1 truncate text-ui font-medium text-ink-100">
           {session.host ?? "session"}
         </span>
@@ -184,18 +139,64 @@ function ActiveCard({ session }: { session: ZuzuuSessionEntry }) {
           {dur && <span className="wc-mono">{dur}</span>}
           <span className="wc-mono text-ink-600">{shortSessionId(session.id)}</span>
         </span>
-      </button>
+      </div>
+
+      {liveAgent ? (
+        <button
+          onClick={() => setActive(liveAgent.id)}
+          className="wc-sans flex items-center gap-1.5 self-start rounded-[var(--radius-sm)] border border-accent-dim bg-[color-mix(in_oklab,var(--color-accent)_12%,transparent)] px-2 py-1 text-meta font-medium text-accent transition-colors hover:bg-[color-mix(in_oklab,var(--color-accent)_20%,transparent)]"
+          title="Focus this session's terminal"
+        >
+          <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 4l3.5 4L3 12M8.5 12H13" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          Open terminal
+        </button>
+      ) : (
+        <div className="wc-sans flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-meta text-ink-500">
+          <span>Running in {agentTabTitle(session.host)} — outside the workbench.</span>
+          <button onClick={() => openSession(session.id)} className="text-ink-400 transition-colors hover:text-ink-200">Inspect ›</button>
+        </div>
+      )}
+
       <SessionBrief />
     </div>
   );
 }
 
-// ── section header (recency bucket) ──────────────────────────────────────
+// ── collapsed session-history card ─────────────────────────────────────────
 
-function BucketHeader({ label }: { label: string }) {
+function SessionHistory({ rest }: { rest: ZuzuuSessionEntry[] }) {
+  const [open, setOpen] = useState(false);
+  const buckets = bucketSessions(rest);
+
+  if (rest.length === 0) {
+    return <div className="px-2 py-1 text-meta text-ink-600">No past sessions yet.</div>;
+  }
+
   return (
-    <div className="wc-sans pb-0.5 pt-2 text-meta font-medium text-ink-500 first:pt-0">
-      {label}
+    <div className="flex flex-col">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-2 rounded-[var(--radius-sm)] px-2 py-1.5 text-left transition-colors hover:bg-hover"
+      >
+        <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0 text-ink-400" fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M8 2.5a5.5 5.5 0 110 11 5.5 5.5 0 010-11M8 5v3.2l2.2 1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        <span className="wc-sans text-ui font-medium text-ink-200">Session history</span>
+        <Count>{rest.length}</Count>
+        <InfoDot title={GLOSSARY.session!.term}>{GLOSSARY.session!.what}</InfoDot>
+        <svg viewBox="0 0 16 16" className={cx("ml-auto h-3 w-3 shrink-0 text-ink-500 transition-transform", open && "rotate-90")} fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M6 4l4 4-4 4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+      </button>
+
+      {open && (
+        <div className="mt-1 flex flex-col gap-1">
+          {buckets.map(({ bucket, items }) => (
+            <div key={bucket}>
+              <div className="wc-sans pb-0.5 pt-2 text-meta font-medium text-ink-500 first:pt-0">{bucket}</div>
+              <div className="flex flex-col overflow-hidden rounded-[var(--radius-ui)] border border-border">
+                {items.map((s) => <SessionRow key={s.id} session={s} />)}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -206,10 +207,8 @@ export function SessionsSection() {
   const q = useQuery({ queryKey: ["zuzuu", "sessions"], queryFn: zuzuuApi.sessions, refetchInterval: 6000 });
   const all = q.data?.sessions ?? [];
   const { active, rest } = splitSessions(all);
-  const buckets = bucketSessions(rest);
 
   if (all.length === 0) {
-    // Build a ModuleDisplay-shaped object for the sessions surface
     const sessionsDisplay = {
       label: "Sessions",
       icon: "M8 2.5a5.5 5.5 0 110 11 5.5 5.5 0 010-11M8 5v3.2l2.2 1.6",
@@ -222,33 +221,15 @@ export function SessionsSection() {
           <span className="wc-eyebrow">sessions</span>
           <InfoDot title={GLOSSARY.session!.term}>{GLOSSARY.session!.what}</InfoDot>
         </div>
-        <TeachingEmpty
-          display={sessionsDisplay}
-          preview={<SessionsPreviewMock />}
-        />
+        <TeachingEmpty display={sessionsDisplay} preview={<SessionsPreviewMock />} />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-1">
-      {/* counts strip — sans, muted */}
-      <CountsStrip sessions={all} />
-
-      {/* active session pins at top with brief */}
+    <div className="flex flex-col gap-2">
       {active && <ActiveCard session={active} />}
-
-      {/* bucketed history rows */}
-      {buckets.map(({ bucket, items }) => (
-        <div key={bucket}>
-          <BucketHeader label={bucket} />
-          <div className="flex flex-col rounded-[var(--radius-ui)] border border-border overflow-hidden">
-            {items.map((s) => (
-              <SessionRow key={s.id} session={s} />
-            ))}
-          </div>
-        </div>
-      ))}
+      <SessionHistory rest={rest} />
     </div>
   );
 }

@@ -45,6 +45,11 @@ export function NeedsYou({
           drift detected — run <code>zuzuu doctor</code>
         </div>
       )}
+      {total > 0 && (
+        <p className="wc-sans -mt-0.5 text-meta leading-relaxed text-ink-500">
+          {total} {total === 1 ? "thing your agent" : "things your agent"} learned from your sessions, waiting for your OK — approve to keep, reject to drop.
+        </p>
+      )}
       {groups.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {groups.map((g) => {
