@@ -105,7 +105,9 @@ const ENUMERATORS = {
 /** The live item files for ONE module (absolute, with hashes). [] for unknown. */
 export function moduleItemFiles(agentDir, module) {
   const fn = ENUMERATORS[module];
-  return fn ? fn(agentDir) : [];
+  if (fn) return fn(agentDir);
+  // generic fallback: composed modules keep flat envelopes under <module>/items/
+  return mdItemFiles(agentDir, module, module, 'items');
 }
 
 export function registryHash(agentDir) {
