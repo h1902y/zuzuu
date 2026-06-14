@@ -50,7 +50,7 @@ registerCapability('items.collection', {
           payload: { ...(p.attributes ? { attributes: p.attributes } : {}), ...(p.payload || {}) },
           provenance: p.provenance || proposal.provenance || [],
         };
-        writeModuleItem(agentDir, item);
+        writeModuleItem(agentDir, item, { itemsDir: manifest.itemsDir });
         return { ok: true, action: 'created', itemIds: [id], warnings: [] };
       },
       render(proposal) {
@@ -120,11 +120,14 @@ registerCapability('query.structured', { category: 'query', grant: { scope: 'sel
 registerCapability('query.semantic', { category: 'query', grant: { scope: 'self-items', audited: false }, build: buildRecall });
 
 // ── exec.script — run a procedure (wraps the Actions runner) ────────────────
-// v1 wires the dispatch surface; full cross-module sandboxed script execution is
-// the Phase-3 grant/sandbox line (decision 5 — imported provenance).
+// v1 grant is HOME-scoped + audited (the self-authored provenance tier, decision
+// 5 — the owner already has host authority via the runner's cwd=home). The grant
+// scope here is honest about that: `home`, not per-dir. Per-dir confinement +
+// sandbox for IMPORTED modules is the Phase-3 line — NOT enforced from this
+// descriptor. Do not expose exec.script to imported/third-party modules until then.
 registerCapability('exec.script', {
   category: 'execution',
-  grant: { scope: 'declared-dirs', audited: true },
+  grant: { scope: 'home', audited: true, sandbox: false },
   build: () => ({
     run(agentDir, slug, input = {}) {
       return runAction(agentDir, slug, input);

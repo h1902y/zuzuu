@@ -13,8 +13,6 @@ import { join } from 'node:path';
 import { getCapability } from './capability-registry.mjs';
 import './capability-builtins.mjs'; // side effect: register the host-internal §A blocks
 
-const cache = new Map(); // `${agentDir}::${id}::${version}` → module|null
-
 /** Default schema loader: read <agentDir>/<id>/<manifest.schema||schema.json>. */
 function defaultLoadSchema(agentDir, manifest) {
   const p = join(agentDir, manifest.id, manifest.schema || 'schema.json');
@@ -74,14 +72,8 @@ export function synthesizeModule(agentDir, manifest, opts = {}) {
   return module;
 }
 
-/** Cached synthesize (keyed by agentDir + id + version). */
-export function synthesizeModuleCached(agentDir, manifest, opts = {}) {
-  const key = `${agentDir}::${manifest?.id}::${manifest?.version}`;
-  if (cache.has(key)) return cache.get(key);
-  const m = synthesizeModule(agentDir, manifest, opts);
-  cache.set(key, m);
-  return m;
-}
-
-/** Tests only. */
-export function clearResolverCache() { cache.clear(); }
+// No resolver cache by design: modulesOf() re-reads each manifest from disk
+// every call (the `.git` model — ground truth lives on disk), and synthesis is a
+// few build() calls. A cache keyed on agentDir+id+version would serve a stale
+// validator after an in-place manifest/schema edit with no version bump (e.g. in
+// the long-lived web daemon). Synthesize fresh.

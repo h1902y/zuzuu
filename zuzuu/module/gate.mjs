@@ -30,6 +30,12 @@ function trail(agentDir, module, entry) {
 export function approve(agentDir, module, id) {
   const a = registry.adapterFor(agentDir, module);
   if (!a) return { ok: false, errors: [`no adapter for module '${module}'`] };
+  // A composed module that declares a miner/query but NO items.collection has no
+  // apply path — its proposals can never land. Fail-soft (never throw): refuse
+  // the approval with a clear reason rather than crashing on `a.validate(...)`.
+  if (typeof a.validate !== 'function' || typeof a.apply !== 'function') {
+    return { ok: false, errors: [`module '${module}' has no apply path (declare the items.collection capability)`] };
+  }
   // dir-shaped modules (Actions) carry no JSON record — let the adapter resolve.
   const p = (typeof a.getProposal === 'function')
     ? a.getProposal(agentDir, id)

@@ -20,7 +20,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { MODULES } from './contract.mjs';
 import { normalizeManifest, compatibleContract } from './module.mjs';
-import { synthesizeModuleCached } from './capabilities.mjs';
+import { synthesizeModule } from './capabilities.mjs';
 import * as knowledge from '../modules/knowledge/index.mjs';
 import * as memory from '../modules/memory/index.mjs';
 import * as actions from '../modules/actions/index.mjs';
@@ -155,7 +155,7 @@ export function modulesOf(agentDir) {
       // items-only (module: null). Fail-soft: a resolver throw degrades to null.
       let composed = null;
       if (home.manifest && Object.keys(manifest.capabilities ?? {}).length) {
-        try { composed = synthesizeModuleCached(agentDir, manifest); }
+        try { composed = synthesizeModule(agentDir, manifest); }
         catch (err) { recordFailure(e.name, 'resolve', err); }
       }
       out.push({
