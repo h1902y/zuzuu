@@ -20,6 +20,7 @@ import { join } from 'node:path';
 import { existsSync, readdirSync, statSync, readFileSync } from 'node:fs';
 import { event, trace, EventKind, Status } from '../core/event.mjs';
 import { assembleSignals, emptySignals } from './signals.mjs';
+import { contentNode, isoTs } from './content.mjs';
 
 const SESSIONS_DIR = join(homedir(), '.pi', 'agent', 'sessions');
 
@@ -106,6 +107,47 @@ export const pi = {
     } catch {
       return emptySignals();
     }
+  },
+
+  // On-demand DISPLAY content (U1): reuses readJsonl + the same raw fields parse
+  // reads (message content text/thinking, toolCall.arguments, toolResult.content),
+  // emitting ordered content nodes. Read-only; never stored.
+  extractContent(ref) {
+    const file = typeof ref === 'string' ? ref : ref.ref;
+    const rows = readJsonl(file);
+    // Pass 1: toolResult content keyed by toolCallId (+ error flag).
+    const results = new Map();
+    for (const r of rows) {
+      if (r.type !== 'message') continue;
+      const m = r.message || {};
+      if (m.role === 'toolResult' && m.toolCallId) {
+        results.set(m.toolCallId, { output: textOf(m.content), isError: !!m.isError });
+      }
+    }
+    const nodes = [];
+    for (const r of rows) {
+      if (r.type !== 'message') continue;
+      const ts = isoTs(r.timestamp);
+      const m = r.message || {};
+      if (m.role === 'user') {
+        const text = textOf(m.content);
+        if (text) nodes.push(contentNode({ kind: 'user_text', label: 'user', ts, text }));
+      } else if (m.role === 'assistant' && Array.isArray(m.content)) {
+        const text = textOf(m.content);
+        if (text) nodes.push(contentNode({ kind: 'agent_text', label: 'assistant', ts, text }));
+        for (const c of m.content) {
+          if (!c || c.type !== 'toolCall') continue;
+          const res = results.get(c.id) || {};
+          const args = typeof c.arguments === 'string' ? c.arguments : JSON.stringify(c.arguments ?? {}, null, 2);
+          nodes.push(contentNode({
+            kind: 'tool', label: c.name || 'tool', ts,
+            toolInput: args, toolOutput: res.output ?? '',
+            status: res.isError ? 'error' : 'ok',
+          }));
+        }
+      }
+    }
+    return nodes;
   },
 
   parse(ref) {

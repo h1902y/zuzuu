@@ -260,6 +260,36 @@ export interface SessionTreeResponse {
   root: SessionTreeNode | null;
 }
 
+/** One ordered DISPLAY content node (`zuzuu session content <id> --json`):
+ *  the REAL host-transcript content, read on demand (never stored — the trace
+ *  blob keeps byte counts only). Privacy-aware: display-time redaction + a
+ *  per-tool-output size cap are applied by the CLI before this reaches the wire.
+ *  kind ∈ "agent_text" | "user_text" | "tool":
+ *   - "agent_text" — the agent's reply text (in `text`)
+ *   - "user_text"  — a user prompt (in `text`)
+ *   - "tool"       — one tool call: `toolInput` + `toolOutput` + `status`
+ *  ts is the node's timestamp as an ISO 8601 string ('' when unknown).
+ *  truncated is true when `toolOutput` was cut by the size cap.
+ *  Honest cross-host degradation: Gemini yields text nodes only (no tool content). */
+export interface SessionContentNode {
+  kind: "agent_text" | "user_text" | "tool";
+  label: string;
+  ts: string;
+  text?: string;
+  toolInput?: string;
+  toolOutput?: string;
+  status?: "ok" | "error";
+  truncated?: boolean;
+}
+
+/** GET /session-content/:id — `zuzuu session content <id> --json`.
+ *  Fail-soft: a missing/gone transcript (or a thin host) → nodes is []
+ *  (never an error). */
+export interface SessionContentResponse {
+  sessionId: string;
+  nodes: SessionContentNode[];
+}
+
 // ── Write side (mutations are CLI-only; the daemon shells out to zuzuu) ──
 
 /** The 5 normalized 0-1 signal components behind a proposal's score

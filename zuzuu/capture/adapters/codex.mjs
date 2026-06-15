@@ -20,6 +20,7 @@ import { join } from 'node:path';
 import { existsSync, readdirSync, statSync, readFileSync } from 'node:fs';
 import { event, trace, EventKind, Status } from '../core/event.mjs';
 import { assembleSignals, emptySignals } from './signals.mjs';
+import { contentNode, isoTs, joinText } from './content.mjs';
 
 const SESSIONS_DIR = join(homedir(), '.codex', 'sessions');
 
@@ -95,6 +96,45 @@ export const codex = {
     } catch {
       return emptySignals();
     }
+  },
+
+  // On-demand DISPLAY content (U1): reuses readJsonl + the same raw fields parse
+  // reads (event_msg/user_message clean prompt, response_item message content,
+  // function_call.arguments, function_call_output.output). Read-only; never stored.
+  extractContent(ref) {
+    const file = typeof ref === 'string' ? ref : ref.ref;
+    const rows = readJsonl(file);
+    // Pass 1: function_call_output by call_id (no explicit error flag — infer
+    // from the "Process exited with code N" prefix the shell output carries).
+    const outputs = new Map();
+    for (const r of rows) {
+      const p = r.payload || {};
+      if (r.type === 'response_item' && p.type === 'function_call_output') {
+        const out = typeof p.output === 'string' ? p.output : JSON.stringify(p.output ?? '');
+        outputs.set(p.call_id, out);
+      }
+    }
+    const nodes = [];
+    for (const r of rows) {
+      const p = r.payload || {};
+      const ts = isoTs(r.timestamp);
+      if (r.type === 'event_msg' && p.type === 'user_message') {
+        const text = clean(p.message || '');
+        if (text) nodes.push(contentNode({ kind: 'user_text', label: 'user', ts, text }));
+      } else if (r.type === 'response_item' && p.type === 'message' && p.role === 'assistant') {
+        const text = joinText(p.content);
+        if (text) nodes.push(contentNode({ kind: 'agent_text', label: 'assistant', ts, text }));
+      } else if (r.type === 'response_item' && p.type === 'function_call') {
+        const args = typeof p.arguments === 'string' ? p.arguments : JSON.stringify(p.arguments ?? {}, null, 2);
+        const out = outputs.get(p.call_id);
+        nodes.push(contentNode({
+          kind: 'tool', label: p.name || 'tool', ts,
+          toolInput: args, toolOutput: out ?? '',
+          status: codexFailed(out) ? 'error' : 'ok',
+        }));
+      }
+    }
+    return nodes;
   },
 
   parse(ref) {

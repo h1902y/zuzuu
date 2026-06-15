@@ -18,9 +18,11 @@
 // other) for the transcript renderer. Fail-soft: missing blob → empty list.
 
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { readIndex, resolveTrace, paths } from '../core/store.mjs';
 import { transcriptsFor, mineHostSession } from '../knowledge/distill.mjs';
 import { modulesOf, invoke } from '../module/registry.mjs';
+import * as registry from '../capture/adapters/registry.mjs';
 
 /** Pure: the sessions list with state labels — the web Sessions section source. */
 export function sessionsListData(cwd = process.cwd()) {
@@ -320,6 +322,101 @@ export function sessionInspectData(cwd, idArg, { transcripts } = {}) {
   };
 }
 
+// ── On-demand session content (U1) ──────────────────────────────────────────
+// Resolves a session's HOST transcript (via the same adapter path resolution
+// distill uses) and asks the adapter's extractContent for ordered DISPLAY nodes
+// (agent text + tool input/output). Persists nothing new — the trace blob still
+// stores byte counts only; this re-reads the raw host file at display time.
+//
+// Two display-time protections applied HERE (not in the adapters):
+//   - redaction: the no-secret-reads guardrail rule's `pattern:` is read at
+//     runtime from .zuzuu/guardrails/items/no-secret-reads.md and run over every
+//     text/input/output, replacing matches with REDACTION_MARKER.
+//   - size cap: each tool output is capped at MAX_TOOL_OUTPUT chars; when cut,
+//     the node carries truncated:true.
+
+const REDACTION_MARKER = '[redacted]';
+const MAX_TOOL_OUTPUT = 4000;
+
+/** Read the no-secret-reads guardrail rule's `pattern:` field at runtime (the
+ *  redaction regex is the project's, never hardcoded). Returns a RegExp (global)
+ *  or null when the rule file is absent/unparseable/empty. Fail-soft. */
+export function redactionRegex(agentDir) {
+  try {
+    const file = join(agentDir, 'guardrails', 'items', 'no-secret-reads.md');
+    const text = readFileSync(file, 'utf8');
+    // The pattern lives as an indented `pattern: "<regex>"` line in frontmatter.
+    const m = text.match(/^\s*pattern:\s*(.+)$/m);
+    if (!m) return null;
+    let raw = m[1].trim();
+    // Strip surrounding quotes (double or single), un-escaping a double-quoted scalar.
+    if (raw.startsWith('"') && raw.endsWith('"') && raw.length >= 2) {
+      try { raw = JSON.parse(raw); } catch { raw = raw.slice(1, -1); }
+    } else if (raw.startsWith("'") && raw.endsWith("'") && raw.length >= 2) {
+      raw = raw.slice(1, -1);
+    }
+    if (!raw) return null;
+    return new RegExp(raw, 'g');
+  } catch {
+    return null;
+  }
+}
+
+/** Apply the redaction regex to a string (fail-soft: no regex → unchanged). */
+function redact(s, re) {
+  if (typeof s !== 'string' || !s || !re) return s;
+  re.lastIndex = 0;
+  return s.replace(re, REDACTION_MARKER);
+}
+
+/**
+ * Pure-ish: ordered DISPLAY content nodes for one session, read on demand from
+ * the HOST transcript (reuses the adapter's extractContent). Redaction + size
+ * cap applied here. Fail-soft: unknown id, gone transcript, adapter without the
+ * capability, or any read error → { sessionId, nodes: [] }, never throws.
+ * @param {string} cwd
+ * @param {string} idArg            session id or unique prefix
+ * @param {{transcripts?: Array<{host,ref,sessionId}>}} [opts]  injectable for tests
+ * @returns {{ sessionId: string, nodes: Array<object> } | null}
+ */
+export function sessionContentData(cwd, idArg, { transcripts } = {}) {
+  if (!idArg) return null;
+  const { sessions } = readIndex(cwd);
+  const matches = sessions.filter((s) => s.id === idArg);
+  const byPrefix = matches.length ? matches : sessions.filter((s) => String(s.id).startsWith(idArg));
+  if (!byPrefix.length) return null;
+  const s = byPrefix[0];
+
+  let nodes = [];
+  try {
+    const pairs = transcripts ?? transcriptsFor({ scope: 'all', cwd });
+    const pair = pairs.find((p) => p.host === s.host && String(p.sessionId) === String(s.id));
+    const adapter = pair ? registry.byName(pair.host) : null;
+    if (pair && adapter && typeof adapter.extractContent === 'function') {
+      const raw = adapter.extractContent(pair.ref) || [];
+      const re = redactionRegex(paths(cwd).dir);
+      nodes = raw.map((n) => {
+        const node = { kind: n.kind, label: n.label, ts: n.ts };
+        if (n.text != null) node.text = redact(n.text, re);
+        if (n.toolInput != null) node.toolInput = redact(n.toolInput, re);
+        if (n.toolOutput != null) {
+          let out = redact(n.toolOutput, re);
+          if (typeof out === 'string' && out.length > MAX_TOOL_OUTPUT) {
+            out = out.slice(0, MAX_TOOL_OUTPUT);
+            node.truncated = true;
+          }
+          node.toolOutput = out;
+        }
+        if (n.status) node.status = n.status;
+        return node;
+      });
+    }
+  } catch {
+    nodes = []; // fail-soft: any read/parse error → empty content
+  }
+  return { sessionId: s.id, nodes };
+}
+
 const fmtDur = (ms) => (ms < 60_000 ? `${(ms / 1000).toFixed(0)}s` : `${(ms / 60_000).toFixed(1)}m`);
 
 /** `zuzuu sessions [--json]` — the recorded-sessions list with state labels. */
@@ -387,6 +484,32 @@ export function sessionTree(args = {}) {
     for (const child of node.children ?? []) printNode(child, depth + 1);
   }
   printNode(d.root, 0);
+}
+
+/** `zuzuu session content <id> [--json]` — ordered DISPLAY content nodes read
+ *  on demand from the host transcript (agent text + tool input/output). */
+export function sessionContent(args = {}) {
+  const cwd = process.cwd();
+  const id = args._?.[1];
+  const d = sessionContentData(cwd, id);
+  if (!d) {
+    console.error(id ? `no recorded session matching '${id}'` : 'usage: zuzuu session content <id> [--json]');
+    process.exit(1);
+  }
+  if (args.json) { console.log(JSON.stringify(d)); return; }
+  if (!d.nodes.length) { console.log(`${d.sessionId}: no content (transcript missing or host thin)`); return; }
+  console.log(`${d.sessionId}: ${d.nodes.length} content node(s)`);
+  for (const n of d.nodes) {
+    const ts = n.ts ? n.ts.slice(11, 19) : '--:--:--';
+    if (n.kind === 'tool') {
+      const status = n.status ? ` [${n.status}]` : '';
+      console.log(`  ${ts}  tool   ${n.label}${status}`);
+      if (n.toolInput) console.log(`           in:  ${n.toolInput.split('\n')[0].slice(0, 100)}`);
+      if (n.toolOutput) console.log(`           out: ${n.toolOutput.split('\n')[0].slice(0, 100)}${n.truncated ? ' …(truncated)' : ''}`);
+    } else {
+      console.log(`  ${ts}  ${n.kind === 'agent_text' ? 'agent' : 'user '}  ${(n.text || '').split('\n')[0].slice(0, 100)}`);
+    }
+  }
 }
 
 /** `zuzuu session trace <id> [--json]` — ordered per-action records. */

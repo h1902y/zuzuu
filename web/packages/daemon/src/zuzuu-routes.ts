@@ -373,6 +373,23 @@ export function createZuzuuApi(getRoot: () => string, opts: ApiOpts = {}): Hono 
     return c.json(r.data as Record<string, unknown>);
   });
 
+  // On-demand session content (`zuzuu session content <id> --json`): the REAL
+  // host-transcript content (agent text + tool input/output), read on demand,
+  // never stored. CLI-only (the daemon never re-reads transcripts); absent →
+  // 503, unknown id → { sessionId: id, nodes: [] } 404. Display-time redaction +
+  // size cap are applied by the CLI. Read-only: never touches capture/the PTY.
+  app.get("/session-content/:id", async (c) => {
+    const id = c.req.param("id");
+    if (!SAFE_ID.test(id)) return c.json({ error: "bad id" }, 400);
+    const r = await runZuzuuMut(root, ["session", "content", id], { binary: opts.binary });
+    if (!r.ok) {
+      if (r.code === "absent") return c.json({ error: "zuzuu CLI required" }, 503);
+      // CLI ran but returned non-zero — treat as unknown session (fail-soft)
+      return c.json({ sessionId: id, nodes: [] }, 404);
+    }
+    return c.json(r.data as Record<string, unknown>);
+  });
+
   app.get("/status", async (c) => {
     const viaCli = await runZuzuu(root, ["status"], { binary: opts.binary });
     if (viaCli) return c.json(viaCli);
