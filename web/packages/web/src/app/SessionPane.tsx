@@ -32,7 +32,7 @@ import { centerCard } from "../lib/session-cards";
 import { sessionStateMeta, shortSessionId, fmtDuration } from "../panel/sections";
 import { relativeTime } from "../panel/kit";
 import { agentTabTitle } from "../modules/host-launch";
-import { pickerRows, resolveViewed, type PickerRow } from "./session-picker";
+import { groupRowsByBand, pickerCollapsedSummary, pickerRows, resolveViewed, type PickerBand, type PickerRow } from "./session-picker";
 import { useSessionGitQuery, useZuzuuHealthQuery } from "./queries";
 import { zuzuuApi } from "../lib/zuzuu-api";
 
@@ -71,7 +71,7 @@ function PickerRowButton({
       onClick={onSelect}
       title={`View session ${s.id}`}
       className={cx(
-        "group flex shrink-0 items-center gap-2 rounded-[var(--radius-ui)] border px-2 py-1 text-left transition-colors",
+        "group mx-1 flex w-[calc(100%-0.5rem)] items-center gap-2 rounded-[var(--radius-ui)] border px-2 py-1 text-left transition-colors",
         active
           ? "border-[var(--border)] bg-[var(--accent)]"
           : "border-transparent hover:border-[var(--border)] hover:bg-[var(--accent)]",
@@ -98,6 +98,9 @@ function PickerRowButton({
   );
 }
 
+/** Band header label map. */
+const BAND_LABEL: Record<PickerBand, string> = { now: "now", recent: "recent", older: "older" };
+
 function SessionPicker({
   rows,
   viewedId,
@@ -107,18 +110,84 @@ function SessionPicker({
   viewedId: string | null;
   onSelect: (id: string) => void;
 }) {
+  const [open, setOpen] = useState(false);
+
   if (rows.length === 0) return null;
+
+  // resolve the currently viewed row for the summary (needs the same resolution
+  // logic so the summary label tracks the auto-selected first row too)
+  const viewedRow = resolveViewed(rows, viewedId);
+  const summary = pickerCollapsedSummary(rows, viewedRow);
+  const groups = groupRowsByBand(rows);
+
+  const handleSelect = (id: string) => {
+    onSelect(id);
+    setOpen(false); // collapse on select
+  };
+
   return (
-    <Bar border="b" surface="surface" className="!h-auto !min-h-[var(--height-bar)] gap-1.5 overflow-x-auto !px-2 py-1.5">
-      {rows.map((row) => (
-        <PickerRowButton
-          key={row.session.id}
-          row={row}
-          active={row.session.id === viewedId}
-          onSelect={() => onSelect(row.session.id)}
-        />
-      ))}
-    </Bar>
+    <div className="border-b border-[var(--border)] bg-card">
+      {/* collapsed summary row — always visible */}
+      <button
+        aria-expanded={open}
+        aria-label={`${summary.countLabel} — toggle session list`}
+        onClick={() => setOpen((v) => !v)}
+        className={cx(
+          "flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-[var(--accent)]",
+        )}
+      >
+        {viewedRow && (
+          <>
+            {viewedRow.live ? (
+              <StatusDot tone="ok" pulse />
+            ) : (
+              <StatusPill tone={pillTone(sessionStateMeta(viewedRow.session.state).tone)}>
+                {sessionStateMeta(viewedRow.session.state).label}
+              </StatusPill>
+            )}
+            <span className="wc-sans min-w-0 truncate text-ui font-medium text-foreground">
+              {agentTabTitle(viewedRow.session.host) || viewedRow.session.host || "session"}
+            </span>
+          </>
+        )}
+        <span className="wc-sans ml-auto shrink-0 text-meta text-muted-foreground">{summary.countLabel}</span>
+        {/* chevron */}
+        <svg
+          viewBox="0 0 16 16"
+          className={cx("h-3 w-3 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.4"
+        >
+          <path d="M4 6l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+
+      {/* expanded: vertical grouped list */}
+      {open && (
+        <div className="max-h-64 overflow-y-auto border-t border-[var(--border)] pb-1">
+          {(["now", "recent", "older"] as PickerBand[]).map((band) => {
+            const bandRows = groups.get(band) ?? [];
+            if (bandRows.length === 0) return null;
+            return (
+              <div key={band}>
+                <div className="wc-sans px-3 py-1 text-meta font-medium uppercase tracking-wide text-muted-foreground">
+                  {BAND_LABEL[band]}
+                </div>
+                {bandRows.map((row) => (
+                  <PickerRowButton
+                    key={row.session.id}
+                    row={row}
+                    active={row.session.id === viewedId}
+                    onSelect={() => handleSelect(row.session.id)}
+                  />
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 

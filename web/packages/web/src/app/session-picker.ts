@@ -104,3 +104,41 @@ export function resolveViewed(rows: PickerRow[], selectedId: string | null): Pic
   }
   return rows[0] ?? null;
 }
+
+/** A collapsed-summary description for the session picker header. */
+export interface PickerSummary {
+  /** Label for the primary (viewed) session — e.g. "claude-code" or "session". */
+  label: string;
+  /** Total session count. */
+  total: number;
+  /** Human-readable count string — "1 session" or "4 sessions". */
+  countLabel: string;
+}
+
+/**
+ * Build the collapsed summary for the session picker:
+ * the viewed session's host label + a count of all sessions.
+ */
+export function pickerCollapsedSummary(rows: PickerRow[], viewed: PickerRow | null): PickerSummary {
+  const total = rows.length;
+  const countLabel = total === 1 ? "1 session" : `${total} sessions`;
+  const label = viewed
+    ? (viewed.session.host ?? "session")
+    : "session";
+  return { label, total, countLabel };
+}
+
+/**
+ * Group picker rows by band, preserving the within-band order from pickerRows().
+ */
+export function groupRowsByBand(rows: PickerRow[]): Map<PickerBand, PickerRow[]> {
+  const groups = new Map<PickerBand, PickerRow[]>([
+    ["now", []],
+    ["recent", []],
+    ["older", []],
+  ]);
+  for (const row of rows) {
+    groups.get(row.band)!.push(row);
+  }
+  return groups;
+}
