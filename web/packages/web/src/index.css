@@ -114,6 +114,71 @@
   --height-bar: 34px;
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   shadcn semantic layer — brutal-minimal default, mapped to existing tokens
+   ───────────────────────────────────────────────────────────────────────── */
+:root {
+  --background: var(--color-app);
+  --foreground: var(--color-ink-100);
+  --card: var(--color-surface);
+  --card-foreground: var(--color-ink-100);
+  --popover: var(--color-elevated);
+  --popover-foreground: var(--color-ink-100);
+  --primary: var(--color-accent);
+  --primary-foreground: var(--color-app);
+  --secondary: var(--color-hover);
+  --secondary-foreground: var(--color-ink-100);
+  --muted: var(--color-muted);
+  --muted-foreground: var(--color-ink-300);
+  --accent: var(--color-hover);
+  --accent-foreground: var(--color-ink-100);
+  --destructive: var(--color-danger);
+  --destructive-foreground: var(--color-app);
+  --border: var(--color-border-strong);
+  --input: var(--color-border-strong);
+  --ring: var(--color-accent);
+  --radius: 0px;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  /* Note: --color-muted, --color-accent, --color-border are intentionally NOT
+     re-mapped here — they are already defined in the main @theme block and the
+     existing custom kit relies on those values. Shadcn components using
+     bg-muted/bg-accent/bg-border will resolve to those same tokens, which is
+     correct (muted=ink-500 bg, accent=hover bg, border=ink-700). */
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-lg: var(--radius);
+  --radius-md: var(--radius);
+  --radius-sm: var(--radius);
+}
+
+/* Theme presets */
+[data-theme="soft"] {
+  --background: var(--color-app);
+  --foreground: var(--color-ink-100);
+  --border: var(--color-border);
+  --input: var(--color-border);
+  --radius: 6px;
+  /* Override Tailwind v4 radius tokens for soft theme */
+  --radius-lg: 6px;
+  --radius-md: 6px;
+  --radius-sm: 4px;
+}
+
 :root[data-theme="light"] {
   --color-ink-950: #FBFBFA; /* canvas */
   --color-ink-900: #FFFFFF; /* cards float */
