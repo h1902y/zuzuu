@@ -388,8 +388,19 @@ export function SessionPane() {
           ))}
       </div>
 
-      {/* the composer — the one way to start a session */}
-      {zuzuuHome && <SessionComposer ref={composerRef} />}
+      {/* the composer — the one way to start a session. When viewing a session
+          that runs in the user's own terminal (live trace, no workbench PTY),
+          the composer notes that Send starts a NEW session, not a reply. */}
+      {zuzuuHome && (
+        <SessionComposer
+          ref={composerRef}
+          viewingExternal={
+            !!viewed &&
+            !viewed.live &&
+            (viewed.session.state === "active" || viewed.session.state === "opening")
+          }
+        />
+      )}
     </div>
   );
 }

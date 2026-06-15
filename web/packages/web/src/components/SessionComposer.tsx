@@ -14,7 +14,7 @@ import { zuzuuApi } from "../lib/zuzuu-api";
 import { agentTabTitle, buildHostRows, composerDefaultHost, resolveStart, type HostRow } from "../modules/host-launch";
 import { startAgentSession } from "../lib/agent-launch";
 import { useSessions } from "../state/sessions";
-import { composerMode, hasTask, promptPlaceholder, QUICK_CHIPS } from "./composer-state";
+import { composerMode, EXTERNAL_VIEW_NOTE, hasTask, idlePlaceholder, QUICK_CHIPS } from "./composer-state";
 import { Bar, Button, Kbd, Spinner, StatusDot, cx } from "./ui";
 
 // ── host glyph paths (16×16 stroke) — one per host, identity-only ─────────
@@ -250,7 +250,16 @@ function HostPickerMenu({
 }
 
 // ── SessionComposer ───────────────────────────────────────────────────────────
-export const SessionComposer = forwardRef<HTMLDivElement>(function SessionComposer(_props, ref) {
+export interface SessionComposerProps {
+  /** True when the center is VIEWING a session that runs in the user's own
+   *  terminal (view-only). The composer can't reach it, so the idle box makes
+   *  clear that Send starts a NEW session rather than replying to it. */
+  viewingExternal?: boolean;
+}
+export const SessionComposer = forwardRef<HTMLDivElement, SessionComposerProps>(function SessionComposer(
+  { viewingExternal = false },
+  ref,
+) {
   const hostsQ = useQuery({ queryKey: ["zuzuu", "hosts"], queryFn: zuzuuApi.hosts, refetchInterval: 8000 });
   const rows = buildHostRows(hostsQ.data?.hosts ?? []);
   const dflt = composerDefaultHost(rows);
@@ -325,6 +334,11 @@ export const SessionComposer = forwardRef<HTMLDivElement>(function SessionCompos
       className="wc-focus border-t border-[var(--border)] bg-card px-3 py-2.5 outline-none"
       onFocus={() => textareaRef.current?.focus()}
     >
+      {/* viewing a session that lives in the user's terminal: Send can't reply
+          to it — it starts a new one. Say so right at the box. */}
+      {viewingExternal && (
+        <p className="wc-sans mb-1.5 text-meta text-muted-foreground">{EXTERNAL_VIEW_NOTE}</p>
+      )}
       {/* native textarea (the Textarea primitive isn't a forwardRef) carrying
           the same wc-input styling so we can focus it imperatively */}
       <textarea
@@ -338,7 +352,7 @@ export const SessionComposer = forwardRef<HTMLDivElement>(function SessionCompos
           }
         }}
         rows={2}
-        placeholder={promptPlaceholder(activeRow?.label)}
+        placeholder={idlePlaceholder(activeRow?.label, viewingExternal)}
         aria-label="Describe a task for your agent"
         className="wc-input w-full resize-none px-2 py-1.5"
       />

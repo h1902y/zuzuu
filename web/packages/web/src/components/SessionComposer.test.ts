@@ -4,7 +4,9 @@
 import { describe, expect, it } from "vitest";
 import {
   composerMode,
+  EXTERNAL_VIEW_NOTE,
   hasTask,
+  idlePlaceholder,
   promptPlaceholder,
   QUICK_CHIPS,
 } from "./composer-state";
@@ -26,6 +28,19 @@ describe("promptPlaceholder — names the selected host", () => {
     expect(promptPlaceholder(null)).toBe("What should your agent do?");
     expect(promptPlaceholder("")).toBe("What should your agent do?");
     expect(promptPlaceholder(undefined)).toBe("What should your agent do?");
+  });
+});
+
+describe("idlePlaceholder — viewing a session that lives in your terminal", () => {
+  it("normally names the host (Send starts/continues your workbench agent)", () => {
+    expect(idlePlaceholder("Claude Code", false)).toBe("What should Claude Code do?");
+  });
+  it("when viewing an external session, makes clear Send starts a NEW session", () => {
+    expect(idlePlaceholder("Claude Code", true)).toBe("Start a new session…");
+  });
+  it("the external-view note explains Send won't reply to the viewed session", () => {
+    expect(EXTERNAL_VIEW_NOTE).toMatch(/your terminal/i);
+    expect(EXTERNAL_VIEW_NOTE.toLowerCase()).toContain("new one");
   });
 });
 

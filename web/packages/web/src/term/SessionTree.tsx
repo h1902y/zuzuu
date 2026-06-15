@@ -327,28 +327,30 @@ export function SessionTree({
   const turns = treeTurns(treeQ.data?.root ?? null);
 
   const tail = tailState(alive, sessionState);
-  const liveAffordance = (
-    <div className="flex items-center gap-2 rounded-[var(--radius-ui)] border border-[var(--border)] bg-popover px-3 py-2 text-ui text-muted-foreground">
-      <StatusDot tone={tail === "live" ? "ok" : "idle"} pulse={tail === "live"} />
-      {tail === "live" ? (
-        <>
-          <span>The conversation is live in the terminal.</span>
-          {onOpenTerminal && (
-            <button
-              onClick={onOpenTerminal}
-              className="ml-auto text-accent-dim underline decoration-dotted underline-offset-2 hover:text-accent"
-            >
-              Open terminal
-            </button>
-          )}
-        </>
-      ) : tail === "outside" ? (
-        <span>Live in your terminal — the workbench is mirroring it (view-only here).</span>
-      ) : (
-        <span>Session ended.</span>
-      )}
-    </div>
-  );
+  // "outside" (running in the user's own terminal) gets NO tree banner — the
+  // composer carries that truth now (it's where you'd type). Only the live (has
+  // a workbench terminal) and ended states show an affordance here.
+  const liveAffordance =
+    tail === "outside" ? null : (
+      <div className="flex items-center gap-2 rounded-[var(--radius-ui)] border border-[var(--border)] bg-popover px-3 py-2 text-ui text-muted-foreground">
+        <StatusDot tone={tail === "live" ? "ok" : "idle"} pulse={tail === "live"} />
+        {tail === "live" ? (
+          <>
+            <span>The conversation is live in the terminal.</span>
+            {onOpenTerminal && (
+              <button
+                onClick={onOpenTerminal}
+                className="ml-auto text-accent-dim underline decoration-dotted underline-offset-2 hover:text-accent"
+              >
+                Open terminal
+              </button>
+            )}
+          </>
+        ) : (
+          <span>Session ended.</span>
+        )}
+      </div>
+    );
 
   // Content-rich is the preferred surface: when U1 resolved real transcript
   // content, render the conversation (text + expandable tool I/O). When there's

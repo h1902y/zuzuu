@@ -23,6 +23,21 @@ export function promptPlaceholder(hostLabel: string | undefined | null): string 
   return `What should ${hostLabel?.trim() || "your agent"} do?`;
 }
 
+/**
+ * Idle placeholder. Normally names the host. But when you're VIEWING a session
+ * that runs in your own terminal (view-only here), the composer can't reach it —
+ * Send starts a NEW session. The placeholder says so, so the text box under a
+ * view-only session isn't mistaken for a reply to it.
+ */
+export function idlePlaceholder(hostLabel: string | undefined | null, viewingExternal: boolean): string {
+  return viewingExternal ? "Start a new session…" : promptPlaceholder(hostLabel);
+}
+
+/** The sub-note shown under the idle box while viewing a session that runs in
+ *  the user's terminal — Send here starts a new one, it does not reply to it. */
+export const EXTERNAL_VIEW_NOTE =
+  "The session you're viewing runs in your terminal — Send starts a new one here.";
+
 /** A quick-start chip: clicking it PRE-FILLS the prompt box (it does not
  *  launch). `fill` is a real starter the user edits and sends — the chips are
  *  genuine choices, not three buttons that all do the same thing. */
