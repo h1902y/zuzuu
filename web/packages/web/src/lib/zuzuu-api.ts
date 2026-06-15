@@ -76,6 +76,9 @@ export const zuzuuApi = {
     request<ApproveResult>(`/proposals/${encodeURIComponent(id)}/approve`, json({ module })),
   rejectProposal: (id: string, module: string, reason?: string) =>
     request<RejectResult>(`/proposals/${encodeURIComponent(id)}/reject`, json(reason ? { module, reason } : { module })),
+  /** toggle a module on/off (zuzuu module enable|disable <key>) */
+  setModuleEnabled: (key: string, enabled: boolean) =>
+    request<{ ok?: boolean }>(`/module/${encodeURIComponent(key)}/enabled`, json({ enabled })),
   approveAction: (slug: string) =>
     request<ApproveResult>(`/actions/${encodeURIComponent(slug)}/approve`, json({})),
   rejectAction: (slug: string) =>

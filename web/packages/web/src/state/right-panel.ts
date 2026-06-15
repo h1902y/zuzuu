@@ -1,62 +1,55 @@
-// The right panel's mode store + the editor-store subscription that enforces
-// the layout rules (one surface, two modes):
-//   - opening a file (tree, search hit, ⌘K, module item — every path routes
-//     through the editor store) forces mode 'files'
-//   - closing the LAST editor tab forces mode 'modules'
-//   - the `‹ modules` affordance flips mode WITHOUT touching editor tabs;
-//     while tabs exist, module mode shows a `files ›` return chip (showFiles)
-// Module mode itself is the panel root (drill null) with two slide-in
-// drill-ins: a module's view (card click) or a session's detail (row
-// click). Every return to module mode lands on the panel ROOT (drill
-// cleared — deliberately simple).
+// Center work-area selection store (WS-C).
+//
+// The layout is now: sidebar (files) | CENTER (work area) | RIGHT (modules list).
+// The right column is ALWAYS the modules master list — there is no more
+// files-vs-modules mode toggle. The center work area renders by precedence:
+//   (1) editor open (useEditor has open files) → the EditorPane
+//   (2) else a module is selected → that module's detail (ModuleView)
+//   (3) else a session is selected → that session's detail (SessionDetail)
+//   (4) else → the sessions home (live terminal + session history)
+//
+// This store owns the center selection (a module OR a session — they replace
+// each other). Editor precedence is read live from useEditor by CenterWorkArea;
+// opening a file no longer mutates this store. Opening a file while a module is
+// selected keeps the selection (it resurfaces when the last tab closes), so we
+// clear nothing on file open — the editor simply wins by precedence.
 import { create } from "zustand";
 import type { ModuleKey } from "@zuzuu-web/protocol";
-import { useEditor } from "./editor";
 
-export type RightPanelMode = "files" | "modules";
-
-/** What slides over the panel root: a module view or a session detail. */
-export type PanelDrill =
+/** What the center work area shows when no editor file is open. */
+export type CenterSelection =
   | { kind: "module"; key: ModuleKey }
-  | { kind: "session"; id: string };
+  | { kind: "session"; id: string }
+  | null;
 
 interface RightPanelState {
-  mode: RightPanelMode;
-  /** the drill-in showing over the panel root; null = the root */
-  drill: PanelDrill | null;
-  /** the `files ›` return chip — only meaningful while editor tabs exist */
-  showFiles: () => void;
-  /** the `‹ modules` affordance — editor tabs stay open; panel root */
-  showModules: () => void;
-  /** card click → that module's drill-in */
+  /** the center selection: a module detail, a session detail, or none (home) */
+  selection: CenterSelection;
+  /** convenience read: the selected module key (null when not a module) */
+  selectedModule: ModuleKey | null;
+  /** convenience read: the selected session id (null when not a session) */
+  selectedSession: string | null;
+  /** open a module's detail in the center (module list row click) */
   openModule: (key: ModuleKey) => void;
-  /** session row click → that session's detail */
+  /** clear a module selection → back to the sessions home */
+  closeModule: () => void;
+  /** open a session's detail in the center (session-history row click) */
   openSession: (id: string) => void;
-  /** back chevron → the panel root */
-  closeDrill: () => void;
+  /** clear a session selection → back to the sessions home */
+  closeSession: () => void;
+  /** clear whatever is selected → the sessions home */
+  closeCenter: () => void;
 }
 
 export const useRightPanel = create<RightPanelState>((set) => ({
-  mode: "modules",
-  drill: null,
-  showFiles: () =>
-    set((s) => (useEditor.getState().openFiles.length > 0 ? { mode: "files" } : s)),
-  showModules: () => set({ mode: "modules", drill: null }),
-  openModule: (key) => set({ mode: "modules", drill: { kind: "module", key } }),
-  openSession: (id) => set({ mode: "modules", drill: { kind: "session", id } }),
-  closeDrill: () => set({ drill: null }),
+  selection: null,
+  selectedModule: null,
+  selectedSession: null,
+  openModule: (key) =>
+    set({ selection: { kind: "module", key }, selectedModule: key, selectedSession: null }),
+  closeModule: () => set({ selection: null, selectedModule: null, selectedSession: null }),
+  openSession: (id) =>
+    set({ selection: { kind: "session", id }, selectedSession: id, selectedModule: null }),
+  closeSession: () => set({ selection: null, selectedModule: null, selectedSession: null }),
+  closeCenter: () => set({ selection: null, selectedModule: null, selectedSession: null }),
 }));
-
-// One wiring point for "opening a file forces files mode": every open path
-// (FileTree, search, ⌘K, terminal links, module clicks) lands in the editor
-// store, so we watch it instead of patching N call sites. A re-focus of an
-// already-open tab (activePath change) counts as opening too.
-useEditor.subscribe((s, prev) => {
-  if (s.openFiles.length === 0) {
-    if (prev.openFiles.length > 0) useRightPanel.setState({ mode: "modules", drill: null });
-    return;
-  }
-  if (s.openFiles.length > prev.openFiles.length || s.activePath !== prev.activePath) {
-    useRightPanel.setState({ mode: "files" });
-  }
-});
