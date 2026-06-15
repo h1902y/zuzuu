@@ -30,7 +30,11 @@
   --color-ink-500: #6B6862; /* faint text (timestamps, disabled) */
   --color-ink-300: #9A9690; /* muted text (labels, descriptions) */
   --color-ink-100: #E8E6E3; /* primary text/headings (warm) */
-  /* accent = primary action + active nav ONLY */
+  /* accent = primary action + active nav ONLY (the OLD custom kit's brand teal).
+     NOTE: this is the Tailwind `bg-accent`/`text-accent` token. shadcn uses a
+     SEPARATE `--accent` CSS var (subtle hover) — the shadcn components reference
+     that var directly (bg-[var(--accent)]) so the two systems don't collide.
+     See the shadcn semantic layer + the reconciliation note below. */
   --color-accent: #5be6c4;
   --color-accent-dim: #2f9a80;
   --color-danger: #f0726a;
@@ -151,11 +155,16 @@
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
-  /* Note: --color-muted, --color-accent, --color-border are intentionally NOT
-     re-mapped here — they are already defined in the main @theme block and the
-     existing custom kit relies on those values. Shadcn components using
-     bg-muted/bg-accent/bg-border will resolve to those same tokens, which is
-     correct (muted=ink-500 bg, accent=hover bg, border=ink-700). */
+  /* Reconciliation (WS-C): --color-muted / --color-border are intentionally NOT
+     re-mapped — their @theme values already match the shadcn intent
+     (muted=ink-500, border=ink-700), so shadcn `bg-muted`/`border-border` are
+     correct as-is. --color-accent is the EXCEPTION: the old kit owns it as the
+     brand teal (active-nav/primary-action), but shadcn's `accent` means a
+     subtle hover surface. We can't make one Tailwind utility mean both, so the
+     shadcn components reference the `--accent`/`--accent-foreground` CSS vars
+     DIRECTLY (e.g. `bg-[var(--accent)]`) instead of the `bg-accent` utility.
+     That keeps the old kit's teal untouched while shadcn hover/focus states
+     read correctly. (--accent = var(--color-hover) in :root above.) */
   --color-muted-foreground: var(--muted-foreground);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
