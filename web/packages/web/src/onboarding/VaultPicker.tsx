@@ -68,7 +68,7 @@ export function VaultPicker({
 
         {/* ── Recents as warm cards — shown at top when available ─────────── */}
         {recents.length > 0 && (
-          <div className="border-b border-border px-3 pt-3 pb-2">
+          <div className="border-b border-[var(--border)] px-3 pt-3 pb-2">
             <div className="wc-eyebrow mb-2">Recent</div>
             <div className="flex flex-wrap gap-1.5">
               {recents.map((r) => (
@@ -78,9 +78,9 @@ export function VaultPicker({
                   title={r}
                   className={cx(
                     "wc-focus wc-mono flex max-w-xs items-center gap-1.5 truncate",
-                    "rounded-[var(--radius-ui)] border border-border bg-surface px-2.5 py-1.5",
-                    "text-meta text-ink-300 transition-colors",
-                    "hover:border-accent-dim hover:bg-elevated hover:text-ink-100",
+                    "rounded-[var(--radius-ui)] border border-[var(--border)] bg-card px-2.5 py-1.5",
+                    "text-meta text-muted-foreground transition-colors",
+                    "hover:border-accent-dim hover:bg-popover hover:text-foreground",
                   )}
                 >
                   <svg
@@ -98,19 +98,19 @@ export function VaultPicker({
         )}
 
         {/* ── Breadcrumb ─────────────────────────────────────────────────── */}
-        <div className="flex flex-wrap items-center gap-y-0.5 border-b border-border px-3 py-1.5 text-ui">
-          {crumbs.length === 0 && <span className="wc-mono text-ink-500">…</span>}
+        <div className="flex flex-wrap items-center gap-y-0.5 border-b border-[var(--border)] px-3 py-1.5 text-ui">
+          {crumbs.length === 0 && <span className="wc-mono text-muted-foreground">…</span>}
           {crumbs.map((c, i) => (
             <span key={c.path} className="flex max-w-full items-center">
-              {i > 0 && <span className="px-0.5 text-ink-600">/</span>}
+              {i > 0 && <span className="px-0.5 text-muted-foreground">/</span>}
               {c.path === here ? (
-                <span className="wc-mono truncate rounded px-0.5 text-ink-100" title={c.path}>
+                <span className="wc-mono truncate rounded px-0.5 text-foreground" title={c.path}>
                   {c.label}
                 </span>
               ) : (
                 <button
                   onClick={() => setPath(c.path)}
-                  className="wc-focus wc-mono truncate rounded px-0.5 text-ink-400 hover:bg-hover hover:text-ink-100"
+                  className="wc-focus wc-mono truncate rounded px-0.5 text-muted-foreground hover:bg-[var(--accent)] hover:text-foreground"
                   title={c.path}
                 >
                   {c.label}
@@ -123,7 +123,7 @@ export function VaultPicker({
         {/* ── Directory browser ──────────────────────────────────────────── */}
         <div className="min-h-0 flex-1 overflow-auto py-1">
           {browse.isLoading && (
-            <div className="wc-sans px-3 py-2 text-ui text-ink-500">loading…</div>
+            <div className="wc-sans px-3 py-2 text-ui text-muted-foreground">loading…</div>
           )}
           {browse.error && (
             <div className="wc-sans px-3 py-2 text-ui text-danger">
@@ -132,7 +132,7 @@ export function VaultPicker({
           )}
           {parent && (
             <div
-              className="flex cursor-default items-center gap-2 px-3 py-1 text-ui text-ink-400 hover:bg-hover hover:text-ink-100"
+              className="flex cursor-default items-center gap-2 px-3 py-1 text-ui text-muted-foreground hover:bg-[var(--accent)] hover:text-foreground"
               onClick={() => setPath(parent)}
               title={parent}
             >
@@ -149,12 +149,12 @@ export function VaultPicker({
             </div>
           )}
           {browse.data?.dirs.length === 0 && (
-            <div className="wc-sans px-3 py-2 text-ui text-ink-500">no subfolders</div>
+            <div className="wc-sans px-3 py-2 text-ui text-muted-foreground">no subfolders</div>
           )}
           {browse.data?.dirs.map((d) => (
             <div
               key={d.path}
-              className="group flex cursor-default items-center gap-2 px-3 py-1 text-ui hover:bg-hover"
+              className="group flex cursor-default items-center gap-2 px-3 py-1 text-ui hover:bg-[var(--accent)]"
               onClick={() => setPath(d.path)}
               onDoubleClick={() => onPick(d.path)}
               title={`Click to browse into ${d.name}`}
@@ -166,7 +166,7 @@ export function VaultPicker({
               >
                 <path d={FOLDER_PATH} />
               </svg>
-              <span className="wc-sans truncate text-ink-100">{d.name}</span>
+              <span className="wc-sans truncate text-foreground">{d.name}</span>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -175,8 +175,8 @@ export function VaultPicker({
                 title={`Open ${d.name} as workspace`}
                 className={cx(
                   "wc-focus wc-sans ml-auto hidden shrink-0",
-                  "rounded-[var(--radius-sm)] border border-border px-2 py-0.5",
-                  "text-meta text-accent group-hover:block hover:bg-hover",
+                  "rounded-[var(--radius-sm)] border border-[var(--border)] px-2 py-0.5",
+                  "text-meta text-accent group-hover:block hover:bg-[var(--accent)]",
                 )}
               >
                 Open
@@ -184,7 +184,7 @@ export function VaultPicker({
               {/* drill-in hint, swapped for the Open button on hover */}
               <svg
                 viewBox="0 0 16 16"
-                className="ml-auto h-3 w-3 shrink-0 text-ink-600 group-hover:hidden"
+                className="ml-auto h-3 w-3 shrink-0 text-muted-foreground group-hover:hidden"
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="1.5"
@@ -196,7 +196,7 @@ export function VaultPicker({
         </div>
 
         {/* ── Footer — primary CTA + new-folder secondary ───────────────── */}
-        <div className="flex items-center gap-2 border-t border-border px-3 py-2">
+        <div className="flex items-center gap-2 border-t border-[var(--border)] px-3 py-2">
           <Button variant="ghost" onClick={() => void newFolder()}>
             New folder…
           </Button>

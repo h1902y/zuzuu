@@ -88,7 +88,7 @@ function Item({
     <Command.Item
       value={value}
       onSelect={onSelect}
-      className="flex cursor-pointer items-center gap-2 rounded-[var(--radius-sm)] px-2 py-2 text-ink-100 data-[selected=true]:bg-hover"
+      className="flex cursor-pointer items-center gap-2 rounded-[var(--radius-sm)] px-2 py-2 text-foreground data-[selected=true]:bg-[var(--accent)]"
     >
       {children}
     </Command.Item>
@@ -108,9 +108,9 @@ function RowBody({
   return (
     <div className="flex min-w-0 flex-1 items-center gap-2">
       <div className="min-w-0 flex-1">
-        <div className="truncate text-body text-ink-100">{label}</div>
+        <div className="truncate text-body text-foreground">{label}</div>
         {desc && (
-          <div className="truncate text-meta text-ink-500">{desc}</div>
+          <div className="truncate text-meta text-muted-foreground">{desc}</div>
         )}
       </div>
       {shortcut && shortcut.length > 0 && (
@@ -299,14 +299,14 @@ export function CommandPalette({
               setCoachDismissed(true);
             }}
           >
-            Press <Kbd>⌘K</Kbd> anytime to run any <span className="text-ink-100">zz command</span> — try typing a module name.
+            Press <Kbd>⌘K</Kbd> anytime to run any <span className="text-foreground">zz command</span> — try typing a module name.
           </CoachMark>
         </div>
       )}
 
       <Command
         label="Command palette"
-        className="w-full max-w-xl overflow-hidden rounded-[var(--radius-dialog)] border border-border bg-elevated"
+        className="w-full max-w-xl overflow-hidden rounded-[var(--radius-dialog)] border border-[var(--border)] bg-popover"
         style={{ boxShadow: "var(--shadow-dialog)" }}
         onClick={(e) => e.stopPropagation()}
         loop
@@ -322,12 +322,12 @@ export function CommandPalette({
               ? "Run a recent command… (Alt+Enter inserts without running)"
               : "Type a command or search…"
           }
-          className="w-full border-b border-border bg-transparent px-4 py-3 text-body text-ink-100 placeholder:text-ink-500 focus:outline-none"
+          className="w-full border-b border-[var(--border)] bg-transparent px-4 py-3 text-body text-foreground placeholder:text-muted-foreground focus:outline-none"
         />
 
         {/* ── Results ── */}
         <Command.List className="max-h-[50vh] overflow-auto p-1.5">
-          <Command.Empty className="px-3 py-6 text-center text-ui text-ink-500">
+          <Command.Empty className="px-3 py-6 text-center text-ui text-muted-foreground">
             No matches — try a module name, file, or command
           </Command.Empty>
 
@@ -523,14 +523,14 @@ export function CommandPalette({
         </Command.List>
 
         {/* ── Persistent footer legend ── */}
-        <div className="flex items-center gap-3 border-t border-border px-3 py-2">
-          <span className="flex items-center gap-1 text-meta text-ink-500">
+        <div className="flex items-center gap-3 border-t border-[var(--border)] px-3 py-2">
+          <span className="flex items-center gap-1 text-meta text-muted-foreground">
             <Kbd>↑</Kbd><Kbd>↓</Kbd> navigate
           </span>
-          <span className="flex items-center gap-1 text-meta text-ink-500">
+          <span className="flex items-center gap-1 text-meta text-muted-foreground">
             <Kbd>↵</Kbd> run
           </span>
-          <span className="flex items-center gap-1 text-meta text-ink-500">
+          <span className="flex items-center gap-1 text-meta text-muted-foreground">
             <Kbd>esc</Kbd> close
           </span>
         </div>
