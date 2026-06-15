@@ -95,7 +95,7 @@ export function Segmented<T extends string>({
   onChange: (v: T) => void;
 }) {
   return (
-    <div className="flex overflow-hidden rounded-[var(--radius-sm)] border border-border">
+    <div className="flex overflow-hidden rounded-[var(--radius-sm)] border border-[var(--border)]">
       {options.map((o) => (
         <button
           key={o.value}
@@ -182,8 +182,8 @@ export function Receipt({
           <svg viewBox="0 0 16 16" className={cx("h-3.5 w-3.5 shrink-0", dot)} fill="none" stroke="currentColor" strokeWidth="1.4">
             <path d={icon} strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          <span className="min-w-0 flex-1 truncate text-ui text-ink-100">{label}</span>
-          {meta && <span className="wc-mono shrink-0 text-meta text-ink-500">{meta}</span>}
+          <span className="min-w-0 flex-1 truncate text-ui text-foreground">{label}</span>
+          {meta && <span className="wc-mono shrink-0 text-meta text-muted-foreground">{meta}</span>}
         </div>
       )}
       {open && children && <div className="wc-receipt-expand px-3 pb-2 pl-9">{children}</div>}

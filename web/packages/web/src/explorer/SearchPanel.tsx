@@ -142,7 +142,7 @@ function OptionToggle({
       onClick={onClick}
       className={`rounded border px-1.5 py-0.5 font-semibold ${
         active
-          ? "border-accent-dim bg-hover text-accent"
+          ? "border-accent-dim bg-[var(--accent)] text-accent"
           : "border-[var(--border)] text-muted-foreground hover:text-foreground"
       }`}
     >

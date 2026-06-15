@@ -41,7 +41,7 @@ export function TeachingEmpty({
       {/* faint filled-state preview — above the headline, pointer-events-none */}
       {preview && (
         <div
-          className="mb-1 w-full overflow-hidden rounded-[var(--radius-ui)] border border-border/40"
+          className="mb-1 w-full overflow-hidden rounded-[var(--radius-ui)] border border-[var(--border)]/40"
           style={{ opacity: 0.35, pointerEvents: "none", userSelect: "none" }}
           aria-hidden
         >
