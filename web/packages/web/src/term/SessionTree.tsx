@@ -15,6 +15,7 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Receipt, StatusDot, Button } from "../components/ui";
+import { tailState } from "../lib/session-cards";
 import { useSessionContentQuery, useSessionTreeQuery } from "../app/queries";
 import {
   treeTurns,
@@ -302,6 +303,7 @@ export function SessionTree({
   alive,
   enabled = true,
   onOpenTerminal,
+  sessionState,
 }: {
   sessionId: string;
   /** the PTY is still attached — drives the live affordance */
@@ -310,6 +312,9 @@ export function SessionTree({
   enabled?: boolean;
   /** switch the work pane to the Terminal tab (the live surface) */
   onOpenTerminal?: () => void;
+  /** the captured trace lifecycle state — distinguishes "live outside the
+   *  workbench" (active/opening) from a truly ended session */
+  sessionState?: string;
 }) {
   const queryClient = useQueryClient();
   const treeQ = useSessionTreeQuery(sessionId, enabled);
@@ -321,10 +326,11 @@ export function SessionTree({
   const richTurns = contentTurns(contentQ.data?.nodes ?? null);
   const turns = treeTurns(treeQ.data?.root ?? null);
 
+  const tail = tailState(alive, sessionState);
   const liveAffordance = (
     <div className="flex items-center gap-2 rounded-[var(--radius-ui)] border border-[var(--border)] bg-popover px-3 py-2 text-ui text-muted-foreground">
-      <StatusDot tone={alive ? "ok" : "idle"} pulse={alive} />
-      {alive ? (
+      <StatusDot tone={tail === "live" ? "ok" : "idle"} pulse={tail === "live"} />
+      {tail === "live" ? (
         <>
           <span>The conversation is live in the terminal.</span>
           {onOpenTerminal && (
@@ -336,6 +342,8 @@ export function SessionTree({
             </button>
           )}
         </>
+      ) : tail === "outside" ? (
+        <span>Running in your terminal — read-only here.</span>
       ) : (
         <span>Session ended.</span>
       )}

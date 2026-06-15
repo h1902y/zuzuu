@@ -10,6 +10,7 @@ import {
   hasAliveAgent,
   receiptForCommand,
   recoveryBannerCopy,
+  tailState,
   traceSessionForTab,
 } from "./session-cards";
 
@@ -43,6 +44,62 @@ describe("centerCard (none / recovery — starting moved to the composer)", () =
     expect(centerCard(0, { ...leftover, enabled: false })).toEqual({ kind: "none" });
     expect(centerCard(0, { ...leftover, cliAbsent: true })).toEqual({ kind: "none" });
     expect(centerCard(0, { ...leftover, active: null })).toEqual({ kind: "none" });
+  });
+
+  it("suppresses recovery when the leftover branch has 0 saved steps (nothing to recover)", () => {
+    // An empty leftover branch — e.g. a session running outside the workbench:
+    // not abandoned work, so don't nag.
+    expect(
+      centerCard(0, {
+        ...leftover,
+        active: { branch: "zz/session-abc", checkpoints: 0, dirty: false, noNetChanges: false },
+      }),
+    ).toEqual({ kind: "none" });
+  });
+
+  it("keeps recovery when the leftover branch has >= 1 saved step (real abandoned work)", () => {
+    expect(
+      centerCard(0, {
+        ...leftover,
+        active: { branch: "zz/session-abc", checkpoints: 1, dirty: false, noNetChanges: false },
+      }),
+    ).toEqual({ kind: "recovery", branch: "zz/session-abc", checkpoints: 1 });
+  });
+
+  it("suppresses recovery when the leftover branch belongs to a currently-live session", () => {
+    // Even with saved steps, a branch that matches a live session is running,
+    // not abandoned — no recovery prompt.
+    expect(centerCard(0, leftover, new Set(["zz/session-abc"]))).toEqual({ kind: "none" });
+    // a non-matching live branch leaves the recovery card intact
+    expect(centerCard(0, leftover, new Set(["zz/session-other"]))).toEqual({
+      kind: "recovery",
+      branch: "zz/session-abc",
+      checkpoints: 3,
+    });
+    // an iterable (not just a Set) is accepted too
+    expect(centerCard(0, leftover, ["zz/session-abc"])).toEqual({ kind: "none" });
+  });
+});
+
+describe("tailState (honest live-outside-the-workbench tail)", () => {
+  it("alive (workbench PTY attached) → live, regardless of trace state", () => {
+    expect(tailState(true)).toBe("live");
+    expect(tailState(true, "active")).toBe("live");
+    expect(tailState(true, "completed")).toBe("live");
+  });
+
+  it("not alive but trace state active/opening → outside (running in the user's terminal)", () => {
+    expect(tailState(false, "active")).toBe("outside");
+    expect(tailState(false, "opening")).toBe("outside");
+  });
+
+  it("not alive and ended/unknown state → ended", () => {
+    expect(tailState(false, "completed")).toBe("ended");
+    expect(tailState(false, "abandoned")).toBe("ended");
+    expect(tailState(false, "crashed")).toBe("ended");
+    expect(tailState(false, "captured")).toBe("ended");
+    expect(tailState(false, undefined)).toBe("ended");
+    expect(tailState(false)).toBe("ended");
   });
 });
 

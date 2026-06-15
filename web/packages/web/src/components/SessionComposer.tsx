@@ -61,6 +61,11 @@ export const QUICK_CHIPS = [
 // Copy shown in the resting empty state. Exported so tests can assert on it.
 export const EMPTY_STATE_COPY = "Select a host, press ↵ or Start — then type your task in the terminal that opens.";
 
+// The composer's keyboard hint — the key affordance ONLY (no host-name repeat;
+// the host identity lives in the pill + the selected-copy line). Exported so
+// the de-clutter is asserted without mounting the DOM.
+export const KBD_HINT_LABEL = "Start";
+
 // ── HostPill ─────────────────────────────────────────────────────────────────
 // The quiet pill that summarises the selected host. Clicking opens the picker.
 function HostPill({
@@ -355,10 +360,12 @@ export const SessionComposer = forwardRef<HTMLDivElement>(function SessionCompos
         {/* spacer pushes keyboard hint + action button to the right */}
         <div className="flex-1" />
 
-        {/* keyboard hint — hidden on narrow viewports */}
+        {/* keyboard hint — just the key affordance (the host name already lives
+            in the pill + the selected-copy line; no third repeat). Hidden on
+            narrow viewports. */}
         {!isRunning && activeRow && (
           <span className="wc-sans hidden shrink-0 items-center gap-1 text-meta text-muted-foreground sm:flex">
-            <Kbd>↵</Kbd> {activeRow.label}
+            <Kbd>↵</Kbd> {KBD_HINT_LABEL}
           </span>
         )}
 

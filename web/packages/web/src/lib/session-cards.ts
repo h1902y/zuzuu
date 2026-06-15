@@ -108,18 +108,54 @@ export function recoveryBannerCopy(branch: string, checkpoints: number): {
  * bottom composer bar — the center keeps only the load-time recovery card:
  * - sessions exist → nothing (the terminals),
  * - no sessions + a leftover session branch (same condition as the footer
- *   indicator's "leftover": active && !onSessionBranch) → recovery card,
+ *   indicator's "leftover": active && !onSessionBranch) WITH ≥1 saved step
+ *   → recovery card,
+ * - a leftover branch with 0 saved steps → nothing (there is nothing to
+ *   recover — typically a session running OUTSIDE the workbench, so its
+ *   branch is empty + not abandoned),
+ * - a leftover branch that belongs to a currently-live session (its branch is
+ *   in `liveBranches`) → nothing (it's running, not abandoned),
  * - otherwise → nothing (the calm resting state above the composer).
  */
 export function centerCard(
   tabCount: number,
   git: SessionGitStatus | undefined,
+  liveBranches?: Iterable<string>,
 ): CenterCard {
   if (tabCount > 0) return { kind: "none" };
   if (git?.enabled && !git.cliAbsent && git.active && !git.onSessionBranch) {
+    // Nothing to recover: the leftover branch has no saved steps. This is the
+    // empty-branch-of-an-outside-session case — don't nag.
+    if (git.active.checkpoints === 0) return { kind: "none" };
+    // The leftover branch is a currently-live session (running elsewhere) — not
+    // abandoned work, so no recovery prompt.
+    if (liveBranches) {
+      const live = liveBranches instanceof Set ? liveBranches : new Set(liveBranches);
+      if (live.has(git.active.branch)) return { kind: "none" };
+    }
     return { kind: "recovery", branch: git.active.branch, checkpoints: git.active.checkpoints };
   }
   return { kind: "none" };
+}
+
+// ── Session-end tail state (honest about live-outside-the-workbench) ──────
+// The transcript/tree tail keys on TWO signals, not one:
+//   • `alive`        — a workbench PTY is attached (live HERE),
+//   • `sessionState` — the captured trace lifecycle state.
+// A session can be NOT attached here yet still LIVE in the user's own terminal
+// (trace state 'active'/'opening') — calling that "ended" is wrong. Three states:
+//   "live"    → alive here → "the conversation is live in the terminal",
+//   "outside" → not alive but state active/opening → running in the user's own
+//               terminal, read-only here (NOT ended),
+//   "ended"   → not alive and a terminal/unknown state → "Session ended."
+export type TailState = "live" | "outside" | "ended";
+
+/** Resolve the session tail state from whether a workbench PTY is attached and
+ *  the captured trace lifecycle state. Pure so the three cases are unit-tested. */
+export function tailState(alive: boolean, sessionState?: string): TailState {
+  if (alive) return "live";
+  if (sessionState === "active" || sessionState === "opening") return "outside";
+  return "ended";
 }
 
 /** Single-active-agent v1 rule: at most ONE alive agent session (shells unlimited). */

@@ -1,7 +1,7 @@
 // Smoke tests for the U5 SessionComposer resting-state copy + chip reframe.
 // We test the exported constants — no DOM mounting needed (node env).
 import { describe, expect, it } from "vitest";
-import { EMPTY_STATE_COPY, QUICK_CHIPS } from "./SessionComposer";
+import { EMPTY_STATE_COPY, KBD_HINT_LABEL, QUICK_CHIPS } from "./SessionComposer";
 
 describe("SessionComposer — U5 resting-state copy", () => {
   it("EMPTY_STATE_COPY mentions typing in the terminal", () => {
@@ -14,6 +14,14 @@ describe("SessionComposer — U5 resting-state copy", () => {
 
   it("EMPTY_STATE_COPY references 'task' so users know what to do", () => {
     expect(EMPTY_STATE_COPY.toLowerCase()).toContain("task");
+  });
+});
+
+describe("SessionComposer — de-cluttered keyboard hint (no host-name repeat)", () => {
+  it("the keyboard hint is the key affordance only — no host name", () => {
+    // The hint must NOT carry a host label (host lives in the pill + copy line).
+    expect(KBD_HINT_LABEL).toBe("Start");
+    expect(KBD_HINT_LABEL).not.toMatch(/claude|gemini|codex|opencode|pi/i);
   });
 });
 

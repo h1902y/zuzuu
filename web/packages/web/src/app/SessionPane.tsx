@@ -283,9 +283,17 @@ export function SessionPane() {
     : undefined;
 
   // recovery banner (leftover session branch) — shown once, inline, dismissable.
+  // Branches of currently-live sessions (running here OR outside the workbench)
+  // are NOT abandoned work, so they never trigger the recovery prompt.
   const [recoveryDismissed, setRecoveryDismissed] = useState(false);
+  const liveBranches = new Set(
+    rows
+      .filter((r) => r.live || r.session.state === "active" || r.session.state === "opening")
+      .map((r) => r.session.git?.branch)
+      .filter((b): b is string => !!b),
+  );
   const bootUnknown = zuzuuHealth.isPending || (zuzuuHome && sessionGit.isPending);
-  const card = !bootUnknown ? centerCard(0, sessionGit.data) : { kind: "none" as const };
+  const card = !bootUnknown ? centerCard(0, sessionGit.data, liveBranches) : { kind: "none" as const };
   const showRecovery = card.kind === "recovery" && !recoveryDismissed;
 
   // onboarding owns the empty pane until a zuzuu home exists
@@ -443,13 +451,19 @@ function ViewedSession({
         </Bar>
       )}
       <div className="relative min-h-0 flex-1">
-        {/* the tree (default surface for both live + past) */}
-        <div className="absolute inset-0" style={{ visibility: view === "tree" ? "visible" : "hidden" }}>
+        {/* the tree (default surface for both live + past). The wrapper carries
+            the vertical scroll so earlier turns/messages are reachable when the
+            transcript overflows (the inner lists are h-full; this bounds them). */}
+        <div
+          className="absolute inset-0 min-h-0 overflow-y-auto"
+          style={{ visibility: view === "tree" ? "visible" : "hidden" }}
+        >
           <SessionTree
             sessionId={session.id}
             alive={live}
             enabled
             onOpenTerminal={live ? () => onSetWorkTab("terminal") : undefined}
+            sessionState={session.state}
           />
         </div>
         {/* the live terminal — the SAME TermView, always mounted (visibility

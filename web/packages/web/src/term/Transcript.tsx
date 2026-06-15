@@ -12,6 +12,7 @@
 // The terminal itself is untouched: this is a sibling read-model. The PTY hot
 // path, reattach/replay and flow control are unchanged (KTD5/R7).
 import { Receipt, Spinner, StatusDot } from "../components/ui";
+import { tailState } from "../lib/session-cards";
 import { useBlocks } from "../state/blocks";
 import { SessionTree } from "./SessionTree";
 import {
@@ -107,13 +108,24 @@ function StarterEmpty() {
 
 /**
  * "Paused — waiting for your input." The calm awaiting-input banner for a shell
- * session that has no running command. A dead session reads as ended.
+ * session that has no running command. A session live outside the workbench
+ * (trace state active/opening, no PTY here) reads honestly as read-only — never
+ * "ended". A truly dead session reads as ended.
  */
-function PausedBanner({ alive }: { alive: boolean }) {
-  if (!alive) {
+function PausedBanner({ alive, sessionState }: { alive: boolean; sessionState?: string }) {
+  const tail = tailState(alive, sessionState);
+  if (tail === "ended") {
     return (
       <div className="flex items-center gap-2 text-ui text-muted-foreground">
         <StatusDot tone="idle" /> Session ended.
+      </div>
+    );
+  }
+  if (tail === "outside") {
+    return (
+      <div className="flex items-center gap-2 rounded-[var(--radius-ui)] border border-[var(--border)] bg-popover px-3 py-2 text-ui text-muted-foreground">
+        <StatusDot tone="idle" />
+        Running in your terminal — read-only here.
       </div>
     );
   }
@@ -126,7 +138,15 @@ function PausedBanner({ alive }: { alive: boolean }) {
 }
 
 /** SHELL transcript — grouped live OSC-133 receipts + paused/running tail. */
-function ShellTranscript({ sessionId, alive }: { sessionId: string; alive: boolean }) {
+function ShellTranscript({
+  sessionId,
+  alive,
+  sessionState,
+}: {
+  sessionId: string;
+  alive: boolean;
+  sessionState?: string;
+}) {
   const blocks = useBlocks((s) => s.bySession[sessionId]) ?? [];
   const rows = blockRows(blocks);
   if (rows.length === 0) return <StarterEmpty />;
@@ -137,7 +157,7 @@ function ShellTranscript({ sessionId, alive }: { sessionId: string; alive: boole
       <Spinner /> Working…
     </div>
   ) : (
-    <PausedBanner alive={alive} />
+    <PausedBanner alive={alive} sessionState={sessionState} />
   );
   return <RunList runs={runs} tail={tail} />;
 }
@@ -155,6 +175,7 @@ export function Transcript({
   alive,
   type,
   onOpenTerminal,
+  sessionState,
 }: {
   sessionId: string;
   /** the PTY is still attached — drives paused-vs-running / live affordances */
@@ -163,10 +184,18 @@ export function Transcript({
   type: "shell" | "agent";
   /** switch the work pane to the Terminal tab (the live surface) */
   onOpenTerminal?: () => void;
+  /** captured trace lifecycle state — distinguishes live-outside-the-workbench
+   *  from a truly ended session */
+  sessionState?: string;
 }) {
   return transcriptSourceFor(type) === "trace" ? (
-    <SessionTree sessionId={sessionId} alive={alive} {...(onOpenTerminal ? { onOpenTerminal } : {})} />
+    <SessionTree
+      sessionId={sessionId}
+      alive={alive}
+      {...(onOpenTerminal ? { onOpenTerminal } : {})}
+      {...(sessionState !== undefined ? { sessionState } : {})}
+    />
   ) : (
-    <ShellTranscript sessionId={sessionId} alive={alive} />
+    <ShellTranscript sessionId={sessionId} alive={alive} sessionState={sessionState} />
   );
 }
