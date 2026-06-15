@@ -1,8 +1,7 @@
-// Pure logic tests for the ModuleView section model (U2).
-// The vitest env is node (no DOM), so these cover the section state logic
-// from module-sections.ts which drives CollapsibleSection open/closed state
-// in ModuleView — not the React tree itself.
-import { describe, expect, it } from "vitest";
+// Pure logic tests for the ModuleView section model (U2) and inline item
+// expand (U3). The vitest env is node (no DOM), so these cover the pure state
+// logic — no React tree mounting needed.
+import { beforeEach, describe, expect, it } from "vitest";
 import {
   defaultOpenSections,
   toggleSection,
@@ -10,6 +9,14 @@ import {
   SECTION_KEYS,
   type SectionKey,
 } from "../state/module-sections";
+import {
+  isItemExpanded,
+  toggleItemExpand,
+  collapseItem,
+  cleanBody,
+  extractItemRelations,
+  useItemExpand,
+} from "../state/item-expand";
 
 describe("defaultOpenSections (section default-open rules)", () => {
   it("opens Pending when pendingCount > 0", () => {
@@ -174,5 +181,200 @@ describe("SectionKey type coverage", () => {
   it("each key is a valid SectionKey string", () => {
     const validKeys: SectionKey[] = ["pending", "items", "versions", "schema", "readme"];
     expect(SECTION_KEYS).toEqual(validKeys);
+  });
+});
+
+// ── U3: inline item expand — pure helpers ────────────────────────────────
+
+describe("isItemExpanded (U3)", () => {
+  it("returns true when expandedId matches itemId", () => {
+    expect(isItemExpanded("item-1", "item-1")).toBe(true);
+  });
+
+  it("returns false when expandedId is null", () => {
+    expect(isItemExpanded(null, "item-1")).toBe(false);
+  });
+
+  it("returns false when expandedId is a different item", () => {
+    expect(isItemExpanded("item-2", "item-1")).toBe(false);
+  });
+});
+
+describe("toggleItemExpand (U3) — row click = inline expand, no navigation", () => {
+  it("expanding a collapsed item returns its id", () => {
+    // null → item-1: the row was clicked, item expands inline
+    expect(toggleItemExpand(null, "item-1")).toBe("item-1");
+  });
+
+  it("clicking the expanded item again collapses it (returns null)", () => {
+    // Clicking the same item twice: expand then collapse
+    const afterExpand = toggleItemExpand(null, "item-1");
+    const afterCollapse = toggleItemExpand(afterExpand, "item-1");
+    expect(afterCollapse).toBeNull();
+  });
+
+  it("clicking a different item expands it and collapses the current one", () => {
+    // item-1 is expanded; click item-2 → item-2 expands, item-1 collapses
+    const afterSwitch = toggleItemExpand("item-1", "item-2");
+    expect(afterSwitch).toBe("item-2");
+  });
+
+  it("does NOT navigate — the result is a new expandedId, not a route", () => {
+    // The return type is string | null — only ever an item id or null, never
+    // a navigation command. This test documents the contract.
+    const result = toggleItemExpand(null, "fact-abc123");
+    expect(typeof result === "string" || result === null).toBe(true);
+    // No {kind:"item"} navigation object, no route string
+    expect(result).not.toEqual(expect.objectContaining({ kind: "item" }));
+  });
+});
+
+describe("collapseItem (U3)", () => {
+  it("always returns null (collapses any expanded item)", () => {
+    expect(collapseItem("item-1")).toBeNull();
+    expect(collapseItem(null)).toBeNull();
+  });
+});
+
+describe("cleanBody (U3) — strips duplicate title heading", () => {
+  it("strips a leading # Title line", () => {
+    const raw = "# My Fact\nThis is the body.\nSecond line.";
+    expect(cleanBody(raw)).toBe("This is the body.\nSecond line.");
+  });
+
+  it("leaves body unchanged if no leading # line", () => {
+    const raw = "This is the body.\nNo heading here.";
+    expect(cleanBody(raw)).toBe("This is the body.\nNo heading here.");
+  });
+
+  it("returns empty string for undefined or empty input", () => {
+    expect(cleanBody(undefined)).toBe("");
+    expect(cleanBody("")).toBe("");
+  });
+
+  it("trims leading/trailing whitespace", () => {
+    const raw = "# Title\n\n  some body  \n";
+    expect(cleanBody(raw)).toBe("some body");
+  });
+});
+
+describe("extractItemRelations (U3) — compact inline list, not side rail", () => {
+  it("returns empty array when payload has no relations", () => {
+    expect(extractItemRelations({})).toEqual([]);
+    expect(extractItemRelations(undefined)).toEqual([]);
+  });
+
+  it("returns empty array when relations is not an array", () => {
+    expect(extractItemRelations({ relations: "bad" })).toEqual([]);
+  });
+
+  it("extracts id and title from valid relation objects", () => {
+    const payload = {
+      relations: [
+        { id: "rel-1", title: "Related Fact" },
+        { id: "rel-2" },
+      ],
+    };
+    const result = extractItemRelations(payload);
+    expect(result).toHaveLength(2);
+    expect(result[0]).toEqual({ id: "rel-1", title: "Related Fact", snippet: undefined });
+    expect(result[1]).toEqual({ id: "rel-2", title: "rel-2", snippet: undefined });
+  });
+
+  it("uses id as title fallback when title is absent", () => {
+    const payload = { relations: [{ id: "some-id" }] };
+    const [rel] = extractItemRelations(payload);
+    expect(rel?.title).toBe("some-id");
+  });
+
+  it("extracts snippet from snippet field", () => {
+    const payload = { relations: [{ id: "r1", snippet: "quoted context" }] };
+    const [rel] = extractItemRelations(payload);
+    expect(rel?.snippet).toBe("quoted context");
+  });
+
+  it("extracts snippet from context field as fallback", () => {
+    const payload = { relations: [{ id: "r1", context: "ctx text" }] };
+    const [rel] = extractItemRelations(payload);
+    expect(rel?.snippet).toBe("ctx text");
+  });
+
+  it("filters out objects with neither id nor title", () => {
+    const payload = { relations: [{ snippet: "orphan" }, { id: "valid" }] };
+    const result = extractItemRelations(payload);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.id).toBe("valid");
+  });
+});
+
+// ── U3: useItemExpand store ───────────────────────────────────────────────
+
+describe("useItemExpand store (U3)", () => {
+  beforeEach(() => {
+    useItemExpand.setState({ expandedByModule: {} });
+  });
+
+  it("starts with nothing expanded", () => {
+    expect(useItemExpand.getState().isExpanded("knowledge", "item-1")).toBe(false);
+  });
+
+  it("toggle expands an item inline in its module", () => {
+    useItemExpand.getState().toggle("knowledge", "item-1");
+    expect(useItemExpand.getState().isExpanded("knowledge", "item-1")).toBe(true);
+  });
+
+  it("toggle collapses an already-expanded item (second click)", () => {
+    useItemExpand.getState().toggle("knowledge", "item-1");
+    useItemExpand.getState().toggle("knowledge", "item-1");
+    expect(useItemExpand.getState().isExpanded("knowledge", "item-1")).toBe(false);
+  });
+
+  it("toggling item-2 collapses item-1 (single-active-expand invariant)", () => {
+    useItemExpand.getState().toggle("knowledge", "item-1");
+    useItemExpand.getState().toggle("knowledge", "item-2");
+    expect(useItemExpand.getState().isExpanded("knowledge", "item-1")).toBe(false);
+    expect(useItemExpand.getState().isExpanded("knowledge", "item-2")).toBe(true);
+  });
+
+  it("modules have independent expand state", () => {
+    useItemExpand.getState().toggle("knowledge", "item-1");
+    useItemExpand.getState().toggle("memory", "item-2");
+    expect(useItemExpand.getState().isExpanded("knowledge", "item-1")).toBe(true);
+    expect(useItemExpand.getState().isExpanded("memory", "item-2")).toBe(true);
+    // knowledge item-1 is not visible in memory
+    expect(useItemExpand.getState().isExpanded("memory", "item-1")).toBe(false);
+  });
+
+  it("collapse() clears the expanded item in that module", () => {
+    useItemExpand.getState().toggle("actions", "runbook-1");
+    useItemExpand.getState().collapse("actions");
+    expect(useItemExpand.getState().isExpanded("actions", "runbook-1")).toBe(false);
+  });
+});
+
+// ── U3: guard — no {kind:"item"} in right-panel.ts ──────────────────────
+
+describe("right-panel.ts has no item-detail navigation (U3 guard)", () => {
+  it("CenterSelection type has no kind:item variant", async () => {
+    // Import the store to inspect its type contract at runtime.
+    // The allowed kinds must be "module" | "session" — never "item".
+    const { useRightPanel } = await import("../state/right-panel");
+    const state = useRightPanel.getState();
+
+    // openModule and openSession are the only navigation primitives
+    expect(typeof state.openModule).toBe("function");
+    expect(typeof state.openSession).toBe("function");
+    // There must be no openItem function — item details stay inline
+    expect((state as unknown as Record<string, unknown>)["openItem"]).toBeUndefined();
+  });
+
+  it("opening a module does not produce a kind:item selection", async () => {
+    const { useRightPanel } = await import("../state/right-panel");
+    useRightPanel.setState({ selection: null, selectedModule: null, selectedSession: null });
+    useRightPanel.getState().openModule("knowledge");
+    const sel = useRightPanel.getState().selection;
+    expect(sel?.kind).toBe("module");
+    // Confirm: never "item"
+    expect(sel?.kind).not.toBe("item");
   });
 });

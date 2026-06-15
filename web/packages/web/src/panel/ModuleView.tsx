@@ -503,7 +503,11 @@ function confidenceTone(confidence: string | undefined): PillTone {
   return "neutral";
 }
 
-// ── ItemDetail: the reading body + properties rail + backlinks ────────────
+// ── ItemInlineBlock: lightweight inline reading view (U3) ────────────────
+//
+// Replaces the two-column ItemDetail rail. Everything flows in one column:
+// body, compact key-properties list, provenance line, relations as inline
+// chips/list. No side rail, no navigation.
 
 /** Extract relations from item payload — returns an array of relation objects
  *  with at least an id or title. Best-effort; falls back to []. */
@@ -513,16 +517,16 @@ function extractRelations(item: ModuleItem): { id?: string; title?: string; snip
   return rel
     .filter((r): r is Record<string, unknown> => !!r && typeof r === "object")
     .map((r) => ({
-      id: typeof r.id === "string" ? r.id : undefined,
-      title: typeof r.title === "string" ? r.title : (typeof r.id === "string" ? r.id : undefined),
-      snippet: typeof r.snippet === "string" ? r.snippet : (typeof r.context === "string" ? r.context : undefined),
+      id: typeof r["id"] === "string" ? r["id"] : undefined,
+      title: typeof r["title"] === "string" ? r["title"] : (typeof r["id"] === "string" ? r["id"] : undefined),
+      snippet: typeof r["snippet"] === "string" ? r["snippet"] : (typeof r["context"] === "string" ? r["context"] : undefined),
     }))
     .filter((r) => r.id ?? r.title);
 }
 
-/** The full item reading body + right rail of PropertyRows + backlinks.
- *  Shown when ItemPeek is expanded. */
-function ItemDetail({ item, allItems }: { item: ModuleItem; allItems: ModuleItem[] }) {
+/** Lightweight inline reading block — single-column, no side rail.
+ *  title → body → compact key-props row → provenance line → relations inline list. */
+function ItemInlineBlock({ item, allItems }: { item: ModuleItem; allItems: ModuleItem[] }) {
   const rel = relativeTime(item.updated_at ?? item.created_at);
   const provenanceSessions = (item.provenance ?? [])
     .map((p) => p.session)
@@ -540,16 +544,14 @@ function ItemDetail({ item, allItems }: { item: ModuleItem; allItems: ModuleItem
     ? item.payload.score
     : undefined;
 
-  // Body prose: item.body is the primary source; strip leading "# Title" if present
+  // Body prose: strip a leading "# Title" heading that duplicates the row title
   const rawBody = typeof item.body === "string" ? item.body : "";
   const bodyLines = rawBody.split("\n");
-  // Drop a leading `# …` heading that duplicates the title
   const body = (bodyLines[0]?.startsWith("# ") ? bodyLines.slice(1) : bodyLines)
     .join("\n")
     .trim();
 
-  // Relations: from payload.relations (schema field), or from other items in
-  // the module that share a provenance session — honest fallback as ItemRows.
+  // Relations: payload.relations (schema) first; fallback to same-session siblings
   const payloadRelations = extractRelations(item);
   const sharedSessionRelations = payloadRelations.length === 0
     ? allItems.filter(
@@ -561,139 +563,100 @@ function ItemDetail({ item, allItems }: { item: ModuleItem; allItems: ModuleItem
     : [];
 
   return (
-    <div className="wc-panel-enter flex flex-col gap-0 mt-1 mb-2 ml-4">
-      {/* ── two-column: reading body (left) + properties rail (right) ── */}
-      <div className="flex gap-5">
-        {/* reading body — capped measure, generous line-height */}
-        <div className="min-w-0 flex-1">
-          {/* title at display size, serif accent */}
-          <h2 className="wc-serif mb-2 text-display font-semibold leading-snug text-ink-100" style={{ maxWidth: "44ch" }}>
-            {item.title}
-          </h2>
-          {body ? (
-            <p className="wc-sans text-body leading-relaxed text-ink-300" style={{ maxWidth: "52ch" }}>
-              {body}
-            </p>
-          ) : (
-            <p className="wc-sans text-body italic text-ink-600" style={{ maxWidth: "52ch" }}>
-              no body — the fact is its title
-            </p>
-          )}
-        </div>
+    <div className="wc-panel-enter mt-1 mb-2 ml-4 flex flex-col gap-2.5">
+      {/* body */}
+      {body ? (
+        <p className="wc-sans text-body leading-relaxed text-ink-300 whitespace-pre-wrap" style={{ maxWidth: "56ch" }}>
+          {body}
+        </p>
+      ) : (
+        <p className="wc-sans text-body italic text-ink-600">
+          no body — the fact is its title
+        </p>
+      )}
 
-        {/* properties rail */}
-        <div className="w-44 shrink-0 border-l border-border pl-4">
-          <div className="flex flex-col divide-y divide-border">
-            {/* kind */}
-            <PropertyRow label="kind">
-              <span className="wc-sans flex items-center gap-1 text-ink-200">
-                <svg viewBox="0 0 16 16" className="h-3 w-3 shrink-0 text-ink-500" fill="none" stroke="currentColor" strokeWidth="1.4">
-                  <path d={kindIcon(item.kind)} strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                {item.kind ?? "—"}
-              </span>
-            </PropertyRow>
-            {/* status */}
-            {item.status && (
-              <PropertyRow label="status">
-                <StatusPill tone={item.status === "active" ? "ok" : item.status === "archived" ? "neutral" : "neutral"}>
-                  {item.status}
-                </StatusPill>
-              </PropertyRow>
-            )}
-            {/* confidence */}
-            {confidence && (
-              <PropertyRow label="confidence">
-                <StatusPill tone={confidenceTone(confidence)}>{confidence}</StatusPill>
-              </PropertyRow>
-            )}
-            {/* score */}
-            {score !== undefined && (
-              <PropertyRow label="score">
-                <span className="wc-mono text-ink-300">{score.toFixed(2)}</span>
-              </PropertyRow>
-            )}
-            {/* source / provenance session */}
-            {source && (
-              <PropertyRow label="source">
-                <span className="wc-mono truncate text-ink-400" title={source}>
-                  {source.length > 16 ? source.slice(0, 14) + "…" : source}
-                </span>
-              </PropertyRow>
-            )}
-            {/* version (generation lockfile) */}
-            {generation && (
-              <PropertyRow label="version">
-                <span className="wc-mono text-ink-400">{versionLabel(generation)}</span>
-              </PropertyRow>
-            )}
-            {/* updated timestamp */}
-            {rel && (
-              <PropertyRow label="updated">
-                <span className="wc-mono text-ink-500">{rel}</span>
-              </PropertyRow>
-            )}
-          </div>
-        </div>
+      {/* compact key-props row — inline chips, not a side rail */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-ink-500">
+        {/* kind */}
+        <span className="wc-sans flex items-center gap-1">
+          <svg viewBox="0 0 16 16" className="h-3 w-3 shrink-0 text-ink-600" fill="none" stroke="currentColor" strokeWidth="1.4">
+            <path d={kindIcon(item.kind)} strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          {item.kind ?? "—"}
+        </span>
+        {/* status */}
+        {item.status && (
+          <StatusPill tone={item.status === "active" ? "ok" : "neutral"}>{item.status}</StatusPill>
+        )}
+        {/* confidence */}
+        {confidence && (
+          <StatusPill tone={confidenceTone(confidence)}>{confidence}</StatusPill>
+        )}
+        {/* score */}
+        {score !== undefined && (
+          <span className="wc-mono text-ink-400">{score.toFixed(2)}</span>
+        )}
+        {/* version */}
+        {generation && (
+          <span className="wc-mono text-ink-500">{versionLabel(generation)}</span>
+        )}
       </div>
 
-      {/* ── quoted-context backlinks / related items ────────────────── */}
+      {/* provenance line: source + updated */}
+      {(source ?? rel) && (
+        <div className="flex flex-wrap items-center gap-2 text-meta text-ink-600">
+          {source && (
+            <span className="wc-mono truncate" title={source}>
+              {source.length > 20 ? source.slice(0, 18) + "…" : source}
+            </span>
+          )}
+          {source && rel && <span aria-hidden>·</span>}
+          {rel && <span className="wc-sans">{rel}</span>}
+        </div>
+      )}
+
+      {/* relations — compact inline list, NOT a side rail */}
       {payloadRelations.length > 0 && (
-        <div className="mt-4 flex flex-col gap-1.5 border-t border-border pt-3">
-          <div className="wc-eyebrow mb-1">Related ({payloadRelations.length})</div>
-          {payloadRelations.map((r, i) => (
-            <div
-              key={r.id ?? i}
-              className="rounded-ui border border-border bg-surface p-2.5"
-            >
-              {r.snippet ? (
-                <>
-                  {/* quoted context sentence — the Reflect pattern */}
-                  <p className="wc-sans mb-1 text-ui italic text-ink-300 leading-relaxed">
-                    "{r.snippet}"
-                  </p>
-                  <span className="wc-sans text-meta text-ink-500">{r.title ?? r.id}</span>
-                </>
-              ) : (
-                <span className="wc-sans text-ui text-ink-200">{r.title ?? r.id}</span>
-              )}
-            </div>
-          ))}
+        <div className="flex flex-col gap-1 border-t border-border pt-2">
+          <div className="wc-eyebrow mb-0.5">related ({payloadRelations.length})</div>
+          <div className="flex flex-wrap gap-1.5">
+            {payloadRelations.map((r, i) => (
+              <span
+                key={r.id ?? i}
+                className="wc-sans rounded-ui border border-border bg-surface px-2 py-0.5 text-meta text-ink-300"
+                title={r.snippet ?? undefined}
+              >
+                {r.title ?? r.id}
+              </span>
+            ))}
+          </div>
         </div>
       )}
 
-      {/* honest fallback: ItemRows from same-session siblings */}
+      {/* fallback: same-session siblings as compact inline chips */}
       {payloadRelations.length === 0 && sharedSessionRelations.length > 0 && (
-        <div className="mt-4 flex flex-col gap-1 border-t border-border pt-3">
-          <div className="wc-eyebrow mb-1">Related ({sharedSessionRelations.length})</div>
-          {sharedSessionRelations.slice(0, 5).map((other) => (
-            <ItemRow
-              key={other.id}
-              kind={other.kind}
-              title={other.title}
-              status={other.status === "archived" ? "archived" : undefined}
-              timestamp={other.updated_at ?? other.created_at}
-              compact
-            />
-          ))}
-        </div>
-      )}
-
-      {/* empty-state: teach that links appear here */}
-      {payloadRelations.length === 0 && sharedSessionRelations.length === 0 && (
-        <div className="mt-3 border-t border-border pt-3">
-          <div className="wc-eyebrow mb-1">Related</div>
-          <p className="wc-sans text-meta text-ink-600">
-            no related items yet — links appear here as zuzuu corroborates this fact
-          </p>
+        <div className="flex flex-col gap-1 border-t border-border pt-2">
+          <div className="wc-eyebrow mb-0.5">related ({sharedSessionRelations.length})</div>
+          <div className="flex flex-wrap gap-1.5">
+            {sharedSessionRelations.slice(0, 5).map((other) => (
+              <span
+                key={other.id}
+                className="wc-sans rounded-ui border border-border bg-surface px-2 py-0.5 text-meta text-ink-300"
+              >
+                {other.title}
+              </span>
+            ))}
+          </div>
         </div>
       )}
     </div>
   );
 }
 
-/** An envelope-item row with an inline expand affordance: click the chevron to
- *  show the full reading body + properties rail before opening the file. */
+/** An envelope-item row with a single PRIMARY affordance — the row click
+ *  toggles the inline expand (no navigation). "Open in editor" is a small
+ *  explicit secondary icon button that appears on hover, separate from the
+ *  main row click. No chevron — the whole row is the expand target. */
 function ItemPeek({
   item,
   allItems,
@@ -710,30 +673,20 @@ function ItemPeek({
   const [open, setOpen] = useState(false);
   return (
     <div className="border-b border-border last:border-0">
-      <div className="flex items-center gap-1">
-        <button
-          onClick={() => setOpen((v) => !v)}
-          className="shrink-0 text-meta text-ink-600 hover:text-accent"
-          title={open ? "Collapse" : "Expand detail"}
-        >
-          {open ? "▾" : "▸"}
-        </button>
-        <div className="min-w-0 flex-1">
-          <ItemRow
-            kind={item.kind}
-            title={item.title}
-            status={item.status === "archived" ? "archived" : undefined}
-            timestamp={item.updated_at ?? item.created_at}
-            onClick={onOpen}
-            titleAttr={path}
-            compact
-          />
-        </div>
-      </div>
+      <ItemRow
+        kind={item.kind}
+        title={item.title}
+        status={item.status === "archived" ? "archived" : undefined}
+        timestamp={item.updated_at ?? item.created_at}
+        onClick={() => setOpen((v) => !v)}
+        onOpenInEditor={onOpen}
+        titleAttr={path}
+        compact
+      />
       {open && (
         moduleKey === "instructions" && (item.kind === "steering" || item.kind === "amendment")
           ? <InstructionsDetail item={item} />
-          : <ItemDetail item={item} allItems={allItems} />
+          : <ItemInlineBlock item={item} allItems={allItems} />
       )}
     </div>
   );
