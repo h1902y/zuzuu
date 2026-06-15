@@ -76,6 +76,12 @@ export const zuzuuApi = {
     request<ApproveResult>(`/proposals/${encodeURIComponent(id)}/approve`, json({ module })),
   rejectProposal: (id: string, module: string, reason?: string) =>
     request<RejectResult>(`/proposals/${encodeURIComponent(id)}/reject`, json(reason ? { module, reason } : { module })),
+  /** guided module creation (WS-D): compose a declarative module from a few
+   *  choices → zuzuu module new <id> … (returns {ok, id, path} or 502 on exists) */
+  createModule: (payload: {
+    id: string; title: string; tagline: string;
+    capabilities: string[]; kinds: string[]; required: string[];
+  }) => request<{ ok?: boolean; id?: string; path?: string }>("/module/new", json(payload)),
   /** toggle a module on/off (zuzuu module enable|disable <key>) */
   setModuleEnabled: (key: string, enabled: boolean) =>
     request<{ ok?: boolean }>(`/module/${encodeURIComponent(key)}/enabled`, json({ enabled })),

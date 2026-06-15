@@ -15,13 +15,7 @@ import { Switch } from "../components/ui-shadcn/switch";
 import { Badge } from "../components/ui-shadcn/badge";
 import { Button } from "../components/ui-shadcn/button";
 import { ScrollArea } from "../components/ui-shadcn/scroll-area";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "../components/ui-shadcn/dialog";
+import { NewModuleDialog } from "./NewModuleDialog";
 import { moduleDisplay, moduleHue } from "./kit";
 import { kindLabel, orderedIds, toggleEnabledInOverview } from "./modules-list";
 
@@ -75,7 +69,7 @@ export function ModulesList({
             })}
           </ul>
 
-          {/* ＋ New module (stub → WS-D) */}
+          {/* ＋ New module (WS-D guided wizard) */}
           <div className="p-3">
             <Button
               variant="outline"
@@ -92,17 +86,7 @@ export function ModulesList({
         </ScrollArea>
       )}
 
-      <Dialog open={newOpen} onOpenChange={setNewOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Guided module creation</DialogTitle>
-            <DialogDescription>
-              Coming soon — you&apos;ll be able to compose a new module from a
-              template and let it grow from your sessions.
-            </DialogDescription>
-          </DialogHeader>
-        </DialogContent>
-      </Dialog>
+      <NewModuleDialog open={newOpen} onOpenChange={setNewOpen} />
     </div>
   );
 }
