@@ -365,7 +365,9 @@ export function CommandPalette({
           {!historyOnly && isEmpty && (
             <Command.Group heading="Go to module">
               {MODULE_ORDER.map((moduleId) => {
-                const meta = MODULE_META[moduleId];
+                // MODULE_ORDER is exactly the keys of MODULE_META (built-in seed)
+                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                const meta = MODULE_META[moduleId]!;
                 return (
                   <Item
                     key={`mod-${moduleId}`}

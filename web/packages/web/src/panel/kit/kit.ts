@@ -2,7 +2,15 @@
 // card status mapping, the kind→icon map (universal over every envelope
 // kind), module display metadata (manifest ui descriptors first, built-in
 // MODULE_META as the fallback), and relative-time formatting.
+//
+// N-module: ModuleKey is now `string` (any slug). MODULE_ORDER / MODULE_META
+// are seed metadata for the five built-ins; the panel drives its module list
+// from whatever overview returns (PanelRoot unions the order).
 import type { ModuleItem, ModuleKey, ModuleOverviewEntry } from "@zuzuu-web/protocol";
+import { BUILTIN_MODULE_KEYS } from "@zuzuu-web/protocol";
+
+/** The union of the five built-in module key literals (for exhaustive MODULE_META). */
+type BuiltinModuleKey = typeof BUILTIN_MODULE_KEYS[number];
 
 // ── card status ───────────────────────────────────────────────────────
 
@@ -49,7 +57,8 @@ export const kindIcon = (kind: string | undefined): string =>
 
 // ── module display metadata ──────────────────────────────────────────
 
-export const MODULE_ORDER: ModuleKey[] = [
+/** The five built-in modules in display order (seed; panel root unions with overview keys). */
+export const MODULE_ORDER: BuiltinModuleKey[] = [
   "knowledge", "memory", "actions", "instructions", "guardrails",
 ];
 
@@ -82,7 +91,9 @@ export interface ModuleMeta {
   teach: string;
 }
 
-export const MODULE_META: Record<ModuleKey, ModuleMeta> = {
+/** Built-in seed metadata (exhaustive over the 5 built-in keys).
+ *  Mapped type so noUncheckedIndexedAccess doesn't widen access to V|undefined. */
+export const MODULE_META: { [K in BuiltinModuleKey]: ModuleMeta } = {
   knowledge: {
     label: "Knowledge",
     icon: "M6.3 13.5h3.4M6.8 11.5h2.4M8 2.5a3.9 3.9 0 012.2 7.1c-.5.4-.7 1.1-.7 1.9H6.5c0-.8-.2-1.5-.7-1.9A3.9 3.9 0 018 2.5",
@@ -135,7 +146,7 @@ export interface ModuleDisplay {
   teach: string;
 }
 
-const isBuiltin = (id: string): id is ModuleKey => id in MODULE_META;
+const isBuiltin = (id: string): id is BuiltinModuleKey => id in MODULE_META;
 
 /** A module's display block: the overview's manifest `ui` descriptor wins;
  *  the kit's built-in MODULE_META covers CLI-less degradation; unknown
