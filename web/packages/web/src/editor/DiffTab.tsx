@@ -41,7 +41,7 @@ export default DiffTab;
 
 function Centered({ children, danger }: { children: React.ReactNode; danger?: boolean }) {
   return (
-    <div className={`flex h-full items-center justify-center text-ui ${danger ? "text-danger" : "text-ink-500"}`}>
+    <div className={`flex h-full items-center justify-center text-ui ${danger ? "text-danger" : "text-muted-foreground"}`}>
       {children}
     </div>
   );

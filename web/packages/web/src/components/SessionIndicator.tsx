@@ -55,7 +55,7 @@ export function SessionIndicator({ enabled }: { enabled: boolean }) {
       <button
         ref={btnRef}
         onClick={() => setMenuOpen((v) => !v)}
-        className={`flex shrink-0 items-center gap-1.5 ${ind.kind === "leftover" ? "text-warn hover:text-warn/80" : "text-ink-300 hover:text-accent"}`}
+        className={`flex shrink-0 items-center gap-1.5 ${ind.kind === "leftover" ? "text-warn hover:text-warn/80" : "text-muted-foreground hover:text-accent"}`}
         title={
           ind.kind === "leftover"
             ? "A session branch was left unmerged — merge or continue it"

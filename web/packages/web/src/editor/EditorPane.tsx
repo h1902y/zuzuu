@@ -11,7 +11,7 @@ const MonacoFile = lazy(() => import("./MonacoFile"));
 const DiffTab = lazy(() => import("./DiffTab"));
 
 function EditorFallback() {
-  return <div className="flex h-full items-center justify-center text-ui text-ink-500">loading editor…</div>;
+  return <div className="flex h-full items-center justify-center text-ui text-muted-foreground">loading editor…</div>;
 }
 
 const EDITABLE = new Set(["code", "markdown"]);
@@ -27,7 +27,7 @@ export function EditorPane({ leading }: { leading?: ReactNode }) {
   const active = openFiles.find((f) => editorTabId(f) === activePath) ?? openFiles[0]!;
 
   return (
-    <div className="flex h-full min-w-0 flex-col bg-surface">
+    <div className="flex h-full min-w-0 flex-col bg-card">
       <Bar border="b" surface="surface" className="!gap-0 overflow-x-auto !px-0">
         {leading}
         <TabBar>
@@ -43,7 +43,7 @@ export function EditorPane({ leading }: { leading?: ReactNode }) {
                 onClose={() => close(id)}
                 dirty={buffers[id]?.dirty}
                 title={f.path}
-                className="border-r border-border"
+                className="border-r border-[var(--border)]"
                 leading={f.diff ? <span className="text-meta text-accent-dim">diff</span> : undefined}
                 trailing={
                   isMd ? (
@@ -55,8 +55,8 @@ export function EditorPane({ leading }: { leading?: ReactNode }) {
                         e.stopPropagation();
                         toggleMdPreview(id);
                       }}
-                      className={`flex h-4 w-4 items-center justify-center rounded-[var(--radius-sm)] hover:bg-elevated ${
-                        previewing ? "text-accent" : "text-ink-500 hover:text-ink-200"
+                      className={`flex h-4 w-4 items-center justify-center rounded-[var(--radius-sm)] hover:bg-popover ${
+                        previewing ? "text-accent" : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
                       <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="1.4">
@@ -105,9 +105,9 @@ function ActiveBody({ file }: { file: OpenFile }) {
   return (
     <>
       {editable && (
-        <Bar border="b" className="text-meta text-ink-500">
+        <Bar border="b" className="text-meta text-muted-foreground">
           <span className="truncate">{file.path}</span>
-          {buffer?.dirty && <span className="ml-auto shrink-0 text-ink-500">⌘S to save</span>}
+          {buffer?.dirty && <span className="ml-auto shrink-0 text-muted-foreground">⌘S to save</span>}
           <ActionMenu items={localFileActions(file.path)} className={buffer?.dirty ? "shrink-0" : "ml-auto shrink-0"} />
         </Bar>
       )}

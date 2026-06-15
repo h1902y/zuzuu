@@ -17,14 +17,14 @@ import { Button, Receipt, Spinner, StatusDot, confirm } from "./ui";
 function Card({ children, onDismiss }: { children: ReactNode; onDismiss?: () => void }) {
   return (
     <div
-      className="relative w-full max-w-sm rounded-ui border border-border bg-elevated p-5"
+      className="relative w-full max-w-sm rounded-ui border border-[var(--border)] bg-popover p-5"
       style={{ boxShadow: "var(--shadow-menu)" }}
     >
       {onDismiss && (
         <button
           onClick={onDismiss}
           title="Dismiss"
-          className="absolute right-2.5 top-2.5 flex h-6 w-6 items-center justify-center rounded-[var(--radius-sm)] text-ink-500 hover:bg-hover hover:text-ink-100"
+          className="absolute right-2.5 top-2.5 flex h-6 w-6 items-center justify-center rounded-[var(--radius-sm)] text-muted-foreground hover:bg-[var(--accent)] hover:text-foreground"
         >
           ✕
         </button>
@@ -40,7 +40,7 @@ function Card({ children, onDismiss }: { children: ReactNode; onDismiss?: () => 
 export function SetupZuzuuCard({ zuzuuBin, onDismiss }: { zuzuuBin: boolean; onDismiss?: () => void }) {
   return (
     <Card {...(onDismiss ? { onDismiss } : {})}>
-      <div className="text-base font-medium text-ink-100">Set up zuzuu</div>
+      <div className="text-base font-medium text-foreground">Set up zuzuu</div>
       <p className="mt-1 text-ui leading-relaxed text-ink-400">
         zuzuu sets up a hidden <code className="text-accent-dim">.zuzuu/</code> home in this project
         (like <code className="text-accent-dim">.git</code>) where your agent&apos;s modules —
@@ -51,7 +51,7 @@ export function SetupZuzuuCard({ zuzuuBin, onDismiss }: { zuzuuBin: boolean; onD
           <Button variant="primary" onClick={() => void startUtilityRun(["init"])}>
             Set up zuzuu
           </Button>
-          <div className="text-meta text-ink-500">
+          <div className="text-meta text-muted-foreground">
             then{" "}
             <button
               className="text-accent-dim underline decoration-dotted underline-offset-2 hover:text-accent"
@@ -88,7 +88,7 @@ export function RecoveryCard({ branch, checkpoints }: { branch: string; checkpoi
 
   return (
     <Card>
-      <div className="text-base font-medium text-ink-100">You left work here</div>
+      <div className="text-base font-medium text-foreground">You left work here</div>
       <p className="mt-1 text-ui leading-relaxed text-ink-400">
         <span className="text-accent-dim">{branch}</span> — {checkpoints} checkpoint
         {checkpoints === 1 ? "" : "s"} from an earlier session.
@@ -154,7 +154,7 @@ export function SessionEndCard({
       // zuzuu utility runs (init / enable) — no checkpoints, no merge story
       return (
         <Card>
-          <div className="text-base font-medium text-ink-100">Session finished</div>
+          <div className="text-base font-medium text-foreground">Session finished</div>
           <div className="mt-4 flex items-center gap-2">
             <Button onClick={onCloseTab}>Close</Button>
           </div>
@@ -163,7 +163,7 @@ export function SessionEndCard({
     case "merged":
       return (
         <Card>
-          <div className="text-base font-medium text-ink-100">Session ended — merged to main ✓</div>
+          <div className="text-base font-medium text-foreground">Session ended — merged to main ✓</div>
           <p className="mt-1 text-ui text-ink-400">
             {state.commits} checkpoint{state.commits === 1 ? "" : "s"} → 1 commit
           </p>
@@ -173,7 +173,7 @@ export function SessionEndCard({
     case "no-changes":
       return (
         <Card>
-          <div className="text-base font-medium text-ink-100">Session ended</div>
+          <div className="text-base font-medium text-foreground">Session ended</div>
           <p className="mt-1 text-ui text-ink-400">No changes to merge — main is untouched.</p>
           {startClose}
         </Card>
@@ -181,7 +181,7 @@ export function SessionEndCard({
     case "cli-absent":
       return (
         <Card onDismiss={onDismiss}>
-          <div className="text-base font-medium text-ink-100">Session ended</div>
+          <div className="text-base font-medium text-foreground">Session ended</div>
           <div className="mt-3 rounded-[var(--radius-sm)] border border-warn/40 bg-[color-mix(in_oklab,var(--color-warn)_10%,transparent)] px-3 py-2 text-ui text-warn">
             zuzuu CLI required to merge session checkpoints —{" "}
             <code>npm i -g @zuzuucodes/cli</code>
@@ -192,7 +192,7 @@ export function SessionEndCard({
     case "no-net-changes":
       return (
         <Card>
-          <div className="text-base font-medium text-ink-100">No net changes</div>
+          <div className="text-base font-medium text-foreground">No net changes</div>
           <p className="mt-1 text-ui leading-relaxed text-ink-400">
             {state.checkpoints !== null
               ? `${state.checkpoints} exploration checkpoint${state.checkpoints === 1 ? "" : "s"} retained`
@@ -211,7 +211,7 @@ export function SessionEndCard({
     case "conflict":
       return (
         <Card onDismiss={onDismiss}>
-          <div className="text-base font-medium text-ink-100">Merge hit a conflict</div>
+          <div className="text-base font-medium text-foreground">Merge hit a conflict</div>
           <p className="mt-1 text-ui leading-relaxed text-ink-400">
             Your checkpoints are safe on the session branch. Resolve in a terminal:{" "}
             <code className="text-accent-dim">zuzuu session merge</code>.
@@ -222,9 +222,9 @@ export function SessionEndCard({
     case "failed":
       return (
         <Card onDismiss={onDismiss}>
-          <div className="text-base font-medium text-ink-100">Session merge failed</div>
+          <div className="text-base font-medium text-foreground">Session merge failed</div>
           <p className="mt-1 break-words text-ui leading-relaxed text-ink-400">{state.message}</p>
-          <p className="mt-2 text-meta text-ink-500">
+          <p className="mt-2 text-meta text-muted-foreground">
             Checkpoints stay on the session branch — resolve in a terminal.
           </p>
           {startClose}
@@ -277,9 +277,9 @@ export function SessionTranscript({
   if (runnable.length === 0) {
     return (
       <div className="flex h-full items-center justify-center p-8 text-center">
-        <p className="max-w-xs text-ui leading-relaxed text-ink-500">
+        <p className="max-w-xs text-ui leading-relaxed text-muted-foreground">
           This session&apos;s activity will appear here as a timeline of receipts.
-          The raw terminal lives in the <span className="text-ink-300">Terminal</span> tab.
+          The raw terminal lives in the <span className="text-muted-foreground">Terminal</span> tab.
         </p>
       </div>
     );
@@ -294,7 +294,7 @@ export function SessionTranscript({
         {/* paused / running tail — the explicit awaiting-input state */}
         <div className="mt-2 px-2">
           {running ? (
-            <div className="flex items-center gap-2 text-ui text-ink-300">
+            <div className="flex items-center gap-2 text-ui text-muted-foreground">
               <Spinner /> Working…
             </div>
           ) : (
@@ -332,13 +332,13 @@ function TranscriptReceipt({ block }: { block: Block }) {
 export function PausedBanner({ alive }: { alive: boolean }) {
   if (!alive) {
     return (
-      <div className="flex items-center gap-2 text-ui text-ink-500">
+      <div className="flex items-center gap-2 text-ui text-muted-foreground">
         <StatusDot tone="idle" /> Session ended.
       </div>
     );
   }
   return (
-    <div className="flex items-center gap-2 rounded-[var(--radius-ui)] border border-border bg-elevated px-3 py-2 text-ui text-ink-300">
+    <div className="flex items-center gap-2 rounded-[var(--radius-ui)] border border-[var(--border)] bg-popover px-3 py-2 text-ui text-muted-foreground">
       <StatusDot tone="ok" pulse />
       Paused — waiting for your input.
     </div>
