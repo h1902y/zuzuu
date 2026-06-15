@@ -28,6 +28,17 @@ export const useZuzuuStatusQuery = (enabled: boolean) =>
 export const useSessionGitQuery = (enabled: boolean) =>
   useQuery({ queryKey: ["zuzuu", "session"], queryFn: zuzuuApi.sessionGit, refetchInterval: 6000, enabled });
 
+/** One session's ordered per-action trace records (U6) — feeds the agent-session
+ *  transcript + history. Read-only, fail-soft on the daemon; polled gently while
+ *  a session stays open (the trace fills in post-hoc as it's captured). */
+export const useSessionTraceQuery = (sessionId: string, enabled: boolean) =>
+  useQuery({
+    queryKey: ["zuzuu", "session-trace", sessionId],
+    queryFn: () => zuzuuApi.sessionTrace(sessionId),
+    refetchInterval: 8000,
+    enabled,
+  });
+
 const parentOf = (path: string) => path.split("/").slice(0, -1).join("/");
 
 /** Start the fs-events socket once the workspace is known and map pushed

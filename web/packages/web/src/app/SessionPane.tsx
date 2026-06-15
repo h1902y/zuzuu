@@ -8,7 +8,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSessions, type SessionTab } from "../state/sessions";
 import { TermView } from "../term/TermView";
 import { Bar, Tab, TabBar, IconButton, StatusDot, StatusPill, Spinner, confirm } from "../components/ui";
-import { RecoveryCard, SetupZuzuuCard, SessionTranscript } from "../components/SessionCards";
+import { RecoveryCard, SetupZuzuuCard } from "../components/SessionCards";
+import { Transcript } from "../term/Transcript";
 import { SessionComposer } from "../components/SessionComposer";
 import { centerCard, traceSessionForTab } from "../lib/session-cards";
 import { sessionStateMeta, shortSessionId } from "../panel/sections";
@@ -205,7 +206,12 @@ export function SessionPane() {
                   className="absolute inset-0"
                   style={{ visibility: view === "conversation" ? "visible" : "hidden" }}
                 >
-                  <SessionTranscript sessionId={tab.id} alive={tab.alive} />
+                  <Transcript
+                    sessionId={tab.id}
+                    alive={tab.alive}
+                    type={tab.type}
+                    onOpenTerminal={() => setTabOf(tab.id, "terminal")}
+                  />
                 </div>
                 {/* Terminal — the SAME TermView, only relocated into this tab
                     panel. Kept always-mounted (visibility toggle, never
