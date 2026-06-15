@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { zuzuuApi, describeZuzuuError } from "../lib/zuzuu-api";
 import { mergeSessionWithFallback, refreshSessionGit } from "../lib/session-git-actions";
 import { startUtilityRun } from "../lib/agent-launch";
-import { type EndCard } from "../lib/session-cards";
+import { type EndCard, recoveryBannerCopy } from "../lib/session-cards";
 import { Button, Spinner, confirm } from "./ui";
 
 /**
@@ -98,23 +98,24 @@ export function RecoveryBanner({
       });
   };
 
+  const copy = recoveryBannerCopy(branch, checkpoints);
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-[var(--border)] bg-[color-mix(in_oklab,var(--color-accent)_8%,var(--surface))] px-3 py-2">
       <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0 text-accent-dim" fill="none" stroke="currentColor" strokeWidth="1.4">
         <path d="M8 2.5a5.5 5.5 0 110 11 5.5 5.5 0 010-11M8 5v3.2l2.2 1.6" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
       <span className="wc-sans min-w-0 text-ui text-foreground">
-        You left work here —{" "}
-        <span className="wc-mono text-accent-dim">{branch}</span>, {checkpoints} checkpoint
-        {checkpoints === 1 ? "" : "s"}.
+        {copy.lead}{" "}
+        <span className="wc-mono text-accent-dim">{copy.branchLabel}</span>{" "}
+        — {copy.stepCount}.
       </span>
       <div className="ml-auto flex items-center gap-2">
         {busy && <Spinner />}
         <Button variant="primary" size="sm" disabled={busy} onClick={() => act(zuzuuApi.sessionContinue)}>
-          Continue
+          {copy.resumeLabel}
         </Button>
         <Button size="sm" disabled={busy} onClick={() => act(mergeSessionWithFallback)}>
-          Merge &amp; start fresh
+          {copy.saveLabel}
         </Button>
         {onDismiss && (
           <button

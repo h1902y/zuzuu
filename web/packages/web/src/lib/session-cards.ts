@@ -83,6 +83,27 @@ export type CenterCard =
   | { kind: "recovery"; branch: string; checkpoints: number };
 
 /**
+ * Plain-language copy for the recovery banner (U4 — no git/checkpoint jargon).
+ * Exported as a pure function so unit tests can assert exact strings without a
+ * DOM renderer.
+ */
+export function recoveryBannerCopy(branch: string, checkpoints: number): {
+  lead: string;
+  branchLabel: string;
+  stepCount: string;
+  resumeLabel: string;
+  saveLabel: string;
+} {
+  return {
+    lead: "You have unfinished work from a previous session.",
+    branchLabel: branch,
+    stepCount: `${checkpoints} saved step${checkpoints === 1 ? "" : "s"}`,
+    resumeLabel: "Resume this work",
+    saveLabel: "Save to main & start new",
+  };
+}
+
+/**
  * What the terminal pane's center shows. Starting sessions moved to the
  * bottom composer bar — the center keeps only the load-time recovery card:
  * - sessions exist → nothing (the terminals),

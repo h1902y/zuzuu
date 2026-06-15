@@ -47,15 +47,19 @@ export function startHostRow(rowCommand: string): void {
   if (spec) void startAgentSession(spec).catch((err: Error) => window.alert(err.message));
 }
 
-// ── warm suggestion chips — seeded from the module surface ──────────────────
-// Shown only in the first-run / resting state (no sessions alive or open).
-// Clicking a chip launches the currently-selected host (the same as pressing
-// Enter) — they surface the module story without forcing it.
-const SUGGESTION_CHIPS = [
-  { label: "Recall what you know", title: "Start a session to recall stored knowledge" },
-  { label: "Run an action", title: "Start a session to run a saved action or runbook" },
-  { label: "Review proposals", title: "Start a session to review pending module proposals" },
+// ── quick-start chips — plain examples shown in the resting state ────────────
+// Clicking a chip launches the currently-selected host (same path as Enter).
+// These name concrete tasks so first-time users know what to do; module-jargon
+// chips ("Recall what you know" / "Run an action") were removed — they assumed
+// knowledge the user doesn't have yet.
+export const QUICK_CHIPS = [
+  { label: "Start a task", title: "Pick a host above and start working on a task" },
+  { label: "Ask a question", title: "Ask your agent anything — it opens in the terminal below" },
+  { label: "Review code", title: "Ask your agent to review or explain code in this workspace" },
 ] as const;
+
+// Copy shown in the resting empty state. Exported so tests can assert on it.
+export const EMPTY_STATE_COPY = "Select a host, press ↵ or Start — then type your task in the terminal that opens.";
 
 // ── HostPill ─────────────────────────────────────────────────────────────────
 // The quiet pill that summarises the selected host. Clicking opens the picker.
@@ -290,17 +294,25 @@ export const SessionComposer = forwardRef<HTMLDivElement>(function SessionCompos
         }
       }}
     >
-      {/* ── warm empty state ─────────────────────────────────────────────
-          A brief greeting + 3 module-seeded suggestion chips. Chips fire
-          launchActive() on click — same path as pressing Enter. Shown only
-          when there are no open tabs so it disappears once a session starts. */}
+      {/* ── resting empty state ──────────────────────────────────────────
+          Plain guidance + quick-start chips. Chips fire launchActive() —
+          same path as pressing Enter. Disappears once a session starts. */}
       {showEmptyState && (
         <div className="border-t border-[var(--border)] bg-card px-4 py-3">
-          <p className="wc-sans mb-2 text-ui text-ink-400">
-            Pick a host and press <Kbd>↵</Kbd> to start a session — your agent is ready.
-          </p>
+          {activeRow ? (
+            <p className="wc-sans mb-2 text-ui text-ink-400">
+              <span className="text-foreground">{activeRow.label} selected</span>
+              {" — press "}
+              <Kbd>↵</Kbd>
+              {" or Start, then type your task in the terminal that opens."}
+            </p>
+          ) : (
+            <p className="wc-sans mb-2 text-ui text-ink-400">
+              {EMPTY_STATE_COPY}
+            </p>
+          )}
           <div className="flex flex-wrap gap-1.5">
-            {SUGGESTION_CHIPS.map((chip) => (
+            {QUICK_CHIPS.map((chip) => (
               <button
                 key={chip.label}
                 title={chip.title}

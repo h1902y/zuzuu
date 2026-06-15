@@ -9,6 +9,7 @@ import {
   fmtDuration,
   hasAliveAgent,
   receiptForCommand,
+  recoveryBannerCopy,
   traceSessionForTab,
 } from "./session-cards";
 
@@ -222,6 +223,34 @@ describe("receiptForCommand (humanize a command into a sans label + glyph)", () 
   it("everything else is a plain run, first line only", () => {
     expect(receiptForCommand("npm test\n# second line")).toEqual({ label: "npm test", glyph: "run" });
     expect(receiptForCommand("   ")).toEqual({ label: "(empty command)", glyph: "run" });
+  });
+});
+
+describe("recoveryBannerCopy (U4 — plain-language, no git/checkpoint jargon)", () => {
+  it("uses plain lead sentence with no jargon", () => {
+    const copy = recoveryBannerCopy("zz/session-abc", 3);
+    expect(copy.lead).toBe("You have unfinished work from a previous session.");
+    expect(copy.lead).not.toMatch(/checkpoint/i);
+    expect(copy.lead).not.toMatch(/branch/i);
+  });
+
+  it("shows the branch name as the work label", () => {
+    const copy = recoveryBannerCopy("zz/session-abc", 3);
+    expect(copy.branchLabel).toBe("zz/session-abc");
+  });
+
+  it("uses 'saved step' (not 'checkpoint') with correct singular/plural", () => {
+    expect(recoveryBannerCopy("zz/s", 1).stepCount).toBe("1 saved step");
+    expect(recoveryBannerCopy("zz/s", 3).stepCount).toBe("3 saved steps");
+    expect(recoveryBannerCopy("zz/s", 0).stepCount).toBe("0 saved steps");
+  });
+
+  it("labels the resume action 'Resume this work'", () => {
+    expect(recoveryBannerCopy("zz/s", 2).resumeLabel).toBe("Resume this work");
+  });
+
+  it("labels the merge action 'Save to main & start new'", () => {
+    expect(recoveryBannerCopy("zz/s", 2).saveLabel).toBe("Save to main & start new");
   });
 });
 
