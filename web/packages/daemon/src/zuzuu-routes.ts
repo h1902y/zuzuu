@@ -19,10 +19,16 @@ import type { Context } from "hono";
 import { PathError, resolveSafe } from "./safe-path.js";
 import { binAvailable, runZuzuu, runZuzuuMut } from "./zuzuu-cli.js";
 
-const MODULES = ["knowledge", "memory", "actions", "instructions", "guardrails"] as const;
+/** The five built-in module slugs — used ONLY for the CLI-absent degraded fallback
+ *  (peek enumerates the home dirs for the known built-ins). N-module routing is
+ *  slug-validated, not allowlist-gated. */
+const BUILTIN_MODULES = ["knowledge", "memory", "actions", "instructions", "guardrails"] as const;
 
 /** Ids/slugs/generation-ids that may ride into a zuzuu argv. Validated BEFORE any spawn. */
 const SAFE_ID = /^[a-z0-9][a-z0-9._-]{0,127}$/i;
+
+/** A safe module slug: lowercase alphanumeric start, then alphanumeric/underscore/hyphen. */
+const SAFE_SLUG = /^[a-z0-9][a-z0-9_-]*$/;
 const MAX_REASON_LEN = 500;
 
 interface ApiOpts { binary?: string; }
@@ -206,7 +212,7 @@ export function createZuzuuApi(getRoot: () => string, opts: ApiOpts = {}): Hono 
 
   app.get("/modules", async (c) => {
     const agent = await agentDir();
-    const modules = await Promise.all(MODULES.map(async (key) => {
+    const modules = await Promise.all(BUILTIN_MODULES.map(async (key) => {
       const [{ items }, proposals] = await Promise.all([
         moduleEnvelopeItems(root, agent, key, opts.binary),
         proposalsOf(agent, key),
@@ -226,7 +232,7 @@ export function createZuzuuApi(getRoot: () => string, opts: ApiOpts = {}): Hono 
       { modules?: unknown[] } | null;
     if (viaCli && Array.isArray(viaCli.modules)) return c.json(viaCli);
     const agent = await agentDir();
-    const modules = await Promise.all(MODULES.map(async (id) => {
+    const modules = await Promise.all(BUILTIN_MODULES.map(async (id) => {
       const [items, proposals] = await Promise.all([peekModuleItems(agent, id), proposalsOf(agent, id)]);
       return {
         id,
@@ -241,7 +247,7 @@ export function createZuzuuApi(getRoot: () => string, opts: ApiOpts = {}): Hono 
 
   app.get("/module/:key", async (c) => {
     const key = c.req.param("key");
-    if (!MODULES.includes(key as typeof MODULES[number])) return c.json({ error: "unknown module" }, 404);
+    if (!SAFE_SLUG.test(key)) return c.json({ error: "unknown module" }, 404);
     const agent = await agentDir();
     const { items, errors, degraded } = await moduleEnvelopeItems(root, agent, key, opts.binary);
     const proposals = (await proposalsOf(agent, key)).map((p) => proposalSummary(p, key));
@@ -250,7 +256,7 @@ export function createZuzuuApi(getRoot: () => string, opts: ApiOpts = {}): Hono 
 
   app.get("/module/:key/schema", async (c) => {
     const key = c.req.param("key");
-    if (!MODULES.includes(key as typeof MODULES[number])) return c.json({ error: "unknown module" }, 404);
+    if (!SAFE_SLUG.test(key)) return c.json({ error: "unknown module" }, 404);
     const viaCli = await runZuzuu(root, ["module", "schema", key], { binary: opts.binary });
     if (viaCli) return c.json({ key, schema: viaCli, source: "cli" });
     // CLI absent → the seeded payload schema in the home (zuzuu init writes it)
@@ -268,7 +274,7 @@ export function createZuzuuApi(getRoot: () => string, opts: ApiOpts = {}): Hono 
   // to reading that module's generations/ dir directly.
   app.get("/module/:key/generations", async (c) => {
     const key = c.req.param("key");
-    if (!MODULES.includes(key as typeof MODULES[number])) return c.json({ error: "unknown module" }, 404);
+    if (!SAFE_SLUG.test(key)) return c.json({ error: "unknown module" }, 404);
     const viaCli = await runZuzuu(root, ["module", key, "generations"], { binary: opts.binary });
     if (viaCli) return c.json(viaCli);
     const agent = await agentDir();
@@ -341,9 +347,9 @@ export function createZuzuuApi(getRoot: () => string, opts: ApiOpts = {}): Hono 
     if (viaCli) return c.json(viaCli);
     const agent = await agentDir();
     const pending: Record<string, number> = {};
-    for (const key of MODULES) pending[key] = (await proposalsOf(agent, key)).length;
+    for (const key of BUILTIN_MODULES) pending[key] = (await proposalsOf(agent, key)).length;
     const generations: Record<string, string | null> = {};
-    for (const key of MODULES) {
+    for (const key of BUILTIN_MODULES) {
       try { generations[key] = (JSON.parse(await fsp.readFile(path.join(agent, key, "generations", "active"), "utf8")).active) ?? null; } catch { generations[key] = null; }
     }
     let checkpoints = 0;
@@ -356,7 +362,7 @@ export function createZuzuuApi(getRoot: () => string, opts: ApiOpts = {}): Hono 
     if (viaCli) return c.json(viaCli);
     const agent = await agentDir();
     const pending = [];
-    for (const key of MODULES)
+    for (const key of BUILTIN_MODULES)
       for (const p of await proposalsOf(agent, key)) pending.push({ id: String(p.id ?? "?"), module: key, title: proposalTitle(p) });
     return c.json({ pending, total: pending.length });
   });
@@ -364,7 +370,7 @@ export function createZuzuuApi(getRoot: () => string, opts: ApiOpts = {}): Hono 
   // Per-module generation diff (show). CLI-only (the diff needs the parser).
   app.get("/module/:key/generation/:id", async (c) => {
     const key = c.req.param("key");
-    if (!MODULES.includes(key as typeof MODULES[number])) return c.json({ error: "unknown module" }, 404);
+    if (!SAFE_SLUG.test(key)) return c.json({ error: "unknown module" }, 404);
     const id = c.req.param("id");
     if (!SAFE_ID.test(id)) return c.json({ error: "bad id" }, 400);
     const viaCli = await runZuzuu(root, ["module", key, "generation", "show", id], { binary: opts.binary });
@@ -389,8 +395,20 @@ export function createZuzuuApi(getRoot: () => string, opts: ApiOpts = {}): Hono 
     }
     return c.json(r.data as Record<string, unknown>);
   };
-  const isModule = (f: unknown): f is typeof MODULES[number] =>
-    typeof f === "string" && (MODULES as readonly string[]).includes(f);
+  /** A valid module arg: any safe slug (the CLI reports not-found for unknown ones). */
+  const isModule = (f: unknown): f is string =>
+    typeof f === "string" && SAFE_SLUG.test(f);
+
+  // Toggle a module's enabled flag. Body: { enabled: boolean }.
+  // Shells out to `zuzuu module enable <key>` or `zuzuu module disable <key>`.
+  app.post("/module/:key/enabled", async (c) => {
+    const key = c.req.param("key");
+    if (!SAFE_SLUG.test(key)) return c.json({ error: "unknown module" }, 404);
+    const { enabled } = await readBody(c);
+    if (typeof enabled !== "boolean") return c.json({ error: "body must be {enabled: boolean}" }, 400);
+    const subcommand = enabled ? "enable" : "disable";
+    return mutate(c, ["module", subcommand, key]);
+  });
 
   app.post("/proposals/:id/approve", async (c) => {
     const id = c.req.param("id");
@@ -475,7 +493,7 @@ export function createZuzuuApi(getRoot: () => string, opts: ApiOpts = {}): Hono 
     // Fallback: pending proposals, unranked (no CLI → no scoring).
     const agent = await agentDir();
     const ranked = [];
-    for (const key of MODULES)
+    for (const key of BUILTIN_MODULES)
       for (const p of await proposalsOf(agent, key))
         ranked.push({ id: String(p.id ?? "?"), module: key, title: proposalTitle(p), score: null, confidence: null, rationale: null });
     return c.json({ ranked });

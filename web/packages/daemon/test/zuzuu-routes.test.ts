@@ -45,7 +45,7 @@ describe("createZuzuuApi file routes", () => {
     const body = await (await app.request("/modules")).json();
     expect(body.modules.find((f: { key: string }) => f.key === "actions").count).toBe(1);
   });
-  it("GET /module/:key peek degrades to frontmatter fields; rejects unknown", async () => {
+  it("GET /module/:key peek degrades to frontmatter fields; rejects unsafe slugs", async () => {
     fixtureHome(root);
     const app = createZuzuuApi(() => root, { binary: "definitely-not-a-real-binary-zzz" });
     const body = await (await app.request("/module/knowledge")).json();
@@ -60,7 +60,10 @@ describe("createZuzuuApi file routes", () => {
       score: 0.775, confidence: "high", rationale: "recurring + cross-session",
       evidence: { occurrences: 12, sessions: 3, failures: 0, erVerdict: "new" },
     });
-    expect((await app.request("/module/bogus")).status).toBe(404);
+    // Any valid slug is now accepted (N-module: unknown slugs return empty results, not 404).
+    // Unsafe slugs (traversal, shell meta) are still rejected.
+    expect((await app.request("/module/bogus")).status).toBe(200); // valid slug, empty module
+    expect((await app.request("/module/..%2f..%2fetc")).status).toBe(404); // unsafe slug
   });
   it("GET /module/:key passes the CLI's envelopes through whole (payload + body)", async () => {
     fixtureHome(root);
@@ -99,7 +102,9 @@ describe("createZuzuuApi file routes", () => {
     writeFileSync(path.join(agent, "knowledge", "schema.json"), JSON.stringify(schema));
     expect(await (await absent.request("/module/knowledge/schema")).json())
       .toEqual({ key: "knowledge", schema, source: "home" });
-    expect((await absent.request("/module/bogus/schema")).status).toBe(404);
+    // N-module: any valid slug is accepted; "bogus" returns absent (no schema file), not 404.
+    expect(await (await absent.request("/module/bogus/schema")).json())
+      .toEqual({ key: "bogus", schema: null, source: "absent" });
   });
   it("GET /sessions falls back to the raw index when the CLI is absent", async () => {
     fixtureHome(root);
@@ -310,14 +315,18 @@ describe("createZuzuuApi mutation routes", () => {
     expect((await post(app, "/actions/a;rm/reject", {})).status).toBe(400);
     expect(existsSync(marker)).toBe(false);
   });
-  it("bogus module → 400 without spawn", async () => {
+  it("malformed module → 400 without spawn (N-module: valid slugs are accepted)", async () => {
     fixtureHome(root);
     const { stub, marker } = markerStub(root);
     const app = createZuzuuApi(() => root, { binary: stub });
-    expect((await post(app, "/proposals/p1/approve", { module: "bogus" })).status).toBe(400);
-    expect((await post(app, "/proposals/p1/reject", { module: "bogus" })).status).toBe(400);
+    // Missing module field → 400
     expect((await post(app, "/proposals/p1/approve", {})).status).toBe(400);
-    expect(existsSync(marker)).toBe(false);
+    // Unsafe module strings → 400 (traversal, shell meta, uppercase-only slugs starting with -)
+    expect((await post(app, "/proposals/p1/approve", { module: "../evil" })).status).toBe(400);
+    expect((await post(app, "/proposals/p1/approve", { module: "-bad" })).status).toBe(400);
+    expect((await post(app, "/proposals/p1/reject", { module: "" })).status).toBe(400);
+    // Valid slug "bogus" IS now accepted (N-module: CLI reports not-found for unknown modules)
+    expect(existsSync(marker)).toBe(false); // none of the above should have spawned
   });
   it("over-long reject reason → 400 without spawn", async () => {
     fixtureHome(root);
