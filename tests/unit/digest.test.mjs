@@ -165,3 +165,18 @@ test('digest omits the Actions section when there are none', () => {
     assert.doesNotMatch(d.text, /## Actions/);
   }, { project: '# Project steering\n\nShip daily.\n' });
 });
+
+test('a disabled declarative module contributes no section to the digest', () => {
+  withHome((home) => {
+    // Seed a declarative module with enabled:false
+    mkdirSync(join(home, 'custom-mod'), { recursive: true });
+    writeFileSync(join(home, 'custom-mod', 'module.json'), JSON.stringify({
+      id: 'custom-mod', title: 'Custom Mod', enabled: false,
+    }, null, 2) + '\n');
+    const d = computeDigest(home);
+    // The disabled module's title must not appear in the digest
+    assert.doesNotMatch(d.text, /Custom Mod/);
+    // Its id should not be a section key
+    assert.equal(d.sections['custom-mod'], undefined);
+  }, { project: '# Project steering\n\nShip daily.\n' });
+});

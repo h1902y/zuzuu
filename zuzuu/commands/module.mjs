@@ -15,7 +15,7 @@
 // list from manifest.itemsDir, schemas serve from the home, the overview and
 // digest include them. Fail-soft like everything on the serve path.
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { paths } from '../core/store.mjs';
 import { listModuleItems } from '../module/items.mjs';
@@ -96,6 +96,7 @@ export function moduleOverviewData(agentDir) {
       kinds: entry.manifest?.kinds ?? [],
       declarative: entry.declarative,
       composed: !!entry.composed,
+      enabled: entry.manifest?.enabled !== false,
       capabilities: Object.keys(entry.manifest?.capabilities ?? {}),
       ...(entry.manifestError ? { manifestError: entry.manifestError } : {}),
       counts: { items: items.length, pending: pendingCount(agentDir, entry), errors: errors.length },
@@ -103,6 +104,26 @@ export function moduleOverviewData(agentDir) {
     };
   });
   return { modules };
+}
+
+// --- enable / disable -------------------------------------------------------
+
+/**
+ * Pure-ish: set `enabled` on a module's home module.json.
+ * Reads the current JSON, sets the field, writes it back.
+ * Returns {ok:true, id, enabled} or {ok:false, error} if no manifest.
+ */
+export function setModuleEnabled(agentDir, id, enabled) {
+  const p = join(agentDir, id, 'module.json');
+  if (!existsSync(p)) return { ok: false, error: `no module.json for '${id}'` };
+  try {
+    const raw = JSON.parse(readFileSync(p, 'utf8'));
+    raw.enabled = enabled;
+    writeFileSync(p, JSON.stringify(raw, null, 2) + '\n', 'utf8');
+    return { ok: true, id, enabled };
+  } catch (e) {
+    return { ok: false, error: e.message ?? String(e) };
+  }
 }
 
 // --- per-module generations (W2.5 Phase 2) ---------------------------------
@@ -190,12 +211,25 @@ export function module(args = {}, log = console.log) {
   if (MODULES.includes(sub) && (f === 'generations' || f === 'generation')) {
     return moduleGenerationCmd(paths().dir, sub, (args._ ?? []).slice(1), args, log);
   }
-  if (!sub || !['items', 'schema', 'manifest', 'overview'].includes(sub)) {
-    console.error('usage: zuzuu module items <module> [--json|--jsonl] · module schema <module> [--json] · module manifest <module> [--json] · module overview [--json] · module <module> generations · module <module> generation show|rollback <id>');
+  if (!sub || !['items', 'schema', 'manifest', 'overview', 'enable', 'disable'].includes(sub)) {
+    console.error('usage: zuzuu module items <module> [--json|--jsonl] · module schema <module> [--json] · module manifest <module> [--json] · module overview [--json] · module enable <id> · module disable <id> · module <module> generations · module <module> generation show|rollback <id>');
     process.exitCode = 1;
     return;
   }
   const agentDir = paths().dir;
+
+  if (sub === 'enable' || sub === 'disable') {
+    const enabled = sub === 'enable';
+    if (!f) {
+      console.error(`usage: zuzuu module ${sub} <module-id>`);
+      process.exitCode = 1;
+      return;
+    }
+    const r = setModuleEnabled(agentDir, f, enabled);
+    if (!r.ok) { console.error(`module ${sub}: ${r.error}`); process.exitCode = 1; return; }
+    log(`${enabled ? '✓ enabled' : '✓ disabled'} module '${f}'`);
+    return;
+  }
 
   if (sub === 'overview') {
     const d = moduleOverviewData(agentDir);

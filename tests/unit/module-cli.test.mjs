@@ -3,11 +3,12 @@
 // line-per-item streaming, human view, and the schema source resolution.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { moduleItemsData, moduleSchemaData } from '../../zuzuu/commands/module.mjs';
+import { moduleItemsData, moduleSchemaData, setModuleEnabled, moduleOverviewData } from '../../zuzuu/commands/module.mjs';
 import { serializeEnvelope, PAYLOAD_SCHEMAS } from '../../zuzuu/module/envelope.mjs';
+import { normalizeManifest } from '../../zuzuu/module/module.mjs';
 
 const RULE = (id, action, pattern) => serializeEnvelope({
   id, module: 'guardrails', kind: 'rule', title: `${action} ${pattern}`,
@@ -115,5 +116,67 @@ test('moduleSchemaData: home-seeded schema.json wins; absent/broken → built-in
     writeFileSync(join(dir, 'guardrails', 'schema.json'), '{nope');
     r = moduleSchemaData(dir, 'guardrails');
     assert.equal(r.source, 'builtin');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// setModuleEnabled — round-trip
+// ---------------------------------------------------------------------------
+test('setModuleEnabled: disable then enable round-trips manifest correctly', () => {
+  withHome((dir) => {
+    // Create a declarative module with a module.json
+    mkdirSync(join(dir, 'my-mod'), { recursive: true });
+    writeFileSync(join(dir, 'my-mod', 'module.json'), JSON.stringify({ id: 'my-mod', title: 'My Mod', enabled: true }, null, 2) + '\n');
+
+    // Disable it
+    const r1 = setModuleEnabled(dir, 'my-mod', false);
+    assert.equal(r1.ok, true);
+    assert.equal(r1.id, 'my-mod');
+    assert.equal(r1.enabled, false);
+
+    // Re-read: normalizeManifest should see enabled:false
+    const raw1 = JSON.parse(readFileSync(join(dir, 'my-mod', 'module.json'), 'utf8'));
+    assert.equal(raw1.enabled, false);
+    assert.equal(normalizeManifest(raw1, 'my-mod').enabled, false);
+
+    // Re-enable it
+    const r2 = setModuleEnabled(dir, 'my-mod', true);
+    assert.equal(r2.ok, true);
+    assert.equal(r2.enabled, true);
+
+    const raw2 = JSON.parse(readFileSync(join(dir, 'my-mod', 'module.json'), 'utf8'));
+    assert.equal(raw2.enabled, true);
+    assert.equal(normalizeManifest(raw2, 'my-mod').enabled, true);
+  });
+});
+
+test('setModuleEnabled: returns ok:false when module.json is absent', () => {
+  withHome((dir) => {
+    const r = setModuleEnabled(dir, 'nonexistent-mod', false);
+    assert.equal(r.ok, false);
+    assert.ok(r.error, 'has error message');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// moduleOverviewData — enabled field
+// ---------------------------------------------------------------------------
+test('moduleOverviewData: enabled:true for built-in modules (no manifest override)', () => {
+  withHome((dir) => {
+    const { modules } = moduleOverviewData(dir);
+    for (const m of modules) {
+      assert.equal(m.enabled, true, `built-in module '${m.id}' should be enabled by default`);
+    }
+  });
+});
+
+test('moduleOverviewData: declarative module with enabled:false reports enabled:false', () => {
+  withHome((dir) => {
+    mkdirSync(join(dir, 'tasks'), { recursive: true });
+    writeFileSync(join(dir, 'tasks', 'module.json'), JSON.stringify({ id: 'tasks', title: 'Tasks', enabled: false }, null, 2) + '\n');
+    const { modules } = moduleOverviewData(dir);
+    const tasks = modules.find((m) => m.id === 'tasks');
+    assert.ok(tasks, 'tasks module is listed');
+    assert.equal(tasks.enabled, false);
   });
 });
