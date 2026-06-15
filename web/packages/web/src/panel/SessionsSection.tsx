@@ -12,6 +12,7 @@ import { useSessions } from "../state/sessions";
 import { agentTabTitle } from "../modules/host-launch";
 import { TeachingEmpty, relativeTime, GLOSSARY } from "./kit";
 import { SessionBrief } from "./SessionBrief";
+import { activeBand } from "../lib/session-cards";
 import { fmtDuration, sessionStateMeta, shortSessionId, splitSessions } from "./sections";
 
 // ── sessions empty-state preview mock ────────────────────────────────────────
@@ -115,24 +116,33 @@ function SessionRow({ session }: { session: ZuzuuSessionEntry }) {
   );
 }
 
-// ── pinned active session card ─────────────────────────────────────────────
+// ── pinned active session band ─────────────────────────────────────────────
 
-/** The active session pins at top. If the workbench owns a live agent terminal
- *  (single-active-agent rule → at most one), the card resumes THAT terminal.
- *  Otherwise the session is running outside the workbench (e.g. the user's own
- *  Claude Code) — we say so honestly rather than imply a resume we can't do. */
+/** The active session is represented ONCE (U5). When its live PTY is the
+ *  conversation you're already in, the band disappears — its state folds into
+ *  the conversation header (`SessionPane`). It lingers only as a *compact*
+ *  entry when the session isn't the current conversation:
+ *   - a live PTY exists but isn't focused → "Resume" (focus the terminal),
+ *   - no live PTY (ran outside the workbench) → an honest "running outside"
+ *     line with NO false "open terminal" — just Inspect.
+ *  The Session brief travels with the band only in those not-open states; once
+ *  you're in the conversation it belongs to the conversation, not a band. */
 function ActiveCard({ session }: { session: ZuzuuSessionEntry }) {
   const openSession = useRightPanel((s) => s.openSession);
-  // Prefer the explicit PTY join key (U4): when the trace record carries the
-  // daemon PTY id, resolve the live terminal by that id rather than guessing
-  // "the one alive agent tab" by cwd/type. Fall back to the old guess for
-  // pre-U4 records that lack ptyId. (U5 rewrites this band; this only makes the
-  // explicit link available.)
-  const liveAgent = useSessions((s) =>
-    (session.ptyId && s.tabs.find((t) => t.id === session.ptyId && t.alive)) ||
-    s.tabs.find((t) => t.type === "agent" && t.alive),
+  // Resolve the live PTY by the explicit U4 join key (ptyId); fall back to the
+  // single-alive-agent guess for pre-U4 records that lack it.
+  const liveTab = useSessions((s) =>
+    (session.ptyId ? s.tabs.find((t) => t.id === session.ptyId && t.alive) : undefined) ??
+    (session.ptyId ? undefined : s.tabs.find((t) => t.type === "agent" && t.alive)),
   );
+  const activeId = useSessions((s) => s.activeId);
   const setActive = useSessions((s) => s.setActive);
+  const band = activeBand({ liveTab: Boolean(liveTab), focused: liveTab?.id === activeId });
+
+  // Already the conversation in front of you — no separate persistent band.
+  // (The conversation header in SessionPane carries state/host/branch/actions.)
+  if (band === "in-conversation") return null;
+
   const meta = sessionStateMeta(session.state);
   const dur = fmtDuration(session.durationMs);
 
@@ -149,14 +159,14 @@ function ActiveCard({ session }: { session: ZuzuuSessionEntry }) {
         </span>
       </div>
 
-      {liveAgent ? (
+      {band === "resume" && liveTab ? (
         <button
-          onClick={() => setActive(liveAgent.id)}
+          onClick={() => setActive(liveTab.id)}
           className="wc-sans flex items-center gap-1.5 self-start rounded-[var(--radius-sm)] border border-accent-dim bg-[color-mix(in_oklab,var(--color-accent)_12%,transparent)] px-2 py-1 text-meta font-medium text-accent transition-colors hover:bg-[color-mix(in_oklab,var(--color-accent)_20%,transparent)]"
-          title="Focus this session's terminal"
+          title="Resume this session's conversation"
         >
           <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 4l3.5 4L3 12M8.5 12H13" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          Open terminal
+          Resume conversation
         </button>
       ) : (
         <div className="wc-sans flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-meta text-muted-foreground">

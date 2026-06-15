@@ -25,4 +25,16 @@ describe("centerView precedence", () => {
   it("falls back to the sessions home with no files and no selection", () => {
     expect(centerView(false, null)).toEqual({ kind: "home" });
   });
+
+  // U5: the active-session band/header lives inside the HOME surface (the live
+  // terminal + history). Opening the active session focuses its PTY tab — it
+  // does NOT create a center `session` selection — so an open active session
+  // still resolves to `home`, never resurrecting a separate band as a detail.
+  it("an open active session stays in the home surface (the band never becomes a detail)", () => {
+    // no selection (the active session is focused via useSessions, not openSession)
+    expect(centerView(false, null)).toEqual({ kind: "home" });
+    // a module/editor still wins over home by precedence, unchanged by U5
+    expect(centerView(false, { kind: "module", key: "knowledge" })).toEqual({ kind: "module", key: "knowledge" });
+    expect(centerView(true, null)).toEqual({ kind: "editor" });
+  });
 });

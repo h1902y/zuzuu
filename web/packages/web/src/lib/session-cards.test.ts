@@ -2,12 +2,14 @@
 import { describe, expect, it } from "vitest";
 import type { SessionCloseResult, SessionGitStatus } from "@zuzuu-web/protocol";
 import {
+  activeBand,
   blockReceipt,
   centerCard,
   endCard,
   fmtDuration,
   hasAliveAgent,
   receiptForCommand,
+  traceSessionForTab,
 } from "./session-cards";
 
 const leftover: SessionGitStatus = {
@@ -56,6 +58,42 @@ describe("hasAliveAgent (single-active-agent v1 rule)", () => {
         { type: "agent", alive: true },
       ]),
     ).toBe(true);
+  });
+});
+
+describe("activeBand (U5 — the active session is represented once)", () => {
+  it("a live PTY that is the focused tab folds into the conversation — NO band", () => {
+    expect(activeBand({ liveTab: true, focused: true })).toBe("in-conversation");
+  });
+
+  it("a live PTY that is not focused lingers only as a compact resume entry", () => {
+    expect(activeBand({ liveTab: true, focused: false })).toBe("resume");
+  });
+
+  it("no live PTY (ran outside the workbench) reads honestly — no false terminal", () => {
+    // focused is irrelevant when there is no tab to focus
+    expect(activeBand({ liveTab: false, focused: false })).toBe("outside");
+    expect(activeBand({ liveTab: false, focused: true })).toBe("outside");
+  });
+});
+
+describe("traceSessionForTab (U4 ptyId join → unified session header)", () => {
+  const sessions = [
+    { id: "trace-a", ptyId: "pty-1" },
+    { id: "trace-b", ptyId: "pty-2" },
+    { id: "trace-outside" }, // ran outside the workbench — no ptyId
+  ];
+
+  it("joins a live PTY tab to its trace session by ptyId", () => {
+    expect(traceSessionForTab(sessions, "pty-2")).toEqual({ id: "trace-b", ptyId: "pty-2" });
+  });
+
+  it("returns undefined for a tab no trace session claims (pre-U4 / unknown)", () => {
+    expect(traceSessionForTab(sessions, "pty-unknown")).toBeUndefined();
+  });
+
+  it("never matches an outside (ptyId-less) session to a tab", () => {
+    expect(traceSessionForTab(sessions, "")).toBeUndefined();
   });
 });
 

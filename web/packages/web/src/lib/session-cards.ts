@@ -105,6 +105,39 @@ export function centerCard(
 export const hasAliveAgent = (tabs: { type: string; alive: boolean }[]): boolean =>
   tabs.some((t) => t.type === "agent" && t.alive);
 
+// ── Active-session band resolution (U5) ─────────────────────────────────
+// The active trace session is represented ONCE. With U4's ptyId join key we
+// can tell whether the active session is already open in the workbench
+// (its live PTY tab) and whether that tab is the one in front of you. The
+// persistent "active session" band only lingers when the session is NOT the
+// current conversation — when it IS, its state folds into the conversation
+// header instead. A trace session with no live PTY (ran outside the
+// workbench) must read honestly, never offering a terminal we can't resume.
+//
+//   "in-conversation" → the live PTY is the focused tab → NO separate band
+//                       (the conversation header carries the state).
+//   "resume"          → a live PTY exists but isn't focused → compact resume.
+//   "outside"         → no live PTY (ptyId absent / tab gone) → honest
+//                       "running outside the workbench", no false terminal.
+export type ActiveBand = "in-conversation" | "resume" | "outside";
+
+/** Resolve how the pinned active session renders, given whether the
+ *  workbench owns its live PTY tab and whether that tab is focused. */
+export function activeBand(opts: { liveTab: boolean; focused: boolean }): ActiveBand {
+  if (!opts.liveTab) return "outside";
+  return opts.focused ? "in-conversation" : "resume";
+}
+
+/** Find the unified trace session a live PTY tab belongs to, via the U4 ptyId
+ *  join key. Pre-U4 records lack ptyId — for those the conversation header
+ *  simply shows no folded trace state (the band has the pre-U4 fallback). */
+export function traceSessionForTab<T extends { ptyId?: string }>(
+  sessions: T[],
+  tabId: string,
+): T | undefined {
+  return sessions.find((s) => s.ptyId === tabId);
+}
+
 export type EndCard =
   | { kind: "banner" } // shell sessions (and unknown outcomes) keep the plain exit banner
   | { kind: "utility" } // zuzuu utility runs (init / enable) — "Session finished", no merge story
