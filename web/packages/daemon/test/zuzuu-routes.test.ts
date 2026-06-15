@@ -177,6 +177,9 @@ describe("createZuzuuApi overview + session-inspect", () => {
     expect(k).toMatchObject({ title: "Knowledge", counts: { items: 1, pending: 1, errors: 0 } });
     expect(k.top).toEqual(["fact one"]);
     expect(k.ui).toBeUndefined();
+    // F6: peek entries carry `enabled` for shape parity with the CLI producer
+    expect(k.enabled).toBe(true);
+    for (const m of body.modules) expect(m.enabled).toBe(true);
   });
   it("GET /session-inspect/:id proxies zuzuu session inspect --json", async () => {
     fixtureHome(root);

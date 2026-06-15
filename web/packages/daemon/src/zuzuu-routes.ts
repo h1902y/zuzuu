@@ -237,6 +237,7 @@ export function createZuzuuApi(getRoot: () => string, opts: ApiOpts = {}): Hono 
       return {
         id,
         title: id.charAt(0).toUpperCase() + id.slice(1),
+        enabled: true,
         counts: { items: items.length, pending: proposals.length, errors: 0 },
         top: items.slice(0, 3).map((it) => String(it.title ?? it.id)),
         declarative: false,
