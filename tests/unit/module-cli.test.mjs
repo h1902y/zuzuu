@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { moduleItemsData, moduleSchemaData, setModuleEnabled, moduleOverviewData, createModuleFiles } from '../../zuzuu/commands/module.mjs';
+import { moduleItemsData, moduleSchemaData, setModuleEnabled, moduleOverviewData, createModuleFiles, module as moduleCmd } from '../../zuzuu/commands/module.mjs';
 import { serializeEnvelope, PAYLOAD_SCHEMAS } from '../../zuzuu/module/envelope.mjs';
 import { normalizeManifest } from '../../zuzuu/module/module.mjs';
 
@@ -237,5 +237,62 @@ test('createModuleFiles: refuses an existing dir and a bad slug', () => {
       assert.equal(r.ok, false, `'${bad}' should be refused`);
       assert.ok(r.error, 'has an error message');
     }
+  });
+});
+
+test('createModuleFiles: refuses a reserved built-in slug (even when its dir is unseeded)', () => {
+  withHome((dir) => {
+    for (const builtin of ['knowledge', 'memory', 'actions', 'instructions', 'guardrails']) {
+      const r = createModuleFiles(dir, { id: builtin, capabilities: [], kinds: [] });
+      assert.equal(r.ok, false, `'${builtin}' should be refused`);
+      assert.match(r.error, /reserved built-in/);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// module enable/disable --json output shapes (F2)
+// ---------------------------------------------------------------------------
+function inHome(fn) {
+  const root = mkdtempSync(join(tmpdir(), 'zfac-cwd-'));
+  mkdirSync(join(root, '.zuzuu'), { recursive: true });
+  const prev = process.cwd();
+  process.chdir(root);
+  try { return fn(join(root, '.zuzuu')); } finally { process.chdir(prev); rmSync(root, { recursive: true, force: true }); }
+}
+
+test('module disable --json: emits {ok:true,id,enabled} on success', () => {
+  inHome((dir) => {
+    mkdirSync(join(dir, 'my-mod'), { recursive: true });
+    writeFileSync(join(dir, 'my-mod', 'module.json'), JSON.stringify({ id: 'my-mod', enabled: true }, null, 2) + '\n');
+    const lines = [];
+    moduleCmd({ _: ['disable', 'my-mod'], json: true }, (s) => lines.push(s));
+    assert.equal(lines.length, 1);
+    assert.deepEqual(JSON.parse(lines[0]), { ok: true, id: 'my-mod', enabled: false });
+    assert.equal(process.exitCode ?? 0, 0);
+  });
+});
+
+test('module enable --json: emits {ok:true,id,enabled:true} on success', () => {
+  inHome((dir) => {
+    mkdirSync(join(dir, 'my-mod'), { recursive: true });
+    writeFileSync(join(dir, 'my-mod', 'module.json'), JSON.stringify({ id: 'my-mod', enabled: false }, null, 2) + '\n');
+    const lines = [];
+    moduleCmd({ _: ['enable', 'my-mod'], json: true }, (s) => lines.push(s));
+    assert.deepEqual(JSON.parse(lines[0]), { ok: true, id: 'my-mod', enabled: true });
+  });
+});
+
+test('module enable --json: emits {ok:false,error} when module.json is absent (and exits non-zero)', () => {
+  inHome(() => {
+    process.exitCode = 0;
+    const lines = [];
+    moduleCmd({ _: ['enable', 'ghost'], json: true }, (s) => lines.push(s));
+    assert.equal(lines.length, 1);
+    const out = JSON.parse(lines[0]);
+    assert.equal(out.ok, false);
+    assert.ok(out.error, 'carries an error');
+    assert.equal(process.exitCode, 1);
+    process.exitCode = 0;
   });
 });

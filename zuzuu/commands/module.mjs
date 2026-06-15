@@ -143,6 +143,11 @@ export function createModuleFiles(agentDir, { id, title, tagline, capabilities, 
   if (typeof id !== 'string' || !SLUG.test(id)) {
     return { ok: false, error: `invalid module id '${id ?? ''}' — must be a slug (lowercase, [a-z0-9_-])` };
   }
+  // Refuse a built-in slug even when its dir isn't seeded yet — creating
+  // `<home>/knowledge/` here would shadow the real built-in module.
+  if (MODULES.includes(id)) {
+    return { ok: false, error: `'${id}' is a reserved built-in module` };
+  }
   const dir = join(agentDir, id);
   if (existsSync(dir)) return { ok: false, error: `module '${id}' already exists` };
 
@@ -303,7 +308,11 @@ export function module(args = {}, log = console.log) {
       return;
     }
     const r = setModuleEnabled(agentDir, f, enabled);
-    if (!r.ok) { console.error(`module ${sub}: ${r.error}`); process.exitCode = 1; return; }
+    if (!r.ok) {
+      if (args.json) { log(JSON.stringify({ ok: false, error: r.error })); process.exitCode = 1; return; }
+      console.error(`module ${sub}: ${r.error}`); process.exitCode = 1; return;
+    }
+    if (args.json) { log(JSON.stringify({ ok: true, id: r.id, enabled: r.enabled })); return; }
     log(`${enabled ? '✓ enabled' : '✓ disabled'} module '${f}'`);
     return;
   }
