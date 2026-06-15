@@ -10,10 +10,11 @@ import { termRegistry } from "../term/registry";
 import type { AgentSpawnSpec } from "../modules/host-launch";
 
 export interface StartAgentOptions {
-  /** A first task to hand the host: typed into its terminal once it opens, so
-   *  the session launches already working on it. Blank/whitespace → no task
-   *  (the host opens idle, as before). */
-  prompt?: string;
+  /** A first task to inject as the new session's terminal input (for hosts that
+   *  don't take a positional prompt arg — see resolveStart's argv-first hybrid).
+   *  Argv-capable hosts carry the task in `spec.args` instead, so this is unset.
+   *  Blank/whitespace → no injection (host opens idle). */
+  injectPrompt?: string;
 }
 
 /**
@@ -21,12 +22,12 @@ export interface StartAgentOptions {
  * active-agent v1 rule: if an agent session is already alive, focus it
  * instead of spawning a second one.
  *
- * Start-with-a-task: a non-blank `prompt` is queued as the new session's first
- * terminal input (see termRegistry.setPendingInput) — the TermView injects it
- * once the PTY is open. This is host-agnostic (every interactive host reads
- * stdin), needs no per-host argv flags, and can't be misparsed as CLI flags.
- * Focusing an already-alive session never injects (you'd be typing into work
- * already in progress).
+ * Start-with-a-task is decided upstream by resolveStart() (host-launch): argv-
+ * capable hosts (Claude Code, Codex) carry the task in `spec.args` and boot
+ * already working; the rest pass `injectPrompt`, queued as the new session's
+ * first terminal input (the TermView injects it once the PTY is ready — see
+ * termRegistry.setPendingInput + TermView's readiness gate). Focusing an
+ * already-alive session never injects (you'd be typing into work in progress).
  */
 export async function startAgentSession(
   spec: AgentSpawnSpec,
@@ -38,15 +39,15 @@ export async function startAgentSession(
     s.setActive(alive.id);
     return;
   }
-  const prompt = opts.prompt?.trim();
+  const inject = opts.injectPrompt?.trim();
   const session = await s.create({
     type: "agent",
     command: spec.command,
     args: spec.args,
     host: spec.host,
   });
-  // Queue before TermView mounts so its connect-time drain finds it. \r submits.
-  if (prompt) termRegistry.setPendingInput(session.id, prompt + "\r");
+  // Queue before TermView mounts so its readiness-gated drain finds it. \r submits.
+  if (inject) termRegistry.setPendingInput(session.id, inject + "\r");
 }
 
 /**

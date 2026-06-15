@@ -25,12 +25,14 @@ import { useWorkflowDraft } from "../workflows/draft";
 
 const FONT_FAMILY = '"JetBrains Mono Variable", ui-monospace, Menlo, monospace';
 
-// Delay between a fresh agent connection opening and injecting its queued
-// initial task (start-with-a-task). Host TUIs (Claude Code, etc.) can drop
-// keystrokes typed before they finish initializing their input box; this gives
-// them a beat. Tunable — if a host proves flaky, raise it or fall back to
-// launch-empty for that host.
-const INITIAL_INPUT_SETTLE_MS = 500;
+// Start-with-a-task injection timing (only hosts WITHOUT a positional prompt
+// arg take this path — see resolveStart's argv-first hybrid). We gate on the
+// PTY's FIRST OUTPUT (the host has started rendering) rather than socket-open,
+// which is far more reliable than a blind delay; then a short settle so the
+// input box is actually drawn. FIRST_OUTPUT_TIMEOUT_MS is the fallback so a
+// silent host still gets the task. Tunable per host if one proves flaky.
+const FIRST_OUTPUT_TIMEOUT_MS = 4000;
+const INITIAL_INPUT_SETTLE_MS = 250;
 
 const THEME = {
   background: "#0a0d12",
@@ -86,6 +88,7 @@ export function TermView({
   const setTitle = useSessions((s) => s.setTitle);
   const setCwd = useSessions((s) => s.setCwd);
   const markExited = useSessions((s) => s.markExited);
+  const markStarted = useSessions((s) => s.markStarted);
   const setBlocks = useBlocks((s) => s.setBlocks);
   const addCommand = useBlocks((s) => s.addCommand);
   const openWorkflowDraft = useWorkflowDraft((s) => s.open);
@@ -125,6 +128,9 @@ export function TermView({
       },
       onStatus: setStatus,
       onCwd: (cwd) => setCwd(sessionId, cwd),
+      // first PTY output → the session has started rendering (flips the
+      // composer's "starting…" to "running")
+      onFirstOutput: () => markStarted(sessionId),
     });
     termRegistry.set(sessionId, conn);
 
@@ -214,22 +220,26 @@ export function TermView({
       }
       fit.fit();
       conn.connect();
-      // "Start with a task": if startAgentSession queued an initial prompt for
-      // this session, inject it once the socket is open + a short settle so the
-      // host TUI is ready to receive keystrokes (early input can be dropped
-      // during TUI init). Peek-then-clear so a StrictMode throwaway mount that
-      // gets disposed before sending doesn't consume the prompt. Same path the
-      // user typing would take — the binary PTY hot path is untouched.
+      // "Start with a task" (injection path — hosts without a positional prompt
+      // arg): inject the queued task once the host has actually started (first
+      // PTY output, with a timeout fallback) + a short settle so its input box
+      // is drawn. Gating on real output beats a blind delay. Peek-then-clear so
+      // a StrictMode throwaway mount disposed before sending doesn't consume the
+      // prompt. Same path the user typing would take — the PTY hot path is
+      // untouched.
       const initial = termRegistry.getPendingInput(sessionId);
       if (initial) {
-        void conn.whenOpen().then(() => {
-          if (disposed) return;
-          window.setTimeout(() => {
+        void conn
+          .whenOpen()
+          .then(() => conn.whenFirstOutput(FIRST_OUTPUT_TIMEOUT_MS))
+          .then(() => {
             if (disposed) return;
-            termRegistry.clearPendingInput(sessionId);
-            conn.sendInput(initial);
-          }, INITIAL_INPUT_SETTLE_MS);
-        });
+            window.setTimeout(() => {
+              if (disposed) return;
+              termRegistry.clearPendingInput(sessionId);
+              conn.sendInput(initial);
+            }, INITIAL_INPUT_SETTLE_MS);
+          });
       }
     });
 
@@ -249,7 +259,7 @@ export function TermView({
       term.dispose();
       termRef.current = null;
     };
-  }, [sessionId, setTitle, setCwd, markExited, setBlocks, addCommand, queryClient]);
+  }, [sessionId, setTitle, setCwd, markExited, markStarted, setBlocks, addCommand, queryClient]);
 
   useEffect(() => {
     if (active) termRef.current?.focus();

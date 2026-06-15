@@ -35,9 +35,9 @@ beforeEach(() => {
 });
 afterEach(() => termRegistry.clearPendingInput("new-sid"));
 
-describe("startAgentSession — start with a task", () => {
-  it("queues a non-blank prompt as the new session's first input (ending in ↵)", async () => {
-    await startAgentSession(spec, { prompt: "fix the login bug" });
+describe("startAgentSession — injectPrompt queueing", () => {
+  it("queues a non-blank injectPrompt as the new session's first input (ending in ↵)", async () => {
+    await startAgentSession(spec, { injectPrompt: "fix the login bug" });
     expect(createSession).toHaveBeenCalledOnce();
     const queued = termRegistry.getPendingInput("new-sid");
     expect(queued).toBe("fix the login bug\r");
@@ -45,17 +45,17 @@ describe("startAgentSession — start with a task", () => {
   });
 
   it("trims surrounding whitespace before queuing", async () => {
-    await startAgentSession(spec, { prompt: "  build the thing  " });
+    await startAgentSession(spec, { injectPrompt: "  build the thing  " });
     expect(termRegistry.getPendingInput("new-sid")).toBe("build the thing\r");
   });
 
-  it("does NOT queue a blank prompt (host opens idle)", async () => {
-    await startAgentSession(spec, { prompt: "   " });
+  it("does NOT queue a blank injectPrompt (host opens idle / argv-carried task)", async () => {
+    await startAgentSession(spec, { injectPrompt: "   " });
     expect(createSession).toHaveBeenCalledOnce();
     expect(termRegistry.getPendingInput("new-sid")).toBeUndefined();
   });
 
-  it("does NOT queue when no prompt is given", async () => {
+  it("does NOT queue when no injectPrompt is given (argv-prompt hosts)", async () => {
     await startAgentSession(spec);
     expect(termRegistry.getPendingInput("new-sid")).toBeUndefined();
   });
@@ -68,7 +68,7 @@ describe("startAgentSession — start with a task", () => {
       activeId: null,
       loaded: true,
     });
-    await startAgentSession(spec, { prompt: "this should be ignored" });
+    await startAgentSession(spec, { injectPrompt: "this should be ignored" });
     expect(createSession).not.toHaveBeenCalled();
     expect(useSessions.getState().activeId).toBe("alive-1");
     expect(termRegistry.getPendingInput("new-sid")).toBeUndefined();

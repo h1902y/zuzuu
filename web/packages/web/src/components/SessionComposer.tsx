@@ -11,7 +11,7 @@ import { createPortal } from "react-dom";
 import { forwardRef, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { zuzuuApi } from "../lib/zuzuu-api";
-import { agentTabTitle, buildHostRows, composerDefaultHost, hostSpawnSpec, type HostRow } from "../modules/host-launch";
+import { agentTabTitle, buildHostRows, composerDefaultHost, resolveStart, type HostRow } from "../modules/host-launch";
 import { startAgentSession } from "../lib/agent-launch";
 import { useSessions } from "../state/sessions";
 import { composerMode, hasTask, promptPlaceholder, QUICK_CHIPS } from "./composer-state";
@@ -46,12 +46,17 @@ function hostKey(command: string): string {
   return command === "zuzuu code" ? "opencode" : command;
 }
 
-/** Launch the selected host with an optional first task (injected as the new
- *  terminal's first input). Single-active-agent rule lives in startAgentSession:
- *  while one is alive, this focuses it instead of spawning a second one. */
+/** Launch the selected host with an optional first task. resolveStart applies
+ *  the argv-first hybrid (positional prompt arg where supported, else keystroke
+ *  injection). Single-active-agent rule lives in startAgentSession: while one is
+ *  alive, this focuses it instead of spawning a second one. */
 export function startHostRow(rowCommand: string, prompt?: string): void {
-  const spec = hostSpawnSpec(rowCommand);
-  if (spec) void startAgentSession(spec, { prompt }).catch((err: Error) => window.alert(err.message));
+  const start = resolveStart(rowCommand, prompt);
+  if (start) {
+    void startAgentSession(start.spec, { injectPrompt: start.injectPrompt }).catch((err: Error) =>
+      window.alert(err.message),
+    );
+  }
 }
 
 // ── HostPill ─────────────────────────────────────────────────────────────────
@@ -282,18 +287,22 @@ export const SessionComposer = forwardRef<HTMLDivElement>(function SessionCompos
   }
 
   // Active: minimal "● <host> · running" + Stop. You talk to the agent in the
-  // Terminal tab (terminal-first) — no dropdown, no chips, no input box.
+  // Terminal tab (terminal-first) — no dropdown, no chips, no input box. Until
+  // the PTY produces its first output, the session is still booting → show
+  // "starting…" with a spinner (honest: we know started-vs-not, but NOT the
+  // agent's thinking-vs-idle, so we never claim "working").
   if (mode === "active") {
     const hostLabel = agentTabTitle(aliveTab?.host);
+    const starting = !aliveTab?.started;
     return (
       <div ref={ref} className="outline-none">
         <Bar border="t" surface="surface" className="!gap-2">
-          <StatusDot tone="ok" pulse title="Session running" />
+          {starting ? <Spinner /> : <StatusDot tone="ok" pulse title="Session running" />}
           <span className="wc-sans shrink-0 text-ui text-foreground">
-            {hostLabel} <span className="text-muted-foreground">· running</span>
+            {hostLabel} <span className="text-muted-foreground">· {starting ? "starting…" : "running"}</span>
           </span>
           <span className="wc-sans hidden min-w-0 truncate text-meta text-muted-foreground sm:inline">
-            Continue in the Terminal tab
+            {starting ? "Booting the host…" : "Continue in the Terminal tab"}
           </span>
           <div className="flex-1" />
           <Button variant="danger" size="sm" onClick={handleStop} title="Stop the running session" className="shrink-0">

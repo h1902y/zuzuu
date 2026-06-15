@@ -5,6 +5,9 @@ import { api } from "../lib/api";
 export type SessionTab = SessionInfo & {
   /** live workspace-relative cwd from the daemon's poller */
   cwdLive?: CwdPayload;
+  /** set once the PTY has produced its first output — the host has started
+   *  rendering (drives the composer's starting→running state) */
+  started?: boolean;
 };
 
 interface SessionsState {
@@ -20,6 +23,8 @@ interface SessionsState {
   setTitle: (id: string, title: string) => void;
   setCwd: (id: string, cwd: CwdPayload) => void;
   markExited: (id: string) => void;
+  /** the PTY produced its first output — host has started rendering */
+  markStarted: (id: string) => void;
   /** drop all tabs so init() can re-seed for a new workspace */
   reset: () => void;
 }
@@ -68,6 +73,11 @@ export const useSessions = create<SessionsState>((set, get) => ({
   markExited: (id) =>
     set((s) => ({
       tabs: s.tabs.map((t) => (t.id === id ? { ...t, alive: false } : t)),
+    })),
+
+  markStarted: (id) =>
+    set((s) => ({
+      tabs: s.tabs.map((t) => (t.id === id && !t.started ? { ...t, started: true } : t)),
     })),
 
   reset: () => set({ tabs: [], activeId: null, loaded: false }),
