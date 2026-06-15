@@ -20,13 +20,24 @@ export interface AuthGateConfig {
 }
 
 export class AuthGate {
-  private readonly authSessions = new Set<string>();
   private readonly allowedHosts: Set<string>;
   private readonly allowedOrigins: Set<string>;
   private readonly token: string;
+  /**
+   * The cookie value handed out after a valid token exchange — a STATELESS
+   * derivation of the token (sha256), not a random per-session secret. This is
+   * the core of cross-restart auth: any daemon started with the same token
+   * derives the same cookie value, so a browser cookie set by one daemon is
+   * accepted by a later daemon (with the persisted token, this survives
+   * restarts). Security is unchanged: the cookie is only ever set after the
+   * caller presents the real token; it's HttpOnly+SameSite=Strict so a local
+   * page can neither read it nor forge it (it can't compute sha256(token)).
+   */
+  private readonly cookieValue: string;
 
   constructor(cfg: AuthGateConfig) {
     this.token = cfg.token;
+    this.cookieValue = crypto.createHash("sha256").update(cfg.token).digest("base64url");
     const hostNames = ["127.0.0.1", "localhost", "[::1]"];
     this.allowedHosts = new Set(hostNames.flatMap((h) => [h, `${h}:${cfg.port}`]));
     this.allowedOrigins = new Set([
@@ -52,11 +63,11 @@ export class AuthGate {
     return origin === undefined || this.allowedOrigins.has(origin);
   }
 
-  /** WS upgrade path: is the request's cookie an authenticated session? */
+  /** WS upgrade path: is the request's cookie the token-derived value? */
   cookieAuthed(cookieHeader: string | undefined): boolean {
     if (!cookieHeader) return false;
     const match = /(?:^|;\s*)webcode_auth=([^;]+)/.exec(cookieHeader);
-    return !!match && this.authSessions.has(match[1]!);
+    return !!match && timingSafeEqualStr(match[1]!, this.cookieValue);
   }
 
   /** App-wide gate: Host/Origin allowlists + the ?token= → cookie exchange. */
@@ -72,9 +83,7 @@ export class AuthGate {
       const token = c.req.query("token");
       if (token && !c.req.path.startsWith("/api/")) {
         if (!timingSafeEqualStr(token, this.token)) return c.text("invalid token", 403);
-        const secret = crypto.randomBytes(24).toString("base64url");
-        this.authSessions.add(secret);
-        setCookie(c, AUTH_COOKIE, secret, {
+        setCookie(c, AUTH_COOKIE, this.cookieValue, {
           httpOnly: true,
           sameSite: "Strict",
           path: "/",
@@ -94,7 +103,7 @@ export class AuthGate {
   /** /api/* gate: only cookie-authenticated sessions pass. */
   requireAuth(): MiddlewareHandler {
     return async (c, next) => {
-      if (!this.authSessions.has(getCookie(c, AUTH_COOKIE) ?? "")) {
+      if (!timingSafeEqualStr(getCookie(c, AUTH_COOKIE) ?? "", this.cookieValue)) {
         return c.json({ error: "unauthorized" }, 401);
       }
       await next();
