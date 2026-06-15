@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { moduleItemsData, moduleSchemaData, setModuleEnabled, moduleOverviewData } from '../../zuzuu/commands/module.mjs';
+import { moduleItemsData, moduleSchemaData, setModuleEnabled, moduleOverviewData, createModuleFiles } from '../../zuzuu/commands/module.mjs';
 import { serializeEnvelope, PAYLOAD_SCHEMAS } from '../../zuzuu/module/envelope.mjs';
 import { normalizeManifest } from '../../zuzuu/module/module.mjs';
 
@@ -178,5 +178,64 @@ test('moduleOverviewData: declarative module with enabled:false reports enabled:
     const tasks = modules.find((m) => m.id === 'tasks');
     assert.ok(tasks, 'tasks module is listed');
     assert.equal(tasks.enabled, false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// createModuleFiles — guided creation (WS-D)
+// ---------------------------------------------------------------------------
+test('createModuleFiles: writes module.json + schema.json with the right shape', () => {
+  withHome((dir) => {
+    const r = createModuleFiles(dir, {
+      id: 'recipes', title: 'Recipes', tagline: 'cook things',
+      capabilities: ['items.collection', 'query.structured', 'mine'],
+      kinds: ['note', 'tip'], required: ['body'],
+    });
+    assert.equal(r.ok, true);
+    assert.equal(r.id, 'recipes');
+    assert.equal(r.path, join(dir, 'recipes'));
+
+    // module.json: parseable, id/title/tagline/itemsDir + capabilities map
+    const manifest = JSON.parse(readFileSync(join(dir, 'recipes', 'module.json'), 'utf8'));
+    assert.equal(manifest.id, 'recipes');
+    assert.equal(manifest.title, 'Recipes');
+    assert.equal(manifest.tagline, 'cook things');
+    assert.equal(manifest.itemsDir, 'items');
+    // each capability is a key; non-mine → {}, mine → carries the first kind
+    assert.deepEqual(manifest.capabilities['items.collection'], {});
+    assert.deepEqual(manifest.capabilities['query.structured'], {});
+    assert.deepEqual(manifest.capabilities.mine, { kind: 'note' });
+
+    // schema.json: parseable, {kinds, required}
+    const schema = JSON.parse(readFileSync(join(dir, 'recipes', 'schema.json'), 'utf8'));
+    assert.deepEqual(schema.kinds, ['note', 'tip']);
+    assert.deepEqual(schema.required, ['body']);
+  });
+});
+
+test('createModuleFiles: required defaults to ["body"]; title/tagline fall back', () => {
+  withHome((dir) => {
+    const r = createModuleFiles(dir, { id: 'notes', capabilities: ['items.collection'], kinds: ['note'] });
+    assert.equal(r.ok, true);
+    const manifest = JSON.parse(readFileSync(join(dir, 'notes', 'module.json'), 'utf8'));
+    assert.equal(manifest.title, 'notes');
+    assert.equal(manifest.tagline, '');
+    const schema = JSON.parse(readFileSync(join(dir, 'notes', 'schema.json'), 'utf8'));
+    assert.deepEqual(schema.required, ['body']);
+  });
+});
+
+test('createModuleFiles: refuses an existing dir and a bad slug', () => {
+  withHome((dir) => {
+    mkdirSync(join(dir, 'taken'), { recursive: true });
+    const dup = createModuleFiles(dir, { id: 'taken', capabilities: [], kinds: [] });
+    assert.equal(dup.ok, false);
+    assert.match(dup.error, /already exists/);
+
+    for (const bad of ['Bad', '-leading', 'has space', '../escape', '']) {
+      const r = createModuleFiles(dir, { id: bad, capabilities: [], kinds: [] });
+      assert.equal(r.ok, false, `'${bad}' should be refused`);
+      assert.ok(r.error, 'has an error message');
+    }
   });
 });
