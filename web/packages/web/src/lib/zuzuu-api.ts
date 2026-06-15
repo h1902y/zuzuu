@@ -1,7 +1,7 @@
 // REST client for the /api/zuzuu/* observe + act routes (mirrors lib/api.ts).
 import type {
   ZuzuuHealth, ZuzuuStatus, ModuleSummary, ModuleDetail, ModuleSchema, InboxResponse,
-  ModuleOverviewResponse, SessionInspectResponse, SessionTraceResponse,
+  ModuleOverviewResponse, SessionInspectResponse, SessionTraceResponse, SessionTreeResponse,
   ModuleGenerationList, ModuleGenerationDiff, CheckpointList,
   CheckpointMintResult, CheckpointRollbackResult,
   SessionsResponse, DigestResponse,
@@ -70,6 +70,9 @@ export const zuzuuApi = {
   /** one session's ordered per-action trace records (U6) — the post-hoc source
    *  for the agent-session transcript + history (fail-soft: 404 → empty list) */
   sessionTrace: (id: string) => request<SessionTraceResponse>(`/session-trace/${encodeURIComponent(id)}`),
+  /** one session's nested SESSION→TURN→TOOL tree (T1) — the source for the
+   *  SessionTree center view (fail-soft: missing blob → root null) */
+  sessionTree: (id: string) => request<SessionTreeResponse>(`/session-tree/${encodeURIComponent(id)}`),
   digest: () => request<DigestResponse>("/digest"),
   evalRanked: () => request<EvalResponse>("/eval"),
   hosts: () => request<HostsResponse>("/hosts"),

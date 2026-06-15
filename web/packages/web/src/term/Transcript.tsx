@@ -11,13 +11,11 @@
 //
 // The terminal itself is untouched: this is a sibling read-model. The PTY hot
 // path, reattach/replay and flow control are unchanged (KTD5/R7).
-import { useQueryClient } from "@tanstack/react-query";
-import { Receipt, Spinner, StatusDot, Button } from "../components/ui";
-import { useSessionTraceQuery } from "../app/queries";
+import { Receipt, Spinner, StatusDot } from "../components/ui";
 import { useBlocks } from "../state/blocks";
+import { SessionTree } from "./SessionTree";
 import {
   blockRows,
-  traceRows,
   groupRuns,
   transcriptSourceFor,
   type ReceiptRow,
@@ -144,80 +142,13 @@ function ShellTranscript({ sessionId, alive }: { sessionId: string; alive: boole
   return <RunList runs={runs} tail={tail} />;
 }
 
-/** AGENT transcript — the captured trace (post-hoc) rendered as receipt rows,
- *  with an explicit "live in the terminal" affordance. Agent sessions emit no
- *  live OSC-133 blocks, so the terminal is the live conversation; this is the
- *  honest structured record of it (never a faked live thread). */
-function AgentTranscript({
-  sessionId,
-  alive,
-  onOpenTerminal,
-}: {
-  sessionId: string;
-  alive: boolean;
-  onOpenTerminal?: () => void;
-}) {
-  const queryClient = useQueryClient();
-  const traceQ = useSessionTraceQuery(sessionId, true);
-  const rows = traceRows(traceQ.data?.actions ?? []);
-
-  const liveAffordance = (
-    <div className="flex items-center gap-2 rounded-[var(--radius-ui)] border border-[var(--border)] bg-popover px-3 py-2 text-ui text-muted-foreground">
-      <StatusDot tone={alive ? "ok" : "idle"} pulse={alive} />
-      {alive ? (
-        <>
-          <span>The conversation is live in the terminal.</span>
-          {onOpenTerminal && (
-            <button
-              onClick={onOpenTerminal}
-              className="ml-auto text-accent-dim underline decoration-dotted underline-offset-2 hover:text-accent"
-            >
-              Open terminal
-            </button>
-          )}
-        </>
-      ) : (
-        <span>Session ended.</span>
-      )}
-    </div>
-  );
-
-  if (rows.length === 0) {
-    // No captured actions yet — honest: point at the live terminal, not an
-    // empty thread. While alive, the trace fills in as it's captured.
-    return (
-      <div className="flex h-full items-center justify-center p-8 text-center">
-        <div className="flex max-w-sm flex-col items-center gap-3">
-          <p className="text-ui leading-relaxed text-muted-foreground">
-            {alive
-              ? "The agent conversation runs in the terminal. As it's captured, a structured record of each turn and tool call appears here."
-              : "No captured actions for this session yet."}
-          </p>
-          <div className="flex items-center gap-2">
-            {alive && onOpenTerminal && (
-              <Button variant="primary" onClick={onOpenTerminal}>
-                Open terminal
-              </Button>
-            )}
-            {traceQ.isError && (
-              <Button onClick={() => void queryClient.invalidateQueries({ queryKey: ["zuzuu", "session-trace", sessionId] })}>
-                Retry
-              </Button>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const runs = groupRuns(rows);
-  return <RunList runs={runs} tail={liveAffordance} />;
-}
-
 /**
- * The session-as-conversation transcript. Picks its source by session type:
- * shell → live OSC-133 blocks; agent → captured trace actions. The terminal
- * remains the live conversation; this is a derived read-model beside it.
+ * The session-as-tree center view. Picks its source by session type:
+ *   • shell → live OSC-133 command blocks grouped into runs (this file);
+ *   • agent → the nested SESSION→TURN→TOOL tree (T1), rendered by `SessionTree`
+ *             (live polls the trace as it's captured; past is static).
+ * The terminal remains the live conversation; this is a derived read-model
+ * beside it (the PTY hot path is untouched).
  */
 export function Transcript({
   sessionId,
@@ -228,13 +159,13 @@ export function Transcript({
   sessionId: string;
   /** the PTY is still attached — drives paused-vs-running / live affordances */
   alive: boolean;
-  /** session type selects the data source (shell → blocks, agent → trace) */
+  /** session type selects the data source (shell → blocks, agent → tree) */
   type: "shell" | "agent";
   /** switch the work pane to the Terminal tab (the live surface) */
   onOpenTerminal?: () => void;
 }) {
   return transcriptSourceFor(type) === "trace" ? (
-    <AgentTranscript sessionId={sessionId} alive={alive} {...(onOpenTerminal ? { onOpenTerminal } : {})} />
+    <SessionTree sessionId={sessionId} alive={alive} {...(onOpenTerminal ? { onOpenTerminal } : {})} />
   ) : (
     <ShellTranscript sessionId={sessionId} alive={alive} />
   );

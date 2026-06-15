@@ -39,6 +39,17 @@ export const useSessionTraceQuery = (sessionId: string, enabled: boolean) =>
     enabled,
   });
 
+/** One session's nested SESSION→TURN→TOOL tree (T1) — the source for the
+ *  SessionTree center view. Polled gently so a live session's tree fills in as
+ *  it's captured; past sessions are static (the cached result never changes). */
+export const useSessionTreeQuery = (sessionId: string, enabled: boolean) =>
+  useQuery({
+    queryKey: ["zuzuu", "session-tree", sessionId],
+    queryFn: () => zuzuuApi.sessionTree(sessionId),
+    refetchInterval: 8000,
+    enabled,
+  });
+
 const parentOf = (path: string) => path.split("/").slice(0, -1).join("/");
 
 /** Start the fs-events socket once the workspace is known and map pushed
