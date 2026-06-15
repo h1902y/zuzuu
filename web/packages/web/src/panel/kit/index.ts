@@ -4,3 +4,4 @@ export * from "./vocab";
 export { ItemRow } from "./ItemRow";
 export { TeachingEmpty, type ExplainerEntry } from "./TeachingEmpty";
 export { Section } from "./Section";
+export { CollapsibleSection } from "./CollapsibleSection";

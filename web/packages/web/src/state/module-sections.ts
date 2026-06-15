@@ -1,3 +1,45 @@
+// ── Pure section logic (U2) — unit-testable, React-free ──────────────────
+//
+// Five fixed section keys per module; default-open policy lives here as pure
+// functions so tests can cover them without mounting React.
+
+export type SectionKey = "pending" | "items" | "versions" | "schema" | "readme";
+
+export const SECTION_KEYS: SectionKey[] = ["pending", "items", "versions", "schema", "readme"];
+
+/** Which sections are open by default, given the pending proposal count.
+ *  - pending: open when count > 0
+ *  - items:   always open
+ *  - versions/schema/readme: always closed (defer until requested)
+ */
+export function defaultOpenSections(pendingCount: number): Record<SectionKey, boolean> {
+  return {
+    pending: pendingCount > 0,
+    items: true,
+    versions: false,
+    schema: false,
+    readme: false,
+  };
+}
+
+/** Toggle one section's open state, returning a new map (immutable). */
+export function toggleSection(
+  state: Record<SectionKey, boolean>,
+  key: SectionKey,
+): Record<SectionKey, boolean> {
+  return { ...state, [key]: !state[key] };
+}
+
+/** Override one or more sections' open state (e.g. after a pending-count change). */
+export function patchSections(
+  state: Record<SectionKey, boolean>,
+  patch: Partial<Record<SectionKey, boolean>>,
+): Record<SectionKey, boolean> {
+  return { ...state, ...patch };
+}
+
+// ── Zustand store (U1) — persists explicit user toggles across module switches ─
+
 // Shared section-collapse state for ModuleView (U1).
 //
 // Open/closed state is keyed by `"${moduleId}:${sectionId}"` so each module

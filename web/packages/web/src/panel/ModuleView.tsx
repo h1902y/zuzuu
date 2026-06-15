@@ -7,6 +7,7 @@ import { useExplorer } from "../state/explorer";
 import { confirm, InfoDot, PropertyRow, StatusPill } from "../components/ui";
 import { Switch } from "../components/ui-shadcn/switch";
 import { ProposalRow } from "./ProposalRow";
+import { CollapsibleSection } from "./kit/CollapsibleSection";
 import { ItemRow, Section, TeachingEmpty, moduleDisplay, moduleHue, kindIcon, relativeTime, versionLabel, GLOSSARY, KIND_ICONS, type ExplainerEntry } from "./kit";
 import { moduleItemPath } from "./module-paths";
 import { SchemaView, ReadmeView } from "./ModuleDocs";
@@ -387,17 +388,18 @@ export function ModuleView({ moduleKey }: { moduleKey: ModuleKey }) {
           explainer={MODULE_EXPLAINERS[moduleKey]}
         />
       ) : (
-        <>
-          {/* pending first — the human gate is the panel's headline */}
-          {proposals.length > 0 && (
-            <Section
-              label={
-                <span className="inline-flex items-center gap-1">
-                  pending proposals ({proposals.length})
-                  <InfoDot title={GLOSSARY.proposal!.term}>{GLOSSARY.proposal!.what}</InfoDot>
-                </span>
-              }
-            >
+        <div className="flex flex-col gap-3">
+          {/* ── 1. Pending proposals — the human gate is the headline ── */}
+          <CollapsibleSection
+            moduleId={moduleKey}
+            id="pending"
+            title="Pending"
+            count={proposals.length}
+            defaultOpen={proposals.length > 0}
+          >
+            {proposals.length === 0 ? (
+              <div className="text-meta text-ink-600">no pending proposals</div>
+            ) : (
               <div className="flex flex-col">
                 {proposals.map((p) => (
                   <ProposalRow
@@ -411,66 +413,83 @@ export function ModuleView({ moduleKey }: { moduleKey: ModuleKey }) {
                   />
                 ))}
               </div>
-            </Section>
-          )}
+            )}
+          </CollapsibleSection>
 
-          {/* guardrails: specialized three-state rule rows + summary */}
-          {moduleKey === "guardrails" ? (
-            <GuardrailsSection items={items} />
-          ) : (
-            <Section label={`items (${items.length})`}>
-              {items.length === 0 ? (
-                <div className="text-meta text-ink-600">none yet — approved proposals land here</div>
-              ) : (
-                <div className="flex flex-col">
-                  {items.map((it) => (
-                    <ItemPeek
-                      key={it.id}
-                      item={it}
-                      allItems={items}
-                      path={moduleItemPath(moduleKey, it.id)}
-                      onOpen={() => openInEditor(moduleItemPath(moduleKey, it.id))}
-                      moduleKey={moduleKey}
-                    />
-                  ))}
-                </div>
-              )}
-            </Section>
-          )}
+          {/* ── 2. Items (approved) — guardrails gets its specialized body ── */}
+          <CollapsibleSection
+            moduleId={moduleKey}
+            id="items"
+            title="Items"
+            defaultOpen
+          >
+            {moduleKey === "guardrails" ? (
+              <GuardrailsSection items={items} />
+            ) : (
+              <>
+                {items.length === 0 ? (
+                  <div className="text-meta text-ink-600">none yet — approved proposals land here</div>
+                ) : (
+                  <div className="flex flex-col">
+                    {items.map((it) => (
+                      <ItemPeek
+                        key={it.id}
+                        item={it}
+                        allItems={items}
+                        path={moduleItemPath(moduleKey, it.id)}
+                        onOpen={() => openInEditor(moduleItemPath(moduleKey, it.id))}
+                        moduleKey={moduleKey}
+                      />
+                    ))}
+                  </div>
+                )}
+                {errors.length > 0 && (
+                  <div className="flex flex-col gap-1 mt-2 border-t border-border pt-2">
+                    <div className="wc-eyebrow text-ink-500">{`unparseable (${errors.length})`}</div>
+                    {errors.map((e) => (
+                      <div key={e.file} className="truncate text-meta text-danger" title={e.error}>
+                        ✗ {e.file}: {e.error}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </CollapsibleSection>
 
-          {errors.length > 0 && (
-            <Section label={`unparseable (${errors.length})`}>
-              {errors.map((e) => (
-                <div key={e.file} className="truncate text-meta text-danger" title={e.error}>
-                  ✗ {e.file}: {e.error}
-                </div>
-              ))}
-            </Section>
-          )}
-        </>
+          {/* ── 3. Versions — per-module generation lineage ── */}
+          <CollapsibleSection
+            moduleId={moduleKey}
+            id="versions"
+            title="Versions"
+            defaultOpen={false}
+          >
+            <ModuleGenerations moduleKey={moduleKey} />
+          </CollapsibleSection>
+
+          {/* ── 4. Schema ── */}
+          <CollapsibleSection
+            moduleId={moduleKey}
+            id="schema"
+            title="Schema"
+            defaultOpen={false}
+          >
+            <SchemaView moduleKey={moduleKey} />
+          </CollapsibleSection>
+
+          {/* ── 5. README ── */}
+          <CollapsibleSection
+            moduleId={moduleKey}
+            id="readme"
+            title="README"
+            defaultOpen={false}
+          >
+            <ReadmeView moduleKey={moduleKey} />
+          </CollapsibleSection>
+        </div>
       )}
 
       {err && <div className="wc-mono break-all text-meta text-danger">{err}</div>}
-
-      {/* version lineage for THIS module (per-module atoms, W2.5 Phase 2) */}
-      {!bare && (
-        <Section
-          label={
-            <span className="inline-flex items-center gap-1">
-              Versions
-              <InfoDot title={GLOSSARY.version!.term}>{GLOSSARY.version!.what}</InfoDot>
-            </span>
-          }
-        >
-          <ModuleGenerations moduleKey={moduleKey} />
-        </Section>
-      )}
-
-      {/* rendered schema + README (raw-file escape hatch lives inside each) */}
-      <div className="flex flex-col gap-2 border-t border-border pt-3">
-        <SchemaView moduleKey={moduleKey} />
-        <ReadmeView moduleKey={moduleKey} />
-      </div>
     </div>
   );
 }
