@@ -1,6 +1,11 @@
 // Shared types for the zuzuu modules dashboard (the /api/zuzuu/* contract).
 
-export type ModuleKey = "knowledge" | "memory" | "actions" | "instructions" | "guardrails";
+/** A module key is any slug (e.g. "knowledge", "memory", or a user-composed
+ *  module like "todo"). The five built-ins are just seed templates. */
+export type ModuleKey = string;
+
+/** The five built-in module keys (seed templates; kept for fallback metadata). */
+export const BUILTIN_MODULE_KEYS = ["knowledge", "memory", "actions", "instructions", "guardrails"] as const;
 
 export interface ZuzuuHealth {
   home: boolean;
@@ -158,6 +163,8 @@ export interface ModuleOverviewEntry {
   counts: { items: number; pending: number; errors: number };
   /** up to 3 top item titles */
   top: string[];
+  /** whether this module is enabled (default true; toggled via zuzuu module enable/disable) */
+  enabled?: boolean;
 }
 
 export interface ModuleOverviewResponse {
