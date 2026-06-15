@@ -7,8 +7,8 @@
 // stubs guided creation (WS-D). Brutal-minimal: flat, sharp, strong row
 // separators via border-border; disabled modules render dimmed but stay listed.
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ModuleOverviewEntry, ModuleOverviewResponse } from "@zuzuu-web/protocol";
+import { useQuery } from "@tanstack/react-query";
+import type { ModuleOverviewEntry } from "@zuzuu-web/protocol";
 import { zuzuuApi } from "../lib/zuzuu-api";
 import { useRightPanel } from "../state/right-panel";
 import { Switch } from "../components/ui-shadcn/switch";
@@ -17,7 +17,8 @@ import { Button } from "../components/ui-shadcn/button";
 import { ScrollArea } from "../components/ui-shadcn/scroll-area";
 import { NewModuleDialog } from "./NewModuleDialog";
 import { moduleDisplay, moduleHue } from "./kit";
-import { kindLabel, orderedIds, toggleEnabledInOverview } from "./modules-list";
+import { kindLabel, orderedIds } from "./modules-list";
+import { useModuleToggle } from "./use-module-toggle";
 
 export function ModulesList({
   zuzuuHome,
@@ -95,7 +96,6 @@ export function ModulesList({
 function ModuleRow({ id, entry }: { id: string; entry: ModuleOverviewEntry | undefined }) {
   const openModule = useRightPanel((s) => s.openModule);
   const selectedModule = useRightPanel((s) => s.selectedModule);
-  const queryClient = useQueryClient();
 
   const display = moduleDisplay(id, entry);
   const hue = moduleHue(id);
@@ -104,25 +104,8 @@ function ModuleRow({ id, entry }: { id: string; entry: ModuleOverviewEntry | und
   const enabled = entry?.enabled ?? true;
   const selected = selectedModule === id;
 
-  // optimistic toggle: patch the overview cache, fire the mutation, roll back
-  // on error, then invalidate to reconcile with the daemon.
-  const toggle = useMutation({
-    mutationFn: (next: boolean) => zuzuuApi.setModuleEnabled(id, next),
-    onMutate: async (next: boolean) => {
-      await queryClient.cancelQueries({ queryKey: ["zuzuu", "overview"] });
-      const prev = queryClient.getQueryData(["zuzuu", "overview"]);
-      queryClient.setQueryData(["zuzuu", "overview"], (old: ModuleOverviewResponse | undefined) =>
-        toggleEnabledInOverview(old, id, next),
-      );
-      return { prev };
-    },
-    onError: (_err, _next, ctx) => {
-      if (ctx?.prev !== undefined) queryClient.setQueryData(["zuzuu", "overview"], ctx.prev);
-    },
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: ["zuzuu", "overview"] });
-    },
-  });
+  // the ONE toggle path — shared + serialized with the ModuleView hero Switch
+  const { toggle, isToggling } = useModuleToggle(id);
 
   return (
     <li
@@ -168,8 +151,8 @@ function ModuleRow({ id, entry }: { id: string; entry: ModuleOverviewEntry | und
       {/* on/off toggle */}
       <Switch
         checked={enabled}
-        disabled={toggle.isPending}
-        onCheckedChange={(next) => toggle.mutate(next)}
+        disabled={isToggling}
+        onCheckedChange={(next) => toggle(next)}
         aria-label={`${enabled ? "Disable" : "Enable"} ${display.label}`}
         title={enabled ? "Enabled — click to disable" : "Disabled — click to enable"}
         className="shrink-0"

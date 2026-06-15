@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ModuleItem, ModuleKey, ModuleOverviewResponse, ProposalSummary } from "@zuzuu-web/protocol";
-import { toggleEnabledInOverview } from "./modules-list";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { ModuleItem, ModuleKey, ProposalSummary } from "@zuzuu-web/protocol";
+import { useModuleToggle } from "./use-module-toggle";
 import { describeZuzuuError, zuzuuApi } from "../lib/zuzuu-api";
 import { useExplorer } from "../state/explorer";
 import { confirm, InfoDot, PropertyRow, StatusPill } from "../components/ui";
@@ -297,23 +297,8 @@ export function ModuleView({ moduleKey }: { moduleKey: ModuleKey }) {
   const display = moduleDisplay(moduleKey, entry);
   const enabled = entry?.enabled ?? true;
 
-  // enabled toggle — optimistic patch of the shared overview cache (matches
-  // ModulesList), reconciled on settle.
-  const toggleEnabled = useMutation({
-    mutationFn: (next: boolean) => zuzuuApi.setModuleEnabled(moduleKey, next),
-    onMutate: async (next: boolean) => {
-      await queryClient.cancelQueries({ queryKey: ["zuzuu", "overview"] });
-      const prev = queryClient.getQueryData(["zuzuu", "overview"]);
-      queryClient.setQueryData(["zuzuu", "overview"], (old: ModuleOverviewResponse | undefined) =>
-        toggleEnabledInOverview(old, moduleKey, next),
-      );
-      return { prev };
-    },
-    onError: (_e, _n, ctx) => {
-      if (ctx?.prev !== undefined) queryClient.setQueryData(["zuzuu", "overview"], ctx.prev);
-    },
-    onSettled: () => void queryClient.invalidateQueries({ queryKey: ["zuzuu", "overview"] }),
-  });
+  // the ONE toggle path — shared + serialized with the ModulesList row Switch
+  const { toggle: toggleEnabled, isToggling } = useModuleToggle(moduleKey);
   const detail = useQuery({
     queryKey: ["zuzuu", "module", moduleKey],
     queryFn: () => zuzuuApi.module(moduleKey),
@@ -386,8 +371,8 @@ export function ModuleView({ moduleKey }: { moduleKey: ModuleKey }) {
           <span className="wc-sans text-meta text-ink-500">{enabled ? "on" : "off"}</span>
           <Switch
             checked={enabled}
-            disabled={toggleEnabled.isPending}
-            onCheckedChange={(next) => toggleEnabled.mutate(next)}
+            disabled={isToggling}
+            onCheckedChange={(next) => toggleEnabled(next)}
             aria-label={`${enabled ? "Disable" : "Enable"} ${display.label}`}
             title={enabled ? "Enabled — click to disable" : "Disabled — click to enable"}
           />

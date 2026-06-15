@@ -39,9 +39,21 @@ interface RightPanelState {
   closeSession: () => void;
   /** clear whatever is selected → the sessions home */
   closeCenter: () => void;
+
+  /** Module ids with an enabled-toggle mutation in flight. Shared across BOTH
+   *  toggle surfaces (the master-list row Switch + the ModuleView hero Switch)
+   *  so a toggle on one disables the other — serializing the two against the
+   *  SAME module + the SAME overview cache (no racing optimistic restores). */
+  togglingIds: Set<string>;
+  /** Mark a module's toggle as in-flight. */
+  beginToggle: (id: string) => void;
+  /** Clear a module's in-flight mark. */
+  endToggle: (id: string) => void;
+  /** Is this module's toggle currently in flight? */
+  isToggling: (id: string) => boolean;
 }
 
-export const useRightPanel = create<RightPanelState>((set) => ({
+export const useRightPanel = create<RightPanelState>((set, get) => ({
   selection: null,
   selectedModule: null,
   selectedSession: null,
@@ -52,4 +64,21 @@ export const useRightPanel = create<RightPanelState>((set) => ({
     set({ selection: { kind: "session", id }, selectedSession: id, selectedModule: null }),
   closeSession: () => set({ selection: null, selectedModule: null, selectedSession: null }),
   closeCenter: () => set({ selection: null, selectedModule: null, selectedSession: null }),
+
+  togglingIds: new Set<string>(),
+  beginToggle: (id) =>
+    set((s) => {
+      if (s.togglingIds.has(id)) return s;
+      const next = new Set(s.togglingIds);
+      next.add(id);
+      return { togglingIds: next };
+    }),
+  endToggle: (id) =>
+    set((s) => {
+      if (!s.togglingIds.has(id)) return s;
+      const next = new Set(s.togglingIds);
+      next.delete(id);
+      return { togglingIds: next };
+    }),
+  isToggling: (id) => get().togglingIds.has(id),
 }));

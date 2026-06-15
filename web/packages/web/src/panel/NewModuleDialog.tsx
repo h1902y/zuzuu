@@ -49,6 +49,9 @@ export function NewModuleDialog({
     create.reset();
   };
   const close = (next: boolean) => {
+    // don't dismiss/reset mid-flight — a closing dialog would tear down the
+    // create before its onSuccess sequencing runs.
+    if (!next && create.isPending) return;
     if (!next) reset();
     onOpenChange(next);
   };
@@ -63,8 +66,10 @@ export function NewModuleDialog({
         kinds: [kind.trim() || "note"],
         required: ["body"],
       }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["zuzuu", "overview"] });
+    onSuccess: async () => {
+      // invalidate FIRST so the list + the selection land consistent: the new
+      // module is in the overview before we open it and close the dialog.
+      await queryClient.invalidateQueries({ queryKey: ["zuzuu", "overview"] });
       openModule(id as Parameters<typeof openModule>[0]);
       close(false);
     },

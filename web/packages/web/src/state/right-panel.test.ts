@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { useRightPanel } from "./right-panel";
 
 beforeEach(() => {
-  useRightPanel.setState({ selection: null, selectedModule: null, selectedSession: null });
+  useRightPanel.setState({ selection: null, selectedModule: null, selectedSession: null, togglingIds: new Set() });
 });
 
 describe("center selection store", () => {
@@ -61,5 +61,38 @@ describe("center selection store", () => {
     useRightPanel.getState().openModule("knowledge");
     useRightPanel.getState().closeCenter();
     expect(useRightPanel.getState().selection).toBeNull();
+  });
+});
+
+describe("togglingIds in-flight guard (F3)", () => {
+  it("begin/end add and remove an id; isToggling reflects membership", () => {
+    const s = useRightPanel.getState();
+    expect(s.isToggling("guardrails")).toBe(false);
+
+    s.beginToggle("guardrails");
+    expect(useRightPanel.getState().isToggling("guardrails")).toBe(true);
+    expect(useRightPanel.getState().togglingIds.has("guardrails")).toBe(true);
+
+    s.endToggle("guardrails");
+    expect(useRightPanel.getState().isToggling("guardrails")).toBe(false);
+  });
+
+  it("tracks ids independently", () => {
+    const s = useRightPanel.getState();
+    s.beginToggle("a");
+    s.beginToggle("b");
+    expect(useRightPanel.getState().togglingIds.size).toBe(2);
+    s.endToggle("a");
+    expect(useRightPanel.getState().isToggling("a")).toBe(false);
+    expect(useRightPanel.getState().isToggling("b")).toBe(true);
+  });
+
+  it("begin is idempotent and end on an absent id is a no-op", () => {
+    const s = useRightPanel.getState();
+    s.beginToggle("x");
+    s.beginToggle("x");
+    expect(useRightPanel.getState().togglingIds.size).toBe(1);
+    s.endToggle("missing");
+    expect(useRightPanel.getState().togglingIds.size).toBe(1);
   });
 });
