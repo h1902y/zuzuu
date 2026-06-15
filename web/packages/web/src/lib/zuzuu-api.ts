@@ -4,7 +4,7 @@ import type {
   ModuleOverviewResponse, SessionInspectResponse, SessionTraceResponse, SessionTreeResponse,
   ModuleGenerationList, ModuleGenerationDiff, CheckpointList,
   CheckpointMintResult, CheckpointRollbackResult,
-  SessionsResponse, DigestResponse,
+  SessionsResponse, SessionContentResponse, DigestResponse,
   EvalResponse, HostsResponse, ApproveResult, RejectResult, RollbackResult,
   SessionGitStatus, SessionMergeResult,
 } from "@zuzuu-web/protocol";
@@ -73,6 +73,10 @@ export const zuzuuApi = {
   /** one session's nested SESSION→TURN→TOOL tree (T1) — the source for the
    *  SessionTree center view (fail-soft: missing blob → root null) */
   sessionTree: (id: string) => request<SessionTreeResponse>(`/session-tree/${encodeURIComponent(id)}`),
+  /** one session's REAL host-transcript content (U1) — ordered DISPLAY nodes
+   *  (agent/user text + tool input/output), read on demand, never stored. The
+   *  source for the content-rich SessionTree (fail-soft: missing/thin → nodes []) */
+  sessionContent: (id: string) => request<SessionContentResponse>(`/session-content/${encodeURIComponent(id)}`),
   digest: () => request<DigestResponse>("/digest"),
   evalRanked: () => request<EvalResponse>("/eval"),
   hosts: () => request<HostsResponse>("/hosts"),

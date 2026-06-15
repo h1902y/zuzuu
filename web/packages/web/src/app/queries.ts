@@ -50,6 +50,20 @@ export const useSessionTreeQuery = (sessionId: string, enabled: boolean) =>
     enabled,
   });
 
+/** One session's REAL host-transcript content (U1) — ordered DISPLAY nodes
+ *  (agent/user text + tool input/output), read on demand and never stored. The
+ *  content source for the content-rich SessionTree (T2). Polled gently so a live
+ *  session's content streams in as the transcript grows; a past session reads
+ *  once and stays static (the cached result never changes). Fail-soft on the
+ *  daemon: a missing/thin transcript → nodes []. */
+export const useSessionContentQuery = (sessionId: string, enabled: boolean) =>
+  useQuery({
+    queryKey: ["zuzuu", "session-content", sessionId],
+    queryFn: () => zuzuuApi.sessionContent(sessionId),
+    refetchInterval: 8000,
+    enabled,
+  });
+
 const parentOf = (path: string) => path.split("/").slice(0, -1).join("/");
 
 /** Start the fs-events socket once the workspace is known and map pushed

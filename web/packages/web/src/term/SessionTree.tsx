@@ -15,12 +15,16 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Receipt, StatusDot, Button } from "../components/ui";
-import { useSessionTreeQuery } from "../app/queries";
+import { useSessionContentQuery, useSessionTreeQuery } from "../app/queries";
 import {
   treeTurns,
   discloseTurns,
+  contentTurns,
+  discloseContentTurns,
   type TreeTurn,
   type TreeToolRow,
+  type ContentTurn,
+  type ContentRow,
 } from "./session-tree";
 
 // Glyph paths shared with the transcript receipts — one visual language.
@@ -129,6 +133,152 @@ export function TurnList({ turns, tail }: { turns: TreeTurn[]; tail?: React.Reac
   );
 }
 
+// ── Content-rich rendering (U2) ────────────────────────────────────────
+// When U1 content is present the tree shows the REAL conversation: text rows
+// are readable blocks; tool rows are receipts that EXPAND to input + output
+// (the Ctrl+O equivalent), with a "show more" hint when the output was capped.
+
+/** A readable text block in the transcript — the agent's reply or a user prompt.
+ *  Whitespace is preserved (wrapping) so code/diffs in a reply stay legible. */
+function TextBlock({ row }: { row: Extract<ContentRow, { kind: "text" }> }) {
+  const isUser = row.role === "user";
+  if (!row.text.trim()) return null;
+  return (
+    <div className="px-2 py-1.5">
+      <div className="mb-0.5 text-meta text-muted-foreground">{isUser ? "You" : "Agent"}</div>
+      <p
+        className={`whitespace-pre-wrap break-words text-ui leading-relaxed ${
+          isUser ? "text-muted-foreground" : "text-foreground"
+        }`}
+      >
+        {row.text}
+      </p>
+    </div>
+  );
+}
+
+/** One tool call: a receipt that expands to its input then output. A truncated
+ *  output (capped server-side in U1) shows a "show more" hint — the cap is
+ *  applied at the source, so this just signals there was more. */
+function ToolContentReceipt({ row }: { row: Extract<ContentRow, { kind: "tool" }> }) {
+  const tone = row.receipt.tone === "default" ? "default" : row.receipt.tone;
+  const hasDetail = row.toolInput.trim().length > 0 || row.toolOutput.trim().length > 0;
+  return (
+    <Receipt
+      icon={GLYPH[row.receipt.glyph]}
+      label={row.receipt.label}
+      meta={row.receipt.meta ?? undefined}
+      tone={tone}
+    >
+      {hasDetail ? (
+        <div className="flex flex-col gap-2">
+          {row.toolInput.trim() && (
+            <div>
+              <div className="mb-0.5 text-meta text-muted-foreground">Input</div>
+              <pre className="wc-mono whitespace-pre-wrap break-words text-meta text-ink-400">{row.toolInput}</pre>
+            </div>
+          )}
+          {row.toolOutput.trim() && (
+            <div>
+              <div className="mb-0.5 text-meta text-muted-foreground">Output</div>
+              <pre className="wc-mono whitespace-pre-wrap break-words text-meta text-ink-400">{row.toolOutput}</pre>
+              {row.truncated && (
+                <div className="mt-1 text-meta text-muted-foreground">show more — output truncated</div>
+              )}
+            </div>
+          )}
+        </div>
+      ) : undefined}
+    </Receipt>
+  );
+}
+
+/** One content TURN = a collapsible header over its rich rows (text blocks +
+ *  expandable tool receipts). Mirrors `TurnNode` (T1) but content-rich.
+ *  Exported (state is local) so the rendering is SSR-smoke-tested. */
+export function ContentTurnNode({ turn, defaultOpen }: { turn: ContentTurn; defaultOpen?: boolean }) {
+  const hasRows = turn.rows.length > 0;
+  const [open, setOpen] = useState(defaultOpen ?? false);
+  const time = turnTime(turn.startedAt);
+  const tone = turn.outcome === "bad" ? "bad" : turn.outcome === "ok" ? "ok" : "idle";
+  const toolCount = turn.rows.filter((r) => r.kind === "tool").length;
+
+  const header = (
+    <>
+      {hasRows ? (
+        <svg
+          viewBox="0 0 16 16"
+          className={`h-3 w-3 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-90" : ""}`}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.4"
+        >
+          <path d="M6 4l4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      ) : (
+        <span className="h-3 w-3 shrink-0" />
+      )}
+      <StatusDot tone={tone} />
+      <span className="min-w-0 flex-1 truncate text-ui text-foreground">{turn.label}</span>
+      {time && <span className="wc-mono shrink-0 text-meta text-muted-foreground">{time}</span>}
+      {toolCount > 0 && <span className="wc-mono shrink-0 text-meta text-muted-foreground">{toolCount}</span>}
+    </>
+  );
+
+  return (
+    <section className="flex flex-col">
+      {hasRows ? (
+        <button
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+          className="wc-focus flex w-full items-center gap-2 rounded-[var(--radius-ui)] px-2 py-1.5 text-left hover:bg-[var(--accent)]"
+        >
+          {header}
+        </button>
+      ) : (
+        <div className="flex w-full items-center gap-2 px-2 py-1.5">{header}</div>
+      )}
+      {open && hasRows && (
+        <div className="flex flex-col gap-0.5 border-l border-[var(--border)] pl-3 ml-3">
+          {turn.rows.map((row) =>
+            row.kind === "text" ? (
+              <TextBlock key={row.key} row={row} />
+            ) : (
+              <ToolContentReceipt key={row.key} row={row} />
+            ),
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** The content turn list with progressive disclosure (older turns collapse
+ *  behind one "N more"; the newest turn stays open). Mirrors `TurnList`. */
+export function ContentTurnList({ turns, tail }: { turns: ContentTurn[]; tail?: React.ReactNode }) {
+  const { hidden, shown, hiddenCount } = discloseContentTurns(turns);
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="h-full overflow-y-auto">
+      <div className="mx-auto flex max-w-2xl flex-col gap-1 px-4 py-4">
+        {hiddenCount > 0 && !expanded && (
+          <button
+            onClick={() => setExpanded(true)}
+            className="wc-focus self-start rounded-[var(--radius-ui)] px-2 py-1 text-meta text-muted-foreground hover:bg-[var(--accent)] hover:text-foreground"
+          >
+            {hiddenCount} more
+          </button>
+        )}
+        {expanded && hidden.map((turn) => <ContentTurnNode key={turn.key} turn={turn} />)}
+        {shown.map((turn, i) => (
+          <ContentTurnNode key={turn.key} turn={turn} defaultOpen={i === shown.length - 1} />
+        ))}
+        {tail && <div className="mt-2 px-2">{tail}</div>}
+      </div>
+    </div>
+  );
+}
+
 /** A calm starter for an empty/new session (null/empty tree). */
 function StarterEmpty() {
   return (
@@ -163,6 +313,12 @@ export function SessionTree({
 }) {
   const queryClient = useQueryClient();
   const treeQ = useSessionTreeQuery(sessionId, enabled);
+  // U1 content (the REAL host-transcript: agent/user text + tool I/O), read on
+  // demand. A live session streams it in (polled); a past session reads once.
+  // Fail-soft on the daemon (missing/thin transcript → nodes []), so we degrade
+  // to the counts/kinds T1 tree below when there's no content.
+  const contentQ = useSessionContentQuery(sessionId, enabled);
+  const richTurns = contentTurns(contentQ.data?.nodes ?? null);
   const turns = treeTurns(treeQ.data?.root ?? null);
 
   const liveAffordance = (
@@ -185,6 +341,15 @@ export function SessionTree({
       )}
     </div>
   );
+
+  // Content-rich is the preferred surface: when U1 resolved real transcript
+  // content, render the conversation (text + expandable tool I/O). When there's
+  // no content (transcript missing/gone, or a thin host with nothing yet),
+  // degrade to the counts/kinds T1 tree — fail-soft, never empty if either has
+  // signal.
+  if (richTurns.length > 0) {
+    return <ContentTurnList turns={richTurns} tail={liveAffordance} />;
+  }
 
   if (turns.length === 0) {
     if (alive) {

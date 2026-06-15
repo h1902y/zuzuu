@@ -14,7 +14,7 @@
 //
 // React/DOM-free so the grouping + mapping are unit-tested without a browser.
 // The component (`SessionTree.tsx`) is a thin renderer over `treeTurns`.
-import type { SessionTreeNode } from "@zuzuu-web/protocol";
+import type { SessionContentNode, SessionTreeNode } from "@zuzuu-web/protocol";
 import type { CommandReceipt, ReceiptTone } from "../lib/session-cards";
 
 /** A tool-call rendered as a one-line receipt row inside its turn. */
@@ -155,6 +155,170 @@ export const RECENT_TURNS = 1;
  * With <= `recent` turns nothing is hidden.
  */
 export function discloseTurns(turns: TreeTurn[], recent: number = RECENT_TURNS): TurnDisclosure {
+  if (turns.length <= recent) return { hidden: [], shown: turns, hiddenCount: 0 };
+  const cut = turns.length - recent;
+  const hidden = turns.slice(0, cut);
+  return { hidden, shown: turns.slice(cut), hiddenCount: hidden.length };
+}
+
+// ── Content-rich model (U2) ────────────────────────────────────────────
+//
+// U1 (`GET /session-content/:id`) gives the REAL host-transcript content as an
+// ORDERED list of `SessionContentNode` (kind ∈ agent_text | user_text | tool,
+// carrying text / toolInput / toolOutput / status / truncated). This block
+// turns that flat ordered list into the same TURN grouping the tree uses, but
+// with each turn carrying RICH rows — text blocks (the conversation) and tool
+// rows that expand to input + output (the Ctrl+O equivalent).
+//
+// Grouping rule (honest, source-ordered): a user prompt opens a turn; every
+// agent_text/tool node that follows belongs to that turn until the next user
+// prompt. Content that precedes any user prompt (or a host with no user nodes,
+// e.g. Gemini text-only) falls into a leading turn so nothing is dropped.
+// DOM-free so the grouping is unit-tested without a browser.
+
+/** One RICH row inside a content turn: a readable text block, or a tool call
+ *  that expands to its input + output. A discriminated union keyed by `kind`. */
+export type ContentRow =
+  | {
+      kind: "text";
+      key: string;
+      /** "agent" → the agent's reply; "user" → a user prompt */
+      role: "agent" | "user";
+      text: string;
+      ts: number;
+    }
+  | {
+      kind: "tool";
+      key: string;
+      /** the one-line receipt header (status → tone, label class → glyph) */
+      receipt: CommandReceipt;
+      toolInput: string;
+      toolOutput: string;
+      /** the size cap (U1, server-side) cut the output → show a "show more" hint */
+      truncated: boolean;
+      ts: number;
+    };
+
+/** A content turn = a label + outcome over its ordered RICH rows. Mirrors
+ *  `TreeTurn` so the renderer's disclosure/grouping is shared. */
+export interface ContentTurn {
+  key: string;
+  label: string;
+  startedAt: number;
+  outcome: "ok" | "bad" | "neutral";
+  rows: ContentRow[];
+}
+
+/** display status ("ok" | "error" | undefined) → receipt tone. */
+function contentTone(status: SessionContentNode["status"]): ReceiptTone {
+  return status === "error" ? "bad" : status === "ok" ? "ok" : "default";
+}
+
+/** Pick a tree glyph for a tool content node from its label (same map as the
+ *  T1 tree so content + counts read with one visual language). */
+function contentGlyph(label: string): CommandReceipt["glyph"] {
+  const l = label.toLowerCase();
+  if (/\b(edit|write|create|patch)\b/.test(l)) return "edit";
+  if (/\b(grep|search|glob|find|read)\b/.test(l)) return "search";
+  if (/\b(git|branch|commit)\b/.test(l)) return "git";
+  if (/\b(bash|rm|sudo|kill)\b/.test(l)) return "guardrail";
+  return "run";
+}
+
+/** Map one tool content node → an expandable tool row. */
+function toolContentRow(n: SessionContentNode, key: string): ContentRow {
+  return {
+    kind: "tool",
+    key,
+    receipt: {
+      label: n.label,
+      meta: "tool",
+      tone: contentTone(n.status),
+      glyph: contentGlyph(n.label),
+      running: false,
+    },
+    toolInput: n.toolInput ?? "",
+    toolOutput: n.toolOutput ?? "",
+    truncated: n.truncated ?? false,
+    ts: epoch(n.ts),
+  };
+}
+
+/** A content turn's outcome rolls up its tool rows: any tool error → bad, any
+ *  tool ok → ok, else neutral (a text-only / Gemini-thin turn). */
+export function contentOutcome(rows: ContentRow[]): ContentTurn["outcome"] {
+  const tools = rows.filter((r): r is Extract<ContentRow, { kind: "tool" }> => r.kind === "tool");
+  if (tools.some((t) => t.receipt.tone === "bad")) return "bad";
+  if (tools.some((t) => t.receipt.tone === "ok")) return "ok";
+  return "neutral";
+}
+
+/** A short, single-line turn label from a user prompt (first non-empty line,
+ *  clipped) — falls back to a generic label for a leading/text-only turn. */
+function turnLabelFrom(text: string, fallback: string): string {
+  const line = text.split("\n").map((s) => s.trim()).find((s) => s.length > 0);
+  if (!line) return fallback;
+  return line.length > 80 ? `${line.slice(0, 79)}…` : line;
+}
+
+/**
+ * Group the ordered U1 content nodes into content-rich TURNs. A `user_text`
+ * node opens a new turn (its text becomes the turn label AND its first row);
+ * agent_text + tool nodes attach to the open turn. Nodes before the first user
+ * prompt — or a host with no user nodes at all (Gemini text-only) — collect into
+ * a single leading turn so nothing is dropped. Empty input → [] (calm starter).
+ */
+export function contentTurns(nodes: SessionContentNode[] | null | undefined): ContentTurn[] {
+  if (!nodes || nodes.length === 0) return [];
+  const turns: ContentTurn[] = [];
+  let current: ContentTurn | null = null;
+  let ti = 0;
+
+  const openTurn = (label: string, startedAt: number) => {
+    current = { key: `cturn-${ti}`, label, startedAt, outcome: "neutral", rows: [] };
+    turns.push(current);
+    ti++;
+  };
+
+  for (let i = 0; i < nodes.length; i++) {
+    const n = nodes[i]!;
+    const ts = epoch(n.ts);
+    if (n.kind === "user_text") {
+      const text = n.text ?? "";
+      openTurn(turnLabelFrom(text, n.label || "Prompt"), ts);
+      current!.rows.push({ kind: "text", key: `${current!.key}-r${current!.rows.length}`, role: "user", text, ts });
+      continue;
+    }
+    if (!current) openTurn(n.label || "Session", ts);
+    if (n.kind === "agent_text") {
+      current!.rows.push({
+        kind: "text",
+        key: `${current!.key}-r${current!.rows.length}`,
+        role: "agent",
+        text: n.text ?? "",
+        ts,
+      });
+    } else {
+      current!.rows.push(toolContentRow(n, `${current!.key}-r${current!.rows.length}`));
+    }
+  }
+
+  for (const t of turns) t.outcome = contentOutcome(t.rows);
+  return turns;
+}
+
+/** Disclosure split for content turns (same shape/contract as `discloseTurns`):
+ *  keep the last `recent` turns shown, collapse older behind one "N more". */
+export interface ContentDisclosure {
+  hidden: ContentTurn[];
+  shown: ContentTurn[];
+  hiddenCount: number;
+}
+
+export function discloseContentTurns(
+  turns: ContentTurn[],
+  recent: number = RECENT_TURNS,
+): ContentDisclosure {
   if (turns.length <= recent) return { hidden: [], shown: turns, hiddenCount: 0 };
   const cut = turns.length - recent;
   const hidden = turns.slice(0, cut);

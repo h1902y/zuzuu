@@ -5,8 +5,8 @@
 // the live conversation — these never touch the PTY path.
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import type { SessionTreeNode } from "@zuzuu-web/protocol";
-import { TurnNode, TurnList } from "./SessionTree";
+import type { SessionContentNode, SessionTreeNode } from "@zuzuu-web/protocol";
+import { TurnNode, TurnList, ContentTurnNode, ContentTurnList } from "./SessionTree";
 import {
   treeTurns,
   discloseTurns,
@@ -14,6 +14,9 @@ import {
   nodeGlyph,
   toneFor,
   turnOutcome,
+  contentTurns,
+  contentOutcome,
+  discloseContentTurns,
   RECENT_TURNS,
   type TreeTurn,
 } from "./session-tree";
@@ -157,6 +160,183 @@ describe("progressive disclosure (older turns collapse to 'N more')", () => {
     const d = discloseTurns(turns.slice(0, RECENT_TURNS));
     expect(d.hiddenCount).toBe(0);
     expect(d.hidden).toEqual([]);
+  });
+});
+
+// ── Content-rich model (U2) ────────────────────────────────────────────
+function cnode(p: Partial<SessionContentNode> & { kind: SessionContentNode["kind"] }): SessionContentNode {
+  return {
+    kind: p.kind,
+    label: p.label ?? "",
+    ts: p.ts ?? "2026-06-15T10:00:00.000Z",
+    ...(p.text !== undefined ? { text: p.text } : {}),
+    ...(p.toolInput !== undefined ? { toolInput: p.toolInput } : {}),
+    ...(p.toolOutput !== undefined ? { toolOutput: p.toolOutput } : {}),
+    ...(p.status ? { status: p.status } : {}),
+    ...(p.truncated ? { truncated: p.truncated } : {}),
+  };
+}
+
+// A generic redaction marker the way U1 would emit it (no real secret literal).
+const REDACTED = "TOKEN=[redacted]";
+
+describe("contentTurns (ordered content nodes → content-rich turns)", () => {
+  it("a user prompt opens a turn; agent text + tools attach to it", () => {
+    const turns = contentTurns([
+      cnode({ kind: "user_text", text: "Add a test for the parser" }),
+      cnode({ kind: "agent_text", text: "Sure — I'll add one now." }),
+      cnode({ kind: "tool", label: "Bash: npm test", toolInput: "npm test", toolOutput: "ok", status: "ok" }),
+    ]);
+    expect(turns).toHaveLength(1);
+    expect(turns[0]!.label).toBe("Add a test for the parser");
+    expect(turns[0]!.rows.map((r) => r.kind)).toEqual(["text", "text", "tool"]);
+  });
+
+  it("a new user prompt starts a new turn", () => {
+    const turns = contentTurns([
+      cnode({ kind: "user_text", text: "first" }),
+      cnode({ kind: "agent_text", text: "ok 1" }),
+      cnode({ kind: "user_text", text: "second" }),
+      cnode({ kind: "agent_text", text: "ok 2" }),
+    ]);
+    expect(turns.map((t) => t.label)).toEqual(["first", "second"]);
+  });
+
+  it("content before any user prompt falls into a leading turn (nothing dropped)", () => {
+    const turns = contentTurns([
+      cnode({ kind: "agent_text", label: "Session", text: "starting up" }),
+      cnode({ kind: "tool", label: "Read foo.ts", status: "ok" }),
+    ]);
+    expect(turns).toHaveLength(1);
+    expect(turns[0]!.rows).toHaveLength(2);
+  });
+
+  it("empty / null content → no turns (calm starter)", () => {
+    expect(contentTurns([])).toEqual([]);
+    expect(contentTurns(null)).toEqual([]);
+    expect(contentTurns(undefined)).toEqual([]);
+  });
+
+  it("an agent_text node carries the reply text into a text row", () => {
+    const [turn] = contentTurns([cnode({ kind: "agent_text", text: "Here is the answer." })]);
+    const row = turn!.rows[0]!;
+    expect(row.kind).toBe("text");
+    if (row.kind === "text") {
+      expect(row.role).toBe("agent");
+      expect(row.text).toBe("Here is the answer.");
+    }
+  });
+
+  it("a tool node carries input + output + truncation onto a tool row", () => {
+    const [turn] = contentTurns([
+      cnode({
+        kind: "tool",
+        label: "Bash: cat big.log",
+        toolInput: "cat big.log",
+        toolOutput: "line1\nline2",
+        status: "ok",
+        truncated: true,
+      }),
+    ]);
+    const row = turn!.rows[0]!;
+    expect(row.kind).toBe("tool");
+    if (row.kind === "tool") {
+      expect(row.toolInput).toBe("cat big.log");
+      expect(row.toolOutput).toBe("line1\nline2");
+      expect(row.truncated).toBe(true);
+      expect(row.receipt.tone).toBe("ok");
+    }
+  });
+
+  it("a redacted value displays as-is (no special handling)", () => {
+    const [turn] = contentTurns([cnode({ kind: "tool", label: "Read config", toolOutput: REDACTED, status: "ok" })]);
+    const row = turn!.rows[0]!;
+    expect(row.kind === "tool" && row.toolOutput).toBe(REDACTED);
+  });
+
+  it("outcome rolls up: any tool error → bad, any tool ok → ok, text-only → neutral", () => {
+    expect(
+      contentTurns([
+        cnode({ kind: "tool", label: "a", status: "ok" }),
+        cnode({ kind: "tool", label: "b", status: "error" }),
+      ])[0]!.outcome,
+    ).toBe("bad");
+    expect(contentTurns([cnode({ kind: "tool", label: "a", status: "ok" })])[0]!.outcome).toBe("ok");
+    expect(contentTurns([cnode({ kind: "agent_text", text: "hi" })])[0]!.outcome).toBe("neutral");
+  });
+
+  it("contentOutcome is pure over rows", () => {
+    const [turn] = contentTurns([cnode({ kind: "tool", label: "x", status: "error" })]);
+    expect(contentOutcome(turn!.rows)).toBe("bad");
+  });
+});
+
+describe("gemini-thin content (text-only, no tools)", () => {
+  it("renders text turns with no tool rows", () => {
+    const turns = contentTurns([
+      cnode({ kind: "user_text", text: "what is two plus two" }),
+      cnode({ kind: "agent_text", text: "4" }),
+    ]);
+    expect(turns).toHaveLength(1);
+    expect(turns[0]!.rows.every((r) => r.kind === "text")).toBe(true);
+  });
+});
+
+describe("content disclosure (older turns collapse to 'N more')", () => {
+  it("keeps the most recent turn shown, hides older", () => {
+    const turns = contentTurns(
+      Array.from({ length: 4 }, (_, i) => cnode({ kind: "user_text", text: `prompt ${i}` })),
+    );
+    const d = discloseContentTurns(turns);
+    expect(d.shown).toHaveLength(RECENT_TURNS);
+    expect(d.hiddenCount).toBe(4 - RECENT_TURNS);
+  });
+});
+
+describe("content render smoke (node SSR, no DOM)", () => {
+  it("a tool content row renders as an expandable receipt (its label shown)", () => {
+    const [turn] = contentTurns([
+      cnode({
+        kind: "tool",
+        label: "Bash: npm test",
+        toolInput: "npm test",
+        toolOutput: "PASS 12 tests",
+        status: "ok",
+      }),
+    ]);
+    const html = renderToStaticMarkup(<ContentTurnNode turn={turn!} defaultOpen />);
+    expect(html).toContain("Bash: npm test");
+    expect(html).toContain('aria-expanded="true"'); // the turn header is open
+  });
+
+  it("an agent_text row renders its reply text in the transcript", () => {
+    const [turn] = contentTurns([cnode({ kind: "agent_text", text: "Here is the plan." })]);
+    const html = renderToStaticMarkup(<ContentTurnNode turn={turn!} defaultOpen />);
+    expect(html).toContain("Here is the plan.");
+    expect(html).toContain("Agent");
+  });
+
+  it("a user_text row renders the prompt", () => {
+    const [turn] = contentTurns([cnode({ kind: "user_text", text: "do the thing" })]);
+    const html = renderToStaticMarkup(<ContentTurnNode turn={turn!} defaultOpen />);
+    expect(html).toContain("do the thing");
+    expect(html).toContain("You");
+  });
+
+  it("a redacted value renders as-is", () => {
+    const [turn] = contentTurns([cnode({ kind: "agent_text", text: `the key is ${REDACTED}` })]);
+    const html = renderToStaticMarkup(<ContentTurnNode turn={turn!} defaultOpen />);
+    expect(html).toContain("[redacted]");
+  });
+
+  it("a content turn list renders its turns", () => {
+    const turns = contentTurns([
+      cnode({ kind: "user_text", text: "hi" }),
+      cnode({ kind: "tool", label: "cat big", toolOutput: "first chunk", status: "ok", truncated: true }),
+    ]);
+    const html = renderToStaticMarkup(<ContentTurnList turns={turns} />);
+    expect(html).toContain("hi");
+    expect(html).toContain("cat big");
   });
 });
 
