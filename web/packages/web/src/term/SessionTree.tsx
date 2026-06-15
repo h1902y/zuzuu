@@ -303,6 +303,7 @@ export function SessionTree({
   alive,
   enabled = true,
   onOpenTerminal,
+  onStartHere,
   sessionState,
 }: {
   sessionId: string;
@@ -312,6 +313,9 @@ export function SessionTree({
   enabled?: boolean;
   /** switch the work pane to the Terminal tab (the live surface) */
   onOpenTerminal?: () => void;
+  /** focus the composer to start a workbench session (for a session running
+   *  in the user's own terminal — view-only here) */
+  onStartHere?: () => void;
   /** the captured trace lifecycle state — distinguishes "live outside the
    *  workbench" (active/opening) from a truly ended session */
   sessionState?: string;
@@ -343,7 +347,17 @@ export function SessionTree({
           )}
         </>
       ) : tail === "outside" ? (
-        <span>Running in your terminal — read-only here.</span>
+        <>
+          <span>Live in your terminal — the workbench is mirroring it (view-only here).</span>
+          {onStartHere && (
+            <button
+              onClick={onStartHere}
+              className="ml-auto shrink-0 text-accent-dim underline decoration-dotted underline-offset-2 hover:text-accent"
+            >
+              Start a session here
+            </button>
+          )}
+        </>
       ) : (
         <span>Session ended.</span>
       )}

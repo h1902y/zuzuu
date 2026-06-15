@@ -125,7 +125,7 @@ function PausedBanner({ alive, sessionState }: { alive: boolean; sessionState?: 
     return (
       <div className="flex items-center gap-2 rounded-[var(--radius-ui)] border border-[var(--border)] bg-popover px-3 py-2 text-ui text-muted-foreground">
         <StatusDot tone="idle" />
-        Running in your terminal — read-only here.
+        Live in your terminal — the workbench is mirroring it (view-only here).
       </div>
     );
   }

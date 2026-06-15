@@ -463,6 +463,7 @@ function ViewedSession({
             alive={live}
             enabled
             onOpenTerminal={live ? () => onSetWorkTab("terminal") : undefined}
+            onStartHere={!live ? onFocusComposer : undefined}
             sessionState={session.state}
           />
         </div>
