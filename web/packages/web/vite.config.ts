@@ -6,6 +6,11 @@ const DAEMON = "http://127.0.0.1:7770";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  resolve: {
+    alias: {
+      "@": new URL("./src", import.meta.url).pathname,
+    },
+  },
   build: {
     // Big leaf dependencies ride their own cacheable chunks (the editor pane
     // and the ⌘K palette are additionally lazy at the React level).
