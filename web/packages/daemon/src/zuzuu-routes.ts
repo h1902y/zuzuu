@@ -343,6 +343,21 @@ export function createZuzuuApi(getRoot: () => string, opts: ApiOpts = {}): Hono 
     catch { return c.json({ text: "" }); }
   });
 
+  // Per-action ordered trace records (`zuzuu session trace <id> --json`).
+  // CLI-first (the daemon never reimplements the OTLP walk); absent → 503,
+  // failed → { sessionId: id, actions: [] } (fail-soft: unknown-but-safe id).
+  app.get("/session-trace/:id", async (c) => {
+    const id = c.req.param("id");
+    if (!SAFE_ID.test(id)) return c.json({ error: "bad id" }, 400);
+    const r = await runZuzuuMut(root, ["session", "trace", id], { binary: opts.binary });
+    if (!r.ok) {
+      if (r.code === "absent") return c.json({ error: "zuzuu CLI required" }, 503);
+      // CLI ran but returned non-zero — treat as unknown session (fail-soft)
+      return c.json({ sessionId: id, actions: [] }, 404);
+    }
+    return c.json(r.data as Record<string, unknown>);
+  });
+
   app.get("/status", async (c) => {
     const viaCli = await runZuzuu(root, ["status"], { binary: opts.binary });
     if (viaCli) return c.json(viaCli);

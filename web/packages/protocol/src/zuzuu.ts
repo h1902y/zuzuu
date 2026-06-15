@@ -216,6 +216,27 @@ export interface DigestResponse {
   text: string;
 }
 
+/** One ordered per-action record from a captured OTLP trace blob.
+ *  kind ∈ "turn" | "tool" | "other":
+ *   - "turn"  — a user-prompt → response cycle
+ *   - "tool"  — one tool invocation (Bash, Write, etc.)
+ *   - "other" — any other span that is not the SESSION root
+ *  ts is the span's start time as an ISO 8601 string.
+ *  status is "ok" | "error" when set (OTLP code 1 or 2); absent when UNSET. */
+export interface SessionTraceAction {
+  kind: "turn" | "tool" | "other";
+  label: string;
+  ts: string;
+  status?: "ok" | "error";
+}
+
+/** GET /session-trace/:id — `zuzuu session trace <id> --json`.
+ *  Fail-soft: if the blob is missing, actions is [] (never an error). */
+export interface SessionTraceResponse {
+  sessionId: string;
+  actions: SessionTraceAction[];
+}
+
 // ── Write side (mutations are CLI-only; the daemon shells out to zuzuu) ──
 
 /** The 5 normalized 0-1 signal components behind a proposal's score

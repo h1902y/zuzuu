@@ -1,15 +1,21 @@
 // zuzuu/commands/sessions.mjs — the sessions observability surface (overhaul
-// Part A, 2026-06-13).
+// Part A, 2026-06-13; per-action trace records added U6 2026-06-15).
 //
 //   zuzuu sessions [--json]              recorded sessions w/ state labels
 //   zuzuu session inspect <id> [--json]  one session: trace summary +
 //                                        per-module mined signals
+//   zuzuu session trace <id> [--json]    ordered per-action records from
+//                                        the captured OTLP blob
 //
 // inspect = { session, trace: {spans, tools, duration}, signals: {<module>:
 // counts} } — the span count reads the stored OTLP blob; the signals re-mine
 // the HOST transcript through the proven adapters' mineSignals and map the
 // superset onto modules via each module's sessionSignals hook. Fail-soft
 // throughout: a gone blob/transcript degrades to warnings, never a throw.
+//
+// sessionTraceData = { sessionId, actions: [{kind, label, ts, status?}] }
+// — walks the same OTLP blob into ordered per-action records (turn | tool |
+// other) for the transcript renderer. Fail-soft: missing blob → empty list.
 
 import { readFileSync } from 'node:fs';
 import { readIndex, resolveTrace, paths } from '../core/store.mjs';
@@ -49,6 +55,101 @@ function countTraceSpans(file) {
     }
   }
   return spans;
+}
+
+/** Walk all spans from an OTLP/JSON NDJSON blob into a flat array, ordered by
+ *  startTimeUnixNano. Returns [] on any read/parse error (fail-soft).
+ *  Each span: { name, startNs, endNs, statusCode, attributes: [{key,value}] } */
+function readTraceSpans(file) {
+  const all = [];
+  for (const line of readFileSync(file, 'utf8').split('\n')) {
+    if (!line.trim()) continue;
+    const req = JSON.parse(line);
+    for (const rs of req.resourceSpans ?? []) {
+      for (const ss of rs.scopeSpans ?? []) {
+        for (const sp of ss.spans ?? []) all.push(sp);
+      }
+    }
+  }
+  // Sort by start time (numeric; OTLP stores nanoseconds as strings)
+  all.sort((a, b) => {
+    const na = Number(BigInt(a.startTimeUnixNano || '0'));
+    const nb = Number(BigInt(b.startTimeUnixNano || '0'));
+    return na - nb;
+  });
+  return all;
+}
+
+/** Map an OTLP span into a SessionTraceAction record.
+ *  - SESSION root span → skipped (returns null)
+ *  - TURN spans (name starts with "turn:") → kind "turn"
+ *  - TOOL_CALL spans (have gen_ai.tool.name attribute) → kind "tool"
+ *  - anything else → kind "other"
+ * @param {object} sp  raw OTLP span object
+ * @returns {{ kind: string, label: string, ts: string, status?: string }|null}
+ */
+function spanToAction(sp) {
+  const name = sp.name ?? '';
+  // Skip the SESSION root (no parentSpanId)
+  if (!sp.parentSpanId) return null;
+
+  const attrs = {};
+  for (const a of sp.attributes ?? []) {
+    const v = a.value;
+    attrs[a.key] = v?.stringValue ?? v?.intValue ?? v?.doubleValue ?? v?.boolValue ?? null;
+  }
+
+  // ts = ISO timestamp from startTimeUnixNano (ns → ms → ISO)
+  const ns = sp.startTimeUnixNano ? BigInt(sp.startTimeUnixNano) : 0n;
+  const ts = new Date(Number(ns / 1_000_000n)).toISOString();
+
+  // status: OTLP code 0=UNSET, 1=OK, 2=ERROR
+  const code = sp.status?.code ?? 0;
+  const status = code === 2 ? 'error' : code === 1 ? 'ok' : undefined;
+
+  // kind + label
+  if (name.startsWith('turn:') || name.startsWith('turn ')) {
+    return { kind: 'turn', label: name.replace(/^turn:\s*/, '').trim() || name, ts, ...(status ? { status } : {}) };
+  }
+  const toolName = attrs['gen_ai.tool.name'] ?? attrs['host.tool.name'];
+  if (toolName) {
+    return { kind: 'tool', label: String(toolName), ts, ...(status ? { status } : {}) };
+  }
+  // Check if name looks like a tool call (e.g. "Bash", "Write", etc.)
+  if (attrs['gen_ai.operation.name'] === 'execute_tool') {
+    return { kind: 'tool', label: name, ts, ...(status ? { status } : {}) };
+  }
+  return { kind: 'other', label: name, ts, ...(status ? { status } : {}) };
+}
+
+/**
+ * Pure: ordered per-action records from the stored OTLP trace blob.
+ * Mirrors sessionInspectData — locates the session, resolves the blob, walks it.
+ * Fail-soft: missing/gone blob → { sessionId, actions: [] }, never throws.
+ * @param {string} cwd
+ * @param {string} idArg  session id or unique prefix
+ * @returns {{ sessionId: string, actions: Array<{kind,label,ts,status?}> } | null}
+ */
+export function sessionTraceData(cwd, idArg) {
+  if (!idArg) return null;
+  const { sessions } = readIndex(cwd);
+  const matches = sessions.filter((s) => s.id === idArg);
+  const byPrefix = matches.length ? matches : sessions.filter((s) => String(s.id).startsWith(idArg));
+  if (!byPrefix.length) return null;
+  const s = byPrefix[0];
+
+  const actions = [];
+  try {
+    const file = resolveTrace(s.traceRef, cwd);
+    const spans = readTraceSpans(file);
+    for (const sp of spans) {
+      const action = spanToAction(sp);
+      if (action) actions.push(action);
+    }
+  } catch {
+    // Missing or unreadable blob → empty actions (fail-soft)
+  }
+  return { sessionId: s.id, actions };
 }
 
 /**
@@ -160,4 +261,23 @@ export function sessionInspect(args = {}) {
     }
   }
   for (const w of d.warnings) console.log(`  ⚠ ${w}`);
+}
+
+/** `zuzuu session trace <id> [--json]` — ordered per-action records. */
+export function sessionTrace(args = {}) {
+  const cwd = process.cwd();
+  const id = args._?.[1];
+  const d = sessionTraceData(cwd, id);
+  if (!d) {
+    console.error(id ? `no recorded session matching '${id}'` : 'usage: zuzuu session trace <id> [--json]');
+    process.exit(1);
+  }
+  if (args.json) { console.log(JSON.stringify(d)); return; }
+  if (!d.actions.length) { console.log(`${d.sessionId}: no trace actions (blob missing or empty)`); return; }
+  console.log(`${d.sessionId}: ${d.actions.length} action(s)`);
+  for (const a of d.actions) {
+    const status = a.status ? ` [${a.status}]` : '';
+    const ts = a.ts.slice(11, 19); // HH:MM:SS
+    console.log(`  ${ts}  ${a.kind.padEnd(5)}  ${a.label}${status}`);
+  }
 }
