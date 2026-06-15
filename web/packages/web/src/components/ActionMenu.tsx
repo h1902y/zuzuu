@@ -48,7 +48,7 @@ export function ActionMenu({
           e.stopPropagation();
           setOpen((v) => !v);
         }}
-        className={`flex h-6 w-6 items-center justify-center rounded-[var(--radius-sm)] text-ink-400 hover:bg-hover hover:text-ink-100 ${className}`}
+        className={`flex h-6 w-6 items-center justify-center rounded-[var(--radius-sm)] text-muted-foreground hover:bg-[var(--accent)] hover:text-foreground ${className}`}
       >
         {iconPath ? (
           <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -168,11 +168,11 @@ export function MenuPopover({
         boxShadow: "var(--shadow-menu)",
       }}
       onClick={(e) => e.stopPropagation()}
-      className="z-[80] min-w-44 overflow-hidden rounded-[var(--radius-ui)] border border-border bg-elevated py-1"
+      className="z-[80] min-w-44 overflow-hidden rounded-[var(--radius-ui)] border border-[var(--border)] bg-popover py-1"
     >
       {items.map((item, i) => (
         <div key={item.label}>
-          {item.separated && i > 0 && <div className="my-1 border-t border-border" />}
+          {item.separated && i > 0 && <div className="my-1 border-t border-[var(--border)]" />}
           <button
             disabled={item.disabled}
             onClick={(e) => {
@@ -183,8 +183,8 @@ export function MenuPopover({
             }}
             className={`flex w-full items-center gap-2 px-3 py-1 text-left text-ui ${
               item.disabled
-                ? "cursor-default text-ink-600"
-                : `hover:bg-hover ${item.danger ? "text-danger hover:text-danger" : "text-ink-200 hover:text-ink-100"}`
+                ? "cursor-default text-muted-foreground"
+                : `hover:bg-[var(--accent)] ${item.danger ? "text-danger hover:text-danger" : "text-foreground hover:text-foreground"}`
             }`}
           >
             {item.iconPath ? (
@@ -195,7 +195,7 @@ export function MenuPopover({
               <span className="w-3.5 shrink-0" />
             )}
             {item.label}
-            {item.hint && <span className="ml-auto pl-4 text-meta text-ink-600">{item.hint}</span>}
+            {item.hint && <span className="ml-auto pl-4 text-meta text-muted-foreground">{item.hint}</span>}
           </button>
         </div>
       ))}

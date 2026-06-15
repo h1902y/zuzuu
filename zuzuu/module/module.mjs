@@ -45,6 +45,7 @@ export function normalizeManifest(raw = {}, dirName = 'module') {
     title,
     tagline: typeof raw.tagline === 'string' ? raw.tagline : '',
     version: typeof raw.version === 'string' ? raw.version : '1.0.0',
+    enabled: raw.enabled !== false,
     contract: Number.isFinite(raw.contract) ? raw.contract : CONTRACT_VERSION,
     kinds: Array.isArray(raw.kinds) ? raw.kinds.map(String) : [],
     itemsDir: typeof raw.itemsDir === 'string' && raw.itemsDir ? raw.itemsDir : 'items',

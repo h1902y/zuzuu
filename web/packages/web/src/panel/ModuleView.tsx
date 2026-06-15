@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ModuleItem, ModuleKey, ProposalSummary } from "@zuzuu-web/protocol";
+import { useModuleToggle } from "./use-module-toggle";
 import { describeZuzuuError, zuzuuApi } from "../lib/zuzuu-api";
 import { useExplorer } from "../state/explorer";
-import { useRightPanel } from "../state/right-panel";
 import { confirm, InfoDot, PropertyRow, StatusPill } from "../components/ui";
+import { Switch } from "../components/ui-shadcn/switch";
 import { ProposalRow } from "./ProposalRow";
 import { ItemRow, Section, TeachingEmpty, moduleDisplay, moduleHue, kindIcon, relativeTime, versionLabel, GLOSSARY, KIND_ICONS, type ExplainerEntry } from "./kit";
 import { moduleItemPath } from "./module-paths";
@@ -286,14 +287,18 @@ const MODULE_EXPLAINERS: Partial<Record<ModuleKey, ExplainerEntry[]>> = {
  *  links. TeachingEmpty when bare. */
 export function ModuleView({ moduleKey }: { moduleKey: ModuleKey }) {
   const queryClient = useQueryClient();
-  const closeDrill = useRightPanel((s) => s.closeDrill);
   const [err, setErr] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [approvingId, setApprovingId] = useState<string | null>(null);
   // display = the manifest ui descriptor when the overview has it (the
   // shared cache), built-in MODULE_META as the fallback
   const overview = useQuery({ queryKey: ["zuzuu", "overview"], queryFn: zuzuuApi.overview, refetchInterval: 8000 });
-  const display = moduleDisplay(moduleKey, overview.data?.modules.find((f) => f.id === moduleKey));
+  const entry = overview.data?.modules.find((f) => f.id === moduleKey);
+  const display = moduleDisplay(moduleKey, entry);
+  const enabled = entry?.enabled ?? true;
+
+  // the ONE toggle path — shared + serialized with the ModulesList row Switch
+  const { toggle: toggleEnabled, isToggling } = useModuleToggle(moduleKey);
   const detail = useQuery({
     queryKey: ["zuzuu", "module", moduleKey],
     queryFn: () => zuzuuApi.module(moduleKey),
@@ -336,16 +341,8 @@ export function ModuleView({ moduleKey }: { moduleKey: ModuleKey }) {
   const hue = moduleHue(moduleKey);
   return (
     <div className="wc-slide-in flex flex-col gap-4 p-3.5" style={{ ["--hue" as string]: hue }}>
-      {/* back to the dashboard root */}
-      <button
-        onClick={closeDrill}
-        className="wc-sans -mb-1 w-fit text-meta text-ink-500 transition-colors hover:text-ink-200"
-        title="Back to all modules"
-      >
-        ‹ All modules
-      </button>
-      {/* module hero: hue-carrying icon chip + permanent title (+ InfoDot) and
-          an always-shown teaching subtitle */}
+      {/* module hero: hue-carrying icon chip + permanent title (+ InfoDot), an
+          always-shown teaching subtitle, and the enabled toggle */}
       <div className="flex items-start gap-3">
         <span
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[11px]"
@@ -358,7 +355,7 @@ export function ModuleView({ moduleKey }: { moduleKey: ModuleKey }) {
             <path d={display.icon} strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </span>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             <span className="wc-sans text-display font-semibold text-ink-100">{display.label}</span>
             <InfoDot title={display.label}>
@@ -368,6 +365,17 @@ export function ModuleView({ moduleKey }: { moduleKey: ModuleKey }) {
             </InfoDot>
           </div>
           <p className="wc-sans mt-0.5 text-meta text-ink-500 leading-relaxed">{display.teach}</p>
+        </div>
+        {/* enabled toggle */}
+        <div className="flex shrink-0 items-center gap-2 pt-1">
+          <span className="wc-sans text-meta text-ink-500">{enabled ? "on" : "off"}</span>
+          <Switch
+            checked={enabled}
+            disabled={isToggling}
+            onCheckedChange={(next) => toggleEnabled(next)}
+            aria-label={`${enabled ? "Disable" : "Enable"} ${display.label}`}
+            title={enabled ? "Enabled — click to disable" : "Disabled — click to enable"}
+          />
         </div>
       </div>
 

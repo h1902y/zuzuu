@@ -150,7 +150,7 @@ function ReviewCeremony({ onClose }: { onClose: () => void }) {
               ? (
                 <span className="flex items-center gap-3">
                   <span>Review</span>
-                  <span className="wc-sans text-meta font-normal text-ink-500 tabular-nums">
+                  <span className="wc-sans text-meta font-normal text-muted-foreground tabular-nums">
                     {state.index + 1} of {state.queue.length}
                   </span>
                 </span>
@@ -175,7 +175,7 @@ function ReviewCeremony({ onClose }: { onClose: () => void }) {
           )}
 
           {state === null && (
-            <div className="flex items-center gap-2 py-6 text-ui text-ink-500"><Spinner /> loading queue…</div>
+            <div className="flex items-center gap-2 py-6 text-ui text-muted-foreground"><Spinner /> loading queue…</div>
           )}
 
           {state !== null && finished && (
@@ -192,7 +192,7 @@ function ReviewCeremony({ onClose }: { onClose: () => void }) {
               {/* The proposal card: wc-pop-in entrance, left accent bar in module hue */}
               <div
                 key={item.id}
-                className="wc-pop-in rounded-ui border border-border bg-surface p-4"
+                className="wc-pop-in rounded-ui border border-[var(--border)] bg-card p-4"
                 style={{
                   ["--hue" as string]: moduleHue(item.module),
                   borderLeft: "3px solid color-mix(in oklab, var(--hue) 55%, var(--color-border))",
@@ -210,7 +210,7 @@ function ReviewCeremony({ onClose }: { onClose: () => void }) {
                     {item.module}
                   </span>
                   {item.kind === "action" && (
-                    <span className="rounded-[var(--radius-sm)] border border-border px-1.5 py-0.5 text-meta text-ink-400">
+                    <span className="rounded-[var(--radius-sm)] border border-[var(--border)] px-1.5 py-0.5 text-meta text-ink-400">
                       action inbox
                     </span>
                   )}
@@ -304,7 +304,7 @@ function ActionRow({
         </Button>
       </div>
       {/* WHAT HAPPENS — consequence micro-copy under the primary action */}
-      <p className="text-meta text-ink-600">
+      <p className="text-meta text-muted-foreground">
         {isAction
           ? "Approve — activates this runbook in the agent's next session."
           : "Approve — saves a new version with this learning included."}
@@ -364,14 +364,14 @@ function EndState({
       {approvedCount === 0 ? (
         <>
           {/* Warm zero-state when nothing was approved */}
-          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-hover">
+          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--accent)]">
             <svg viewBox="0 0 16 16" className="h-8 w-8 text-ink-400" fill="none" stroke="currentColor" strokeWidth="1.1">
               <path d="M8 2.5a5.5 5.5 0 110 11 5.5 5.5 0 010-11M5.5 8.5l1.5 1.5 3-3.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </span>
           <div>
-            <div className="wc-sans text-title font-semibold text-ink-200">All caught up</div>
-            <p className="wc-sans mt-1 text-meta text-ink-500">Nothing needs you right now.</p>
+            <div className="wc-sans text-title font-semibold text-foreground">All caught up</div>
+            <p className="wc-sans mt-1 text-meta text-muted-foreground">Nothing needs you right now.</p>
           </div>
         </>
       ) : (
@@ -386,18 +386,18 @@ function EndState({
             </svg>
           </span>
           <div>
-            <div className="wc-sans text-title font-semibold text-ink-200">All caught up</div>
-            <p className="wc-sans mt-1 text-meta text-ink-500">
+            <div className="wc-sans text-title font-semibold text-foreground">All caught up</div>
+            <p className="wc-sans mt-1 text-meta text-muted-foreground">
               You taught the agent {approvedCount} thing{approvedCount === 1 ? "" : "s"} today.
             </p>
           </div>
 
           {mint.phase === "minting" && (
-            <div className="flex items-center gap-2 text-ui text-ink-500"><Spinner /> saving new versions…</div>
+            <div className="flex items-center gap-2 text-ui text-muted-foreground"><Spinner /> saving new versions…</div>
           )}
 
           {mint.phase === "done" && mint.minted.length > 0 && (
-            <div className="w-full rounded-[var(--radius-sm)] border border-border bg-surface px-3 py-2.5">
+            <div className="w-full rounded-[var(--radius-sm)] border border-[var(--border)] bg-card px-3 py-2.5">
               <div className="wc-eyebrow mb-2">new versions saved</div>
               <div className="flex flex-col gap-1.5">
                 {mint.minted.map((m) => (
@@ -406,8 +406,8 @@ function EndState({
                       className="h-2 w-2 shrink-0 rounded-full"
                       style={{ background: moduleHue(m.module) }}
                     />
-                    <span className="wc-sans font-medium capitalize text-ink-100">{m.module}</span>
-                    <span className="text-ink-600">→</span>
+                    <span className="wc-sans font-medium capitalize text-foreground">{m.module}</span>
+                    <span className="text-muted-foreground">→</span>
                     <span className="wc-mono text-meta text-ink-400">{m.id}</span>
                   </div>
                 ))}
@@ -416,7 +416,7 @@ function EndState({
           )}
 
           {mint.phase === "done" && mint.minted.length === 0 && (
-            <p className="text-meta text-ink-500">{approvedCount} approval{approvedCount === 1 ? "" : "s"} applied.</p>
+            <p className="text-meta text-muted-foreground">{approvedCount} approval{approvedCount === 1 ? "" : "s"} applied.</p>
           )}
 
           {mint.phase === "error" && (

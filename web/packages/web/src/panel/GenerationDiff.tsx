@@ -38,7 +38,7 @@ function DiffList({
 }) {
   if (items.length === 0) {
     return emptyLabel ? (
-      <span className="text-meta text-ink-500">{emptyLabel}</span>
+      <span className="text-meta text-muted-foreground">{emptyLabel}</span>
     ) : null;
   }
   return (
@@ -50,7 +50,7 @@ function DiffList({
           >
             {tone === "add" ? "+" : tone === "remove" ? "−" : "~"}
           </span>
-          <span className="wc-mono min-w-0 truncate text-meta text-ink-300">
+          <span className="wc-mono min-w-0 truncate text-meta text-muted-foreground">
             {item}
           </span>
         </div>
@@ -77,11 +77,11 @@ function ModuleGenerationDiffPanel({
   });
 
   if (q.isLoading) {
-    return <div className="text-meta text-ink-500">Loading diff…</div>;
+    return <div className="text-meta text-muted-foreground">Loading diff…</div>;
   }
   if (q.error) {
     return (
-      <div className="text-meta text-ink-500">
+      <div className="text-meta text-muted-foreground">
         Diff unavailable — zuzuu CLI may be offline.
       </div>
     );
@@ -93,7 +93,7 @@ function ModuleGenerationDiffPanel({
     diff.added.length + diff.changed.length + diff.removed.length > 0;
 
   return (
-    <div className="rounded-[var(--radius-ui)] border border-border bg-surface p-2.5">
+    <div className="rounded-[var(--radius-ui)] border border-[var(--border)] bg-card p-2.5">
       {/* summary pills */}
       <div className="mb-2 flex flex-wrap items-center gap-1.5">
         {diff.added.length > 0 && (
@@ -106,10 +106,10 @@ function ModuleGenerationDiffPanel({
           <DiffPill label={`−${diff.removed.length} removed`} tone="remove" />
         )}
         {!hasChanges && (
-          <span className="text-meta text-ink-500">No changes from prior version.</span>
+          <span className="text-meta text-muted-foreground">No changes from prior version.</span>
         )}
         {diff.against && (
-          <span className="ml-auto wc-mono text-meta text-ink-500 truncate max-w-[120px]" title={diff.against}>
+          <span className="ml-auto wc-mono text-meta text-muted-foreground truncate max-w-[120px]" title={diff.against}>
             vs {diff.against}
           </span>
         )}
@@ -140,11 +140,11 @@ function CheckpointDiffPanel({ id }: { id: string }) {
   });
 
   if (q.isLoading) {
-    return <div className="text-meta text-ink-500">Loading snapshot…</div>;
+    return <div className="text-meta text-muted-foreground">Loading snapshot…</div>;
   }
   if (q.error) {
     return (
-      <div className="text-meta text-ink-500">
+      <div className="text-meta text-muted-foreground">
         Snapshots unavailable — zuzuu CLI may be offline.
       </div>
     );
@@ -156,16 +156,16 @@ function CheckpointDiffPanel({ id }: { id: string }) {
   const timeLabel = relativeTime(cp.createdAt);
 
   return (
-    <div className="rounded-[var(--radius-ui)] border border-border bg-surface p-2.5">
+    <div className="rounded-[var(--radius-ui)] border border-[var(--border)] bg-card p-2.5">
       {/* header */}
       <div className="mb-2 flex items-baseline gap-2">
-        <span className="text-ui font-medium text-ink-100">
+        <span className="text-ui font-medium text-foreground">
           {cp.label ?? snapshotLabel(cp.id)}
         </span>
         {timeLabel && (
           <>
-            <span className="text-meta text-ink-500">·</span>
-            <span className="wc-mono text-meta text-ink-500">{timeLabel}</span>
+            <span className="text-meta text-muted-foreground">·</span>
+            <span className="wc-mono text-meta text-muted-foreground">{timeLabel}</span>
           </>
         )}
       </div>
@@ -175,17 +175,17 @@ function CheckpointDiffPanel({ id }: { id: string }) {
         <div className="flex flex-col gap-1">
           {pins.map(([module, gen]) => (
             <div key={module} className="flex items-baseline gap-2">
-              <span className="text-meta text-ink-300 capitalize w-24 shrink-0">
+              <span className="text-meta text-muted-foreground capitalize w-24 shrink-0">
                 {module}
               </span>
-              <span className="wc-mono text-meta text-ink-500 truncate" title={gen}>
+              <span className="wc-mono text-meta text-muted-foreground truncate" title={gen}>
                 {gen}
               </span>
             </div>
           ))}
         </div>
       ) : (
-        <div className="text-meta text-ink-500">No modules captured.</div>
+        <div className="text-meta text-muted-foreground">No modules captured.</div>
       )}
     </div>
   );

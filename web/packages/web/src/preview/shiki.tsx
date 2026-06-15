@@ -53,7 +53,7 @@ export function ShikiBlock({ code, lang }: { code: string; lang: string }) {
     );
   }
   return (
-    <pre className="overflow-x-auto whitespace-pre text-ui leading-relaxed text-ink-100">
+    <pre className="overflow-x-auto whitespace-pre text-ui leading-relaxed text-foreground">
       {code}
     </pre>
   );

@@ -276,7 +276,7 @@ export function TermView({
         />
       )}
       {stickyCmd && (
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center gap-2 border-b border-border bg-surface/95 px-3 py-1 text-ui backdrop-blur">
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center gap-2 border-b border-[var(--border)] bg-card/95 px-3 py-1 text-ui backdrop-blur">
           <span
             className={`h-1.5 w-1.5 shrink-0 rounded-full ${
               stickyCmd.exitCode === null
@@ -286,25 +286,25 @@ export function TermView({
                   : "bg-danger"
             }`}
           />
-          <span className="truncate text-ink-300">{stickyCmd.command.split("\n")[0]}</span>
+          <span className="truncate text-muted-foreground">{stickyCmd.command.split("\n")[0]}</span>
         </div>
       )}
       {status === "reconnecting" && (
-        <div className="absolute right-3 top-2 rounded bg-hover px-2 py-0.5 text-meta text-warn">
+        <div className="absolute right-3 top-2 rounded bg-[var(--accent)] px-2 py-0.5 text-meta text-warn">
           reconnecting…
         </div>
       )}
       {/* shell sessions keep the plain exit banner; agent sessions get the
           end-of-session card (or the banner once dismissed / outcome unknown) */}
       {exitCode !== null && (!showEndCard || end.kind === "banner") && (
-        <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 border-t border-border bg-surface/95 px-3 py-1.5 text-ui text-ink-300">
+        <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 border-t border-[var(--border)] bg-card/95 px-3 py-1.5 text-ui text-muted-foreground">
           process exited with code {exitCode}
         </div>
       )}
       {/* utility runs never merge — skip the spinner, show their card at once */}
       {showEndCard && detail.isPending && !isUtility && (
         <div className="absolute inset-0 z-30 flex items-center justify-center bg-ink-950/70 p-6">
-          <div className="flex items-center gap-2 text-ui text-ink-300">
+          <div className="flex items-center gap-2 text-ui text-muted-foreground">
             <Spinner /> session ended — merging checkpoints…
           </div>
         </div>
@@ -320,7 +320,7 @@ export function TermView({
         </div>
       )}
       {status === "closed" && exitCode === null && (
-        <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 border-t border-border bg-surface/95 px-3 py-1.5 text-ui text-danger">
+        <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 border-t border-[var(--border)] bg-card/95 px-3 py-1.5 text-ui text-danger">
           disconnected — session may be attached in another window
         </div>
       )}

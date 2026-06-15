@@ -23,7 +23,7 @@ export function CsvView({ text, name }: { text: string; name: string }) {
             {header.map((cell, i) => (
               <th
                 key={i}
-                className="sticky top-0 border border-border bg-hover px-2 py-1 text-left font-semibold text-ink-100"
+                className="sticky top-0 border border-[var(--border)] bg-[var(--accent)] px-2 py-1 text-left font-semibold text-foreground"
               >
                 {cell}
               </th>
@@ -32,9 +32,9 @@ export function CsvView({ text, name }: { text: string; name: string }) {
         </thead>
         <tbody>
           {rows.map((row, ri) => (
-            <tr key={ri} className={ri % 2 ? "bg-surface" : ""}>
+            <tr key={ri} className={ri % 2 ? "bg-card" : ""}>
               {row.map((cell, ci) => (
-                <td key={ci} className="border border-border px-2 py-1 text-ink-100">
+                <td key={ci} className="border border-[var(--border)] px-2 py-1 text-foreground">
                   {cell}
                 </td>
               ))}
@@ -43,7 +43,7 @@ export function CsvView({ text, name }: { text: string; name: string }) {
         </tbody>
       </table>
       {total > MAX_ROWS && (
-        <div className="py-2 text-meta text-ink-500">
+        <div className="py-2 text-meta text-muted-foreground">
           showing first {MAX_ROWS} of {total} rows
         </div>
       )}

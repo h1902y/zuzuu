@@ -64,7 +64,7 @@ export function Dialog({
       onClick={(e) => e.stopPropagation()}
       style={{ boxShadow: "var(--shadow-dialog)", ...style }}
       className={cx(
-        "w-full overflow-hidden rounded-[var(--radius-dialog)] border border-border bg-elevated",
+        "w-full overflow-hidden rounded-[var(--radius-dialog)] border border-[var(--border)] bg-popover",
         w,
         className,
       )}
@@ -77,10 +77,10 @@ export function Dialog({
 /** Optional dialog header row (title + optional close). */
 export function DialogHeader({ title, onClose }: { title: ReactNode; onClose?: () => void }) {
   return (
-    <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
-      <span className="wc-sans text-title font-semibold text-ink-100">{title}</span>
+    <div className="flex items-center gap-2 border-b border-[var(--border)] px-4 py-2.5">
+      <span className="wc-sans text-title font-semibold text-foreground">{title}</span>
       {onClose && (
-        <button onClick={onClose} className="ml-auto rounded-[var(--radius-sm)] p-1 text-ink-500 hover:text-ink-100" title="Close">
+        <button onClick={onClose} className="ml-auto rounded-[var(--radius-sm)] p-1 text-muted-foreground hover:text-foreground" title="Close">
           <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.5">
             <path d="M4 4l8 8m0-8l-8 8" strokeLinecap="round" />
           </svg>

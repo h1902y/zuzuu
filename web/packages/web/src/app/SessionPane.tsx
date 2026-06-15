@@ -131,13 +131,13 @@ export function SessionPane() {
         {/* the calm resting state — nothing but the mark above the composer */}
         {tabs.length === 0 && card.kind === "none" && !showSetup && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <span className="select-none text-2xl text-ink-600">❯_</span>
+            <span className="select-none text-2xl text-muted-foreground">❯_</span>
           </div>
         )}
         {/* load-time center cards: recovery (leftover session branch) and
             setup (no zuzuu home yet) keep their center placement */}
         {(card.kind === "recovery" || showSetup) && (
-          <div className="absolute inset-0 z-30 flex items-center justify-center bg-app/90 p-6">
+          <div className="absolute inset-0 z-30 flex items-center justify-center bg-background/90 p-6">
             {card.kind === "recovery" ? (
               <RecoveryCard branch={card.branch} checkpoints={card.checkpoints} />
             ) : (

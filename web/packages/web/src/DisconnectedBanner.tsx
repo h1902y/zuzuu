@@ -14,7 +14,7 @@ export function DisconnectedBanner({ state }: { state: ConnState }) {
         disconnected ? "bg-danger/90 text-ink-950" : "bg-warn/90 text-ink-950"
       }`}
     >
-      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-app/70" />
+      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-background/70" />
       {disconnected ? "Lost connection to the zuzuu-web daemon — retrying…" : "Reconnecting…"}
       {disconnected && (
         <button

@@ -60,7 +60,7 @@ export function SearchPanel() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="border-b border-border p-2">
+      <div className="border-b border-[var(--border)] p-2">
         <div className="flex items-center gap-1">
           <Field
             autoFocus
@@ -76,7 +76,7 @@ export function SearchPanel() {
           />
           <IconButton title="Close search (Esc)" iconPath="M4 4l8 8M12 4l-8 8" onClick={closeSearch} />
         </div>
-        <div className="mt-1.5 flex items-center gap-2 text-meta text-ink-500">
+        <div className="mt-1.5 flex items-center gap-2 text-meta text-muted-foreground">
           <OptionToggle label=".*" title="Regular expression" active={regex} onClick={() => setRegex((v) => !v)} />
           <OptionToggle label="Aa" title="Case sensitive" active={caseSensitive} onClick={() => setCaseSensitive((v) => !v)} />
           {isFetching && <span className="ml-auto">searching…</span>}
@@ -89,7 +89,7 @@ export function SearchPanel() {
         {data?.results.map((file) => (
           <div key={file.path} className="mb-1">
             <div
-              className="cursor-default truncate px-2 py-0.5 text-meta font-semibold text-ink-300 hover:bg-hover"
+              className="cursor-default truncate px-2 py-0.5 text-meta font-semibold text-muted-foreground hover:bg-[var(--accent)]"
               title={file.path}
               onClick={() => openPreviewPath(file.path)}
             >
@@ -98,11 +98,11 @@ export function SearchPanel() {
             {file.matches.map((m, i) => (
               <div
                 key={`${m.line}-${i}`}
-                className="flex cursor-default gap-2 px-2 py-0.5 text-ui hover:bg-hover"
+                className="flex cursor-default gap-2 px-2 py-0.5 text-ui hover:bg-[var(--accent)]"
                 onClick={() => openPreviewPath(file.path)}
               >
-                <span className="w-8 shrink-0 text-right text-ink-500">{m.line}</span>
-                <span className="truncate text-ink-100">
+                <span className="w-8 shrink-0 text-right text-muted-foreground">{m.line}</span>
+                <span className="truncate text-foreground">
                   <Highlighted text={m.text.trimStart()} ranges={shiftRanges(m)} />
                 </span>
               </div>
@@ -110,14 +110,14 @@ export function SearchPanel() {
           </div>
         ))}
         {data && data.results.length === 0 && (
-          <div className="px-3 py-2 text-ui text-ink-500">no matches</div>
+          <div className="px-3 py-2 text-ui text-muted-foreground">no matches</div>
         )}
         {query.length > 0 && query.length < MIN_QUERY_LEN && (
-          <div className="px-3 py-2 text-ui text-ink-500">type at least 2 characters</div>
+          <div className="px-3 py-2 text-ui text-muted-foreground">type at least 2 characters</div>
         )}
       </div>
       {data && (
-        <div className="border-t border-border px-2 py-1 text-meta text-ink-500">
+        <div className="border-t border-[var(--border)] px-2 py-1 text-meta text-muted-foreground">
           {data.total}{data.truncated ? "+" : ""} matches · {data.results.length} files · {data.engine}
         </div>
       )}
@@ -142,8 +142,8 @@ function OptionToggle({
       onClick={onClick}
       className={`rounded border px-1.5 py-0.5 font-semibold ${
         active
-          ? "border-accent-dim bg-hover text-accent"
-          : "border-border text-ink-500 hover:text-ink-300"
+          ? "border-accent-dim bg-[var(--accent)] text-accent"
+          : "border-[var(--border)] text-muted-foreground hover:text-foreground"
       }`}
     >
       {label}

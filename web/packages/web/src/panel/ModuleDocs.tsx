@@ -49,24 +49,24 @@ export function SchemaView({ moduleKey }: { moduleKey: ModuleKey }) {
 
   return (
     <div className="flex flex-col gap-2">
-      <button onClick={() => setOpen((v) => !v)} className="wc-sans self-start text-meta text-ink-500 hover:text-accent">
+      <button onClick={() => setOpen((v) => !v)} className="wc-sans self-start text-meta text-muted-foreground hover:text-accent">
         {open ? "▾" : "▸"} schema
       </button>
       {open && (
-        <div className="wc-panel-enter flex flex-col gap-0.5 rounded-ui border border-border bg-surface p-2.5">
-          <p className="wc-sans mb-1 text-meta text-ink-600">
+        <div className="wc-panel-enter flex flex-col gap-0.5 rounded-ui border border-[var(--border)] bg-card p-2.5">
+          <p className="wc-sans mb-1 text-meta text-muted-foreground">
             The shape every {moduleLabel.toLowerCase()} entry follows — its fields and types.
           </p>
-          {q.isLoading && <div className="text-meta text-ink-600">loading…</div>}
+          {q.isLoading && <div className="text-meta text-muted-foreground">loading…</div>}
           {!q.isLoading && fields.length === 0 && (
-            <div className="text-meta text-ink-600">no readable fields — open the file for the raw schema</div>
+            <div className="text-meta text-muted-foreground">no readable fields — open the file for the raw schema</div>
           )}
           {fields.map((f) => (
-            <div key={f.name} className="flex items-baseline gap-2 py-1 border-b border-border last:border-0">
+            <div key={f.name} className="flex items-baseline gap-2 py-1 border-b border-[var(--border)] last:border-0">
               {/* type glyph */}
               <svg
                 viewBox="0 0 16 16"
-                className="mt-0.5 h-3 w-3 shrink-0 text-ink-500"
+                className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground"
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="1.4"
@@ -75,9 +75,9 @@ export function SchemaView({ moduleKey }: { moduleKey: ModuleKey }) {
                 <path d={fieldTypeIcon(f.type)} strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               {/* field name */}
-              <span className="wc-sans min-w-0 shrink-0 text-ui text-ink-200">{f.name}</span>
+              <span className="wc-sans min-w-0 shrink-0 text-ui text-foreground">{f.name}</span>
               {/* type badge */}
-              <span className="text-meta text-ink-500">{f.type}</span>
+              <span className="text-meta text-muted-foreground">{f.type}</span>
               {/* required marker */}
               {f.required && (
                 <span className="shrink-0 rounded-full bg-[color-mix(in_oklab,var(--color-warn)_14%,transparent)] px-1.5 text-meta leading-4 text-warn">
@@ -86,19 +86,19 @@ export function SchemaView({ moduleKey }: { moduleKey: ModuleKey }) {
               )}
               {/* enum values — mono chip */}
               {f.enumValues && (
-                <span className="wc-mono ml-auto shrink-0 text-meta text-ink-400">
+                <span className="wc-mono ml-auto shrink-0 text-meta text-muted-foreground">
                   {f.enumValues.join(" | ")}
                 </span>
               )}
               {/* constraint hint */}
               {f.constraint && !f.enumValues && (
-                <span className="wc-mono ml-auto shrink-0 text-meta text-ink-500">{f.constraint}</span>
+                <span className="wc-mono ml-auto shrink-0 text-meta text-muted-foreground">{f.constraint}</span>
               )}
             </div>
           ))}
           <button
             onClick={() => openInEditor(moduleSchemaPath(moduleKey))}
-            className="wc-sans mt-1.5 self-start text-meta text-ink-600 hover:text-accent"
+            className="wc-sans mt-1.5 self-start text-meta text-muted-foreground hover:text-accent"
             title={moduleSchemaPath(moduleKey)}
           >
             open file ›
@@ -122,15 +122,15 @@ export function ReadmeView({ moduleKey }: { moduleKey: ModuleKey }) {
 
   return (
     <div className="flex flex-col gap-2">
-      <button onClick={() => setOpen((v) => !v)} className="wc-sans self-start text-meta text-ink-500 hover:text-accent">
+      <button onClick={() => setOpen((v) => !v)} className="wc-sans self-start text-meta text-muted-foreground hover:text-accent">
         {open ? "▾" : "▸"} README
       </button>
       {open && (
-        <div className="rounded-ui border border-border bg-surface">
-          {q.isLoading && <div className="p-2.5 text-meta text-ink-600">loading…</div>}
-          {q.isError && <div className="p-2.5 text-meta text-ink-600">no README yet</div>}
+        <div className="rounded-ui border border-[var(--border)] bg-card">
+          {q.isLoading && <div className="p-2.5 text-meta text-muted-foreground">loading…</div>}
+          {q.isError && <div className="p-2.5 text-meta text-muted-foreground">no README yet</div>}
           {q.data && (
-            <Suspense fallback={<div className="p-2.5 text-meta text-ink-600">rendering…</div>}>
+            <Suspense fallback={<div className="p-2.5 text-meta text-muted-foreground">rendering…</div>}>
               <div className="max-h-80 overflow-y-auto text-ui">
                 <MarkdownView path={path} text={q.data} />
               </div>
@@ -138,7 +138,7 @@ export function ReadmeView({ moduleKey }: { moduleKey: ModuleKey }) {
           )}
           <button
             onClick={() => openInEditor(path)}
-            className="wc-sans m-2.5 self-start text-meta text-ink-600 hover:text-accent"
+            className="wc-sans m-2.5 self-start text-meta text-muted-foreground hover:text-accent"
             title={path}
           >
             open file ›

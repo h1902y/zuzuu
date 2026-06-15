@@ -20,3 +20,15 @@ test('neither → empty caps, hooks false', () => {
   assert.equal(m.hooks.miner, false);
   assert.equal(m.hooks.gate, false);
 });
+test('enabled defaults to true when absent', () => {
+  const m = normalizeManifest({}, 'x');
+  assert.equal(m.enabled, true);
+});
+test('enabled:false is preserved', () => {
+  const m = normalizeManifest({ enabled: false }, 'x');
+  assert.equal(m.enabled, false);
+});
+test('enabled:true is preserved', () => {
+  const m = normalizeManifest({ enabled: true }, 'x');
+  assert.equal(m.enabled, true);
+});

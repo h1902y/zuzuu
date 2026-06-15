@@ -82,8 +82,8 @@ function HostPill({
       title={`Host: ${label} — click to change`}
       className={cx(
         "wc-sans wc-focus flex shrink-0 items-center gap-1.5",
-        "rounded-[var(--radius-ui)] border border-border bg-elevated px-2 py-1",
-        "text-meta text-ink-200 transition-colors hover:border-border-strong hover:text-ink-100",
+        "rounded-[var(--radius-ui)] border border-[var(--border)] bg-popover px-2 py-1",
+        "text-meta text-foreground transition-colors hover:border-[var(--border)] hover:text-foreground",
       )}
     >
       {glyph && (
@@ -101,7 +101,7 @@ function HostPill({
       {/* chevron-down */}
       <svg
         viewBox="0 0 16 16"
-        className="h-3 w-3 shrink-0 text-ink-500"
+        className="h-3 w-3 shrink-0 text-muted-foreground"
         fill="none"
         stroke="currentColor"
         strokeWidth="1.4"
@@ -186,7 +186,7 @@ function HostPickerMenu({
         boxShadow: "var(--shadow-menu)",
       }}
       onClick={(e) => e.stopPropagation()}
-      className="wc-pop-in z-[80] w-64 overflow-hidden rounded-[var(--radius-ui)] border border-border bg-elevated py-1"
+      className="wc-pop-in z-[80] w-64 overflow-hidden rounded-[var(--radius-ui)] border border-[var(--border)] bg-popover py-1"
     >
       <div className="wc-eyebrow px-3 py-1.5">Host</div>
       {rows.map((row) => {
@@ -204,7 +204,7 @@ function HostPickerMenu({
             }}
             className={cx(
               "flex w-full items-start gap-2.5 px-3 py-2 text-left transition-colors",
-              row.detected ? "hover:bg-hover" : "cursor-default opacity-50",
+              row.detected ? "hover:bg-[var(--accent)]" : "cursor-default opacity-50",
             )}
           >
             {glyph ? (
@@ -212,7 +212,7 @@ function HostPickerMenu({
                 viewBox="0 0 16 16"
                 className={cx(
                   "mt-0.5 h-3.5 w-3.5 shrink-0",
-                  row.detected ? "text-ink-300" : "text-ink-600",
+                  row.detected ? "text-muted-foreground" : "text-muted-foreground",
                 )}
                 fill="none"
                 stroke="currentColor"
@@ -227,16 +227,16 @@ function HostPickerMenu({
               <div
                 className={cx(
                   "wc-sans text-ui font-medium",
-                  row.detected ? "text-ink-100" : "text-ink-500",
+                  row.detected ? "text-foreground" : "text-muted-foreground",
                 )}
               >
                 {row.label}
                 {!row.detected && (
-                  <span className="ml-1.5 text-meta font-normal text-ink-600">not installed</span>
+                  <span className="ml-1.5 text-meta font-normal text-muted-foreground">not installed</span>
                 )}
               </div>
               {desc && (
-                <div className="wc-sans mt-0.5 text-meta leading-relaxed text-ink-500">{desc}</div>
+                <div className="wc-sans mt-0.5 text-meta leading-relaxed text-muted-foreground">{desc}</div>
               )}
             </div>
           </button>
@@ -295,7 +295,7 @@ export const SessionComposer = forwardRef<HTMLDivElement>(function SessionCompos
           launchActive() on click — same path as pressing Enter. Shown only
           when there are no open tabs so it disappears once a session starts. */}
       {showEmptyState && (
-        <div className="border-t border-border bg-surface px-4 py-3">
+        <div className="border-t border-[var(--border)] bg-card px-4 py-3">
           <p className="wc-sans mb-2 text-ui text-ink-400">
             Pick a host and press <Kbd>↵</Kbd> to start a session — your agent is ready.
           </p>
@@ -307,8 +307,8 @@ export const SessionComposer = forwardRef<HTMLDivElement>(function SessionCompos
                 onClick={launchActive}
                 className={cx(
                   "wc-sans wc-focus inline-flex items-center rounded-full",
-                  "border border-border px-2.5 py-0.5 text-meta text-ink-300",
-                  "transition-colors hover:border-border-strong hover:text-ink-100",
+                  "border border-[var(--border)] px-2.5 py-0.5 text-meta text-muted-foreground",
+                  "transition-colors hover:border-[var(--border)] hover:text-foreground",
                 )}
               >
                 {chip.label}
@@ -336,7 +336,7 @@ export const SessionComposer = forwardRef<HTMLDivElement>(function SessionCompos
           /* still loading detected hosts from the daemon */
           <div className="flex items-center gap-1.5 px-2">
             <Spinner />
-            <span className="wc-sans text-meta text-ink-500">Loading hosts…</span>
+            <span className="wc-sans text-meta text-muted-foreground">Loading hosts…</span>
           </div>
         )}
 
@@ -345,7 +345,7 @@ export const SessionComposer = forwardRef<HTMLDivElement>(function SessionCompos
 
         {/* keyboard hint — hidden on narrow viewports */}
         {!isRunning && activeRow && (
-          <span className="wc-sans hidden shrink-0 items-center gap-1 text-meta text-ink-600 sm:flex">
+          <span className="wc-sans hidden shrink-0 items-center gap-1 text-meta text-muted-foreground sm:flex">
             <Kbd>↵</Kbd> {activeRow.label}
           </span>
         )}

@@ -96,3 +96,23 @@ test('gateDecision: pi deny → {decision:deny,reason}', () => {
     assert.match(d.reason, /no-secret-reads/);
   });
 });
+
+test('gateDecision: enabled guardrails blocks; the SAME with module.json enabled:false does NOT block', () => {
+  withRules([SECRET_RULE], (cwd) => {
+    const SECRET = '.' + 'e' + 'nv';
+    const payload = { session_id: 's', tool_name: 'Bash', tool_input: { command: 'cat ' + SECRET } };
+    // enabled (no module.json -> defaults to enabled) -> blocks
+    const blocked = gateDecision({ host: 'codex', payload, cwd });
+    assert.equal(blocked.hookSpecificOutput.permissionDecision, 'deny');
+
+    // mark the guardrails module disabled -> the gate emits NO decision
+    const manifest = (enabled) => JSON.stringify({ id: 'guardrails', title: 'Guardrails', enabled }, null, 2) + '\n';
+    writeFileSync(join(cwd, '.zuzuu', 'guardrails', 'module.json'), manifest(false));
+    assert.equal(gateDecision({ host: 'codex', payload, cwd }), null, 'disabled module must not enforce');
+
+    // re-enable -> blocks again (fail-open is about errors, not the off switch)
+    writeFileSync(join(cwd, '.zuzuu', 'guardrails', 'module.json'), manifest(true));
+    const reblocked = gateDecision({ host: 'codex', payload, cwd });
+    assert.equal(reblocked.hookSpecificOutput.permissionDecision, 'deny');
+  });
+});

@@ -62,34 +62,34 @@ function InspectorRail({
   const display = moduleDisplay(module);
   const parts = Object.entries(counts).filter(([, n]) => n > 0);
   return (
-    <div className="wc-panel-enter flex flex-col gap-1 rounded-[var(--radius-ui)] border border-border bg-elevated p-3">
+    <div className="wc-panel-enter flex flex-col gap-1 rounded-[var(--radius-ui)] border border-[var(--border)] bg-popover p-3">
       <div className="flex items-center gap-2 pb-1">
-        <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0 text-ink-400" fill="none" stroke="currentColor" strokeWidth="1.4">
+        <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" fill="none" stroke="currentColor" strokeWidth="1.4">
           <path d={display.icon} strokeLinecap="round" strokeLinejoin="round" />
         </svg>
-        <span className="wc-sans text-ui font-medium text-ink-100">{display.label}</span>
+        <span className="wc-sans text-ui font-medium text-foreground">{display.label}</span>
         <button
           onClick={onClose}
-          className="ml-auto text-meta text-ink-500 transition-colors hover:text-ink-200"
+          className="ml-auto text-meta text-muted-foreground transition-colors hover:text-foreground"
           title="Close inspector"
         >
           ✕
         </button>
       </div>
-      <div className="flex flex-col divide-y divide-border">
+      <div className="flex flex-col divide-y divide-[var(--border)]">
         {parts.length === 0 ? (
-          <span className="text-meta text-ink-600 py-1">no signals mined</span>
+          <span className="text-meta text-muted-foreground py-1">no signals mined</span>
         ) : (
           parts.map(([k, n]) => (
             <PropertyRow key={k} label={k}>
-              <span className="wc-mono text-ink-200">{n}</span>
+              <span className="wc-mono text-foreground">{n}</span>
             </PropertyRow>
           ))
         )}
       </div>
       <div className="pt-1">
         <PropertyRow label="session">
-          <span className="wc-mono text-ink-500">{shortSessionId(sessionId)}</span>
+          <span className="wc-mono text-muted-foreground">{shortSessionId(sessionId)}</span>
         </PropertyRow>
       </div>
     </div>
@@ -118,15 +118,15 @@ function SignalReceipt({
     <div
       className={cx(
         "rounded-[var(--radius-ui)] transition-colors",
-        selected && "bg-hover",
+        selected && "bg-[var(--accent)]",
       )}
     >
       <Receipt
         icon={display.icon}
         label={
           <span>
-            <span className="wc-sans text-ink-100">{display.label}</span>
-            <span className="wc-sans ml-1.5 text-ink-500">
+            <span className="wc-sans text-foreground">{display.label}</span>
+            <span className="wc-sans ml-1.5 text-muted-foreground">
               — {total} signal{total !== 1 ? "s" : ""}
             </span>
           </span>
@@ -136,21 +136,21 @@ function SignalReceipt({
         {/* expandable detail rows */}
         <div className="flex flex-col gap-0.5 pt-1">
           {parts.length === 0 ? (
-            <div className="text-meta text-ink-600">no signals</div>
+            <div className="text-meta text-muted-foreground">no signals</div>
           ) : (
             parts.map(([k, n]) => (
               <div key={k} className="flex items-center gap-2">
-                <svg viewBox="0 0 16 16" className="h-3 w-3 shrink-0 text-ink-500" fill="none" stroke="currentColor" strokeWidth="1.4">
+                <svg viewBox="0 0 16 16" className="h-3 w-3 shrink-0 text-muted-foreground" fill="none" stroke="currentColor" strokeWidth="1.4">
                   <path d={signalIcon(k)} strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-                <span className="wc-sans text-meta text-ink-400">{k}</span>
-                <span className="wc-mono ml-auto text-meta text-ink-300">{n}</span>
+                <span className="wc-sans text-meta text-muted-foreground">{k}</span>
+                <span className="wc-mono ml-auto text-meta text-foreground">{n}</span>
               </div>
             ))
           )}
           <button
             onClick={onSelect}
-            className="wc-sans mt-1 self-start text-meta text-ink-500 transition-colors hover:text-accent"
+            className="wc-sans mt-1 self-start text-meta text-muted-foreground transition-colors hover:text-accent"
           >
             {selected ? "Close inspector ›" : "Inspect ›"}
           </button>
@@ -179,25 +179,25 @@ function KpiHeader({
       {duration != null && (
         <div className="flex flex-col gap-0.5">
           <HeroNumber value={<span className="wc-mono">{durStr}</span>} />
-          <span className="wc-sans text-meta text-ink-500">duration</span>
+          <span className="wc-sans text-meta text-muted-foreground">duration</span>
         </div>
       )}
       {tools != null && (
         <div className="flex flex-col gap-0.5">
           <HeroNumber value={<span className="wc-mono">{tools}</span>} />
-          <span className="wc-sans text-meta text-ink-500">tool calls</span>
+          <span className="wc-sans text-meta text-muted-foreground">tool calls</span>
         </div>
       )}
       {spans != null && (
         <div className="flex flex-col gap-0.5">
           <HeroNumber value={<span className="wc-mono">{spans}</span>} />
-          <span className="wc-sans text-meta text-ink-500">spans</span>
+          <span className="wc-sans text-meta text-muted-foreground">spans</span>
         </div>
       )}
       {errors != null && errors > 0 && (
         <div className="flex flex-col gap-0.5">
           <HeroNumber value={<span className="wc-mono text-error">{errors}</span>} />
-          <span className="wc-sans text-meta text-ink-500">errors</span>
+          <span className="wc-sans text-meta text-muted-foreground">errors</span>
         </div>
       )}
     </div>
@@ -207,7 +207,7 @@ function KpiHeader({
 // ── main component ─────────────────────────────────────────────────────────
 
 export function SessionDetail({ sessionId }: { sessionId: string }) {
-  const closeDrill = useRightPanel((s) => s.closeDrill);
+  const closeCenter = useRightPanel((s) => s.closeCenter);
   const [viewMode, setViewMode] = useState<ViewMode>("timeline");
   const [inspectorModule, setInspectorModule] = useState<string | null>(null);
 
@@ -251,18 +251,18 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
       {/* back nav + session identity */}
       <div className="flex items-center gap-2">
         <button
-          onClick={closeDrill}
-          className="wc-sans text-meta text-ink-500 transition-colors hover:text-accent"
-          title="Back to the panel"
+          onClick={closeCenter}
+          className="wc-sans text-meta text-muted-foreground transition-colors hover:text-accent"
+          title="Back to sessions"
         >
           ‹ Sessions
         </button>
         <div className="ml-auto flex min-w-0 items-center gap-2">
           <StatusPill tone={pillTone as "ok" | "warn" | "bad" | "neutral" | "info"}>{meta.label}</StatusPill>
-          <span className="wc-sans truncate text-ui font-medium text-ink-100">
+          <span className="wc-sans truncate text-ui font-medium text-foreground">
             {session?.host ?? "session"}
           </span>
-          <span className="wc-mono text-meta text-ink-600">{shortSessionId(sessionId)}</span>
+          <span className="wc-mono text-meta text-muted-foreground">{shortSessionId(sessionId)}</span>
         </div>
       </div>
 
@@ -278,14 +278,14 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
 
       {/* git context if available */}
       {session?.git?.branch && (
-        <div className="flex items-center gap-2 text-meta text-ink-500">
+        <div className="flex items-center gap-2 text-meta text-muted-foreground">
           <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.4">
             <path d="M4 2.5v11M4 3.5h7.5L9.5 6l2 2.5H4" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           <span className="wc-sans">branch</span>
-          <span className="wc-mono text-ink-300">{session.git.branch}</span>
+          <span className="wc-mono text-foreground">{session.git.branch}</span>
           {session.git.commit && (
-            <span className="wc-mono text-ink-600">{session.git.commit.slice(0, 7)}</span>
+            <span className="wc-mono text-muted-foreground">{session.git.commit.slice(0, 7)}</span>
           )}
         </div>
       )}
@@ -301,7 +301,7 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
 
       {/* loading state */}
       {inspect.isLoading && (
-        <div className="flex items-center gap-2 text-meta text-ink-500">
+        <div className="flex items-center gap-2 text-meta text-muted-foreground">
           <Spinner />
           <span className="wc-sans">loading trace…</span>
         </div>
@@ -330,7 +330,7 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
           {viewMode === "timeline" && (
             <div className="flex flex-col gap-1">
               {!hasSignals ? (
-                <div className="wc-sans py-1 text-meta text-ink-600">no signals mined</div>
+                <div className="wc-sans py-1 text-meta text-muted-foreground">no signals mined</div>
               ) : (
                 signals.map(([module, counts]) => (
                   <SignalReceipt
@@ -358,20 +358,20 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
           )}
 
           {viewMode === "overview" && (
-            <div className="flex flex-col divide-y divide-border rounded-[var(--radius-ui)] border border-border">
+            <div className="flex flex-col divide-y divide-[var(--border)] rounded-[var(--radius-ui)] border border-[var(--border)]">
               {!hasSignals ? (
-                <div className="wc-sans px-2 py-2 text-meta text-ink-600">no signals mined</div>
+                <div className="wc-sans px-2 py-2 text-meta text-muted-foreground">no signals mined</div>
               ) : (
                 signals.map(([module, counts]) => {
                   const display = moduleDisplay(module);
                   const parts = Object.entries(counts).filter(([, n]) => n > 0);
                   return (
                     <div key={module} className="flex items-center gap-2 px-2 py-1.5 text-ui">
-                      <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0 text-ink-500" fill="none" stroke="currentColor" strokeWidth="1.4">
+                      <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" fill="none" stroke="currentColor" strokeWidth="1.4">
                         <path d={display.icon} strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
-                      <span className="wc-sans text-ink-300">{display.label}</span>
-                      <span className="wc-mono ml-auto text-meta text-ink-500">
+                      <span className="wc-sans text-muted-foreground">{display.label}</span>
+                      <span className="wc-mono ml-auto text-meta text-muted-foreground">
                         {parts.length === 0 ? "—" : parts.map(([k, n]) => `${k} ${n}`).join(" · ")}
                       </span>
                     </div>
@@ -388,13 +388,13 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
         <div className="wc-eyebrow">
           graduated from this session
           {graduated.length > 0 && (
-            <span className="ml-1.5 text-ink-600">({graduated.length})</span>
+            <span className="ml-1.5 text-muted-foreground">({graduated.length})</span>
           )}
         </div>
         {graduated.length === 0 ? (
-          <div className="wc-sans text-meta text-ink-600">nothing graduated yet — approve proposals via review</div>
+          <div className="wc-sans text-meta text-muted-foreground">nothing graduated yet — approve proposals via review</div>
         ) : (
-          <div className="flex flex-col rounded-[var(--radius-ui)] border border-border overflow-hidden">
+          <div className="flex flex-col rounded-[var(--radius-ui)] border border-[var(--border)] overflow-hidden">
             {graduated.map((it) => (
               <ItemRow
                 key={`${it.module}-${it.id}`}

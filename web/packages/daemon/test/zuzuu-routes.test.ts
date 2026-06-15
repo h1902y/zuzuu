@@ -45,7 +45,7 @@ describe("createZuzuuApi file routes", () => {
     const body = await (await app.request("/modules")).json();
     expect(body.modules.find((f: { key: string }) => f.key === "actions").count).toBe(1);
   });
-  it("GET /module/:key peek degrades to frontmatter fields; rejects unknown", async () => {
+  it("GET /module/:key peek degrades to frontmatter fields; rejects unsafe slugs", async () => {
     fixtureHome(root);
     const app = createZuzuuApi(() => root, { binary: "definitely-not-a-real-binary-zzz" });
     const body = await (await app.request("/module/knowledge")).json();
@@ -60,7 +60,10 @@ describe("createZuzuuApi file routes", () => {
       score: 0.775, confidence: "high", rationale: "recurring + cross-session",
       evidence: { occurrences: 12, sessions: 3, failures: 0, erVerdict: "new" },
     });
-    expect((await app.request("/module/bogus")).status).toBe(404);
+    // Any valid slug is now accepted (N-module: unknown slugs return empty results, not 404).
+    // Unsafe slugs (traversal, shell meta) are still rejected.
+    expect((await app.request("/module/bogus")).status).toBe(200); // valid slug, empty module
+    expect((await app.request("/module/..%2f..%2fetc")).status).toBe(404); // unsafe slug
   });
   it("GET /module/:key passes the CLI's envelopes through whole (payload + body)", async () => {
     fixtureHome(root);
@@ -99,7 +102,9 @@ describe("createZuzuuApi file routes", () => {
     writeFileSync(path.join(agent, "knowledge", "schema.json"), JSON.stringify(schema));
     expect(await (await absent.request("/module/knowledge/schema")).json())
       .toEqual({ key: "knowledge", schema, source: "home" });
-    expect((await absent.request("/module/bogus/schema")).status).toBe(404);
+    // N-module: any valid slug is accepted; "bogus" returns absent (no schema file), not 404.
+    expect(await (await absent.request("/module/bogus/schema")).json())
+      .toEqual({ key: "bogus", schema: null, source: "absent" });
   });
   it("GET /sessions falls back to the raw index when the CLI is absent", async () => {
     fixtureHome(root);
@@ -172,6 +177,9 @@ describe("createZuzuuApi overview + session-inspect", () => {
     expect(k).toMatchObject({ title: "Knowledge", counts: { items: 1, pending: 1, errors: 0 } });
     expect(k.top).toEqual(["fact one"]);
     expect(k.ui).toBeUndefined();
+    // F6: peek entries carry `enabled` for shape parity with the CLI producer
+    expect(k.enabled).toBe(true);
+    for (const m of body.modules) expect(m.enabled).toBe(true);
   });
   it("GET /session-inspect/:id proxies zuzuu session inspect --json", async () => {
     fixtureHome(root);
@@ -310,14 +318,18 @@ describe("createZuzuuApi mutation routes", () => {
     expect((await post(app, "/actions/a;rm/reject", {})).status).toBe(400);
     expect(existsSync(marker)).toBe(false);
   });
-  it("bogus module → 400 without spawn", async () => {
+  it("malformed module → 400 without spawn (N-module: valid slugs are accepted)", async () => {
     fixtureHome(root);
     const { stub, marker } = markerStub(root);
     const app = createZuzuuApi(() => root, { binary: stub });
-    expect((await post(app, "/proposals/p1/approve", { module: "bogus" })).status).toBe(400);
-    expect((await post(app, "/proposals/p1/reject", { module: "bogus" })).status).toBe(400);
+    // Missing module field → 400
     expect((await post(app, "/proposals/p1/approve", {})).status).toBe(400);
-    expect(existsSync(marker)).toBe(false);
+    // Unsafe module strings → 400 (traversal, shell meta, uppercase-only slugs starting with -)
+    expect((await post(app, "/proposals/p1/approve", { module: "../evil" })).status).toBe(400);
+    expect((await post(app, "/proposals/p1/approve", { module: "-bad" })).status).toBe(400);
+    expect((await post(app, "/proposals/p1/reject", { module: "" })).status).toBe(400);
+    // Valid slug "bogus" IS now accepted (N-module: CLI reports not-found for unknown modules)
+    expect(existsSync(marker)).toBe(false); // none of the above should have spawned
   });
   it("over-long reject reason → 400 without spawn", async () => {
     fixtureHome(root);
@@ -359,6 +371,40 @@ describe("createZuzuuApi mutation routes", () => {
     expect(existsSync(marker)).toBe(false);
     const ok = createZuzuuApi(() => root, { binary: jsonStub(root, '{"id":"gen_002","module":"knowledge","mintedFrom":[],"forkedFrom":null}') });
     expect((await post(ok, "/module/knowledge/generation/mint")).status).toBe(200);
+  });
+});
+
+describe("createZuzuuApi POST /module/new (WS-D guided creation)", () => {
+  it("→ 200 with the CLI's JSON; builds the right argv (strings as single elements)", async () => {
+    fixtureHome(root);
+    const app = createZuzuuApi(() => root, { binary: argvStub(root, "zuzuu-newmod.sh") });
+    const res = await post(app, "/module/new", {
+      id: "recipes", title: "Recipes", tagline: "cook things",
+      capabilities: ["items.collection", "mine"], kinds: ["note"], required: ["body"],
+    });
+    expect(res.status).toBe(200);
+    expect((await res.json()).argv).toBe(
+      "module|new|recipes|--title|Recipes|--tagline|cook things|--capabilities|items.collection,mine|--kinds|note|--required|body|--json|",
+    );
+  });
+  it("omits empty optional flags", async () => {
+    fixtureHome(root);
+    const app = createZuzuuApi(() => root, { binary: argvStub(root, "zuzuu-newmod2.sh") });
+    const res = await post(app, "/module/new", { id: "notes", capabilities: ["items.collection"], kinds: ["note"] });
+    expect(res.status).toBe(200);
+    expect((await res.json()).argv).toBe("module|new|notes|--capabilities|items.collection|--kinds|note|--json|");
+  });
+  it("rejects a bad id and bad list/string fields without spawning", async () => {
+    fixtureHome(root);
+    const { stub, marker } = markerStub(root);
+    const app = createZuzuuApi(() => root, { binary: stub });
+    expect((await post(app, "/module/new", { id: "../evil" })).status).toBe(400);
+    expect((await post(app, "/module/new", { id: "Bad" })).status).toBe(400);
+    expect((await post(app, "/module/new", {})).status).toBe(400);
+    expect((await post(app, "/module/new", { id: "ok", capabilities: "nope" })).status).toBe(400);
+    expect((await post(app, "/module/new", { id: "ok", capabilities: ["a,b"] })).status).toBe(400);
+    expect((await post(app, "/module/new", { id: "ok", title: "x".repeat(201) })).status).toBe(400);
+    expect(existsSync(marker)).toBe(false);
   });
 });
 

@@ -30,7 +30,11 @@
   --color-ink-500: #6B6862; /* faint text (timestamps, disabled) */
   --color-ink-300: #9A9690; /* muted text (labels, descriptions) */
   --color-ink-100: #E8E6E3; /* primary text/headings (warm) */
-  /* accent = primary action + active nav ONLY */
+  /* accent = primary action + active nav ONLY (the OLD custom kit's brand teal).
+     NOTE: this is the Tailwind `bg-accent`/`text-accent` token. shadcn uses a
+     SEPARATE `--accent` CSS var (subtle hover) — the shadcn components reference
+     that var directly (bg-[var(--accent)]) so the two systems don't collide.
+     See the shadcn semantic layer + the reconciliation note below. */
   --color-accent: #5be6c4;
   --color-accent-dim: #2f9a80;
   --color-danger: #f0726a;
@@ -114,6 +118,76 @@
   --height-bar: 34px;
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   shadcn semantic layer — brutal-minimal default, mapped to existing tokens
+   ───────────────────────────────────────────────────────────────────────── */
+:root {
+  --background: var(--color-app);
+  --foreground: var(--color-ink-100);
+  --card: var(--color-surface);
+  --card-foreground: var(--color-ink-100);
+  --popover: var(--color-elevated);
+  --popover-foreground: var(--color-ink-100);
+  --primary: var(--color-accent);
+  --primary-foreground: var(--color-app);
+  --secondary: var(--color-hover);
+  --secondary-foreground: var(--color-ink-100);
+  --muted: var(--color-muted);
+  --muted-foreground: var(--color-ink-300);
+  --accent: var(--color-hover);
+  --accent-foreground: var(--color-ink-100);
+  --destructive: var(--color-danger);
+  --destructive-foreground: var(--color-app);
+  --border: var(--color-border-strong);
+  --input: var(--color-border-strong);
+  --ring: var(--color-accent);
+  --radius: 0px;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  /* Reconciliation (WS-C): --color-muted / --color-border are intentionally NOT
+     re-mapped — their @theme values already match the shadcn intent
+     (muted=ink-500, border=ink-700), so shadcn `bg-muted`/`border-border` are
+     correct as-is. --color-accent is the EXCEPTION: the old kit owns it as the
+     brand teal (active-nav/primary-action), but shadcn's `accent` means a
+     subtle hover surface. We can't make one Tailwind utility mean both, so the
+     shadcn components reference the `--accent`/`--accent-foreground` CSS vars
+     DIRECTLY (e.g. `bg-[var(--accent)]`) instead of the `bg-accent` utility.
+     That keeps the old kit's teal untouched while shadcn hover/focus states
+     read correctly. (--accent = var(--color-hover) in :root above.) */
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-lg: var(--radius);
+  --radius-md: var(--radius);
+  --radius-sm: var(--radius);
+}
+
+/* Theme presets */
+[data-theme="soft"] {
+  --background: var(--color-app);
+  --foreground: var(--color-ink-100);
+  --border: var(--color-border);
+  --input: var(--color-border);
+  --radius: 6px;
+  /* Override Tailwind v4 radius tokens for soft theme */
+  --radius-lg: 6px;
+  --radius-md: 6px;
+  --radius-sm: 4px;
+}
+
 :root[data-theme="light"] {
   --color-ink-950: #FBFBFA; /* canvas */
   --color-ink-900: #FFFFFF; /* cards float */
@@ -161,7 +235,7 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.09em;
   font-weight: 560;
-  color: var(--color-ink-500);
+  color: var(--muted-foreground);
 }
 
 /* ── one canonical bar: fixed height, centered, standard padding ─────── */

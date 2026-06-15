@@ -61,7 +61,9 @@ export function computeDigest(agentDir, { knowledgeLimit = 5, budget = 1500 } = 
   const ctx = () => ({ limit: knowledgeLimit, charBudget, priorLines: lines });
 
   for (const id of HEAD_SECTIONS) {
-    const s = sectionOf(byId.get(id), agentDir, ctx());
+    const entry = byId.get(id);
+    if (entry?.manifest?.enabled === false) continue;
+    const s = sectionOf(entry, agentDir, ctx());
     if (!s) continue;
     sections[id] = s.data;
     if (s.lines.length) lines.push(...s.lines, '');
@@ -77,7 +79,9 @@ export function computeDigest(agentDir, { knowledgeLimit = 5, budget = 1500 } = 
   }
 
   for (const id of TAIL_SECTIONS) {
-    const s = sectionOf(byId.get(id), agentDir, ctx());
+    const entry = byId.get(id);
+    if (entry?.manifest?.enabled === false) continue;
+    const s = sectionOf(entry, agentDir, ctx());
     if (!s) continue;
     sections[id] = s.data;
     if (s.lines.length) lines.push(...s.lines, '');
@@ -87,6 +91,7 @@ export function computeDigest(agentDir, { knowledgeLimit = 5, budget = 1500 } = 
   // a module you drop into the home is mentioned in the very next brief.
   for (const entry of modules) {
     if (!entry.declarative || entry.manifestError) continue;
+    if (entry.manifest?.enabled === false) continue;
     const s = sectionOf(entry, agentDir, ctx()) ?? defaultSection(agentDir, entry);
     sections[entry.id] = s.data;
     if (s.lines.length) lines.push(...s.lines, '');
