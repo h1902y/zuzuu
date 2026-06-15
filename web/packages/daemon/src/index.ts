@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import crypto from "node:crypto";
 import { WebcodeServer } from "./server.js";
 import { addRecent } from "./config.js";
-import { writeInstanceFile, removeInstanceFile } from "./instance-file.js";
+import { writeInstanceFile, removeInstanceFile, ensurePersistentToken } from "./instance-file.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_PORT = 7770;
@@ -131,7 +131,11 @@ async function main(): Promise<void> {
   const pkg = JSON.parse(
     await fsp.readFile(path.resolve(HERE, "..", "package.json"), "utf8"),
   ) as { version: string };
-  const token = args.token ?? crypto.randomBytes(24).toString("base64url");
+  // Non-hosted: a STABLE per-workspace token (persisted under ~/.webcode), so
+  // the browser's token-derived cookie keeps working across daemon restarts.
+  // Explicit --token / hosted env still win. Hosted never persists.
+  const token =
+    args.token ?? (hosted ? crypto.randomBytes(24).toString("base64url") : ensurePersistentToken(root));
   if (!hosted) await addRecent(root).catch(() => {}); // remember this workspace
   const port = hosted ? args.port : await findFreePort(args.port, args.host);
   // Web SPA assets: the published package carries them in web-dist/ (copied

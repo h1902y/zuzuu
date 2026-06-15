@@ -25,6 +25,8 @@ import { initTabGuard } from "./state/takeover";
 import { useGlobalShortcuts } from "./app/shortcuts";
 import { saveRecording, switchVault } from "./app/vault";
 import { useFsEventBridge, useWorkspaceConfigQuery, useWorkspaceQuery, useZuzuuHealthQuery } from "./app/queries";
+import { ReconnectScreen } from "./app/ReconnectScreen";
+import { useAuthLoss } from "./state/auth-loss";
 
 // the ⌘K palette rides its own chunk — loaded on first open
 const CommandPalette = lazy(() =>
@@ -35,6 +37,7 @@ export default function App() {
   const { tabs, activeId, init } = useSessions();
   const [initError, setInitError] = useState<string | null>(null);
 
+  const authLost = useAuthLoss((s) => s.lost);
   const workspace = useWorkspaceQuery();
   const wsConfig = useWorkspaceConfigQuery();
   const conn = useConnection();
@@ -73,6 +76,11 @@ export default function App() {
       activeTab && (activeTab.type === "agent" ? agentTabTitle(activeTab.host) : activeTab.title);
     document.title = tabLabel ? `${tabLabel} — ${name}` : name;
   }, [activeTab, workspace.data]);
+
+  // Auth loss (any 401) takes precedence over generic error states: a friendly
+  // "run `zz web`" screen, not a raw "not authorized". Recovery routes through
+  // the daemon's token exchange (see ReconnectScreen's security note).
+  if (authLost) return <ReconnectScreen />;
 
   if (workspace.error || initError) {
     return (
