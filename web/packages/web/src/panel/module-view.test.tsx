@@ -357,20 +357,22 @@ describe("useItemExpand store (U3)", () => {
 describe("right-panel.ts has no item-detail navigation (U3 guard)", () => {
   it("CenterSelection type has no kind:item variant", async () => {
     // Import the store to inspect its type contract at runtime.
-    // The allowed kinds must be "module" | "session" — never "item".
+    // The only allowed center selection kind is "module" — never "item", and
+    // (since T4) never "session" (a session is viewed in the home surface).
     const { useRightPanel } = await import("../state/right-panel");
     const state = useRightPanel.getState();
 
-    // openModule and openSession are the only navigation primitives
+    // openModule is the only center-selection navigation primitive
     expect(typeof state.openModule).toBe("function");
-    expect(typeof state.openSession).toBe("function");
     // There must be no openItem function — item details stay inline
     expect((state as unknown as Record<string, unknown>)["openItem"]).toBeUndefined();
+    // T4: no session-detail navigation — the picker views sessions in-place
+    expect((state as unknown as Record<string, unknown>)["openSession"]).toBeUndefined();
   });
 
   it("opening a module does not produce a kind:item selection", async () => {
     const { useRightPanel } = await import("../state/right-panel");
-    useRightPanel.setState({ selection: null, selectedModule: null, selectedSession: null });
+    useRightPanel.setState({ selection: null, selectedModule: null });
     useRightPanel.getState().openModule("knowledge");
     const sel = useRightPanel.getState().selection;
     expect(sel?.kind).toBe("module");

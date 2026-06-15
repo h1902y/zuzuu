@@ -69,8 +69,22 @@ export function SetupZuzuuCard({ zuzuuBin, onDismiss }: { zuzuuBin: boolean; onD
   );
 }
 
-/** "You left work here" — a leftover session branch found on load. */
-export function RecoveryCard({ branch, checkpoints }: { branch: string; checkpoints: number }) {
+/**
+ * "You left work here" — a leftover session branch found on load. ONE inline
+ * banner in the single-focus center (T4), NOT a modal and NOT a duplicate band.
+ * It sits quietly above the picker/tree; Continue re-checkouts the branch (the
+ * host picker then shows so you relaunch), Merge squashes & starts fresh.
+ * `onDismiss` lets the center show it once and let it be dismissed.
+ */
+export function RecoveryBanner({
+  branch,
+  checkpoints,
+  onDismiss,
+}: {
+  branch: string;
+  checkpoints: number;
+  onDismiss?: () => void;
+}) {
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
 
@@ -85,23 +99,34 @@ export function RecoveryCard({ branch, checkpoints }: { branch: string; checkpoi
   };
 
   return (
-    <Card>
-      <div className="text-base font-medium text-foreground">You left work here</div>
-      <p className="mt-1 text-ui leading-relaxed text-ink-400">
-        <span className="text-accent-dim">{branch}</span> — {checkpoints} checkpoint
-        {checkpoints === 1 ? "" : "s"} from an earlier session.
-      </p>
-      <div className="mt-4 flex items-center gap-2">
-        {/* continue re-checkouts the branch; the host picker then shows so you relaunch */}
-        <Button variant="primary" disabled={busy} onClick={() => act(zuzuuApi.sessionContinue)}>
-          Continue session
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-[var(--border)] bg-[color-mix(in_oklab,var(--color-accent)_8%,var(--surface))] px-3 py-2">
+      <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0 text-accent-dim" fill="none" stroke="currentColor" strokeWidth="1.4">
+        <path d="M8 2.5a5.5 5.5 0 110 11 5.5 5.5 0 010-11M8 5v3.2l2.2 1.6" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      <span className="wc-sans min-w-0 text-ui text-foreground">
+        You left work here —{" "}
+        <span className="wc-mono text-accent-dim">{branch}</span>, {checkpoints} checkpoint
+        {checkpoints === 1 ? "" : "s"}.
+      </span>
+      <div className="ml-auto flex items-center gap-2">
+        {busy && <Spinner />}
+        <Button variant="primary" size="sm" disabled={busy} onClick={() => act(zuzuuApi.sessionContinue)}>
+          Continue
         </Button>
-        <Button disabled={busy} onClick={() => act(mergeSessionWithFallback)}>
+        <Button size="sm" disabled={busy} onClick={() => act(mergeSessionWithFallback)}>
           Merge &amp; start fresh
         </Button>
-        {busy && <Spinner />}
+        {onDismiss && (
+          <button
+            onClick={onDismiss}
+            title="Dismiss"
+            className="flex h-6 w-6 items-center justify-center rounded-[var(--radius-sm)] text-muted-foreground hover:bg-[var(--accent)] hover:text-foreground"
+          >
+            ✕
+          </button>
+        )}
       </div>
-    </Card>
+    </div>
   );
 }
 

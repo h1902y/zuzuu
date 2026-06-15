@@ -3,24 +3,26 @@
 // Renders ONE surface by strict precedence (see state/center-precedence.ts):
 //   (1) editor open  → the EditorPane (Monaco tabs + previews)
 //   (2) module sel.  → that module's detail (ModuleView) with a Back control
-//   (3) session sel. → that session's detail (SessionDetail) with a Back control
-//   (4) home         → the sessions home: the live session terminal (SessionPane)
-//                      with the relocated session history above it.
+//   (3) home         → the single-focus session home (SessionPane): a slim
+//                      session picker + the selected session as a SessionTree |
+//                      Terminal tabs + one composer + one inline recovery banner.
+//
+// There is no separate session-detail page (T4): a past session is VIEWED in
+// the home surface (the picker selects which session the center renders as a
+// tree), and there is no 40% history block stacked above the live session.
 import { lazy, Suspense } from "react";
 import { useEditor } from "../state/editor";
 import { useRightPanel } from "../state/right-panel";
 import { centerView } from "../state/center-precedence";
 import { SessionPane } from "./SessionPane";
 import { ModuleView } from "../panel/ModuleView";
-import { SessionDetail } from "../panel/SessionDetail";
-import { SessionsSection } from "../panel/SessionsSection";
 
 // Lazy boundary: the editor pane graph (Monaco wrapper, markdown/CSV/cast
 // previews) rides its own chunk — loaded the first time a file opens.
 const EditorPane = lazy(() =>
   import("../editor/EditorPane").then((m) => ({ default: m.EditorPane })));
 
-export function CenterWorkArea({ zuzuuHome }: { zuzuuHome: boolean }) {
+export function CenterWorkArea(_props: { zuzuuHome: boolean }) {
   const hasOpenFiles = useEditor((s) => s.openFiles.length > 0);
   const selection = useRightPanel((s) => s.selection);
   const closeCenter = useRightPanel((s) => s.closeCenter);
@@ -49,27 +51,8 @@ export function CenterWorkArea({ zuzuuHome }: { zuzuuHome: boolean }) {
     );
   }
 
-  if (view.kind === "session") {
-    return (
-      <DetailShell onBack={closeCenter}>
-        <SessionDetail sessionId={view.id} />
-      </DetailShell>
-    );
-  }
-
-  // home — the sessions surface (terminal + composer) with the history above
-  return (
-    <div className="flex h-full min-w-0 flex-col">
-      {zuzuuHome && (
-        <div className="max-h-[40%] shrink-0 overflow-y-auto border-b border-border bg-surface p-3">
-          <SessionsSection />
-        </div>
-      )}
-      <div className="min-h-0 flex-1">
-        <SessionPane />
-      </div>
-    </div>
-  );
+  // home — the single-focus session surface (picker + tree | terminal + composer)
+  return <SessionPane />;
 }
 
 /** A scrollable detail shell with a Back control that clears the selection. */
