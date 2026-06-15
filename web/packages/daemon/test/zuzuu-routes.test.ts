@@ -371,6 +371,40 @@ describe("createZuzuuApi mutation routes", () => {
   });
 });
 
+describe("createZuzuuApi POST /module/new (WS-D guided creation)", () => {
+  it("→ 200 with the CLI's JSON; builds the right argv (strings as single elements)", async () => {
+    fixtureHome(root);
+    const app = createZuzuuApi(() => root, { binary: argvStub(root, "zuzuu-newmod.sh") });
+    const res = await post(app, "/module/new", {
+      id: "recipes", title: "Recipes", tagline: "cook things",
+      capabilities: ["items.collection", "mine"], kinds: ["note"], required: ["body"],
+    });
+    expect(res.status).toBe(200);
+    expect((await res.json()).argv).toBe(
+      "module|new|recipes|--title|Recipes|--tagline|cook things|--capabilities|items.collection,mine|--kinds|note|--required|body|--json|",
+    );
+  });
+  it("omits empty optional flags", async () => {
+    fixtureHome(root);
+    const app = createZuzuuApi(() => root, { binary: argvStub(root, "zuzuu-newmod2.sh") });
+    const res = await post(app, "/module/new", { id: "notes", capabilities: ["items.collection"], kinds: ["note"] });
+    expect(res.status).toBe(200);
+    expect((await res.json()).argv).toBe("module|new|notes|--capabilities|items.collection|--kinds|note|--json|");
+  });
+  it("rejects a bad id and bad list/string fields without spawning", async () => {
+    fixtureHome(root);
+    const { stub, marker } = markerStub(root);
+    const app = createZuzuuApi(() => root, { binary: stub });
+    expect((await post(app, "/module/new", { id: "../evil" })).status).toBe(400);
+    expect((await post(app, "/module/new", { id: "Bad" })).status).toBe(400);
+    expect((await post(app, "/module/new", {})).status).toBe(400);
+    expect((await post(app, "/module/new", { id: "ok", capabilities: "nope" })).status).toBe(400);
+    expect((await post(app, "/module/new", { id: "ok", capabilities: ["a,b"] })).status).toBe(400);
+    expect((await post(app, "/module/new", { id: "ok", title: "x".repeat(201) })).status).toBe(400);
+    expect(existsSync(marker)).toBe(false);
+  });
+});
+
 describe("createZuzuuApi session-git routes", () => {
   it("GET /session proxies zuzuu session status --json", async () => {
     fixtureHome(root);

@@ -410,6 +410,32 @@ export function createZuzuuApi(getRoot: () => string, opts: ApiOpts = {}): Hono 
     return mutate(c, ["module", subcommand, key]);
   });
 
+  // Guided module creation (WS-D). Body: {id, title, tagline, capabilities[],
+  // kinds[], required[]}. Slug-validate id, then shell out to
+  // `zuzuu module new <id> --title … --capabilities a,b --kinds x --required body`.
+  // Strings ride as single argv elements (shell-meta inert); CLI JSON returned.
+  app.post("/module/new", async (c) => {
+    const body = await readBody(c);
+    const { id, title, tagline, capabilities, kinds, required } = body;
+    if (!isModule(id)) return c.json({ error: "bad module id" }, 400);
+    const okStr = (v: unknown, max = 200): v is string => typeof v === "string" && v.length <= max;
+    const okList = (v: unknown): v is string[] =>
+      v === undefined ||
+      (Array.isArray(v) && v.length <= 50 && v.every((s) => typeof s === "string" && s.length <= 100 && !s.includes(",")));
+    if (title !== undefined && !okStr(title)) return c.json({ error: "bad title" }, 400);
+    if (tagline !== undefined && !okStr(tagline)) return c.json({ error: "bad tagline" }, 400);
+    if (!okList(capabilities)) return c.json({ error: "bad capabilities" }, 400);
+    if (!okList(kinds)) return c.json({ error: "bad kinds" }, 400);
+    if (!okList(required)) return c.json({ error: "bad required" }, 400);
+    const args = ["module", "new", id];
+    if (okStr(title) && title) args.push("--title", title);
+    if (okStr(tagline) && tagline) args.push("--tagline", tagline);
+    if (Array.isArray(capabilities) && capabilities.length) args.push("--capabilities", capabilities.join(","));
+    if (Array.isArray(kinds) && kinds.length) args.push("--kinds", kinds.join(","));
+    if (Array.isArray(required) && required.length) args.push("--required", required.join(","));
+    return mutate(c, args);
+  });
+
   app.post("/proposals/:id/approve", async (c) => {
     const id = c.req.param("id");
     if (!SAFE_ID.test(id)) return c.json({ error: "bad id" }, 400);
