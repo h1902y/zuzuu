@@ -123,6 +123,110 @@ function spanToAction(sp) {
 }
 
 /**
+ * Map an OTLP span to a SessionTreeNode record (without children — caller threads the tree).
+ * Keeps spanId and parentSpanId for tree construction; maps kind/label/status same as spanToAction.
+ * SESSION root span (no parentSpanId) → kind 'session', parentSpanId absent.
+ * @param {object} sp  raw OTLP span object
+ * @returns {{ spanId: string, parentSpanId?: string, kind: string, label: string, ts: string, status?: string }}
+ */
+function spanToNode(sp) {
+  const name = sp.name ?? '';
+  const attrs = {};
+  for (const a of sp.attributes ?? []) {
+    const v = a.value;
+    attrs[a.key] = v?.stringValue ?? v?.intValue ?? v?.doubleValue ?? v?.boolValue ?? null;
+  }
+  const ns = sp.startTimeUnixNano ? BigInt(sp.startTimeUnixNano) : 0n;
+  const ts = new Date(Number(ns / 1_000_000n)).toISOString();
+  const code = sp.status?.code ?? 0;
+  const status = code === 2 ? 'error' : code === 1 ? 'ok' : undefined;
+
+  let kind;
+  let label;
+  if (!sp.parentSpanId) {
+    kind = 'session';
+    label = name;
+  } else if (name.startsWith('turn:') || name.startsWith('turn ')) {
+    kind = 'turn';
+    label = name.replace(/^turn:\s*/, '').trim() || name;
+  } else {
+    const toolName = attrs['gen_ai.tool.name'] ?? attrs['host.tool.name'];
+    if (toolName) {
+      kind = 'tool';
+      label = String(toolName);
+    } else if (attrs['gen_ai.operation.name'] === 'execute_tool') {
+      kind = 'tool';
+      label = name;
+    } else {
+      kind = 'other';
+      label = name;
+    }
+  }
+
+  const node = { spanId: sp.spanId ?? '', kind, label, ts, ...(status ? { status } : {}) };
+  if (sp.parentSpanId) node.parentSpanId = sp.parentSpanId;
+  return node;
+}
+
+/**
+ * Pure: the captured trace as a nested SESSION → TURN → TOOL_CALL tree.
+ * Re-threads parentSpanId to build the hierarchy; children ordered by start time.
+ * Fail-soft: missing/gone blob → { sessionId, root: null }, never throws.
+ * @param {string} cwd
+ * @param {string} idArg  session id or unique prefix
+ * @returns {{ sessionId: string, root: object|null } | null}
+ */
+export function sessionTreeData(cwd, idArg) {
+  if (!idArg) return null;
+  const { sessions } = readIndex(cwd);
+  const matches = sessions.filter((s) => s.id === idArg);
+  const byPrefix = matches.length ? matches : sessions.filter((s) => String(s.id).startsWith(idArg));
+  if (!byPrefix.length) return null;
+  const s = byPrefix[0];
+
+  let root = null;
+  try {
+    const file = resolveTrace(s.traceRef, cwd);
+    const spans = readTraceSpans(file);
+    // Build node map keyed by spanId (children: [] added below)
+    const nodeMap = new Map();
+    for (const sp of spans) {
+      const node = spanToNode(sp);
+      node.children = [];
+      nodeMap.set(node.spanId, node);
+    }
+    // Thread: link each node to its parent; collect root
+    for (const node of nodeMap.values()) {
+      if (!node.parentSpanId) {
+        // SESSION root
+        root = node;
+      } else {
+        const parent = nodeMap.get(node.parentSpanId);
+        if (parent) {
+          parent.children.push(node);
+        } else {
+          // Orphaned node (parent missing): attach to root if present, else skip
+          if (root) root.children.push(node);
+        }
+      }
+    }
+    // Children are already start-time ordered because readTraceSpans sorts by startTimeUnixNano
+    // (children are inserted in order of the already-sorted spans array).
+  } catch {
+    // Missing or unreadable blob → null root (fail-soft)
+  }
+
+  // Strip internal spanId/parentSpanId from output nodes (they are implementation detail)
+  function stripIds(node) {
+    const { spanId: _s, parentSpanId: _p, ...rest } = node;
+    rest.children = node.children.map(stripIds);
+    return rest;
+  }
+
+  return { sessionId: s.id, root: root ? stripIds(root) : null };
+}
+
+/**
  * Pure: ordered per-action records from the stored OTLP trace blob.
  * Mirrors sessionInspectData — locates the session, resolves the blob, walks it.
  * Fail-soft: missing/gone blob → { sessionId, actions: [] }, never throws.
@@ -261,6 +365,28 @@ export function sessionInspect(args = {}) {
     }
   }
   for (const w of d.warnings) console.log(`  ⚠ ${w}`);
+}
+
+/** `zuzuu session tree <id> [--json]` — nested SESSION→TURN→TOOL tree. */
+export function sessionTree(args = {}) {
+  const cwd = process.cwd();
+  const id = args._?.[1];
+  const d = sessionTreeData(cwd, id);
+  if (!d) {
+    console.error(id ? `no recorded session matching '${id}'` : 'usage: zuzuu session tree <id> [--json]');
+    process.exit(1);
+  }
+  if (args.json) { console.log(JSON.stringify(d)); return; }
+  if (!d.root) { console.log(`${d.sessionId}: no trace tree (blob missing or empty)`); return; }
+  console.log(`${d.sessionId}: session tree`);
+  function printNode(node, depth) {
+    const indent = '  '.repeat(depth);
+    const status = node.status ? ` [${node.status}]` : '';
+    const ts = node.ts.slice(11, 19); // HH:MM:SS
+    console.log(`${indent}${ts}  ${node.kind.padEnd(7)}  ${node.label}${status}`);
+    for (const child of node.children ?? []) printNode(child, depth + 1);
+  }
+  printNode(d.root, 0);
 }
 
 /** `zuzuu session trace <id> [--json]` — ordered per-action records. */

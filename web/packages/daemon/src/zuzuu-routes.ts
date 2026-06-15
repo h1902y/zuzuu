@@ -358,6 +358,21 @@ export function createZuzuuApi(getRoot: () => string, opts: ApiOpts = {}): Hono 
     return c.json(r.data as Record<string, unknown>);
   });
 
+  // Nested session tree (`zuzuu session tree <id> --json`): SESSION→TURN→TOOL.
+  // CLI-first; absent → 503, unknown id → { sessionId: id, root: null } 404.
+  // Read-only: never touches capture or the PTY path.
+  app.get("/session-tree/:id", async (c) => {
+    const id = c.req.param("id");
+    if (!SAFE_ID.test(id)) return c.json({ error: "bad id" }, 400);
+    const r = await runZuzuuMut(root, ["session", "tree", id], { binary: opts.binary });
+    if (!r.ok) {
+      if (r.code === "absent") return c.json({ error: "zuzuu CLI required" }, 503);
+      // CLI ran but returned non-zero — treat as unknown session (fail-soft)
+      return c.json({ sessionId: id, root: null }, 404);
+    }
+    return c.json(r.data as Record<string, unknown>);
+  });
+
   app.get("/status", async (c) => {
     const viaCli = await runZuzuu(root, ["status"], { binary: opts.binary });
     if (viaCli) return c.json(viaCli);

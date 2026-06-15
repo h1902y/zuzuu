@@ -237,6 +237,29 @@ export interface SessionTraceResponse {
   actions: SessionTraceAction[];
 }
 
+/** One node in a nested session tree (`zuzuu session tree <id> --json`).
+ *  kind ∈ "session" | "turn" | "tool" | "other":
+ *   - "session" — the root SESSION span (always the tree root, no parentSpanId)
+ *   - "turn"    — a user-prompt → response cycle (child of session)
+ *   - "tool"    — one tool invocation (child of turn)
+ *   - "other"   — any other span
+ *  children is always present (may be []).
+ *  Honest cross-host degradation: Gemini sessions have turns only (no tool children). */
+export interface SessionTreeNode {
+  kind: "session" | "turn" | "tool" | "other";
+  label: string;
+  ts: string;
+  status?: "ok" | "error";
+  children: SessionTreeNode[];
+}
+
+/** GET /session-tree/:id — `zuzuu session tree <id> --json`.
+ *  Fail-soft: if the blob is missing, root is null (never an error). */
+export interface SessionTreeResponse {
+  sessionId: string;
+  root: SessionTreeNode | null;
+}
+
 // ── Write side (mutations are CLI-only; the daemon shells out to zuzuu) ──
 
 /** The 5 normalized 0-1 signal components behind a proposal's score

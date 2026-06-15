@@ -456,6 +456,59 @@ describe("createZuzuuApi session-trace route", () => {
   });
 });
 
+describe("createZuzuuApi session-tree route", () => {
+  it("GET /session-tree/:id proxies zuzuu session tree --json", async () => {
+    fixtureHome(root);
+    const payload = {
+      sessionId: "s1",
+      root: {
+        kind: "session", label: "session s1 (claude-code)", ts: "2026-06-15T10:00:00.000Z",
+        children: [{
+          kind: "turn", label: "write hello world", ts: "2026-06-15T10:00:00.100Z",
+          children: [
+            { kind: "tool", label: "Bash", ts: "2026-06-15T10:00:00.500Z", status: "ok", children: [] },
+            { kind: "tool", label: "Write", ts: "2026-06-15T10:00:01.500Z", status: "error", children: [] },
+          ],
+        }],
+      },
+    };
+    const app = createZuzuuApi(() => root, { binary: jsonStub(root, JSON.stringify(payload)) });
+    const res = await app.request("/session-tree/s1");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(payload);
+  });
+  it("GET /session-tree/:id → 503 absent CLI", async () => {
+    fixtureHome(root);
+    const app = createZuzuuApi(() => root, { binary: "definitely-not-a-real-binary-zzz" });
+    expect((await app.request("/session-tree/s1")).status).toBe(503);
+  });
+  it("GET /session-tree/:id → 404 + null root when CLI fails (unknown-but-safe id)", async () => {
+    fixtureHome(root);
+    const app = createZuzuuApi(() => root, { binary: failStub(root, "no such session") });
+    const res = await app.request("/session-tree/s1");
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.sessionId).toBe("s1");
+    expect(body.root).toBeNull();
+  });
+  it("GET /session-tree/:id → 400 + no spawn for unsafe ids", async () => {
+    fixtureHome(root);
+    const { stub, marker } = markerStub(root);
+    const app = createZuzuuApi(() => root, { binary: stub });
+    expect((await app.request("/session-tree/..%2fetc")).status).toBe(400);
+    expect((await app.request("/session-tree/a;rm")).status).toBe(400);
+    expect(existsSync(marker)).toBe(false);
+  });
+  it("GET /session-tree/:id accepts real id shapes (ses_*, uuid)", async () => {
+    fixtureHome(root);
+    const payload = { sessionId: "ses_abc", root: null };
+    const app = createZuzuuApi(() => root, { binary: jsonStub(root, JSON.stringify(payload)) });
+    for (const id of ["ses_1535700f9ffe3OKC6scrQYySU9", "20410eef-3e0b-43c3-878f-5a15c016d2a5"]) {
+      expect((await app.request(`/session-tree/${id}`)).status).toBe(200);
+    }
+  });
+});
+
 describe("createZuzuuApi session-git routes", () => {
   it("GET /session proxies zuzuu session status --json", async () => {
     fixtureHome(root);
