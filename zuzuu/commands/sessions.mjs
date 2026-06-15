@@ -30,6 +30,10 @@ export function sessionsListData(cwd = process.cwd()) {
       counts: s.counts ?? { turns: 0, tools: 0, errors: 0 },
       generation: s.generation ?? null,
       git: s.git ?? { commit: null, branch: null },
+      // U4 (KTD2): the daemon PTY join key, present only for workbench sessions.
+      // Spread conditionally so older records (no ptyId) stay byte-for-byte the
+      // same on the wire (backward-tolerant).
+      ...(s.ptyId ? { ptyId: s.ptyId } : {}),
     })),
   };
 }

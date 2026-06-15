@@ -192,6 +192,10 @@ export interface ZuzuuSessionEntry {
   generation?: string | null;
   git?: { commit: string | null; branch: string | null };
   traceRef?: string | null;
+  /** daemon PTY runtime id (U4/KTD2 join key) when the session ran in the
+   *  workbench; absent for CLI / non-workbench sessions. Backward-tolerant:
+   *  older records (pre-U4) simply omit it. */
+  ptyId?: string;
 }
 
 export interface SessionsResponse {

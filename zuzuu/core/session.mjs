@@ -62,11 +62,17 @@ export function transition(session, to, at = session.endedAt) {
  * @param {{commit:string|null,branch:string|null}} [s.git]
  * @param {{turns:number,tools:number,errors:number}} [s.counts]
  * @param {string|null} [s.generation]  active generation id at session open (WS3-T3)
+ * @param {string|null} [s.ptyId]   daemon PTY runtime id when the session ran in
+ *   the workbench (U4/KTD2 join key); absent (null/undefined) for CLI / non-
+ *   workbench sessions, so the facet is omitted rather than carried as null.
  */
-export function makeSession({ id, host, status = SessionState.CAPTURED, startedAt, endedAt, traceId, traceRef, git = { commit: null, branch: null }, counts = { turns: 0, tools: 0, errors: 0 }, generation = null }) {
+export function makeSession({ id, host, status = SessionState.CAPTURED, startedAt, endedAt, traceId, traceRef, git = { commit: null, branch: null }, counts = { turns: 0, tools: 0, errors: 0 }, generation = null, ptyId = null }) {
   if (!id) throw new Error('makeSession: id required');
   if (!host) throw new Error('makeSession: host required');
   if (!Object.values(SessionState).includes(status)) throw new Error(`makeSession: unknown status ${status}`);
   const durationMs = startedAt && endedAt ? Date.parse(endedAt) - Date.parse(startedAt) : 0;
-  return { id: String(id), host, status, startedAt, endedAt, durationMs, traceId, traceRef, git, counts, generation };
+  const record = { id: String(id), host, status, startedAt, endedAt, durationMs, traceId, traceRef, git, counts, generation };
+  // Optional facet: only present when the session ran under a daemon PTY.
+  if (ptyId != null && ptyId !== '') record.ptyId = String(ptyId);
+  return record;
 }

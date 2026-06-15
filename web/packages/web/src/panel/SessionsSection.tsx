@@ -123,7 +123,15 @@ function SessionRow({ session }: { session: ZuzuuSessionEntry }) {
  *  Claude Code) — we say so honestly rather than imply a resume we can't do. */
 function ActiveCard({ session }: { session: ZuzuuSessionEntry }) {
   const openSession = useRightPanel((s) => s.openSession);
-  const liveAgent = useSessions((s) => s.tabs.find((t) => t.type === "agent" && t.alive));
+  // Prefer the explicit PTY join key (U4): when the trace record carries the
+  // daemon PTY id, resolve the live terminal by that id rather than guessing
+  // "the one alive agent tab" by cwd/type. Fall back to the old guess for
+  // pre-U4 records that lack ptyId. (U5 rewrites this band; this only makes the
+  // explicit link available.)
+  const liveAgent = useSessions((s) =>
+    (session.ptyId && s.tabs.find((t) => t.id === session.ptyId && t.alive)) ||
+    s.tabs.find((t) => t.type === "agent" && t.alive),
+  );
   const setActive = useSessions((s) => s.setActive);
   const meta = sessionStateMeta(session.state);
   const dur = fmtDuration(session.durationMs);

@@ -116,6 +116,36 @@ describe("Session: direct command spawn", () => {
     manager.shutdown();
   });
 
+  // U4 characterization: a freshly created session carries a random-hex id and
+  // the current SessionInfo shape — and exposes NO trace linkage today (no
+  // ptyId/traceId/branch fields on SessionInfo). The join is added on the host
+  // side via the injected env key, not onto SessionInfo.
+  it("characterization: a session has a 16-char hex id and the current SessionInfo shape (no trace linkage)", () => {
+    const manager = new SessionManager(root);
+    const session = manager.create(undefined, 80, 24, { command: "/bin/echo", type: "agent", host: "claude" });
+    expect(session.id).toMatch(/^[0-9a-f]{16}$/);
+    const info = session.info();
+    expect(Object.keys(info).sort()).toEqual(
+      ["alive", "createdAt", "cwd", "host", "id", "title", "type"].sort(),
+    );
+    // no session-linkage facets live on the daemon SessionInfo
+    expect("traceId" in info).toBe(false);
+    expect("branch" in info).toBe(false);
+    manager.shutdown();
+  });
+
+  // U4: the daemon injects ZUZUU_PTY_ID (= the session id) into the agent launch
+  // environment block — the explicit join key the host's SessionStart hook reads
+  // to link the PTY runtime to the durable trace record (KTD2).
+  it("injects ZUZUU_PTY_ID (= session id) into the agent launch environment", async () => {
+    const manager = new SessionManager(root);
+    const session = manager.create(undefined, 200, 24, { command: "/usr/bin/env", type: "agent", host: "claude" });
+    await waitFor(() => !session.alive);
+    const text = castText(session);
+    expect(text).toContain(`ZUZUU_PTY_ID=${session.id}`);
+    manager.shutdown();
+  });
+
   it("defaults: no opts → a shell session, type 'shell', no host", () => {
     const manager = new SessionManager(root);
     const session = manager.create(undefined, 80, 24);

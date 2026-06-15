@@ -30,6 +30,15 @@ function sessionGenerationMarker(agentDir) {
   try { return listCheckpointIds(agentDir).slice(-1)[0] ?? null; } catch { return null; }
 }
 
+// The daemon injects its PTY id into the host launch env (U4/KTD2) under this
+// name; the SessionStart hook reads it to make the PTY <-> trace join explicit.
+const PTY_ID_ENV = 'ZUZUU_PTY_ID';
+/** Read the injected PTY id from the OS environment (null when not under the
+ *  workbench / launched directly). Fail-soft. */
+function injectedPtyId() {
+  try { const { env } = process; return env[PTY_ID_ENV] || null; } catch { return null; }
+}
+
 // Lifecycle events, normalized across hosts (verified by observing each host):
 //   open  — session starts
 //   turn  — agent finished a response turn (per-turn "still alive"); re-capture
@@ -48,10 +57,10 @@ export function geminiRef(payload = {}) {
   return { file: join(projDir, 'logs.json'), sessionId: payload.session_id };
 }
 
-function safeCapture(adapter, ref, status, cwd, generation = null) {
+function safeCapture(adapter, ref, status, cwd, generation = null, ptyId = null) {
   if (!adapter || !ref) return;
   try {
-    captureTrace({ adapter, ref, status, cwd, generation });
+    captureTrace({ adapter, ref, status, cwd, generation, ptyId });
   } catch {
     /* source not yet readable, etc. — never break the hook */
   }
@@ -62,7 +71,7 @@ function safeCapture(adapter, ref, status, cwd, generation = null) {
  * re-parses the transcript file (`transcript_path`); OpenCode re-reads its
  * SQLite store keyed by `session_id`. Pure-ish (injected now/cwd) for tests.
  */
-export function handleHook({ event, payload = {}, cwd = process.cwd(), now = Date.now(), host = 'claude-code' }) {
+export function handleHook({ event, payload = {}, cwd = process.cwd(), now = Date.now(), host = 'claude-code', ptyId = injectedPtyId() }) {
   const id = payload.session_id;
   if (!id) return { event, skipped: 'no session_id' };
   let ref;
@@ -78,8 +87,8 @@ export function handleHook({ event, payload = {}, cwd = process.cwd(), now = Dat
     let generation = null;
     try { generation = sessionGenerationMarker(paths(cwd).dir); } catch { /* fail-open */ }
     try {
-      openLive({ id, host, transcriptPath: ref, startedAt: new Date(now).toISOString(), now, generation }, cwd);
-      safeCapture(adapter, ref, SessionState.ACTIVE, cwd, generation);
+      openLive({ id, host, transcriptPath: ref, startedAt: new Date(now).toISOString(), now, generation, ptyId }, cwd);
+      safeCapture(adapter, ref, SessionState.ACTIVE, cwd, generation, ptyId);
     } catch { /* live/capture hiccup must not block grounding below */ }
     try {
       // Invisible session-git: one session = one branch. A leftover branch
