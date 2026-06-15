@@ -21,8 +21,8 @@ export function Bar({
   surface?: "surface" | "app" | "elevated" | "transparent";
 }) {
   const bg =
-    surface === "app" ? "bg-app" : surface === "elevated" ? "bg-elevated" : surface === "transparent" ? "" : "bg-surface";
-  const line = border === "t" ? "border-t border-border" : border === "none" ? "" : "border-b border-border";
+    surface === "app" ? "bg-background" : surface === "elevated" ? "bg-popover" : surface === "transparent" ? "" : "bg-card";
+  const line = border === "t" ? "border-t border-[var(--border)]" : border === "none" ? "" : "border-b border-[var(--border)]";
   return <div className={cx("wc-bar", bg, line, className)}>{children}</div>;
 }
 
@@ -34,10 +34,10 @@ const BTN_BASE =
   "wc-sans wc-focus inline-flex items-center justify-center gap-1.5 rounded-[var(--radius-sm)] font-medium transition-colors disabled:opacity-40 disabled:pointer-events-none whitespace-nowrap";
 const BTN_VARIANT: Record<ButtonVariant, string> = {
   primary: "border border-accent-dim bg-[color-mix(in_oklab,var(--color-accent)_14%,transparent)] text-accent hover:bg-[color-mix(in_oklab,var(--color-accent)_22%,transparent)]",
-  ghost: "text-ink-300 hover:bg-hover hover:text-ink-100",
-  subtle: "border border-border text-ink-200 hover:border-border-strong hover:text-ink-100",
+  ghost: "text-muted-foreground hover:bg-[var(--accent)] hover:text-foreground",
+  subtle: "border border-[var(--border)] text-foreground hover:border-[var(--border)] hover:text-foreground",
   danger: "text-danger hover:bg-[color-mix(in_oklab,var(--color-danger)_16%,transparent)]",
-  secondary: "border border-border text-ink-200 hover:bg-hover hover:text-ink-100",
+  secondary: "border border-[var(--border)] text-foreground hover:bg-[var(--accent)] hover:text-foreground",
 };
 const BTN_SIZE: Record<ButtonSize, string> = {
   sm: "h-6 px-2 text-meta",
@@ -64,7 +64,7 @@ export function IconButton({
     <button
       className={cx(
         "wc-focus flex h-6 w-6 shrink-0 items-center justify-center rounded-[var(--radius-sm)] transition-colors",
-        active ? "text-accent" : "text-ink-400 hover:bg-hover hover:text-ink-100",
+        active ? "text-accent" : "text-muted-foreground hover:bg-[var(--accent)] hover:text-foreground",
         className,
       )}
       {...rest}
@@ -102,7 +102,7 @@ export function Segmented<T extends string>({
           onClick={() => onChange(o.value)}
           className={cx(
             "px-2 py-0.5 text-meta transition-colors",
-            o.value === value ? "bg-hover text-ink-100" : "text-ink-400 hover:text-ink-200",
+            o.value === value ? "bg-[var(--accent)] text-foreground" : "text-muted-foreground hover:text-foreground",
           )}
         >
           {o.label}
@@ -115,7 +115,7 @@ export function Segmented<T extends string>({
 // ── Kbd ───────────────────────────────────────────────────────────────
 export function Kbd({ children }: { children: ReactNode }) {
   return (
-    <kbd className="rounded-[var(--radius-sm)] border border-border bg-elevated px-1.5 py-0.5 font-mono text-meta text-ink-300">
+    <kbd className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-popover px-1.5 py-0.5 font-mono text-meta text-muted-foreground">
       {children}
     </kbd>
   );
@@ -138,7 +138,7 @@ export function StatusDot({
 // ── Spinner ───────────────────────────────────────────────────────────
 export function Spinner({ className }: { className?: string }) {
   return (
-    <svg className={cx("h-3.5 w-3.5 animate-spin text-ink-500", className)} viewBox="0 0 16 16" fill="none">
+    <svg className={cx("h-3.5 w-3.5 animate-spin text-muted-foreground", className)} viewBox="0 0 16 16" fill="none">
       <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" strokeOpacity="0.25" />
       <path d="M14 8a6 6 0 00-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
@@ -154,15 +154,15 @@ export function Receipt({
   children?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
-  const dot = tone === "ok" ? "text-success" : tone === "warn" ? "text-warn" : tone === "bad" ? "text-error" : "text-ink-400";
+  const dot = tone === "ok" ? "text-success" : tone === "warn" ? "text-warn" : tone === "bad" ? "text-error" : "text-muted-foreground";
   const headerContent = (
     <>
       <svg viewBox="0 0 16 16" className={cx("h-3.5 w-3.5 shrink-0", dot)} fill="none" stroke="currentColor" strokeWidth="1.4">
         <path d={icon} strokeLinecap="round" strokeLinejoin="round" />
       </svg>
-      <span className="min-w-0 flex-1 truncate text-ui text-ink-100">{label}</span>
-      {meta && <span className="wc-mono shrink-0 text-meta text-ink-500">{meta}</span>}
-      <svg viewBox="0 0 16 16" className={cx("h-3 w-3 shrink-0 text-ink-500 transition-transform", open && "rotate-90")} fill="none" stroke="currentColor" strokeWidth="1.4">
+      <span className="min-w-0 flex-1 truncate text-ui text-foreground">{label}</span>
+      {meta && <span className="wc-mono shrink-0 text-meta text-muted-foreground">{meta}</span>}
+      <svg viewBox="0 0 16 16" className={cx("h-3 w-3 shrink-0 text-muted-foreground transition-transform", open && "rotate-90")} fill="none" stroke="currentColor" strokeWidth="1.4">
         <path d="M6 4l4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     </>
@@ -173,12 +173,12 @@ export function Receipt({
         <button
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
-          className="wc-focus flex w-full items-center gap-2 rounded-[var(--radius-ui)] px-2 py-1.5 text-left hover:bg-hover"
+          className="wc-focus flex w-full items-center gap-2 rounded-[var(--radius-ui)] px-2 py-1.5 text-left hover:bg-[var(--accent)]"
         >
           {headerContent}
         </button>
       ) : (
-        <div className="flex w-full items-center gap-2 px-2 py-1.5 hover:bg-hover">
+        <div className="flex w-full items-center gap-2 px-2 py-1.5 hover:bg-[var(--accent)]">
           <svg viewBox="0 0 16 16" className={cx("h-3.5 w-3.5 shrink-0", dot)} fill="none" stroke="currentColor" strokeWidth="1.4">
             <path d={icon} strokeLinecap="round" strokeLinejoin="round" />
           </svg>
@@ -195,8 +195,8 @@ export function Receipt({
 export function PropertyRow({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex items-baseline justify-between gap-3 py-1.5">
-      <span className="shrink-0 text-meta text-ink-500">{label}</span>
-      <span className="min-w-0 truncate text-right text-ui text-ink-200">{children}</span>
+      <span className="shrink-0 text-meta text-muted-foreground">{label}</span>
+      <span className="min-w-0 truncate text-right text-ui text-foreground">{children}</span>
     </div>
   );
 }
@@ -207,30 +207,30 @@ const PILL_TONE: Record<string, string> = {
   warn: "text-warn bg-[color-mix(in_oklab,var(--color-warn)_14%,transparent)]",
   bad: "text-error bg-[color-mix(in_oklab,var(--color-error)_14%,transparent)]",
   info: "text-info bg-[color-mix(in_oklab,var(--color-info)_14%,transparent)]",
-  neutral: "text-ink-300 bg-hover",
+  neutral: "text-muted-foreground bg-[var(--accent)]",
 };
 export function StatusPill({ tone = "neutral", children }: { tone?: keyof typeof PILL_TONE; children: ReactNode }) {
   return <span className={cx("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-meta font-medium", PILL_TONE[tone])}>{children}</span>;
 }
 export function Count({ children }: { children: ReactNode }) {
-  return <span className="inline-flex min-w-4 items-center justify-center rounded-full bg-hover px-1.5 text-meta text-ink-300">{children}</span>;
+  return <span className="inline-flex min-w-4 items-center justify-center rounded-full bg-[var(--accent)] px-1.5 text-meta text-muted-foreground">{children}</span>;
 }
 
 // ── HeroNumber — the one-large-numeral-per-card treatment ──────────────
 export function HeroNumber({ value, unit }: { value: ReactNode; unit?: string }) {
   return (
     <div className="flex items-baseline gap-1">
-      <span className="text-hero font-semibold tracking-tight text-ink-100 tabular-nums">{value}</span>
-      {unit && <span className="text-meta text-ink-500">{unit}</span>}
+      <span className="text-hero font-semibold tracking-tight text-foreground tabular-nums">{value}</span>
+      {unit && <span className="text-meta text-muted-foreground">{unit}</span>}
     </div>
   );
 }
 
 // ── ProgressBar ────────────────────────────────────────────────────────
 export function ProgressBar({ value, tone = "neutral" }: { value: number; tone?: "neutral" | "ok" | "warn" | "bad" }) {
-  const fill = tone === "ok" ? "bg-success" : tone === "warn" ? "bg-warn" : tone === "bad" ? "bg-error" : "bg-ink-500";
+  const fill = tone === "ok" ? "bg-success" : tone === "warn" ? "bg-warn" : tone === "bad" ? "bg-error" : "bg-muted-foreground";
   return (
-    <div className="h-1.5 w-full overflow-hidden rounded-full bg-hover">
+    <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--accent)]">
       <div className={cx("h-full rounded-full transition-[width] duration-500", fill)} style={{ width: `${Math.max(0, Math.min(100, value * 100))}%` }} />
     </div>
   );
@@ -239,7 +239,7 @@ export function ProgressBar({ value, tone = "neutral" }: { value: number; tone?:
 // ── Toast — quiet auto-dismissing confirmation ─────────────────────────
 export function Toast({ children }: { children: ReactNode }) {
   return (
-    <div className="wc-toast-in fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-[var(--radius-ui)] border border-border bg-elevated px-3 py-2 text-ui text-ink-100 shadow-[var(--shadow-menu)]">
+    <div className="wc-toast-in fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-[var(--radius-ui)] border border-[var(--border)] bg-popover px-3 py-2 text-ui text-foreground shadow-[var(--shadow-menu)]">
       {children}
     </div>
   );
@@ -248,10 +248,10 @@ export function Toast({ children }: { children: ReactNode }) {
 // ── CoachMark — anchored, dismissible, N of M ──────────────────────────
 export function CoachMark({ step, total, children, onDismiss }: { step: number; total: number; children: ReactNode; onDismiss: () => void }) {
   return (
-    <div className="wc-pop-in max-w-xs rounded-[var(--radius-ui)] border border-border bg-elevated p-3 shadow-[var(--shadow-menu)]">
-      <div className="text-ui text-ink-100">{children}</div>
+    <div className="wc-pop-in max-w-xs rounded-[var(--radius-ui)] border border-[var(--border)] bg-popover p-3 shadow-[var(--shadow-menu)]">
+      <div className="text-ui text-foreground">{children}</div>
       <div className="mt-2 flex items-center justify-between">
-        <span className="text-meta text-ink-500">{step} of {total}</span>
+        <span className="text-meta text-muted-foreground">{step} of {total}</span>
         <Button size="sm" variant="ghost" onClick={onDismiss}>Got it</Button>
       </div>
     </div>
