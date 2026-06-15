@@ -32,6 +32,14 @@ export const CONTRACT_VERSION = 1;
 export function normalizeManifest(raw = {}, dirName = 'module') {
   const id = typeof raw.id === 'string' && raw.id ? raw.id : dirName;
   const title = typeof raw.title === 'string' && raw.title ? raw.title : id.charAt(0).toUpperCase() + id.slice(1);
+  const rawCaps = (raw.capabilities && typeof raw.capabilities === 'object') ? raw.capabilities : null;
+  const hooks = {
+    miner: !!(raw.hooks?.miner || rawCaps?.mine),
+    digest: !!(raw.hooks?.digest || rawCaps?.digest),
+    eval: !!(raw.hooks?.eval || rawCaps?.eval),
+    gate: !!(raw.hooks?.gate || rawCaps?.['harness.gate'] || rawCaps?.gate),
+  };
+  const capabilities = rawCaps ? { ...rawCaps } : {};
   return {
     id,
     title,
@@ -41,12 +49,8 @@ export function normalizeManifest(raw = {}, dirName = 'module') {
     kinds: Array.isArray(raw.kinds) ? raw.kinds.map(String) : [],
     itemsDir: typeof raw.itemsDir === 'string' && raw.itemsDir ? raw.itemsDir : 'items',
     schema: typeof raw.schema === 'string' && raw.schema ? raw.schema : 'schema.json',
-    hooks: {
-      miner: !!raw.hooks?.miner,
-      digest: !!raw.hooks?.digest,
-      eval: !!raw.hooks?.eval,
-      gate: !!raw.hooks?.gate,
-    },
+    hooks,
+    capabilities,
     ui: {
       icon: typeof raw.ui?.icon === 'string' ? raw.ui.icon : 'folder',
       accent: typeof raw.ui?.accent === 'string' ? raw.ui.accent : 'neutral',

@@ -11,9 +11,9 @@ import { listProposals } from '../module/proposal.mjs';
 import * as registry from '../module/registry.mjs';
 
 /** Best-effort one-line title for a proposal (adapter.render → payload → id). */
-function titleOf(module, p) {
+function titleOf(agentDir, module, p) {
   try {
-    const a = registry.get(module);
+    const a = registry.adapterFor(agentDir, module);
     if (a && typeof a.render === 'function') {
       const line = a.render(p).line;
       if (line) return line.trim();
@@ -23,13 +23,22 @@ function titleOf(module, p) {
   return String(body).split('\n')[0].slice(0, 60);
 }
 
+/** Every module id a home serves: the built-ins + composed (home) modules. */
+function moduleIds(agentDir) {
+  const ids = [...MODULES];
+  try {
+    for (const e of registry.modulesOf(agentDir)) if (!ids.includes(e.id)) ids.push(e.id);
+  } catch { /* built-ins only */ }
+  return ids;
+}
+
 /** Pure: flat list of pending proposals across modules (id, module, title) — the zuzuu-web /inbox source. */
 export function inboxData(agentDir) {
   const pending = [];
-  for (const module of MODULES) {
+  for (const module of moduleIds(agentDir)) {
     let proposals = [];
     try { proposals = listProposals(agentDir, module); } catch { proposals = []; }
-    for (const p of proposals) pending.push({ id: p.id, module, title: titleOf(module, p) });
+    for (const p of proposals) pending.push({ id: p.id, module, title: titleOf(agentDir, module, p) });
   }
   return { pending, total: pending.length };
 }
@@ -41,12 +50,12 @@ export function inboxData(agentDir) {
 export function inboxRows(agentDir) {
   const rows = [];
   let total = 0;
-  for (const module of MODULES) {
+  for (const module of moduleIds(agentDir)) {
     let proposals = [];
     try { proposals = listProposals(agentDir, module); } catch { proposals = []; }
     if (!proposals.length) continue;
     total += proposals.length;
-    rows.push({ module, count: proposals.length, first: titleOf(module, proposals[0]) });
+    rows.push({ module, count: proposals.length, first: titleOf(agentDir, module, proposals[0]) });
   }
   return { rows, total };
 }

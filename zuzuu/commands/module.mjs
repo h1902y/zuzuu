@@ -95,6 +95,8 @@ export function moduleOverviewData(agentDir) {
       ui: entry.manifest?.ui ?? {},
       kinds: entry.manifest?.kinds ?? [],
       declarative: entry.declarative,
+      composed: !!entry.composed,
+      capabilities: Object.keys(entry.manifest?.capabilities ?? {}),
       ...(entry.manifestError ? { manifestError: entry.manifestError } : {}),
       counts: { items: items.length, pending: pendingCount(agentDir, entry), errors: errors.length },
       top: items.slice(0, 3).map((i) => i.title ?? i.id),

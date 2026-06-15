@@ -105,7 +105,21 @@ const ENUMERATORS = {
 /** The live item files for ONE module (absolute, with hashes). [] for unknown. */
 export function moduleItemFiles(agentDir, module) {
   const fn = ENUMERATORS[module];
-  return fn ? fn(agentDir) : [];
+  if (fn) return fn(agentDir);
+  // generic fallback: composed modules keep flat envelopes under <module>/<itemsDir>
+  // (default 'items'), honoring a custom itemsDir so mint pins the same files the
+  // adapter wrote and the spine lists.
+  return mdItemFiles(agentDir, module, module, composedItemsDir(agentDir, module));
+}
+
+/** The items subdir a composed module uses (manifest.itemsDir || 'items'). */
+function composedItemsDir(agentDir, module) {
+  try {
+    const raw = JSON.parse(readFileSync(join(agentDir, module, 'module.json'), 'utf8'));
+    return (typeof raw.itemsDir === 'string' && raw.itemsDir && raw.itemsDir !== '.') ? raw.itemsDir : 'items';
+  } catch {
+    return 'items';
+  }
 }
 
 export function registryHash(agentDir) {
