@@ -37,13 +37,13 @@ function MenuRow({
     <button
       onClick={onClick}
       disabled={disabled}
-      className="wc-sans flex w-full items-center gap-2 px-3 py-1.5 text-left text-ui text-ink-200 transition-colors hover:bg-hover hover:text-ink-100 disabled:opacity-40 disabled:hover:bg-transparent"
+      className="wc-sans flex w-full items-center gap-2 px-3 py-1.5 text-left text-ui text-foreground transition-colors hover:bg-[var(--accent)] hover:text-foreground disabled:opacity-40 disabled:hover:bg-transparent"
     >
-      <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0 text-ink-400" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" fill="none" stroke="currentColor" strokeWidth="1.4">
         <path d={iconPath} strokeLinecap="round" strokeLinejoin="round" />
       </svg>
       <span className="min-w-0 flex-1 truncate">{label}</span>
-      {hint && <span className="ml-auto shrink-0 text-meta text-ink-500">{hint}</span>}
+      {hint && <span className="ml-auto shrink-0 text-meta text-muted-foreground">{hint}</span>}
     </button>
   );
 }
@@ -79,17 +79,17 @@ function WorkspaceHeader({
       <button
         onClick={() => setOpen((v) => !v)}
         title={root}
-        className="flex w-full items-center gap-2 rounded-[var(--radius-sm)] px-2 py-1.5 text-left transition-colors hover:bg-hover"
+        className="flex w-full items-center gap-2 rounded-[var(--radius-sm)] px-2 py-1.5 text-left transition-colors hover:bg-[var(--accent)]"
       >
-        <span aria-hidden className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[7px] bg-hover text-ink-200">
+        <span aria-hidden className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[7px] bg-[var(--accent)] text-foreground">
           <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.4">
             <path d="M1.5 4A1.5 1.5 0 013 2.5h3l1.5 1.5H13A1.5 1.5 0 0114.5 5.5v6A1.5 1.5 0 0113 13H3a1.5 1.5 0 01-1.5-1.5z" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </span>
-        <span className="wc-sans min-w-0 flex-1 truncate text-ui font-medium text-ink-100">
+        <span className="wc-sans min-w-0 flex-1 truncate text-ui font-medium text-foreground">
           {workspace.data?.name ?? "…"}
         </span>
-        <svg viewBox="0 0 16 16" className={cx("h-3 w-3 shrink-0 text-ink-500 transition-transform", open && "rotate-180")} fill="none" stroke="currentColor" strokeWidth="1.4">
+        <svg viewBox="0 0 16 16" className={cx("h-3 w-3 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} fill="none" stroke="currentColor" strokeWidth="1.4">
           <path d="M4 6l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
@@ -99,23 +99,23 @@ function WorkspaceHeader({
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div
             style={{ boxShadow: "var(--shadow-menu)" }}
-            className="absolute left-0 right-0 top-full z-50 mt-1 max-h-[70vh] overflow-y-auto rounded-[var(--radius-ui)] border border-border bg-elevated py-1"
+            className="absolute left-0 right-0 top-full z-50 mt-1 max-h-[70vh] overflow-y-auto rounded-[var(--radius-ui)] border border-[var(--border)] bg-popover py-1"
           >
             {/* identity */}
             <div className="px-3 pb-1 pt-1">
               <div className="wc-eyebrow">Workspace</div>
-              <div className="wc-sans mt-0.5 truncate text-ui text-ink-100" title={root}>{workspace.data?.name ?? "…"}</div>
+              <div className="wc-sans mt-0.5 truncate text-ui text-foreground" title={root}>{workspace.data?.name ?? "…"}</div>
             </div>
 
             {/* create + search */}
-            <div className="mt-1 border-t border-border pt-1">
+            <div className="mt-1 border-t border-[var(--border)] pt-1">
               <MenuRow iconPath="M4 1.5h5L13 5.5v9a1 1 0 01-1 1H4a1 1 0 01-1-1v-12a1 1 0 011-1zM9 2v4h4" label="New file" onClick={() => run(onNewFile)} />
               <MenuRow iconPath="M1.5 3.5A1.5 1.5 0 013 2h3l1.5 1.5H13A1.5 1.5 0 0114.5 5v7A1.5 1.5 0 0113 13.5H3A1.5 1.5 0 011.5 12z" label="New folder" onClick={() => run(onNewFolder)} />
               <MenuRow iconPath="M10.5 10.5L14 14M7 12A5 5 0 117 2a5 5 0 010 10z" label="Search workspace" hint="⌘F" onClick={() => run(onSearch)} />
             </div>
 
             {/* navigate up */}
-            <div className="mt-1 border-t border-border pt-1">
+            <div className="mt-1 border-t border-[var(--border)] pt-1">
               <MenuRow
                 iconPath="M8 12.5V3.5M4 7l4-3.5L12 7"
                 label={parent ? `Go to ${parent.split("/").pop() || "/"}…` : "Go to parent folder"}
@@ -127,21 +127,21 @@ function WorkspaceHeader({
 
             {/* recents + browse */}
             {recents.length > 0 && (
-              <div className="mt-1 border-t border-border pt-1">
+              <div className="mt-1 border-t border-[var(--border)] pt-1">
                 <div className="wc-eyebrow px-3 py-0.5">Recent</div>
                 {recents.map((r) => (
                   <button
                     key={r}
                     onClick={() => pick(r)}
                     title={r}
-                    className="wc-sans block w-full truncate px-3 py-1.5 text-left text-ui text-ink-300 transition-colors hover:bg-hover hover:text-ink-100"
+                    className="wc-sans block w-full truncate px-3 py-1.5 text-left text-ui text-muted-foreground transition-colors hover:bg-[var(--accent)] hover:text-foreground"
                   >
                     {tilde(r)}
                   </button>
                 ))}
               </div>
             )}
-            <div className="mt-1 border-t border-border pt-1">
+            <div className="mt-1 border-t border-[var(--border)] pt-1">
               <MenuRow iconPath="M8 3.5v9M3.5 8h9" label="Add folder…" hint="⌘⇧O" onClick={addFolder} />
             </div>
           </div>
@@ -192,7 +192,7 @@ export function Sidebar() {
       <div className="px-2 pt-2">
         <WorkspaceHeader onNewFile={() => void newFile()} onNewFolder={() => void newFolder()} onSearch={() => openSearch()} />
       </div>
-      <div className="mt-2 min-h-0 flex-1 border-t border-border pt-1">
+      <div className="mt-2 min-h-0 flex-1 border-t border-[var(--border)] pt-1">
         {searchOpen ? <SearchPanel /> : <FileTree />}
       </div>
     </div>

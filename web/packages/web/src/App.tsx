@@ -76,7 +76,7 @@ export default function App() {
 
   if (workspace.error || initError) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 text-ink-300">
+      <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground">
         <div className="text-2xl text-accent">❯_</div>
         <div className="max-w-md text-center text-sm leading-relaxed">
           {(workspace.error as Error | null)?.message ?? initError}

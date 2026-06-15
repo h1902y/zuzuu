@@ -52,17 +52,17 @@ function AgentProgressionPill({ zuzuuHome }: { zuzuuHome: boolean }) {
 
   return (
     <span
-      className="flex shrink-0 items-center gap-1 rounded-[var(--radius-sm)] px-1.5 py-0.5 text-meta text-ink-500"
+      className="flex shrink-0 items-center gap-1 rounded-[var(--radius-sm)] px-1.5 py-0.5 text-meta text-muted-foreground"
       style={{ background: "color-mix(in oklab, var(--color-ink-600) 8%, transparent)" }}
       title="Your agent's current state — snapshots saved, facts known, proposals awaiting review"
     >
-      <span className="wc-sans text-ink-400">Your agent:</span>
+      <span className="wc-sans text-muted-foreground">Your agent:</span>
       {parts.length > 0 && (
-        <span className="wc-sans text-ink-300">{parts.join(" · ")}</span>
+        <span className="wc-sans text-muted-foreground">{parts.join(" · ")}</span>
       )}
       {hasPending && (
         <>
-          <span aria-hidden className="text-ink-600">·</span>
+          <span aria-hidden className="text-muted-foreground">·</span>
           <span
             className="wc-sans font-medium tabular-nums"
             style={{ color: "color-mix(in oklab, var(--color-warn) 82%, white)" }}
@@ -91,11 +91,11 @@ export function Footer({
 
   return (
     <>
-    <Bar border="t" surface="surface" className="relative !gap-2.5 text-meta text-ink-500">
+    <Bar border="t" surface="surface" className="relative !gap-2.5 text-meta text-muted-foreground">
       {/* calm connection status */}
       <span className="flex shrink-0 items-center gap-1.5" title={`daemon ${conn.state}`}>
         <StatusDot tone={connTone} pulse={conn.state === "reconnecting"} />
-        <span className="wc-sans text-ink-400">{connLabel}</span>
+        <span className="wc-sans text-muted-foreground">{connLabel}</span>
       </span>
 
       <span aria-hidden className="text-ink-600">·</span>
@@ -108,7 +108,7 @@ export function Footer({
 
       <button
         onClick={onOpenPalette}
-        className="wc-sans ml-auto flex shrink-0 items-center gap-1.5 rounded-[var(--radius-sm)] px-1 text-ink-400 transition-colors hover:text-ink-100"
+        className="wc-sans ml-auto flex shrink-0 items-center gap-1.5 rounded-[var(--radius-sm)] px-1 text-muted-foreground transition-colors hover:text-foreground"
         title="Command palette"
       >
         <span>Commands</span>
