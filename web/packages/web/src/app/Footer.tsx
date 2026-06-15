@@ -2,10 +2,13 @@
 // session-git indicator · the agent progression pill · a quiet ⌘K hint. The
 // workspace/recents switcher moved entirely into the sidebar's single
 // workspace dropdown (one directory control), so the footer is status-only.
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Settings2 } from "lucide-react";
 import { useConnection } from "../state/connection";
 import { Bar, Kbd, StatusDot } from "../components/ui";
 import { SessionIndicator } from "../components/SessionIndicator";
+import { Settings } from "../components/Settings";
 import { zuzuuApi } from "../lib/zuzuu-api";
 import { pendingTotal } from "../panel/sections";
 
@@ -80,12 +83,14 @@ export function Footer({
   onOpenPalette: () => void;
 }) {
   const conn = useConnection();
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const connTone = conn.state === "connected" ? "ok" : conn.state === "reconnecting" ? "warn" : "bad";
   const connLabel =
     conn.state === "connected" ? "Connected" : conn.state === "reconnecting" ? "Reconnecting…" : "Disconnected";
 
   return (
+    <>
     <Bar border="t" surface="surface" className="relative !gap-2.5 text-meta text-ink-500">
       {/* calm connection status */}
       <span className="flex shrink-0 items-center gap-1.5" title={`daemon ${conn.state}`}>
@@ -109,6 +114,18 @@ export function Footer({
         <span>Commands</span>
         <Kbd>⌘K</Kbd>
       </button>
+
+      <button
+        onClick={() => setSettingsOpen(true)}
+        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-ink-500 transition-colors hover:bg-hover hover:text-ink-100"
+        title="Settings"
+        aria-label="Open settings"
+      >
+        <Settings2 className="h-3.5 w-3.5" />
+      </button>
     </Bar>
+
+    <Settings open={settingsOpen} onOpenChange={setSettingsOpen} />
+    </>
   );
 }
