@@ -98,7 +98,7 @@ export function Footer({
         <span className="wc-sans text-muted-foreground">{connLabel}</span>
       </span>
 
-      <span aria-hidden className="text-ink-600">·</span>
+      <span aria-hidden className="text-muted-foreground">·</span>
 
       {/* session-git indicator (restyled context-only; its own quiet popover) */}
       <SessionIndicator enabled={zuzuuHome} />
@@ -117,7 +117,7 @@ export function Footer({
 
       <button
         onClick={() => setSettingsOpen(true)}
-        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-ink-500 transition-colors hover:bg-hover hover:text-ink-100"
+        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-muted-foreground transition-colors hover:bg-[var(--accent)] hover:text-foreground"
         title="Settings"
         aria-label="Open settings"
       >
