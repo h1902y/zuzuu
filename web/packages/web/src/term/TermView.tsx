@@ -25,6 +25,13 @@ import { useWorkflowDraft } from "../workflows/draft";
 
 const FONT_FAMILY = '"JetBrains Mono Variable", ui-monospace, Menlo, monospace';
 
+// Delay between a fresh agent connection opening and injecting its queued
+// initial task (start-with-a-task). Host TUIs (Claude Code, etc.) can drop
+// keystrokes typed before they finish initializing their input box; this gives
+// them a beat. Tunable — if a host proves flaky, raise it or fall back to
+// launch-empty for that host.
+const INITIAL_INPUT_SETTLE_MS = 500;
+
 const THEME = {
   background: "#0a0d12",
   foreground: "#d6dde8",
@@ -207,6 +214,23 @@ export function TermView({
       }
       fit.fit();
       conn.connect();
+      // "Start with a task": if startAgentSession queued an initial prompt for
+      // this session, inject it once the socket is open + a short settle so the
+      // host TUI is ready to receive keystrokes (early input can be dropped
+      // during TUI init). Peek-then-clear so a StrictMode throwaway mount that
+      // gets disposed before sending doesn't consume the prompt. Same path the
+      // user typing would take — the binary PTY hot path is untouched.
+      const initial = termRegistry.getPendingInput(sessionId);
+      if (initial) {
+        void conn.whenOpen().then(() => {
+          if (disposed) return;
+          window.setTimeout(() => {
+            if (disposed) return;
+            termRegistry.clearPendingInput(sessionId);
+            conn.sendInput(initial);
+          }, INITIAL_INPUT_SETTLE_MS);
+        });
+      }
     });
 
     const ro = new ResizeObserver(() => {

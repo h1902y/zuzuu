@@ -12,7 +12,9 @@ interface SessionsState {
   activeId: string | null;
   loaded: boolean;
   init: () => Promise<void>;
-  create: (req?: CreateSessionRequest) => Promise<void>;
+  /** Spawn a session; returns it so callers can target the new id (e.g. to
+   *  queue an initial task for its terminal before TermView mounts). */
+  create: (req?: CreateSessionRequest) => Promise<SessionInfo>;
   close: (id: string) => Promise<void>;
   setActive: (id: string) => void;
   setTitle: (id: string, title: string) => void;
@@ -38,6 +40,7 @@ export const useSessions = create<SessionsState>((set, get) => ({
   create: async (req = {}) => {
     const session = await api.createSession(req);
     set((s) => ({ tabs: [...s.tabs, session], activeId: session.id }));
+    return session;
   },
 
   close: async (id) => {

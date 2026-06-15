@@ -1,55 +1,60 @@
-// Smoke tests for the U5 SessionComposer resting-state copy + chip reframe.
-// We test the exported constants — no DOM mounting needed (node env).
+// U2: the context-aware composer's pure state helpers (node env, no DOM).
+// The composer itself is two states (idle prompt box / active status+Stop);
+// its decisions live in composer-state so they're testable without mounting.
 import { describe, expect, it } from "vitest";
-import { EMPTY_STATE_COPY, KBD_HINT_LABEL, QUICK_CHIPS } from "./SessionComposer";
+import {
+  composerMode,
+  hasTask,
+  promptPlaceholder,
+  QUICK_CHIPS,
+} from "./composer-state";
 
-describe("SessionComposer — U5 resting-state copy", () => {
-  it("EMPTY_STATE_COPY mentions typing in the terminal", () => {
-    expect(EMPTY_STATE_COPY).toContain("terminal");
+describe("composerMode — idle vs active", () => {
+  it("is active when an agent is live", () => {
+    expect(composerMode(true)).toBe("active");
   });
-
-  it("EMPTY_STATE_COPY tells users to press ↵ or Start", () => {
-    expect(EMPTY_STATE_COPY).toMatch(/↵|Start/);
-  });
-
-  it("EMPTY_STATE_COPY references 'task' so users know what to do", () => {
-    expect(EMPTY_STATE_COPY.toLowerCase()).toContain("task");
-  });
-});
-
-describe("SessionComposer — de-cluttered keyboard hint (no host-name repeat)", () => {
-  it("the keyboard hint is the key affordance only — no host name", () => {
-    // The hint must NOT carry a host label (host lives in the pill + copy line).
-    expect(KBD_HINT_LABEL).toBe("Start");
-    expect(KBD_HINT_LABEL).not.toMatch(/claude|gemini|codex|opencode|pi/i);
+  it("is idle when nothing is running", () => {
+    expect(composerMode(false)).toBe("idle");
   });
 });
 
-describe("SessionComposer — U5 quick-start chips (no module jargon)", () => {
-  const labels = QUICK_CHIPS.map((c) => c.label);
+describe("promptPlaceholder — names the selected host", () => {
+  it("uses the host label", () => {
+    expect(promptPlaceholder("Claude Code")).toBe("What should Claude Code do?");
+  });
+  it("falls back when no host is known", () => {
+    expect(promptPlaceholder(null)).toBe("What should your agent do?");
+    expect(promptPlaceholder("")).toBe("What should your agent do?");
+    expect(promptPlaceholder(undefined)).toBe("What should your agent do?");
+  });
+});
 
-  it("chips exist", () => {
+describe("hasTask — is there real text to hand the host", () => {
+  it("true for non-blank", () => {
+    expect(hasTask("fix the bug")).toBe(true);
+  });
+  it("false for blank / whitespace", () => {
+    expect(hasTask("")).toBe(false);
+    expect(hasTask("   \n  ")).toBe(false);
+  });
+});
+
+describe("QUICK_CHIPS — pre-fill starters, not launchers", () => {
+  it("every chip has a label and a non-empty fill (real choices)", () => {
     expect(QUICK_CHIPS.length).toBeGreaterThan(0);
+    for (const chip of QUICK_CHIPS) {
+      expect(chip.label.length).toBeGreaterThan(0);
+      expect(chip.fill.trim().length).toBeGreaterThan(0);
+    }
   });
-
-  it("no chip uses the old module-jargon labels", () => {
+  it("fills are distinct, concrete tasks (chips aren't three buttons doing the same thing)", () => {
+    const fills = QUICK_CHIPS.map((c) => c.fill);
+    expect(new Set(fills).size).toBe(fills.length);
+  });
+  it("no chip carries module jargon", () => {
+    const labels = QUICK_CHIPS.map((c) => c.label);
     expect(labels).not.toContain("Recall what you know");
     expect(labels).not.toContain("Run an action");
     expect(labels).not.toContain("Review proposals");
-  });
-
-  it("chips use plain task-oriented labels", () => {
-    // At least one chip should mention a concrete action a new user understands
-    const plain = labels.some((l) =>
-      /task|question|code|review|ask|start/i.test(l),
-    );
-    expect(plain).toBe(true);
-  });
-
-  it("every chip has a non-empty label and title", () => {
-    for (const chip of QUICK_CHIPS) {
-      expect(chip.label.length).toBeGreaterThan(0);
-      expect(chip.title.length).toBeGreaterThan(0);
-    }
   });
 });

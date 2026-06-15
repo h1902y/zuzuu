@@ -6,21 +6,47 @@
 // plain-terminal path: the workbench surfaces host sessions and zuzuu utility
 // runs only.
 import { useSessions } from "../state/sessions";
+import { termRegistry } from "../term/registry";
 import type { AgentSpawnSpec } from "../modules/host-launch";
+
+export interface StartAgentOptions {
+  /** A first task to hand the host: typed into its terminal once it opens, so
+   *  the session launches already working on it. Blank/whitespace → no task
+   *  (the host opens idle, as before). */
+  prompt?: string;
+}
 
 /**
  * Start an agent session: direct-spawn the host, tab it, select it. Single-
  * active-agent v1 rule: if an agent session is already alive, focus it
  * instead of spawning a second one.
+ *
+ * Start-with-a-task: a non-blank `prompt` is queued as the new session's first
+ * terminal input (see termRegistry.setPendingInput) — the TermView injects it
+ * once the PTY is open. This is host-agnostic (every interactive host reads
+ * stdin), needs no per-host argv flags, and can't be misparsed as CLI flags.
+ * Focusing an already-alive session never injects (you'd be typing into work
+ * already in progress).
  */
-export async function startAgentSession(spec: AgentSpawnSpec): Promise<void> {
+export async function startAgentSession(
+  spec: AgentSpawnSpec,
+  opts: StartAgentOptions = {},
+): Promise<void> {
   const s = useSessions.getState();
   const alive = s.tabs.find((t) => t.type === "agent" && t.alive);
   if (alive) {
     s.setActive(alive.id);
     return;
   }
-  await s.create({ type: "agent", command: spec.command, args: spec.args, host: spec.host });
+  const prompt = opts.prompt?.trim();
+  const session = await s.create({
+    type: "agent",
+    command: spec.command,
+    args: spec.args,
+    host: spec.host,
+  });
+  // Queue before TermView mounts so its connect-time drain finds it. \r submits.
+  if (prompt) termRegistry.setPendingInput(session.id, prompt + "\r");
 }
 
 /**
