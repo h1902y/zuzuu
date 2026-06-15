@@ -12,13 +12,13 @@ import { WelcomeOverlay } from "./onboarding/WelcomeOverlay";
 import { VaultPicker } from "./onboarding/VaultPicker";
 import { DialogHost } from "./components/ui";
 import { WorkflowSaveModal, WorkflowRunModal } from "./workflows/WorkflowModals";
-import { RightPanel } from "./panel/RightPanel";
+import { ModulesList } from "./panel/ModulesList";
 import { ReviewFlow } from "./modules/ReviewFlow";
 import { agentTabTitle } from "./modules/host-launch";
 import { api } from "./lib/api";
 import { Layout } from "./app/Layout";
 import { Sidebar } from "./app/Sidebar";
-import { SessionPane } from "./app/SessionPane";
+import { CenterWorkArea } from "./app/CenterWorkArea";
 import { Footer } from "./app/Footer";
 import { TakeoverOverlay } from "./app/TakeoverOverlay";
 import { initTabGuard } from "./state/takeover";
@@ -91,9 +91,9 @@ export default function App() {
       <DisconnectedBanner state={conn.state} />
       <Layout
         sidebar={<Sidebar />}
-        center={<SessionPane />}
+        center={<CenterWorkArea zuzuuHome={zuzuuHome} />}
         right={
-          <RightPanel
+          <ModulesList
             zuzuuHome={zuzuuHome}
             zuzuuBin={zuzuuHealth.data?.zuzuuBin ?? true}
             onCollapse={() => setRightCollapsed(true)}
