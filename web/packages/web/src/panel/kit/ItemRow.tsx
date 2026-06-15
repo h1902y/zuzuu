@@ -27,28 +27,28 @@ export function ItemRow({
   const rel = relativeTime(timestamp);
   const inner = (
     <>
-      <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0 text-ink-500" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" fill="none" stroke="currentColor" strokeWidth="1.4">
         <path d={kindIcon(kind)} strokeLinecap="round" strokeLinejoin="round" />
       </svg>
-      <span className="min-w-0 truncate text-ink-300">{title}</span>
+      <span className="min-w-0 truncate text-muted-foreground">{title}</span>
       {status === "pending" && (
         <span className="shrink-0 rounded-full bg-[color-mix(in_oklab,var(--color-status-pending)_16%,transparent)] px-1.5 text-meta leading-4 text-status-pending">
           pending
         </span>
       )}
       {status === "archived" && (
-        <span className="shrink-0 rounded-full bg-hover px-1.5 text-meta leading-4 text-ink-500">archived</span>
+        <span className="shrink-0 rounded-full bg-[var(--accent)] px-1.5 text-meta leading-4 text-muted-foreground">archived</span>
       )}
-      {rel && <span className="ml-auto shrink-0 text-meta text-ink-600">{rel}</span>}
+      {rel && <span className="ml-auto shrink-0 text-meta text-muted-foreground">{rel}</span>}
     </>
   );
   const layout = cx(
     "flex w-full min-w-0 items-center gap-2 text-left text-ui",
-    compact ? "py-0.5" : "border-b border-border py-1 last:border-0",
+    compact ? "py-0.5" : "border-b border-[var(--border)] py-1 last:border-0",
   );
   if (!onClick) return <div className={layout} title={titleAttr}>{inner}</div>;
   return (
-    <button onClick={onClick} className={cx(layout, "transition-colors hover:bg-hover")} title={titleAttr}>
+    <button onClick={onClick} className={cx(layout, "transition-colors hover:bg-[var(--accent)]")} title={titleAttr}>
       {inner}
     </button>
   );

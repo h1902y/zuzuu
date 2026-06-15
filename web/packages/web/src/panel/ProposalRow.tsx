@@ -7,7 +7,7 @@ import { ProposalDetail } from "./ProposalDetail";
 const TONE_TEXT = {
   success: "text-[color-mix(in_oklab,var(--color-success)_82%,white)]",
   warning: "text-[color-mix(in_oklab,var(--color-pending)_82%,white)]",
-  neutral: "text-ink-500",
+  neutral: "text-muted-foreground",
 } as const;
 
 /** One pending proposal: collapsed = title + confidence pill; click → expands
@@ -33,19 +33,19 @@ export function ProposalRow({
   const pill = confidencePill(data.confidence, data.score);
 
   return (
-    <div className={`border-b border-border last:border-0 ${approving ? "wc-approve-out" : ""}`}>
+    <div className={`border-b border-[var(--border)] last:border-0 ${approving ? "wc-approve-out" : ""}`}>
       <button
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center gap-2 py-1.5 text-left text-ui"
       >
-        <span className="shrink-0 text-meta text-ink-600">{open ? "▾" : "▸"}</span>
-        <span className="wc-sans min-w-0 flex-1 truncate text-ink-200">{data.title}</span>
+        <span className="shrink-0 text-meta text-muted-foreground">{open ? "▾" : "▸"}</span>
+        <span className="wc-sans min-w-0 flex-1 truncate text-foreground">{data.title}</span>
         {!isAction && (
           <span className={`shrink-0 text-meta ${TONE_TEXT[pill.tone]}`} title={`score ${data.score ?? "?"}`}>
             {pill.level}
           </span>
         )}
-        {isAction && <span className="shrink-0 text-meta text-ink-600">action</span>}
+        {isAction && <span className="shrink-0 text-meta text-muted-foreground">action</span>}
       </button>
       {open && (
         <div className="pb-3 pl-5 pr-1">

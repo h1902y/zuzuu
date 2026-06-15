@@ -27,20 +27,20 @@ function SessionsPreviewMock() {
   ] as const;
   const toneCls: Record<string, string> = {
     completed: "text-ok border-ok/40 bg-[color-mix(in_oklab,var(--color-ok)_10%,transparent)]",
-    captured:  "text-ink-400 border-border bg-surface",
+    captured:  "text-muted-foreground border-[var(--border)] bg-card",
   };
   return (
-    <div className="flex flex-col divide-y divide-border overflow-hidden rounded-[var(--radius-ui)] border border-border">
+    <div className="flex flex-col divide-y divide-[var(--border)] overflow-hidden rounded-[var(--radius-ui)] border border-[var(--border)]">
       {rows.map((r) => (
         <div key={r.id} className="flex items-center gap-2 px-2 py-1.5">
           <span className={cx("wc-sans inline-flex items-center rounded px-1.5 py-0.5 text-meta font-medium border", toneCls[r.state])}>
             {r.state}
           </span>
-          <span className="wc-sans min-w-0 flex-1 truncate text-ui font-medium text-ink-200">{r.host}</span>
-          <span className="flex shrink-0 items-baseline gap-3 text-meta text-ink-500">
+          <span className="wc-sans min-w-0 flex-1 truncate text-ui font-medium text-foreground">{r.host}</span>
+          <span className="flex shrink-0 items-baseline gap-3 text-meta text-muted-foreground">
             <span className="wc-sans">{r.ago}</span>
             <span className="wc-mono">{r.dur}</span>
-            <span className="wc-mono text-ink-600">{r.id}</span>
+            <span className="wc-mono text-muted-foreground">{r.id}</span>
           </span>
         </div>
       ))}
@@ -97,19 +97,19 @@ function SessionRow({ session }: { session: ZuzuuSessionEntry }) {
     <button
       onClick={() => openSession(session.id)}
       className={cx(
-        "group flex w-full items-center gap-2 border-b border-border py-1.5 pl-2 pr-2 text-left transition-colors last:border-0 hover:bg-hover",
+        "group flex w-full items-center gap-2 border-b border-[var(--border)] py-1.5 pl-2 pr-2 text-left transition-colors last:border-0 hover:bg-[var(--accent)]",
         isCrashed && "bg-[var(--color-error-subtle)] hover:bg-[color-mix(in_oklab,var(--color-error-subtle)_80%,var(--color-hover))]",
       )}
       title={`Inspect session ${session.id}`}
     >
       <StatusPill tone={statusTone(meta.tone)}>{meta.label}</StatusPill>
-      <span className="wc-sans min-w-0 flex-1 truncate text-ui font-medium text-ink-100">
+      <span className="wc-sans min-w-0 flex-1 truncate text-ui font-medium text-foreground">
         {session.host ?? "session"}
       </span>
-      <span className="flex shrink-0 items-baseline gap-3 text-meta text-ink-500">
+      <span className="flex shrink-0 items-baseline gap-3 text-meta text-muted-foreground">
         {when && <span className="wc-sans">{when}</span>}
         {dur && <span className="wc-mono">{dur}</span>}
-        <span className="wc-mono text-ink-600">{shortSessionId(session.id)}</span>
+        <span className="wc-mono text-muted-foreground">{shortSessionId(session.id)}</span>
       </span>
     </button>
   );
@@ -129,15 +129,15 @@ function ActiveCard({ session }: { session: ZuzuuSessionEntry }) {
   const dur = fmtDuration(session.durationMs);
 
   return (
-    <div className="flex flex-col gap-2 rounded-[var(--radius-ui)] border border-border bg-surface px-2 pb-2.5 pt-1.5">
+    <div className="flex flex-col gap-2 rounded-[var(--radius-ui)] border border-[var(--border)] bg-card px-2 pb-2.5 pt-1.5">
       <div className="flex w-full items-center gap-2">
         <StatusPill tone="ok">{meta.label}</StatusPill>
-        <span className="wc-sans min-w-0 flex-1 truncate text-ui font-medium text-ink-100">
+        <span className="wc-sans min-w-0 flex-1 truncate text-ui font-medium text-foreground">
           {session.host ?? "session"}
         </span>
-        <span className="flex shrink-0 items-baseline gap-3 text-meta text-ink-500">
+        <span className="flex shrink-0 items-baseline gap-3 text-meta text-muted-foreground">
           {dur && <span className="wc-mono">{dur}</span>}
-          <span className="wc-mono text-ink-600">{shortSessionId(session.id)}</span>
+          <span className="wc-mono text-muted-foreground">{shortSessionId(session.id)}</span>
         </span>
       </div>
 
@@ -151,9 +151,9 @@ function ActiveCard({ session }: { session: ZuzuuSessionEntry }) {
           Open terminal
         </button>
       ) : (
-        <div className="wc-sans flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-meta text-ink-500">
+        <div className="wc-sans flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-meta text-muted-foreground">
           <span>Running in {agentTabTitle(session.host)} — outside the workbench.</span>
-          <button onClick={() => openSession(session.id)} className="text-ink-400 transition-colors hover:text-ink-200">Inspect ›</button>
+          <button onClick={() => openSession(session.id)} className="text-muted-foreground transition-colors hover:text-foreground">Inspect ›</button>
         </div>
       )}
 
@@ -169,28 +169,28 @@ function SessionHistory({ rest }: { rest: ZuzuuSessionEntry[] }) {
   const buckets = bucketSessions(rest);
 
   if (rest.length === 0) {
-    return <div className="px-2 py-1 text-meta text-ink-600">No past sessions yet.</div>;
+    return <div className="px-2 py-1 text-meta text-muted-foreground">No past sessions yet.</div>;
   }
 
   return (
     <div className="flex flex-col">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-2 rounded-[var(--radius-sm)] px-2 py-1.5 text-left transition-colors hover:bg-hover"
+        className="flex w-full items-center gap-2 rounded-[var(--radius-sm)] px-2 py-1.5 text-left transition-colors hover:bg-[var(--accent)]"
       >
-        <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0 text-ink-400" fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M8 2.5a5.5 5.5 0 110 11 5.5 5.5 0 010-11M8 5v3.2l2.2 1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
-        <span className="wc-sans text-ui font-medium text-ink-200">Session history</span>
+        <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M8 2.5a5.5 5.5 0 110 11 5.5 5.5 0 010-11M8 5v3.2l2.2 1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        <span className="wc-sans text-ui font-medium text-foreground">Session history</span>
         <Count>{rest.length}</Count>
         <InfoDot title={GLOSSARY.session!.term}>{GLOSSARY.session!.what}</InfoDot>
-        <svg viewBox="0 0 16 16" className={cx("ml-auto h-3 w-3 shrink-0 text-ink-500 transition-transform", open && "rotate-90")} fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M6 4l4 4-4 4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        <svg viewBox="0 0 16 16" className={cx("ml-auto h-3 w-3 shrink-0 text-muted-foreground transition-transform", open && "rotate-90")} fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M6 4l4 4-4 4" strokeLinecap="round" strokeLinejoin="round" /></svg>
       </button>
 
       {open && (
         <div className="mt-1 flex flex-col gap-1">
           {buckets.map(({ bucket, items }) => (
             <div key={bucket}>
-              <div className="wc-sans pb-0.5 pt-2 text-meta font-medium text-ink-500 first:pt-0">{bucket}</div>
-              <div className="flex flex-col overflow-hidden rounded-[var(--radius-ui)] border border-border">
+              <div className="wc-sans pb-0.5 pt-2 text-meta font-medium text-muted-foreground first:pt-0">{bucket}</div>
+              <div className="flex flex-col overflow-hidden rounded-[var(--radius-ui)] border border-[var(--border)]">
                 {items.map((s) => <SessionRow key={s.id} session={s} />)}
               </div>
             </div>

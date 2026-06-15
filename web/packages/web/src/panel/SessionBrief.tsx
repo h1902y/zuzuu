@@ -17,12 +17,12 @@ export function SessionBrief() {
   const firstLine = hasText ? (text.trim().split("\n")[0] ?? "") : "";
 
   return (
-    <div className="flex flex-col gap-1.5 border-l-2 border-border pl-2.5">
+    <div className="flex flex-col gap-1.5 border-l-2 border-[var(--border)] pl-2.5">
       {/* collapsed header row: toggle + first-line preview + open link */}
       <div className="flex items-baseline gap-2">
         <button
           onClick={() => setExpanded((v) => !v)}
-          className="wc-sans flex items-baseline gap-1 text-meta text-ink-500 transition-colors hover:text-ink-300"
+          className="wc-sans flex items-baseline gap-1 text-meta text-muted-foreground transition-colors hover:text-foreground"
           title={expanded ? "Collapse the session brief" : "Expand the session brief"}
           aria-expanded={expanded}
         >
@@ -42,7 +42,7 @@ export function SessionBrief() {
 
         {/* first-line preview when collapsed */}
         {!expanded && (
-          <span className="wc-sans min-w-0 truncate text-meta text-ink-600">
+          <span className="wc-sans min-w-0 truncate text-meta text-muted-foreground">
             {hasText ? firstLine : "none yet"}
           </span>
         )}
@@ -51,7 +51,7 @@ export function SessionBrief() {
         {hasText && (
           <button
             onClick={() => useExplorer.getState().openPreviewPath(DIGEST_PATH)}
-            className="wc-sans ml-auto shrink-0 text-meta text-ink-500 transition-colors hover:text-accent"
+            className="wc-sans ml-auto shrink-0 text-meta text-muted-foreground transition-colors hover:text-accent"
             title={`Open ${DIGEST_PATH} in the editor`}
           >
             open ›
@@ -62,11 +62,11 @@ export function SessionBrief() {
       {/* expanded body */}
       {expanded && (
         !hasText ? (
-          <div className="wc-sans text-meta text-ink-600">
+          <div className="wc-sans text-meta text-muted-foreground">
             no brief yet — generated each session
           </div>
         ) : (
-          <pre className="wc-mono max-h-36 overflow-auto whitespace-pre-wrap rounded-[var(--radius-ui)] border border-border bg-surface p-[var(--spacing-card)] text-meta text-ink-300">
+          <pre className="wc-mono max-h-36 overflow-auto whitespace-pre-wrap rounded-[var(--radius-ui)] border border-[var(--border)] bg-card p-[var(--spacing-card)] text-meta text-muted-foreground">
             {text}
           </pre>
         )

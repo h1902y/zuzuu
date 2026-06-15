@@ -31,7 +31,7 @@ const TONE_CLASS: Record<ConfidencePill["tone"], string> = {
     "border-[color-mix(in_oklab,var(--color-success)_45%,transparent)] bg-[color-mix(in_oklab,var(--color-success)_13%,transparent)] text-[color-mix(in_oklab,var(--color-success)_82%,white)]",
   warning:
     "border-[color-mix(in_oklab,var(--color-pending)_42%,transparent)] bg-[color-mix(in_oklab,var(--color-pending)_13%,transparent)] text-[color-mix(in_oklab,var(--color-pending)_82%,white)]",
-  neutral: "border-border bg-hover text-ink-400",
+  neutral: "border-[var(--border)] bg-[var(--accent)] text-muted-foreground",
 };
 
 /** The shared review/detail body: three legible blocks — WHAT (the content),
@@ -48,13 +48,13 @@ export function ProposalDetail({ data }: { data: ProposalDetailData }) {
     <div className="flex flex-col gap-3">
       {/* WHAT — the content being approved */}
       <Block label="what">
-        <div className="wc-sans break-words text-body font-medium text-ink-100">{data.title}</div>
+        <div className="wc-sans break-words text-body font-medium text-foreground">{data.title}</div>
         {data.preview && data.preview !== data.title && (
-          <pre className="mt-1.5 whitespace-pre-wrap break-words rounded-[var(--radius-sm)] bg-surface px-2 py-1.5 font-mono text-meta text-ink-300">
+          <pre className="mt-1.5 whitespace-pre-wrap break-words rounded-[var(--radius-sm)] bg-card px-2 py-1.5 font-mono text-meta text-muted-foreground">
             {data.preview}
           </pre>
         )}
-        <div className="mt-1 break-all font-mono text-meta text-ink-600">{data.id}</div>
+        <div className="mt-1 break-all font-mono text-meta text-muted-foreground">{data.id}</div>
       </Block>
 
       {/* WHY — confidence + rationale + the plain-language signal breakdown */}
@@ -66,26 +66,26 @@ export function ProposalDetail({ data }: { data: ProposalDetailData }) {
             </span>
           )}
           {data.isAction && (
-            <span className="rounded-full border border-border bg-hover px-2 py-0.5 text-meta text-ink-400">
+            <span className="rounded-full border border-[var(--border)] bg-[var(--accent)] px-2 py-0.5 text-meta text-muted-foreground">
               from your action inbox
             </span>
           )}
-          {data.rationale && <span className="text-ui text-ink-200">{data.rationale}</span>}
+          {data.rationale && <span className="text-ui text-foreground">{data.rationale}</span>}
         </div>
 
         {phrases.length > 0 && (
           <div className="mt-2">
             <button
               onClick={() => setShowSignals((v) => !v)}
-              className="text-meta text-ink-500 transition-colors hover:text-accent"
+              className="text-meta text-muted-foreground transition-colors hover:text-accent"
             >
               {showSignals ? "▾" : "▸"} signals ({phrases.length})
             </button>
             {showSignals && (
               <ul className="mt-1.5 flex flex-col gap-1">
                 {phrases.map((p) => (
-                  <li key={p.key} className="flex items-center gap-2 text-meta text-ink-300">
-                    <span className="h-1 w-12 shrink-0 overflow-hidden rounded-full bg-hover">
+                  <li key={p.key} className="flex items-center gap-2 text-meta text-muted-foreground">
+                    <span className="h-1 w-12 shrink-0 overflow-hidden rounded-full bg-[var(--accent)]">
                       <span
                         className="block h-full rounded-full"
                         style={{ width: `${Math.round(p.strength * 100)}%`, background: "color-mix(in oklab, var(--color-success) 70%, transparent)" }}
@@ -100,13 +100,13 @@ export function ProposalDetail({ data }: { data: ProposalDetailData }) {
         )}
 
         {!data.isAction && data.score !== null && data.score !== undefined && (
-          <div className="mt-1.5 font-mono text-meta text-ink-600">score {data.score}</div>
+          <div className="mt-1.5 font-mono text-meta text-muted-foreground">score {data.score}</div>
         )}
       </Block>
 
       {/* WHAT HAPPENS — the consequence */}
       <Block label="what happens">
-        <div className="text-meta text-ink-400">
+        <div className="text-meta text-muted-foreground">
           {data.isAction ? (
             <>Approve → activates this runbook in <Mod>{moduleLabel}</Mod>.</>
           ) : (
@@ -133,5 +133,5 @@ function Block({ label, children }: { label: string; children: React.ReactNode }
 }
 
 const Mod = ({ children }: { children: React.ReactNode }) => (
-  <span className="wc-sans font-medium text-ink-200">{children}</span>
+  <span className="wc-sans font-medium text-foreground">{children}</span>
 );

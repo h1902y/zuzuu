@@ -35,7 +35,7 @@ export function TeachingEmpty({
   /** Optional icon-row-triplet for teaching a new noun (max 3 entries). */
   explainer?: ExplainerEntry[];
 }) {
-  const hue = moduleId ? moduleHue(moduleId) : "var(--color-ink-600)";
+  const hue = moduleId ? moduleHue(moduleId) : "var(--muted-foreground)";
   return (
     <div className="wc-rise-in flex flex-col items-center gap-2.5 px-4 py-7 text-center">
       {/* faint filled-state preview — above the headline, pointer-events-none */}
@@ -60,8 +60,8 @@ export function TeachingEmpty({
           <path d={display.icon} strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </span>
-      <div className="wc-sans text-title font-semibold text-ink-200">{display.emptyHeadline}</div>
-      <p className="wc-sans max-w-64 text-meta leading-relaxed text-ink-500">{display.teach}</p>
+      <div className="wc-sans text-title font-semibold text-foreground">{display.emptyHeadline}</div>
+      <p className="wc-sans max-w-64 text-meta leading-relaxed text-muted-foreground">{display.teach}</p>
 
       {/* icon-row-triplet explainer — teaches the concept in three beats */}
       {explainer && explainer.length > 0 && (
@@ -79,8 +79,8 @@ export function TeachingEmpty({
                 </svg>
               </span>
               <div className="min-w-0">
-                <span className="wc-sans text-meta font-semibold text-ink-300">{e.label}</span>
-                <span className="wc-sans text-meta text-ink-500"> — {e.caption}</span>
+                <span className="wc-sans text-meta font-semibold text-foreground">{e.label}</span>
+                <span className="wc-sans text-meta text-muted-foreground"> — {e.caption}</span>
               </div>
             </div>
           ))}
