@@ -64,9 +64,10 @@ function help() {
 usage: zuzuu <command> [options]
 
   code [dir]                launch OpenCode as the bundled default host (module home + capture + gate + digest)
-  web [dir] [--stop|--status]
+  web [dir] [--stop|--status|--print-url]
                             launch the visual workbench (reuses a running one;
-                            --stop ends it, --status reports it)
+                            --stop ends it, --status reports it,
+                            --print-url emits the authed URL to reopen a lost tab)
   init                      scaffold the module home (.zuzuu/) — git-style, idempotent
   status                    detected hosts + recorded sessions
   capture [--host NAME]     capture a session → .zuzuu/.traces + .zuzuu/sessions.json
