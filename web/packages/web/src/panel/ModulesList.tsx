@@ -45,17 +45,17 @@ export function ModulesList({
   const ids = orderedIds(entries);
 
   return (
-    <div className="flex h-full min-w-0 flex-col bg-surface">
+    <div className="flex h-full min-w-0 flex-col bg-background">
       {/* header: "Modules" + count + collapse */}
-      <div className="flex h-[34px] shrink-0 items-center gap-2 border-b border-border px-3">
-        <span className="wc-eyebrow">Modules</span>
+      <div className="flex h-[34px] shrink-0 items-center gap-2 border-b border-[var(--border)] px-3">
+        <span className="font-sans text-label font-[560] uppercase tracking-[0.09em] text-muted-foreground">Modules</span>
         {ids.length > 0 && (
-          <span className="wc-mono text-meta text-ink-600">{ids.length}</span>
+          <span className="wc-mono text-meta text-muted-foreground">{ids.length}</span>
         )}
         <button
           onClick={onCollapse}
           title="Collapse panel"
-          className="ml-auto shrink-0 text-ink-500 transition-colors hover:text-ink-200"
+          className="ml-auto shrink-0 text-muted-foreground transition-colors hover:text-foreground"
         >
           <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.5">
             <path d="M6 4l4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
@@ -68,7 +68,7 @@ export function ModulesList({
       ) : (
         <ScrollArea className="min-h-0 flex-1">
           {/* the clean vertical list — strong row separators, no cards */}
-          <ul className="flex flex-col border-b border-border">
+          <ul className="flex flex-col border-b border-[var(--border)]">
             {ids.map((id) => {
               const entry = entries.find((e) => e.id === id);
               return <ModuleRow key={id} id={id} entry={entry} />;
@@ -143,7 +143,7 @@ function ModuleRow({ id, entry }: { id: string; entry: ModuleOverviewEntry | und
   return (
     <li
       className={[
-        "group flex items-center gap-3 border-b border-border px-3 py-2.5 transition-colors last:border-0",
+        "group flex items-center gap-3 border-b border-[var(--border)] px-3 py-2.5 transition-colors last:border-0",
         selected ? "bg-[var(--accent)]" : "hover:bg-[var(--accent)]",
         !enabled && "opacity-50",
       ]
@@ -163,8 +163,8 @@ function ModuleRow({ id, entry }: { id: string; entry: ModuleOverviewEntry | und
           aria-hidden
         />
         <span className="flex min-w-0 flex-col">
-          <span className="wc-sans truncate text-ui font-medium text-ink-100">{display.label}</span>
-          <span className="wc-sans truncate text-meta text-ink-500">
+          <span className="wc-sans truncate text-ui font-medium text-foreground">{display.label}</span>
+          <span className="wc-sans truncate text-meta text-muted-foreground">
             {items} {items === 1 ? "item" : "items"} · {kindLabel(entry)}
           </span>
         </span>
@@ -197,8 +197,8 @@ function ModuleRow({ id, entry }: { id: string; entry: ModuleOverviewEntry | und
 /** No zuzuu home yet — the center pane owns setup; the list stays quiet. */
 function EmptyState({ zuzuuBin }: { zuzuuBin: boolean }) {
   return (
-    <div className="flex flex-col gap-2 p-4 text-ui leading-relaxed text-ink-500">
-      <div className="text-ink-300">No zuzuu home in this project yet.</div>
+    <div className="flex flex-col gap-2 p-4 text-ui leading-relaxed text-muted-foreground">
+      <div className="text-foreground">No zuzuu home in this project yet.</div>
       <p>
         Once set up, your agent&apos;s modules — knowledge, memory, actions,
         instructions, guardrails — live here and grow from real sessions.
