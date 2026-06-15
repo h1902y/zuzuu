@@ -135,6 +135,23 @@ function guardrailsLogName(sessionId) {
 const GATE_EVENTS = new Set(['PreToolUse', 'BeforeTool']);
 
 /**
+ * Is the guardrails module disabled? Reads `.zuzuu/guardrails/module.json`'s
+ * `enabled` flag directly (the hook runs out-of-process per tool call — a direct
+ * read is cheaper and safer than spinning the whole registry). Fail-open: any
+ * trouble (no file, bad JSON, read error) → treat as ENABLED (normal flow), so a
+ * disabled module never enforces but a flaky read never silently drops the gate.
+ */
+function guardrailsDisabled(dir) {
+  try {
+    const p = join(dir, 'guardrails', 'module.json');
+    const raw = JSON.parse(readFileSync(p, 'utf8'));
+    return raw.enabled === false;
+  } catch {
+    return false; // no manifest / unreadable → behave as enabled
+  }
+}
+
+/**
  * Evaluate a tool call against the guardrail rule items and return the host's
  * block decision (or null = fail-open / no match → host's normal flow). Logs
  * matched decisions.
@@ -143,6 +160,9 @@ const GATE_EVENTS = new Set(['PreToolUse', 'BeforeTool']);
 export function gateDecision({ host = 'claude-code', payload = {}, cwd = process.cwd() } = {}) {
   try {
     const { dir } = paths(cwd);
+    // A DISABLED guardrails module enforces nothing — emit no decision (the
+    // host's normal permission flow), same as a no-match. Fail-open by design.
+    if (guardrailsDisabled(dir)) return null;
     const loaded = loadRules(join(dir, 'guardrails'));
     if (!loaded.ok) return null;
     const verdict = evaluate(loaded.rules, { tool: payload.tool_name, input: payload.tool_input });
