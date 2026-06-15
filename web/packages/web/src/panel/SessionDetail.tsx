@@ -207,7 +207,7 @@ function KpiHeader({
 // ── main component ─────────────────────────────────────────────────────────
 
 export function SessionDetail({ sessionId }: { sessionId: string }) {
-  const closeDrill = useRightPanel((s) => s.closeDrill);
+  const closeCenter = useRightPanel((s) => s.closeCenter);
   const [viewMode, setViewMode] = useState<ViewMode>("timeline");
   const [inspectorModule, setInspectorModule] = useState<string | null>(null);
 
@@ -251,9 +251,9 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
       {/* back nav + session identity */}
       <div className="flex items-center gap-2">
         <button
-          onClick={closeDrill}
+          onClick={closeCenter}
           className="wc-sans text-meta text-ink-500 transition-colors hover:text-accent"
-          title="Back to the panel"
+          title="Back to sessions"
         >
           ‹ Sessions
         </button>
