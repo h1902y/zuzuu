@@ -5,12 +5,44 @@ import { mkdtempSync, rmSync, writeFileSync, chmodSync, realpathSync } from "nod
 import { tmpdir } from "node:os";
 import path from "node:path";
 import process from "node:process";
-import { runZuzuu, runZuzuuMut } from "../src/zuzuu-cli.js";
+import { runZuzuu, runZuzuuMut, resolveSpawn, resolveBundledCli } from "../src/zuzuu-cli.js";
 import { jsonStub, failStub } from "./zuzuu-fixtures.js";
 
 let root: string;
 beforeEach(() => { root = realpathSync(mkdtempSync(path.join(tmpdir(), "zw-"))); });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+describe("resolveSpawn — bundled CLI runs via node, PATH name runs direct", () => {
+  it("a .mjs script is spawned through the daemon's own node", () => {
+    const r = resolveSpawn("/pkg/bin/zuzuu.mjs", ["session", "diff", "x", "--json"]);
+    expect(r.cmd).toBe(process.execPath);
+    expect(r.argv).toEqual(["/pkg/bin/zuzuu.mjs", "session", "diff", "x", "--json"]);
+  });
+  it("a .js script too", () => {
+    expect(resolveSpawn("/p/index.js", ["a"]).cmd).toBe(process.execPath);
+  });
+  it("a bare command name is spawned directly (PATH fallback)", () => {
+    const r = resolveSpawn("zuzuu", ["status", "--json"]);
+    expect(r.cmd).toBe("zuzuu");
+    expect(r.argv).toEqual(["status", "--json"]);
+  });
+});
+
+describe("resolveBundledCli — find the CLI shipped beside the daemon", () => {
+  it("published layout: <pkg>/web-app/dist → <pkg>/bin/zuzuu.mjs", () => {
+    const here = "/opt/pkg/web-app/dist";
+    const want = path.resolve(here, "..", "..", "bin", "zuzuu.mjs"); // /opt/pkg/bin/zuzuu.mjs
+    expect(resolveBundledCli(here, (p) => p === want)).toBe(want);
+  });
+  it("repo layout: web/packages/daemon/{dist,src} → repo/bin/zuzuu.mjs", () => {
+    const here = "/repo/web/packages/daemon/src";
+    const want = path.resolve(here, "..", "..", "..", "..", "bin", "zuzuu.mjs"); // /repo/bin/zuzuu.mjs
+    expect(resolveBundledCli(here, (p) => p === want)).toBe(want);
+  });
+  it("null when no candidate exists (caller falls back to PATH 'zuzuu')", () => {
+    expect(resolveBundledCli("/wherever/dist", () => false)).toBeNull();
+  });
+});
 
 describe("runZuzuu", () => {
   it("returns null when the binary is absent", async () => {
