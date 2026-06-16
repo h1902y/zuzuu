@@ -8,6 +8,7 @@
 //
 // React/fetch-free so the ordering + live/past resolution are unit-tested.
 import type { ZuzuuSessionEntry } from "@zuzuu-web/protocol";
+import { agentTabTitle } from "../modules/host-launch";
 
 /** Recency band for a session row's grouping in the picker. */
 export type PickerBand = "now" | "recent" | "older";
@@ -103,6 +104,13 @@ export function resolveViewed(rows: PickerRow[], selectedId: string | null): Pic
     if (hit) return hit;
   }
   return rows[0] ?? null;
+}
+
+/** The name to show for a session: the user label if set, else the friendly
+ *  host title (agentTabTitle), else "agent". The one place display naming lives
+ *  so the picker, tab strip, and header agree. */
+export function sessionDisplayName(session: { label?: string; host?: string }): string {
+  return session.label?.trim() || agentTabTitle(session.host);
 }
 
 /**

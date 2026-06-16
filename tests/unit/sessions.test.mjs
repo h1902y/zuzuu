@@ -11,6 +11,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { sessionsListData, sessionInspectData } from '../../zuzuu/commands/sessions.mjs';
+import { setSessionLabel } from '../../zuzuu/sessions/labels.mjs';
 
 const FIXTURE = join(dirname(fileURLToPath(import.meta.url)), '..', 'fixtures', 'claude-sample.jsonl');
 
@@ -128,5 +129,16 @@ test('session inspect: unknown id → null', () => {
   withSeededRepo((cwd) => {
     assert.equal(sessionInspectData(cwd, 'nope', { transcripts: [] }), null);
     assert.equal(sessionInspectData(cwd, undefined, { transcripts: [] }), null);
+  });
+});
+
+test('sessions --json: a user label (W1-B) is merged onto the matching record', () => {
+  withSeededRepo((cwd) => {
+    setSessionLabel(cwd, 'sess-test', 'fix the auth bug');
+    const d = sessionsListData(cwd);
+    const labelled = d.sessions.find((s) => s.id === 'sess-test');
+    const unlabelled = d.sessions.find((s) => s.id === 'sess-gone');
+    assert.equal(labelled.label, 'fix the auth bug');
+    assert.equal('label' in unlabelled, false); // no label → field absent
   });
 });

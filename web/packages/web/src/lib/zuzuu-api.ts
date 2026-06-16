@@ -4,7 +4,7 @@ import type {
   ModuleOverviewResponse, SessionInspectResponse, SessionTraceResponse, SessionTreeResponse,
   ModuleGenerationList, ModuleGenerationDiff, CheckpointList,
   CheckpointMintResult, CheckpointRollbackResult,
-  SessionsResponse, SessionContentResponse, SessionDiffResponse, SessionFileDiffResponse, DigestResponse,
+  SessionsResponse, SessionContentResponse, SessionDiffResponse, SessionFileDiffResponse, SessionLabelResponse, DigestResponse,
   EvalResponse, HostsResponse, ApproveResult, RejectResult, RollbackResult,
   SessionGitStatus, SessionMergeResult,
 } from "@zuzuu-web/protocol";
@@ -83,6 +83,9 @@ export const zuzuuApi = {
   /** one changed file's unified diff for a session (size-capped) */
   sessionFileDiff: (id: string, path: string) =>
     request<SessionFileDiffResponse>(`/session-file-diff/${encodeURIComponent(id)}?path=${encodeURIComponent(path)}`),
+  /** set/clear a session's user label (blank clears it) */
+  setSessionLabel: (id: string, label: string) =>
+    request<SessionLabelResponse>(`/session-label/${encodeURIComponent(id)}`, json({ label })),
   digest: () => request<DigestResponse>("/digest"),
   evalRanked: () => request<EvalResponse>("/eval"),
   hosts: () => request<HostsResponse>("/hosts"),

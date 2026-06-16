@@ -196,6 +196,15 @@ export interface ZuzuuSessionEntry {
    *  workbench; absent for CLI / non-workbench sessions. Backward-tolerant:
    *  older records (pre-U4) simply omit it. */
   ptyId?: string;
+  /** a user-given name for the session (W1-B), set via `session label`; absent
+   *  when unnamed. Kept out of the capture index so it survives re-capture. */
+  label?: string;
+}
+
+/** POST /session-label/:id — `zuzuu session label <id> --text <label> --json`. */
+export interface SessionLabelResponse {
+  sessionId: string;
+  label: string | null;
 }
 
 export interface SessionsResponse {

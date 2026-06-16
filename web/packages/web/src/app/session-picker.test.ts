@@ -9,6 +9,7 @@ import {
   pickerCollapsedSummary,
   pickerRows,
   resolveViewed,
+  sessionDisplayName,
   type LiveTab,
   type PickerRow,
 } from "./session-picker";
@@ -243,5 +244,24 @@ describe("filterPickerRows", () => {
 
   it("returns an empty list when nothing matches", () => {
     expect(filterPickerRows(rows, "zzz-nope")).toEqual([]);
+  });
+});
+
+// ── W1-B: session display name (user label wins over the host title) ───────────
+describe("sessionDisplayName", () => {
+  it("uses the user label when set", () => {
+    expect(sessionDisplayName({ label: "fix auth bug", host: "claude-code" })).toBe("fix auth bug");
+  });
+  it("maps a known spawn host to its friendly title", () => {
+    expect(sessionDisplayName({ host: "claude" })).toBe("Claude Code");
+  });
+  it("passes an unmapped host through (trace host names)", () => {
+    expect(sessionDisplayName({ host: "claude-code" })).toBe("claude-code");
+  });
+  it("ignores a blank label, using the host", () => {
+    expect(sessionDisplayName({ label: "   ", host: "gemini" })).toBe("Gemini CLI");
+  });
+  it("falls back to 'agent' when neither label nor host", () => {
+    expect(sessionDisplayName({})).toBe("agent");
   });
 });

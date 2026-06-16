@@ -25,10 +25,12 @@ import { modulesOf, invoke } from '../module/registry.mjs';
 import * as registry from '../capture/adapters/registry.mjs';
 import { git, branchExists } from '../sessions/git.mjs';
 import { mainBranch, sessionBranchName } from '../sessions/session-git.mjs';
+import { readSessionLabels, setSessionLabel } from '../sessions/labels.mjs';
 
 /** Pure: the sessions list with state labels — the web Sessions section source. */
 export function sessionsListData(cwd = process.cwd()) {
   const { sessions } = readIndex(cwd);
+  const labels = readSessionLabels(cwd); // W1-B: user names, kept out of the index
   return {
     sessions: sessions.map((s) => ({
       id: s.id,
@@ -44,6 +46,8 @@ export function sessionsListData(cwd = process.cwd()) {
       // Spread conditionally so older records (no ptyId) stay byte-for-byte the
       // same on the wire (backward-tolerant).
       ...(s.ptyId ? { ptyId: s.ptyId } : {}),
+      // W1-B: a user label, only when set (absent → field omitted).
+      ...(labels[s.id] ? { label: labels[s.id] } : {}),
     })),
   };
 }
@@ -645,6 +649,24 @@ export function sessionTrace(args = {}) {
     const ts = a.ts.slice(11, 19); // HH:MM:SS
     console.log(`  ${ts}  ${a.kind.padEnd(5)}  ${a.label}${status}`);
   }
+}
+
+/** `zuzuu session label <id> --text "<label>" [--json]` — set/clear a user name
+ *  for a session (a blank --text clears it). Persisted outside the index so it
+ *  survives re-capture. */
+export function sessionLabel(args = {}) {
+  const cwd = process.cwd();
+  const id = args._?.[1];
+  const s = id ? matchSession(readIndex(cwd).sessions, id) : null;
+  if (!s) {
+    console.error(id ? `no recorded session matching '${id}'` : 'usage: zuzuu session label <id> --text "<label>" [--json]');
+    process.exit(1);
+  }
+  setSessionLabel(cwd, s.id, args.text ?? '');
+  const label = String(args.text ?? '').trim() || null;
+  const d = { sessionId: s.id, label };
+  if (args.json) { console.log(JSON.stringify(d)); return; }
+  console.log(label ? `labelled ${s.id}: ${label}` : `cleared label for ${s.id}`);
 }
 
 /** `zuzuu session diff <id> [--json] [--file <path>]` — what the session changed

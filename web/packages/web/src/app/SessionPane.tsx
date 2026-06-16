@@ -34,8 +34,7 @@ import { SessionComposer } from "../components/SessionComposer";
 import { centerCard } from "../lib/session-cards";
 import { sessionStateMeta, shortSessionId, fmtDuration } from "../panel/sections";
 import { relativeTime } from "../panel/kit";
-import { agentTabTitle } from "../modules/host-launch";
-import { filterPickerRows, groupRowsByBand, pickerCollapsedSummary, pickerRows, type PickerBand, type PickerRow } from "./session-picker";
+import { filterPickerRows, groupRowsByBand, pickerCollapsedSummary, pickerRows, sessionDisplayName, type PickerBand, type PickerRow } from "./session-picker";
 import { useSessionDiffQuery, useSessionGitQuery, useZuzuuHealthQuery } from "./queries";
 import { SessionChanges } from "./SessionChanges";
 import { zuzuuApi } from "../lib/zuzuu-api";
@@ -87,7 +86,7 @@ function PickerRowButton({
         <StatusPill tone={pillTone(meta.tone)}>{meta.label}</StatusPill>
       )}
       <span className="wc-sans max-w-[12rem] truncate text-ui font-medium text-foreground">
-        {agentTabTitle(s.host) || s.host || "session"}
+        {sessionDisplayName(s)}
       </span>
       {outside && (
         <span className="wc-sans shrink-0 text-meta text-muted-foreground" title="Running outside the workbench">
@@ -152,7 +151,7 @@ function SessionPicker({
               </StatusPill>
             )}
             <span className="wc-sans min-w-0 truncate text-ui font-medium text-foreground">
-              {agentTabTitle(viewedRow.session.host) || viewedRow.session.host || "session"}
+              {sessionDisplayName(viewedRow.session)}
             </span>
           </>
         )}
@@ -231,12 +230,53 @@ function TreeViewHeader({
 }) {
   const meta = sessionStateMeta(session.state);
   const branch = session.git?.branch ?? null;
+  const qc = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const startEdit = () => {
+    setDraft(session.label ?? "");
+    setEditing(true);
+  };
+  const save = async () => {
+    setEditing(false);
+    try {
+      await zuzuuApi.setSessionLabel(session.id, draft);
+    } catch {
+      /* fail-soft: a rename failure leaves the prior name */
+    }
+    void qc.invalidateQueries({ queryKey: ["zuzuu", "sessions"] });
+  };
   return (
     <Bar border="b" surface="surface" className="!gap-2 !px-3 !py-1.5">
       <StatusPill tone={pillTone(meta.tone)}>{meta.label}</StatusPill>
-      <span className="wc-sans min-w-0 truncate text-ui font-medium text-foreground">
-        {agentTabTitle(session.host) || session.host || "session"}
-      </span>
+      {editing ? (
+        <input
+          autoFocus
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") void save();
+            if (e.key === "Escape") setEditing(false);
+          }}
+          onBlur={() => void save()}
+          placeholder={sessionDisplayName({ host: session.host })}
+          aria-label="Rename session"
+          className="wc-input min-w-0 flex-1 px-2 py-0.5 text-ui"
+        />
+      ) : (
+        <button
+          onClick={startEdit}
+          title="Rename session"
+          className="group/name flex min-w-0 items-center gap-1.5 text-left"
+        >
+          <span className="wc-sans min-w-0 truncate text-ui font-medium text-foreground">
+            {sessionDisplayName(session)}
+          </span>
+          <svg viewBox="0 0 16 16" className="h-3 w-3 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/name:opacity-100" fill="none" stroke="currentColor" strokeWidth="1.4">
+            <path d="M11 2.5l2.5 2.5L6 12.5 3 13l.5-3L11 2.5z" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+      )}
       {branch && (
         <span className="wc-mono inline-flex shrink-0 items-center gap-1 text-meta text-muted-foreground" title={`Session branch ${branch}`}>
           <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M5 5.5v5M5 3a1.5 1.5 0 100 3 1.5 1.5 0 000-3zM5 10.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3zM11 3a1.5 1.5 0 100 3 1.5 1.5 0 000-3zM11 6c0 3-3 3-6 4.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
