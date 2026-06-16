@@ -1,6 +1,7 @@
 import type { Terminal } from "@xterm/xterm";
 import { ACK_INTERVAL, ClientOp, ServerOp, type CwdPayload } from "@zuzuu-web/protocol";
 import { wsUrl } from "../lib/api";
+import { reconnectDecision } from "./reconnect";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -101,20 +102,20 @@ export class TermConnection {
 
     ws.onclose = (ev) => {
       this.ws = null;
-      if (this.closedByUser || ev.code === 4000 /* attached elsewhere */) {
+      const { retry, delayMs } = reconnectDecision({
+        retries: this.retries,
+        code: ev.code,
+        closedByUser: this.closedByUser,
+      });
+      if (!retry) {
         this.events.onStatus("closed");
         return;
       }
-      if (this.retries >= 5) {
-        this.events.onStatus("closed");
-        return;
-      }
-      const delay = Math.min(500 * 2 ** this.retries, 5000);
       this.retries += 1;
       this.events.onStatus("reconnecting");
       setTimeout(() => {
         if (!this.closedByUser) this.connect();
-      }, delay);
+      }, delayMs);
     };
   }
 
