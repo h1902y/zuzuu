@@ -17,10 +17,13 @@
 // PTY hot path is untouched: every live PTY tab keeps an always-mounted TermView
 // (visibility toggle, never unmounted) so the WebSocket / flow-control survive
 // switching the viewed session.
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ZuzuuSessionEntry } from "@zuzuu-web/protocol";
 import { useSessions } from "../state/sessions";
+import { useOpenTabs } from "../state/open-tabs";
+import { openTabItems, resolveActiveTab, tabIdFor } from "./active-tab";
+import { SessionTabStrip } from "./SessionTabStrip";
 import { mergeSessionWithFallback, refreshSessionGit } from "../lib/session-git-actions";
 import { describeZuzuuError } from "../lib/zuzuu-api";
 import { TermView } from "../term/TermView";
@@ -32,7 +35,7 @@ import { centerCard } from "../lib/session-cards";
 import { sessionStateMeta, shortSessionId, fmtDuration } from "../panel/sections";
 import { relativeTime } from "../panel/kit";
 import { agentTabTitle } from "../modules/host-launch";
-import { groupRowsByBand, pickerCollapsedSummary, pickerRows, resolveViewed, type PickerBand, type PickerRow } from "./session-picker";
+import { groupRowsByBand, pickerCollapsedSummary, pickerRows, type PickerBand, type PickerRow } from "./session-picker";
 import { useSessionGitQuery, useZuzuuHealthQuery } from "./queries";
 import { zuzuuApi } from "../lib/zuzuu-api";
 
@@ -114,9 +117,9 @@ function SessionPicker({
 
   if (rows.length === 0) return null;
 
-  // resolve the currently viewed row for the summary (needs the same resolution
-  // logic so the summary label tracks the auto-selected first row too)
-  const viewedRow = resolveViewed(rows, viewedId);
+  // the currently-viewed row for the summary — matched on the CANONICAL tab id
+  // (viewedId is the active tab's id, which may be a PTY id, not a trace id)
+  const viewedRow = rows.find((r) => tabIdFor(r.session) === viewedId) ?? null;
   const summary = pickerCollapsedSummary(rows, viewedRow);
   const groups = groupRowsByBand(rows);
 
@@ -178,8 +181,8 @@ function SessionPicker({
                   <PickerRowButton
                     key={row.session.id}
                     row={row}
-                    active={row.session.id === viewedId}
-                    onSelect={() => handleSelect(row.session.id)}
+                    active={tabIdFor(row.session) === viewedId}
+                    onSelect={() => handleSelect(tabIdFor(row.session))}
                   />
                 ))}
               </div>
@@ -267,20 +270,43 @@ export function SessionPane() {
   const allSessions = sessionsQ.data?.sessions ?? [];
   const rows = pickerRows(allSessions, tabs);
 
-  // which session the center VIEWS (explicit pick wins; else most-relevant row)
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const viewed = resolveViewed(rows, selectedId);
+  // The center's OPEN tabs (editor model). The picker is the all-sessions
+  // browser; this is what's open. The active tab drives the body + composer.
+  const openTabs = useOpenTabs();
+  const items = openTabItems(openTabs.openIds, rows, tabs);
+  const active = resolveActiveTab(openTabs.activeId, rows, tabs);
+  const viewed = active.row;
+  const viewedPtyTab = active.ptyTabId ? tabs.find((t) => t.id === active.ptyTabId) : undefined;
+
+  // Auto-open the most-relevant session ONCE on first load, so the center starts
+  // focused on something. A ref (not emptiness) guards it, so closing the last
+  // tab is respected and never re-popped.
+  const autoOpened = useRef(false);
+  useEffect(() => {
+    if (autoOpened.current || rows.length === 0) return;
+    autoOpened.current = true;
+    useOpenTabs.getState().open(tabIdFor(rows[0]!.session));
+  }, [rows]);
+
+  // Drop open tabs whose session has vanished entirely (not a live PTY tab and
+  // not in the trace list). An ended session keeps its trace row, so its tab
+  // survives as a past tab until the user closes it. Deps are the stable query
+  // refs, so this runs on data changes, not every render.
+  useEffect(() => {
+    const known = new Set<string>();
+    for (const t of tabs) known.add(t.id);
+    for (const s of allSessions) {
+      known.add(s.id);
+      if (s.ptyId) known.add(s.ptyId);
+    }
+    useOpenTabs.getState().reconcile(known);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tabs, sessionsQ.data]);
 
   // per-viewed-session work tab: tree (default) | terminal (live only)
   const [workTab, setWorkTab] = useState<Record<string, WorkTab>>({});
   const tabOf = (id: string): WorkTab => workTab[id] ?? "tree";
   const setTabOf = (id: string, t: WorkTab) => setWorkTab((m) => ({ ...m, [id]: t }));
-
-  // the live PTY tab for the viewed session (drives the Terminal tab); resolved
-  // via the U4 ptyId join key.
-  const viewedPtyTab = viewed?.live && viewed.session.ptyId
-    ? tabs.find((t) => t.id === viewed.session.ptyId)
-    : undefined;
 
   // recovery banner (leftover session branch) — shown once, inline, dismissable.
   // Branches of currently-live sessions (running here OR outside the workbench)
@@ -322,6 +348,15 @@ export function SessionPane() {
       });
   };
 
+  // Close a tab from the strip: remove it from view. A LIVE session keeps
+  // running (its PTY tab stays mounted, reachable from the picker) — close ≠ end.
+  // A DEAD session's lingering PTY tab is cleaned up so hidden TermViews don't leak.
+  const closeTabView = (id: string) => {
+    openTabs.close(id);
+    const t = tabs.find((x) => x.id === id);
+    if (t && !t.alive) void close(t.id);
+  };
+
   return (
     <div className="flex h-full min-w-0 flex-col">
       {/* one inline recovery banner — NOT a modal, NOT a duplicate band */}
@@ -333,8 +368,18 @@ export function SessionPane() {
         />
       )}
 
-      {/* the slim session picker (T3) — the one switcher */}
-      <SessionPicker rows={rows} viewedId={viewed?.session.id ?? null} onSelect={setSelectedId} />
+      {/* the OPEN-sessions tab strip (editor model). Closing a tab removes it
+          from view — it does NOT end the session (End/Stop do that). */}
+      <SessionTabStrip
+        items={items}
+        activeId={openTabs.activeId}
+        onSelect={openTabs.focus}
+        onClose={closeTabView}
+      />
+
+      {/* the slim session picker — the ALL-sessions browser. Selecting a row
+          opens (or focuses) it as a tab. */}
+      <SessionPicker rows={rows} viewedId={openTabs.activeId} onSelect={openTabs.open} />
 
       {/* the viewed session: tree | terminal. Every LIVE PTY tab keeps an
           always-mounted TermView (visibility toggle) so the PTY survives both
@@ -342,21 +387,22 @@ export function SessionPane() {
       <div className="relative min-h-0 flex-1">
         {viewed && (
           <ViewedSession
-            key={viewed.session.id}
+            key={tabIdFor(viewed.session)}
             row={viewed}
             ptyTab={viewedPtyTab}
-            workTab={tabOf(viewed.session.id)}
-            onSetWorkTab={(t) => setTabOf(viewed.session.id, t)}
+            workTab={tabOf(tabIdFor(viewed.session))}
+            onSetWorkTab={(t) => setTabOf(tabIdFor(viewed.session), t)}
             onFocusComposer={focusComposer}
-            onCloseTab={() => viewedPtyTab && void close(viewedPtyTab.id)}
+            onCloseTab={() => closeTabView(tabIdFor(viewed.session))}
             onEnd={() => void endViewed()}
             onMerge={mergeViewed}
             busy={busy}
           />
         )}
 
-        {/* the calm resting state — nothing captured yet, no setup pending */}
-        {allSessions.length === 0 && !showSetup && !showRecovery && (
+        {/* the calm resting state — no tab open (nothing captured yet, or every
+            tab closed), no setup pending */}
+        {!viewed && !showSetup && !showRecovery && (
           <div className="absolute inset-0 flex items-center justify-center">
             <span className="select-none text-2xl text-muted-foreground">❯_</span>
           </div>
@@ -382,7 +428,7 @@ export function SessionPane() {
                 sessionType={t.type}
                 host={t.host}
                 onStartNew={focusComposer}
-                onCloseTab={() => void close(t.id)}
+                onCloseTab={() => closeTabView(t.id)}
               />
             </div>
           ))}
@@ -394,6 +440,7 @@ export function SessionPane() {
       {zuzuuHome && (
         <SessionComposer
           ref={composerRef}
+          activeLiveTab={viewedPtyTab?.alive ? viewedPtyTab : undefined}
           viewingExternal={
             !!viewed &&
             !viewed.live &&

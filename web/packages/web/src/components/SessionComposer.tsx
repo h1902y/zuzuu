@@ -13,7 +13,7 @@ import { useQuery } from "@tanstack/react-query";
 import { zuzuuApi } from "../lib/zuzuu-api";
 import { agentTabTitle, buildHostRows, composerDefaultHost, resolveStart, type HostRow } from "../modules/host-launch";
 import { startAgentSession } from "../lib/agent-launch";
-import { useSessions } from "../state/sessions";
+import { useSessions, type SessionTab } from "../state/sessions";
 import { composerMode, EXTERNAL_VIEW_NOTE, hasTask, idlePlaceholder, QUICK_CHIPS } from "./composer-state";
 import { Bar, Button, Kbd, Spinner, StatusDot, cx } from "./ui";
 
@@ -251,13 +251,16 @@ function HostPickerMenu({
 
 // ── SessionComposer ───────────────────────────────────────────────────────────
 export interface SessionComposerProps {
-  /** True when the center is VIEWING a session that runs in the user's own
-   *  terminal (view-only). The composer can't reach it, so the idle box makes
-   *  clear that Send starts a NEW session rather than replying to it. */
+  /** The ACTIVE center tab's live workbench PTY, when the active tab IS a session
+   *  running here. Present → composer shows "● running · Stop"; absent → the idle
+   *  "start a new session" box. Follows the active tab, not a global alive check. */
+  activeLiveTab?: SessionTab;
+  /** True when the active tab is a session running in the user's own terminal
+   *  (view-only). The idle box then makes clear Send starts a NEW session. */
   viewingExternal?: boolean;
 }
 export const SessionComposer = forwardRef<HTMLDivElement, SessionComposerProps>(function SessionComposer(
-  { viewingExternal = false },
+  { activeLiveTab, viewingExternal = false },
   ref,
 ) {
   const hostsQ = useQuery({ queryKey: ["zuzuu", "hosts"], queryFn: zuzuuApi.hosts, refetchInterval: 8000 });
@@ -269,10 +272,9 @@ export const SessionComposer = forwardRef<HTMLDivElement, SessionComposerProps>(
   const activeCommand = selectedCommand ?? dflt?.command ?? null;
   const activeRow = rows.find((r) => r.command === activeCommand) ?? dflt;
 
-  // Alive agent session — drives idle↔active. Single-active-agent v1 → ≤1.
-  const { tabs, close } = useSessions();
-  const aliveTab = tabs.find((t) => t.type === "agent" && t.alive);
-  const mode = composerMode(Boolean(aliveTab));
+  // The active tab drives idle↔active: a live workbench session here → active.
+  const { close } = useSessions();
+  const mode = composerMode(Boolean(activeLiveTab));
 
   // Idle prompt-box value (the task to start the host with).
   const [prompt, setPrompt] = useState("");
@@ -292,7 +294,7 @@ export const SessionComposer = forwardRef<HTMLDivElement, SessionComposerProps>(
   }
 
   function handleStop() {
-    if (aliveTab) void close(aliveTab.id).catch(() => {});
+    if (activeLiveTab) void close(activeLiveTab.id).catch(() => {});
   }
 
   // Active: minimal "● <host> · running" + Stop. You talk to the agent in the
@@ -301,8 +303,8 @@ export const SessionComposer = forwardRef<HTMLDivElement, SessionComposerProps>(
   // "starting…" with a spinner (honest: we know started-vs-not, but NOT the
   // agent's thinking-vs-idle, so we never claim "working").
   if (mode === "active") {
-    const hostLabel = agentTabTitle(aliveTab?.host);
-    const starting = !aliveTab?.started;
+    const hostLabel = agentTabTitle(activeLiveTab?.host);
+    const starting = !activeLiveTab?.started;
     return (
       <div ref={ref} className="outline-none">
         <Bar border="t" surface="surface" className="!gap-2">

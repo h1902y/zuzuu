@@ -6,6 +6,7 @@
 // plain-terminal path: the workbench surfaces host sessions and zuzuu utility
 // runs only.
 import { useSessions } from "../state/sessions";
+import { useOpenTabs } from "../state/open-tabs";
 import { termRegistry } from "../term/registry";
 import type { AgentSpawnSpec } from "../modules/host-launch";
 
@@ -37,6 +38,7 @@ export async function startAgentSession(
   const alive = s.tabs.find((t) => t.type === "agent" && t.alive);
   if (alive) {
     s.setActive(alive.id);
+    useOpenTabs.getState().open(alive.id); // surface the running session's tab
     return;
   }
   const inject = opts.injectPrompt?.trim();
@@ -46,6 +48,9 @@ export async function startAgentSession(
     args: spec.args,
     host: spec.host,
   });
+  // Open + focus the new session as a tab — this is what makes "a new session
+  // started" actually switch the center (its id IS the canonical PTY tab id).
+  useOpenTabs.getState().open(session.id);
   // Queue before TermView mounts so its readiness-gated drain finds it. \r submits.
   if (inject) termRegistry.setPendingInput(session.id, inject + "\r");
 }

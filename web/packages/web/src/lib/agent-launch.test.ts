@@ -24,6 +24,7 @@ vi.mock("../lib/api", () => ({ api: { createSession } }));
 
 import { startAgentSession } from "./agent-launch";
 import { useSessions } from "../state/sessions";
+import { useOpenTabs } from "../state/open-tabs";
 import { termRegistry } from "../term/registry";
 
 const spec = { command: "claude", args: [], host: "claude" };
@@ -31,6 +32,7 @@ const spec = { command: "claude", args: [], host: "claude" };
 beforeEach(() => {
   createSession.mockClear();
   useSessions.setState({ tabs: [], activeId: null, loaded: false });
+  useOpenTabs.setState({ openIds: [], activeId: null });
   termRegistry.clearPendingInput("new-sid");
 });
 afterEach(() => termRegistry.clearPendingInput("new-sid"));
@@ -42,6 +44,12 @@ describe("startAgentSession — injectPrompt queueing", () => {
     const queued = termRegistry.getPendingInput("new-sid");
     expect(queued).toBe("fix the login bug\r");
     expect(queued?.endsWith("\r")).toBe(true);
+  });
+
+  it("opens + focuses the new session as a center tab", async () => {
+    await startAgentSession(spec, { injectPrompt: "do X" });
+    expect(useOpenTabs.getState().openIds).toContain("new-sid");
+    expect(useOpenTabs.getState().activeId).toBe("new-sid");
   });
 
   it("trims surrounding whitespace before queuing", async () => {
@@ -72,5 +80,7 @@ describe("startAgentSession — injectPrompt queueing", () => {
     expect(createSession).not.toHaveBeenCalled();
     expect(useSessions.getState().activeId).toBe("alive-1");
     expect(termRegistry.getPendingInput("new-sid")).toBeUndefined();
+    // surfaces the already-running session's tab instead of spawning a second
+    expect(useOpenTabs.getState().activeId).toBe("alive-1");
   });
 });
