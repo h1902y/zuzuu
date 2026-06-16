@@ -68,19 +68,20 @@ describe("startAgentSession — injectPrompt queueing", () => {
     expect(termRegistry.getPendingInput("new-sid")).toBeUndefined();
   });
 
-  it("focuses an already-alive agent session — no spawn, no injection", async () => {
+  it("starts a SECOND concurrent agent while one is alive (Wave B worktree concurrency)", async () => {
     useSessions.setState({
       tabs: [
         { id: "alive-1", title: "Claude Code", cwd: "/", alive: true, createdAt: 0, type: "agent", host: "claude" },
       ],
-      activeId: null,
+      activeId: "alive-1",
       loaded: true,
     });
-    await startAgentSession(spec, { injectPrompt: "this should be ignored" });
-    expect(createSession).not.toHaveBeenCalled();
-    expect(useSessions.getState().activeId).toBe("alive-1");
-    expect(termRegistry.getPendingInput("new-sid")).toBeUndefined();
-    // surfaces the already-running session's tab instead of spawning a second
-    expect(useOpenTabs.getState().activeId).toBe("alive-1");
+    await startAgentSession(spec, { injectPrompt: "second task" });
+    // a NEW session is spawned (no longer focuses the existing one) — each agent
+    // gets its own daemon worktree, so they run concurrently
+    expect(createSession).toHaveBeenCalledOnce();
+    expect(useOpenTabs.getState().activeId).toBe("new-sid"); // the new one is focused
+    expect(useOpenTabs.getState().openIds).toContain("new-sid");
+    expect(termRegistry.getPendingInput("new-sid")).toBe("second task\r"); // injects into the new one
   });
 });
