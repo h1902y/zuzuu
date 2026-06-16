@@ -35,7 +35,7 @@ import { centerCard } from "../lib/session-cards";
 import { sessionStateMeta, shortSessionId, fmtDuration } from "../panel/sections";
 import { relativeTime } from "../panel/kit";
 import { agentTabTitle } from "../modules/host-launch";
-import { groupRowsByBand, pickerCollapsedSummary, pickerRows, type PickerBand, type PickerRow } from "./session-picker";
+import { filterPickerRows, groupRowsByBand, pickerCollapsedSummary, pickerRows, type PickerBand, type PickerRow } from "./session-picker";
 import { useSessionDiffQuery, useSessionGitQuery, useZuzuuHealthQuery } from "./queries";
 import { SessionChanges } from "./SessionChanges";
 import { zuzuuApi } from "../lib/zuzuu-api";
@@ -115,6 +115,7 @@ function SessionPicker({
   onSelect: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
 
   if (rows.length === 0) return null;
 
@@ -122,7 +123,8 @@ function SessionPicker({
   // (viewedId is the active tab's id, which may be a PTY id, not a trace id)
   const viewedRow = rows.find((r) => tabIdFor(r.session) === viewedId) ?? null;
   const summary = pickerCollapsedSummary(rows, viewedRow);
-  const groups = groupRowsByBand(rows);
+  // search narrows the expanded list (host / state / branch / id)
+  const groups = groupRowsByBand(filterPickerRows(rows, query));
 
   const handleSelect = (id: string) => {
     onSelect(id);
@@ -167,9 +169,18 @@ function SessionPicker({
         </svg>
       </button>
 
-      {/* expanded: vertical grouped list */}
+      {/* expanded: search box + vertical grouped list */}
       {open && (
-        <div className="max-h-64 overflow-y-auto border-t border-[var(--border)] pb-1">
+        <div className="max-h-72 overflow-y-auto border-t border-[var(--border)] pb-1">
+          <div className="sticky top-0 z-10 bg-card px-2 py-1.5">
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search sessions — host, state, branch…"
+              aria-label="Search sessions"
+              className="wc-input w-full px-2 py-1 text-meta"
+            />
+          </div>
           {(["now", "recent", "older"] as PickerBand[]).map((band) => {
             const bandRows = groups.get(band) ?? [];
             if (bandRows.length === 0) return null;
@@ -189,6 +200,9 @@ function SessionPicker({
               </div>
             );
           })}
+          {query.trim() && [...groups.values()].every((g) => g.length === 0) && (
+            <div className="wc-sans px-3 py-2 text-meta text-muted-foreground">No sessions match “{query.trim()}”.</div>
+          )}
         </div>
       )}
     </div>

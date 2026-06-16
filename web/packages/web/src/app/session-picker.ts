@@ -105,6 +105,21 @@ export function resolveViewed(rows: PickerRow[], selectedId: string | null): Pic
   return rows[0] ?? null;
 }
 
+/**
+ * Filter picker rows by a free-text query (case-insensitive substring over the
+ * session's host, state, git branch, and id). A blank query returns all rows.
+ * Pure so the picker's search box is unit-tested without the DOM.
+ */
+export function filterPickerRows(rows: PickerRow[], query: string): PickerRow[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return rows;
+  return rows.filter((r) => {
+    const s = r.session;
+    const hay = [s.host, s.state, s.git?.branch, s.id].filter(Boolean).join(" ").toLowerCase();
+    return hay.includes(q);
+  });
+}
+
 /** A collapsed-summary description for the session picker header. */
 export interface PickerSummary {
   /** Label for the primary (viewed) session — e.g. "claude-code" or "session". */

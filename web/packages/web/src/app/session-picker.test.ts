@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import type { ZuzuuSessionEntry } from "@zuzuu-web/protocol";
 import {
   bandFor,
+  filterPickerRows,
   groupRowsByBand,
   pickerCollapsedSummary,
   pickerRows,
@@ -207,5 +208,40 @@ describe("selection sets the viewed session", () => {
     // simulate: user picks 'b'
     const viewed = resolveViewed(rows, "b");
     expect(viewed?.session.id).toBe("b");
+  });
+});
+
+// ── W1-A: filtering the session list by a free-text query ─────────────────────
+describe("filterPickerRows", () => {
+  const rows: PickerRow[] = [
+    { session: makeSession({ id: "aaa111", host: "claude-code", state: "active", git: { commit: null, branch: "zz/session-aaa111" } }), live: true, band: "now" },
+    { session: makeSession({ id: "bbb222", host: "gemini-cli", state: "completed", git: { commit: null, branch: "zz/session-bbb222" } }), live: false, band: "recent" },
+    { session: makeSession({ id: "ccc333", host: "codex", state: "crashed", git: { commit: null, branch: null } }), live: false, band: "older" },
+  ];
+
+  it("a blank query returns all rows unchanged", () => {
+    expect(filterPickerRows(rows, "")).toEqual(rows);
+    expect(filterPickerRows(rows, "   ")).toEqual(rows);
+  });
+
+  it("matches the host case-insensitively", () => {
+    expect(filterPickerRows(rows, "CLAUDE").map((r) => r.session.id)).toEqual(["aaa111"]);
+    expect(filterPickerRows(rows, "gemini").map((r) => r.session.id)).toEqual(["bbb222"]);
+  });
+
+  it("matches the session state", () => {
+    expect(filterPickerRows(rows, "crashed").map((r) => r.session.id)).toEqual(["ccc333"]);
+  });
+
+  it("matches the git branch", () => {
+    expect(filterPickerRows(rows, "session-bbb").map((r) => r.session.id)).toEqual(["bbb222"]);
+  });
+
+  it("matches the session id", () => {
+    expect(filterPickerRows(rows, "ccc333").map((r) => r.session.id)).toEqual(["ccc333"]);
+  });
+
+  it("returns an empty list when nothing matches", () => {
+    expect(filterPickerRows(rows, "zzz-nope")).toEqual([]);
   });
 });

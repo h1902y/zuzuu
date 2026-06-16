@@ -262,6 +262,21 @@ function turnLabelFrom(text: string, fallback: string): string {
 }
 
 /**
+ * Filter transcript content nodes by a free-text query (case-insensitive
+ * substring over the node label, agent/user text, and tool input/output). A
+ * blank query returns all nodes. Apply BEFORE contentTurns() so the tree shows
+ * only matching turns. Pure → unit-tested without the DOM.
+ */
+export function filterContentNodes(nodes: SessionContentNode[], query: string): SessionContentNode[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return nodes;
+  return nodes.filter((n) => {
+    const hay = [n.label, n.text, n.toolInput, n.toolOutput].filter(Boolean).join(" ").toLowerCase();
+    return hay.includes(q);
+  });
+}
+
+/**
  * Group the ordered U1 content nodes into content-rich TURNs. A `user_text`
  * node opens a new turn (its text becomes the turn label AND its first row);
  * agent_text + tool nodes attach to the open turn. Nodes before the first user
