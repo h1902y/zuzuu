@@ -37,6 +37,7 @@ import { relativeTime } from "../panel/kit";
 import { filterPickerRows, groupRowsByBand, pickerCollapsedSummary, pickerRows, sessionDisplayName, type PickerBand, type PickerRow } from "./session-picker";
 import { useSessionDiffQuery, useSessionGitQuery, useZuzuuHealthQuery } from "./queries";
 import { SessionChanges } from "./SessionChanges";
+import { detectAttention, type AttentionEvent, type AttentionSnapshot } from "./attention";
 import { zuzuuApi } from "../lib/zuzuu-api";
 
 /** Which sub-surface of the viewed session is showing. */
@@ -372,6 +373,46 @@ export function SessionPane() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tabs, sessionsQ.data]);
 
+  // W1-C attention: notify + toast when a session finishes/crashes. Compare the
+  // poll snapshots; a transition live → terminal is the signal.
+  const prevSnaps = useRef<AttentionSnapshot[]>([]);
+  const [toasts, setToasts] = useState<AttentionEvent[]>([]);
+  useEffect(() => {
+    if (typeof Notification !== "undefined" && Notification.permission === "default") {
+      void Notification.requestPermission().catch(() => {});
+    }
+  }, []);
+  useEffect(() => {
+    const next: AttentionSnapshot[] = allSessions.map((s) => ({
+      id: s.id,
+      state: String(s.state ?? ""),
+      label: sessionDisplayName(s),
+    }));
+    const events = prevSnaps.current.length ? detectAttention(prevSnaps.current, next) : [];
+    prevSnaps.current = next;
+    if (events.length === 0) return;
+    setToasts((t) => [...t, ...events]);
+    // desktop notification only when tabbed away (Warp's model)
+    if (typeof Notification !== "undefined" && Notification.permission === "granted" && document.visibilityState === "hidden") {
+      for (const e of events) {
+        try {
+          new Notification(`zuzuu — ${e.label}`, { body: e.kind === "finished" ? "Session finished" : "Session crashed" });
+        } catch {
+          /* notifications best-effort */
+        }
+      }
+    }
+    const ids = new Set(events.map((e) => e.sessionId));
+    window.setTimeout(() => setToasts((t) => t.filter((x) => !ids.has(x.sessionId))), 8000);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionsQ.data]);
+
+  const jumpToSession = (sessionId: string) => {
+    const s = allSessions.find((x) => x.id === sessionId);
+    if (s) useOpenTabs.getState().open(tabIdFor(s));
+    setToasts((t) => t.filter((x) => x.sessionId !== sessionId));
+  };
+
   // per-viewed-session work tab: tree (default) | terminal (live only)
   const [workTab, setWorkTab] = useState<Record<string, WorkTab>>({});
   const tabOf = (id: string): WorkTab => workTab[id] ?? "tree";
@@ -516,6 +557,26 @@ export function SessionPane() {
             (viewed.session.state === "active" || viewed.session.state === "opening")
           }
         />
+      )}
+
+      {/* W1-C attention toasts — a session finished/crashed; click to jump to it */}
+      {toasts.length > 0 && (
+        <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
+          {toasts.map((e) => (
+            <button
+              key={e.sessionId}
+              onClick={() => jumpToSession(e.sessionId)}
+              className="flex items-center gap-2 rounded-[var(--radius-ui)] border border-[var(--border)] bg-popover px-3 py-2 text-ui text-foreground shadow-[var(--shadow-menu)] transition-colors hover:bg-[var(--accent)]"
+              style={{ boxShadow: "var(--shadow-menu)" }}
+            >
+              <StatusDot tone={e.kind === "finished" ? "ok" : "bad"} />
+              <span className="wc-sans min-w-0 max-w-[16rem] truncate">
+                {e.label} {e.kind === "finished" ? "finished" : "crashed"}
+              </span>
+              <span className="wc-sans shrink-0 text-meta text-accent-dim">· view</span>
+            </button>
+          ))}
+        </div>
       )}
     </div>
   );
