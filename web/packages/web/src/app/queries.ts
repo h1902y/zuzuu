@@ -64,6 +64,27 @@ export const useSessionContentQuery = (sessionId: string, enabled: boolean) =>
     enabled,
   });
 
+/** What the session changed (the wedge) — files + counts, resolved from its git
+ *  branch (live) or merge commit (past). Polled gently so a live session's diff
+ *  grows as it works; a past session reads once. Fail-soft: unresolvable →
+ *  available:false. */
+export const useSessionDiffQuery = (sessionId: string, enabled: boolean) =>
+  useQuery({
+    queryKey: ["zuzuu", "session-diff", sessionId],
+    queryFn: () => zuzuuApi.sessionDiff(sessionId),
+    refetchInterval: 8000,
+    enabled,
+  });
+
+/** One changed file's unified diff for a session (lazy — only when expanded). */
+export const useSessionFileDiffQuery = (sessionId: string, path: string, enabled: boolean) =>
+  useQuery({
+    queryKey: ["zuzuu", "session-file-diff", sessionId, path],
+    queryFn: () => zuzuuApi.sessionFileDiff(sessionId, path),
+    staleTime: 30_000,
+    enabled,
+  });
+
 const parentOf = (path: string) => path.split("/").slice(0, -1).join("/");
 
 /** Start the fs-events socket once the workspace is known and map pushed

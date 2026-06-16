@@ -290,6 +290,36 @@ export interface SessionContentResponse {
   nodes: SessionContentNode[];
 }
 
+/** One changed file in a session's diff. `status` is the git letter
+ *  (A added · M modified · D deleted · R renamed · C copied). */
+export interface SessionDiffFile {
+  path: string;
+  status: string;
+  additions: number;
+  deletions: number;
+}
+
+/** GET /session-diff/:id — `zuzuu session diff <id> --json`. "What the session
+ *  changed", resolved from its git branch (live) or merge commit (past).
+ *  Fail-soft: unresolvable → available:false, files []. */
+export interface SessionDiffResponse {
+  sessionId: string;
+  available: boolean;
+  base?: string;
+  tip?: string;
+  totals: { files: number; additions: number; deletions: number };
+  files: SessionDiffFile[];
+}
+
+/** GET /session-file-diff/:id?path=… — `zuzuu session diff <id> --file <path>
+ *  --json`. The unified diff text for ONE file (size-capped). */
+export interface SessionFileDiffResponse {
+  sessionId: string;
+  path: string;
+  diff: string;
+  truncated?: boolean;
+}
+
 // ── Write side (mutations are CLI-only; the daemon shells out to zuzuu) ──
 
 /** The 5 normalized 0-1 signal components behind a proposal's score

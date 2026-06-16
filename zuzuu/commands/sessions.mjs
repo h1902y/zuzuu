@@ -23,6 +23,8 @@ import { readIndex, resolveTrace, paths } from '../core/store.mjs';
 import { transcriptsFor, mineHostSession } from '../knowledge/distill.mjs';
 import { modulesOf, invoke } from '../module/registry.mjs';
 import * as registry from '../capture/adapters/registry.mjs';
+import { git, branchExists } from '../sessions/git.mjs';
+import { mainBranch, sessionBranchName } from '../sessions/session-git.mjs';
 
 /** Pure: the sessions list with state labels — the web Sessions section source. */
 export function sessionsListData(cwd = process.cwd()) {
@@ -417,6 +419,120 @@ export function sessionContentData(cwd, idArg, { transcripts } = {}) {
   return { sessionId: s.id, nodes };
 }
 
+// ── session diff: "what changed" (the git-native wedge) ────────────────────
+// Every session is a `zz/session-*` branch off mainBranch (squash-merged on end).
+// "What this session changed" resolves to a base/tip range:
+//   • live/leftover branch exists → mainBranch...branch (three-dot: what the
+//     session introduced since it diverged) — the reliable, high-value case;
+//   • merged/past (branch gone) → best-effort from the recorded git.commit
+//     (`git show <commit>`); unresolvable → { available:false }.
+// All git via the fail-soft argv `git()` wrapper — never throws.
+
+const MAX_FILE_DIFF = 200_000; // size cap for one file's unified diff
+
+/** Resolve a session record to a diff range, or null when none is available. */
+function resolveDiffRange(cwd, s) {
+  const branch = sessionBranchName(s.id);
+  if (branchExists(cwd, branch)) {
+    const base = mainBranch(cwd);
+    if (base && base !== branch) return { kind: 'branch', base, tip: branch };
+  }
+  const commit = s.git?.commit;
+  if (commit && git(['rev-parse', '-q', '--verify', `${commit}^{commit}`], cwd).ok) {
+    return { kind: 'commit', base: `${commit}~1`, tip: commit };
+  }
+  return null;
+}
+
+/** git args for a numstat/name-status read over a resolved range. */
+function diffArgs(range, flag) {
+  return range.kind === 'branch'
+    ? ['diff', flag, `${range.base}...${range.tip}`]
+    : ['show', flag, '--format=', range.tip];
+}
+
+function parseNumstat(out) {
+  const map = new Map();
+  for (const line of (out || '').split('\n')) {
+    if (!line.trim()) continue;
+    const parts = line.split('\t');
+    if (parts.length < 3) continue;
+    const [a, d, ...rest] = parts;
+    const path = rest.join('\t');
+    map.set(path, { additions: a === '-' ? 0 : Number(a) || 0, deletions: d === '-' ? 0 : Number(d) || 0 });
+  }
+  return map;
+}
+
+function parseNameStatus(out) {
+  const map = new Map();
+  for (const line of (out || '').split('\n')) {
+    if (!line.trim()) continue;
+    const parts = line.split('\t');
+    const status = (parts[0] || 'M')[0]; // R100/C75 → R/C
+    const path = parts[parts.length - 1];
+    if (path) map.set(path, status);
+  }
+  return map;
+}
+
+const matchSession = (sessions, idArg) => {
+  const exact = sessions.filter((s) => s.id === idArg);
+  return (exact.length ? exact : sessions.filter((s) => String(s.id).startsWith(idArg)))[0] ?? null;
+};
+
+/** `{ sessionId, available, base?, tip?, totals:{files,additions,deletions}, files:[{path,status,additions,deletions}] }` */
+export function sessionDiffData(cwd, idArg) {
+  if (!idArg) return null;
+  const s = matchSession(readIndex(cwd).sessions, idArg);
+  if (!s) return null;
+  const empty = { sessionId: s.id, available: false, files: [], totals: { files: 0, additions: 0, deletions: 0 } };
+  const range = resolveDiffRange(cwd, s);
+  if (!range) return empty;
+  try {
+    const num = parseNumstat(git(diffArgs(range, '--numstat'), cwd).out);
+    const names = parseNameStatus(git(diffArgs(range, '--name-status'), cwd).out);
+    const files = [];
+    let additions = 0;
+    let deletions = 0;
+    for (const [path, c] of num) {
+      files.push({ path, status: names.get(path) ?? 'M', additions: c.additions, deletions: c.deletions });
+      additions += c.additions;
+      deletions += c.deletions;
+    }
+    for (const [path, status] of names) {
+      if (!num.has(path)) files.push({ path, status, additions: 0, deletions: 0 });
+    }
+    files.sort((a, b) => a.path.localeCompare(b.path));
+    return { sessionId: s.id, available: true, base: range.base, tip: range.tip, totals: { files: files.length, additions, deletions }, files };
+  } catch {
+    return empty;
+  }
+}
+
+/** `{ sessionId, path, diff }` — the unified diff for ONE file, size-capped. */
+export function sessionFileDiffData(cwd, idArg, path) {
+  if (!idArg || !path) return null;
+  const s = matchSession(readIndex(cwd).sessions, idArg);
+  if (!s) return null;
+  const range = resolveDiffRange(cwd, s);
+  if (!range) return { sessionId: s.id, path, diff: '' };
+  try {
+    const args = range.kind === 'branch'
+      ? ['diff', `${range.base}...${range.tip}`, '--', path]
+      : ['show', '--format=', range.tip, '--', path];
+    let diff = git(args, cwd).out || '';
+    let truncated = false;
+    if (diff.length > MAX_FILE_DIFF) {
+      diff = diff.slice(0, MAX_FILE_DIFF);
+      truncated = true;
+    }
+    return { sessionId: s.id, path, diff, ...(truncated ? { truncated: true } : {}) };
+  } catch {
+    return { sessionId: s.id, path, diff: '' };
+  }
+}
+
 const fmtDur = (ms) => (ms < 60_000 ? `${(ms / 1000).toFixed(0)}s` : `${(ms / 60_000).toFixed(1)}m`);
 
 /** `zuzuu sessions [--json]` — the recorded-sessions list with state labels. */
@@ -528,5 +644,35 @@ export function sessionTrace(args = {}) {
     const status = a.status ? ` [${a.status}]` : '';
     const ts = a.ts.slice(11, 19); // HH:MM:SS
     console.log(`  ${ts}  ${a.kind.padEnd(5)}  ${a.label}${status}`);
+  }
+}
+
+/** `zuzuu session diff <id> [--json] [--file <path>]` — what the session changed
+ *  (files + per-file unified diff), resolved from its git branch / merge commit. */
+export function sessionDiff(args = {}) {
+  const cwd = process.cwd();
+  const id = args._?.[1];
+  const file = args.file;
+  if (file) {
+    const d = sessionFileDiffData(cwd, id, file);
+    if (!d) {
+      console.error(id ? `no recorded session matching '${id}'` : 'usage: zuzuu session diff <id> --file <path> [--json]');
+      process.exit(1);
+    }
+    if (args.json) { console.log(JSON.stringify(d)); return; }
+    console.log(d.diff || `${d.sessionId}: no diff for ${file}`);
+    return;
+  }
+  const d = sessionDiffData(cwd, id);
+  if (!d) {
+    console.error(id ? `no recorded session matching '${id}'` : 'usage: zuzuu session diff <id> [--json] [--file <path>]');
+    process.exit(1);
+  }
+  if (args.json) { console.log(JSON.stringify(d)); return; }
+  if (!d.available) { console.log(`${d.sessionId}: diff not available (branch merged or gone)`); return; }
+  if (!d.files.length) { console.log(`${d.sessionId}: no changes`); return; }
+  console.log(`${d.sessionId}: ${d.totals.files} file(s)  +${d.totals.additions} −${d.totals.deletions}`);
+  for (const f of d.files) {
+    console.log(`  ${f.status}  +${f.additions} −${f.deletions}  ${f.path}`);
   }
 }
