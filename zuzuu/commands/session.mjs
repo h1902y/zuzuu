@@ -10,6 +10,7 @@
 
 import { sessionStatus, closeSession, continueSession, discardSession } from '../sessions/session-git.mjs';
 import { sessionInspect, sessionTrace, sessionTree, sessionContent, sessionDiff, sessionLabel } from './sessions.mjs';
+import { sessionWorktree } from './session-worktree.mjs';
 
 /** Pure: structured session-git state (the leftover detector included). */
 export function sessionStatusData(cwd = process.cwd()) {
@@ -129,6 +130,12 @@ export function session(args = {}) {
     return;
   }
 
-  console.error(`unknown: zuzuu session ${sub}\nusage: zuzuu session [status|merge [--title t]|continue|discard --yes|inspect <id>|trace <id>|tree <id>|content <id>|diff <id> [--file p]|label <id> --text "name"]`);
+  if (sub === 'worktree') {
+    // shift the 'worktree' token so the sub-dispatcher sees [open|close|…] at _[0]
+    sessionWorktree({ ...args, _: args._.slice(1) });
+    return;
+  }
+
+  console.error(`unknown: zuzuu session ${sub}\nusage: zuzuu session [status|merge [--title t]|continue|discard --yes|inspect <id>|trace <id>|tree <id>|content <id>|diff <id> [--file p]|label <id> --text "name"|worktree [open|close|list|discard] <id>]`);
   process.exit(1);
 }
