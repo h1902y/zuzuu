@@ -36,11 +36,12 @@ import { sessionStateMeta, shortSessionId, fmtDuration } from "../panel/sections
 import { relativeTime } from "../panel/kit";
 import { agentTabTitle } from "../modules/host-launch";
 import { groupRowsByBand, pickerCollapsedSummary, pickerRows, type PickerBand, type PickerRow } from "./session-picker";
-import { useSessionGitQuery, useZuzuuHealthQuery } from "./queries";
+import { useSessionDiffQuery, useSessionGitQuery, useZuzuuHealthQuery } from "./queries";
+import { SessionChanges } from "./SessionChanges";
 import { zuzuuApi } from "../lib/zuzuu-api";
 
 /** Which sub-surface of the viewed session is showing. */
-type WorkTab = "tree" | "terminal";
+type WorkTab = "tree" | "terminal" | "changes";
 
 function pillTone(tone: string): "ok" | "warn" | "bad" | "neutral" {
   if (tone === "ok") return "ok";
@@ -201,12 +202,15 @@ function SessionPicker({
 function TreeViewHeader({
   session,
   live,
+  outcome,
   onMerge,
   onEnd,
   busy,
 }: {
   session: ZuzuuSessionEntry;
   live: boolean;
+  /** "what changed" totals (the wedge), null until resolved / unavailable */
+  outcome?: { files: number; additions: number; deletions: number } | null;
   onMerge?: () => void;
   onEnd?: () => void;
   busy: boolean;
@@ -225,6 +229,17 @@ function TreeViewHeader({
           {branch}
         </span>
       )}
+      {/* outcome summary (the wedge): files changed +/− this session */}
+      {outcome && outcome.files > 0 && (
+        <span className="wc-mono inline-flex shrink-0 items-center gap-1.5 text-meta text-muted-foreground" title="Files changed this session">
+          <span>✎ {outcome.files} file{outcome.files === 1 ? "" : "s"}</span>
+          {outcome.additions > 0 && <span className="text-success">+{outcome.additions}</span>}
+          {outcome.deletions > 0 && <span className="text-error">−{outcome.deletions}</span>}
+        </span>
+      )}
+      {session.durationMs ? (
+        <span className="wc-mono shrink-0 text-meta text-muted-foreground">{fmtDuration(session.durationMs)}</span>
+      ) : null}
       <span className="wc-mono ml-auto shrink-0 text-meta text-muted-foreground">{shortSessionId(session.id)}</span>
       {live && onMerge && (
         <button
@@ -480,24 +495,31 @@ function ViewedSession({
 }) {
   const session = row.session;
   const live = row.live;
-  // a past session has no terminal tab → always the tree
-  const view: WorkTab = live ? workTab : "tree";
+  // a past session has no terminal tab → fall back to the tree for "terminal"
+  const view: WorkTab = !live && workTab === "terminal" ? "tree" : workTab;
+
+  // "what changed" — drives the header outcome + the Changes-tab count. One
+  // query (React Query dedupes the second subscriber inside SessionChanges).
+  const diffQ = useSessionDiffQuery(session.id, true);
+  const outcome = diffQ.data?.available ? diffQ.data.totals : null;
 
   return (
     <div className="absolute inset-0 flex min-h-0 flex-col">
       <TreeViewHeader
         session={session}
         live={live}
+        outcome={outcome}
         onMerge={live ? onMerge : undefined}
         onEnd={live ? onEnd : undefined}
         busy={busy}
       />
-      {live && (
-        <Bar border="b" surface="app" className="!px-0">
-          <TabBar>
-            <Tab active={view === "tree"} onClick={() => onSetWorkTab("tree")}>
-              Tree
-            </Tab>
+      {/* Tree · (Terminal, live only) · Changes — shown for live AND past */}
+      <Bar border="b" surface="app" className="!px-0">
+        <TabBar>
+          <Tab active={view === "tree"} onClick={() => onSetWorkTab("tree")}>
+            Tree
+          </Tab>
+          {live && (
             <Tab
               active={view === "terminal"}
               onClick={() => onSetWorkTab("terminal")}
@@ -505,9 +527,15 @@ function ViewedSession({
             >
               Terminal
             </Tab>
-          </TabBar>
-        </Bar>
-      )}
+          )}
+          <Tab active={view === "changes"} onClick={() => onSetWorkTab("changes")}>
+            Changes
+            {outcome && outcome.files > 0 && (
+              <span className="ml-1 wc-mono text-meta text-muted-foreground">{outcome.files}</span>
+            )}
+          </Tab>
+        </TabBar>
+      </Bar>
       <div className="relative min-h-0 flex-1">
         {/* the tree (default surface for both live + past). The wrapper carries
             the vertical scroll so earlier turns/messages are reachable when the
@@ -537,6 +565,13 @@ function ViewedSession({
               onStartNew={onFocusComposer}
               onCloseTab={onCloseTab}
             />
+          </div>
+        )}
+        {/* the Changes view — what the session changed (the wedge). Mounted only
+            when selected (its own diff query is lazy). */}
+        {view === "changes" && (
+          <div className="absolute inset-0">
+            <SessionChanges sessionId={session.id} alive={live} />
           </div>
         )}
       </div>

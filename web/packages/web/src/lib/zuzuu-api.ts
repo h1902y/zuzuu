@@ -4,7 +4,7 @@ import type {
   ModuleOverviewResponse, SessionInspectResponse, SessionTraceResponse, SessionTreeResponse,
   ModuleGenerationList, ModuleGenerationDiff, CheckpointList,
   CheckpointMintResult, CheckpointRollbackResult,
-  SessionsResponse, SessionContentResponse, DigestResponse,
+  SessionsResponse, SessionContentResponse, SessionDiffResponse, SessionFileDiffResponse, DigestResponse,
   EvalResponse, HostsResponse, ApproveResult, RejectResult, RollbackResult,
   SessionGitStatus, SessionMergeResult,
 } from "@zuzuu-web/protocol";
@@ -77,6 +77,12 @@ export const zuzuuApi = {
    *  (agent/user text + tool input/output), read on demand, never stored. The
    *  source for the content-rich SessionTree (fail-soft: missing/thin → nodes []) */
   sessionContent: (id: string) => request<SessionContentResponse>(`/session-content/${encodeURIComponent(id)}`),
+  /** what the session changed — files + counts, resolved from its git branch
+   *  (live) or merge commit (past). Fail-soft: unresolvable → available:false */
+  sessionDiff: (id: string) => request<SessionDiffResponse>(`/session-diff/${encodeURIComponent(id)}`),
+  /** one changed file's unified diff for a session (size-capped) */
+  sessionFileDiff: (id: string, path: string) =>
+    request<SessionFileDiffResponse>(`/session-file-diff/${encodeURIComponent(id)}?path=${encodeURIComponent(path)}`),
   digest: () => request<DigestResponse>("/digest"),
   evalRanked: () => request<EvalResponse>("/eval"),
   hosts: () => request<HostsResponse>("/hosts"),

@@ -390,6 +390,37 @@ export function createZuzuuApi(getRoot: () => string, opts: ApiOpts = {}): Hono 
     return c.json(r.data as Record<string, unknown>);
   });
 
+  // What the session changed (`zuzuu session diff <id> --json`): files + counts,
+  // resolved from the session's git branch (live) or merge commit (past). CLI-first;
+  // absent → 503, unknown → { available:false } 404. Read-only: pure git reads,
+  // never touches the PTY / capture / working tree.
+  app.get("/session-diff/:id", async (c) => {
+    const id = c.req.param("id");
+    if (!SAFE_ID.test(id)) return c.json({ error: "bad id" }, 400);
+    const r = await runZuzuuMut(root, ["session", "diff", id], { binary: opts.binary });
+    if (!r.ok) {
+      if (r.code === "absent") return c.json({ error: "zuzuu CLI required" }, 503);
+      return c.json({ sessionId: id, available: false, totals: { files: 0, additions: 0, deletions: 0 }, files: [] }, 404);
+    }
+    return c.json(r.data as Record<string, unknown>);
+  });
+
+  // One file's unified diff for a session (`zuzuu session diff <id> --file <path>
+  // --json`). The path is an argv element (no shell), bounded by `git diff -- <path>`;
+  // absent → 503, unknown → { diff:"" } 404.
+  app.get("/session-file-diff/:id", async (c) => {
+    const id = c.req.param("id");
+    const path = c.req.query("path");
+    if (!SAFE_ID.test(id)) return c.json({ error: "bad id" }, 400);
+    if (!path) return c.json({ error: "path required" }, 400);
+    const r = await runZuzuuMut(root, ["session", "diff", id, "--file", path], { binary: opts.binary });
+    if (!r.ok) {
+      if (r.code === "absent") return c.json({ error: "zuzuu CLI required" }, 503);
+      return c.json({ sessionId: id, path, diff: "" }, 404);
+    }
+    return c.json(r.data as Record<string, unknown>);
+  });
+
   app.get("/status", async (c) => {
     const viaCli = await runZuzuu(root, ["status"], { binary: opts.binary });
     if (viaCli) return c.json(viaCli);

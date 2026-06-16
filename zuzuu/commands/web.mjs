@@ -54,9 +54,15 @@ const realDetectPath = () => {
   catch { return false; }
 };
 const realLaunch = ({ cwd, entryScript }) => {
+  // Tell the daemon to shell out to THIS package's CLI (the one shipping the
+  // workbench), not a stale `zuzuu` on PATH — so e.g. `session diff` works the
+  // moment the workbench ships it. The daemon also self-resolves, but this is
+  // authoritative across odd install layouts.
+  const cliBin = join(PKG_ROOT, 'bin', 'zuzuu.mjs');
+  const binArgs = existsSync(cliBin) ? ['--zuzuu-bin', cliBin] : [];
   // bundled entry → run through node (not on PATH); PATH binary → run directly
-  if (entryScript) spawn(process.execPath, [entryScript, cwd], { detached: true, stdio: 'ignore' }).unref();
-  else spawn('zuzuu-web', [cwd], { detached: true, stdio: 'ignore' }).unref();
+  if (entryScript) spawn(process.execPath, [entryScript, cwd, ...binArgs], { detached: true, stdio: 'ignore' }).unref();
+  else spawn('zuzuu-web', [cwd, ...binArgs], { detached: true, stdio: 'ignore' }).unref();
 };
 // Same scheme as the daemon's instance-file.ts: sha256 of the realpath'd root.
 const realInstancePathFor = (dir) => {

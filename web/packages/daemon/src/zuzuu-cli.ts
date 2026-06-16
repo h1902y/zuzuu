@@ -8,8 +8,36 @@
 // Always argv arrays (never a shell), time-boxed, cwd-scoped to the workspace.
 
 import { spawn, spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import path from "node:path";
 
 export interface RunOpts { binary?: string; timeoutMs?: number; }
+
+/**
+ * How to spawn the resolved zuzuu binary. A `.mjs`/`.js` script (our BUNDLED CLI,
+ * resolved relative to the daemon) is run via the daemon's own node so it works
+ * without an exec bit and stays version-locked to what shipped; a bare command
+ * name (the "zuzuu" PATH fallback) is spawned directly. Pure → unit-tested.
+ */
+export function resolveSpawn(binary: string, args: string[]): { cmd: string; argv: string[] } {
+  if (/\.[mc]?js$/.test(binary)) return { cmd: process.execPath, argv: [binary, ...args] };
+  return { cmd: binary, argv: args };
+}
+
+/**
+ * Resolve the CLI that SHIPPED with this daemon, relative to the daemon module —
+ * so the workbench always runs its own zuzuu, never a stale PATH global. Covers
+ * both layouts (published `<pkg>/web-app/dist` and repo `web/packages/daemon/
+ * {dist,src}`). Null when not found (caller falls back to "zuzuu" on PATH).
+ * `exists` is injectable for tests.
+ */
+export function resolveBundledCli(here: string, exists: (p: string) => boolean = existsSync): string | null {
+  const candidates = [
+    path.resolve(here, "..", "..", "bin", "zuzuu.mjs"), // published: <pkg>/web-app/dist → <pkg>/bin
+    path.resolve(here, "..", "..", "..", "..", "bin", "zuzuu.mjs"), // repo: web/packages/daemon/{dist,src} → repo/bin
+  ];
+  return candidates.find(exists) ?? null;
+}
 
 /** Spawn `zuzuu <args> --json` in `root`. Returns parsed JSON, or null on any
  *  failure (binary absent, non-zero exit, unparseable). Read-only + time-boxed. */
@@ -22,7 +50,8 @@ export function runZuzuu(root: string, args: string[], opts: RunOpts = {}): Prom
     const finish = (v: unknown | null) => { if (!done) { done = true; resolve(v); } };
     let child;
     try {
-      child = spawn(binary, [...args, "--json"], { cwd: root, stdio: ["ignore", "pipe", "ignore"] });
+      const { cmd, argv } = resolveSpawn(binary, [...args, "--json"]);
+      child = spawn(cmd, argv, { cwd: root, stdio: ["ignore", "pipe", "ignore"] });
     } catch { finish(null); return; }
     const timer = setTimeout(() => { try { child!.kill(); } catch { /* noop */ } finish(null); }, timeoutMs);
     child.stdout?.on("data", (b) => { out += b.toString(); });
@@ -55,7 +84,8 @@ export function runZuzuuMut(root: string, args: string[], opts: RunOpts = {}): P
     const finish = (v: ZuzuuMutResult) => { if (!done) { done = true; resolve(v); } };
     let child;
     try {
-      child = spawn(binary, [...args, "--json"], { cwd: root, stdio: ["ignore", "pipe", "pipe"] });
+      const { cmd, argv } = resolveSpawn(binary, [...args, "--json"]);
+      child = spawn(cmd, argv, { cwd: root, stdio: ["ignore", "pipe", "pipe"] });
     } catch { finish({ ok: false, code: "absent" }); return; }
     const timer = setTimeout(() => {
       try { child!.kill(); } catch { /* noop */ }
@@ -92,7 +122,8 @@ export function runZuzuuMut(root: string, args: string[], opts: RunOpts = {}): P
 /** Best-effort: is the zuzuu binary runnable? */
 export function binAvailable(binary: string): boolean {
   try {
-    const r = spawnSync(binary, ["version"], { stdio: "ignore", timeout: 3000 });
+    const { cmd, argv } = resolveSpawn(binary, ["version"]);
+    const r = spawnSync(cmd, argv, { stdio: "ignore", timeout: 3000 });
     return !r.error && r.status === 0;
   } catch { return false; }
 }

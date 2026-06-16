@@ -8,6 +8,7 @@ import crypto from "node:crypto";
 import { WebcodeServer } from "./server.js";
 import { addRecent } from "./config.js";
 import { writeInstanceFile, removeInstanceFile, ensurePersistentToken } from "./instance-file.js";
+import { resolveBundledCli } from "./zuzuu-cli.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_PORT = 7770;
@@ -19,6 +20,8 @@ interface CliArgs {
   open: boolean;
   token: string | null;
   dev: boolean;
+  /** explicit path to the zuzuu CLI this workbench shipped with (from `zuzuu web`) */
+  zuzuuBin: string | null;
 }
 
 function parseArgs(argv: string[]): CliArgs {
@@ -29,6 +32,7 @@ function parseArgs(argv: string[]): CliArgs {
     open: true,
     token: null,
     dev: false,
+    zuzuuBin: null,
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!;
@@ -48,6 +52,9 @@ function parseArgs(argv: string[]): CliArgs {
         break;
       case "--dev":
         args.dev = true;
+        break;
+      case "--zuzuu-bin":
+        args.zuzuuBin = argv[++i] ?? null;
         break;
       case "--help":
       case "-h":
@@ -146,6 +153,12 @@ async function main(): Promise<void> {
     ? packagedWebDist
     : workspaceWebDist;
 
+  // The zuzuu CLI the daemon shells out to: prefer the one this workbench
+  // SHIPPED with — an explicit --zuzuu-bin from `zuzuu web` (authoritative),
+  // else self-resolved relative to the daemon — over a stale PATH global.
+  // undefined → "zuzuu" on PATH (legacy / manual zuzuu-web installs).
+  const zuzuuBinary = args.zuzuuBin || resolveBundledCli(HERE) || undefined;
+
   // public origin(s) allowed in hosted mode (the <app>.fly.dev / custom host)
   const publicHost = process.env.WEBCODE_PUBLIC_HOST; // e.g. "myapp.fly.dev"
   const extraOrigins = [
@@ -163,6 +176,7 @@ async function main(): Promise<void> {
     hosted,
     publicHost,
     extraOrigins: extraOrigins.length ? extraOrigins : undefined,
+    zuzuuBinary,
   });
 
   server.start((boundPort) => {
