@@ -48,8 +48,8 @@ function hostKey(command: string): string {
 
 /** Launch the selected host with an optional first task. resolveStart applies
  *  the argv-first hybrid (positional prompt arg where supported, else keystroke
- *  injection). Single-active-agent rule lives in startAgentSession: while one is
- *  alive, this focuses it instead of spawning a second one. */
+ *  injection). Each launch spawns its OWN agent (Wave B concurrency — each gets
+ *  a daemon-side worktree), so starting while one runs opens a second tab. */
 export function startHostRow(rowCommand: string, prompt?: string): void {
   const start = resolveStart(rowCommand, prompt);
   if (start) {

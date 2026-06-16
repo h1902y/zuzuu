@@ -19,28 +19,22 @@ export interface StartAgentOptions {
 }
 
 /**
- * Start an agent session: direct-spawn the host, tab it, select it. Single-
- * active-agent v1 rule: if an agent session is already alive, focus it
- * instead of spawning a second one.
+ * Start an agent session: direct-spawn the host, tab it, select it. Wave B
+ * (concurrency): each agent gets its OWN daemon-side git worktree, so starting
+ * one while another is alive spawns a SECOND concurrent agent (its own tab)
+ * rather than focusing the existing one — the single-active-agent rule is gone.
  *
  * Start-with-a-task is decided upstream by resolveStart() (host-launch): argv-
  * capable hosts (Claude Code, Codex) carry the task in `spec.args` and boot
  * already working; the rest pass `injectPrompt`, queued as the new session's
  * first terminal input (the TermView injects it once the PTY is ready — see
- * termRegistry.setPendingInput + TermView's readiness gate). Focusing an
- * already-alive session never injects (you'd be typing into work in progress).
+ * termRegistry.setPendingInput + TermView's readiness gate).
  */
 export async function startAgentSession(
   spec: AgentSpawnSpec,
   opts: StartAgentOptions = {},
 ): Promise<void> {
   const s = useSessions.getState();
-  const alive = s.tabs.find((t) => t.type === "agent" && t.alive);
-  if (alive) {
-    s.setActive(alive.id);
-    useOpenTabs.getState().open(alive.id); // surface the running session's tab
-    return;
-  }
   const inject = opts.injectPrompt?.trim();
   const session = await s.create({
     type: "agent",
@@ -57,10 +51,8 @@ export async function startAgentSession(
 
 /**
  * Run the zuzuu CLI itself as a short-lived utility session (onboarding:
- * `zuzuu init` / `zuzuu enable`). Bypasses startAgentSession's focus-existing
- * rule on purpose — a utility run must always spawn, even while a host
- * session is alive. host:'zuzuu' marks the tab so it gets the plain
- * "Session finished" end card instead of the merge story.
+ * `zuzuu init` / `zuzuu enable`). host:'zuzuu' marks the tab so it gets the
+ * plain "Session finished" end card instead of the merge story.
  */
 export async function startUtilityRun(args: string[]): Promise<void> {
   await useSessions.getState().create({ type: "agent", command: "zuzuu", args, host: "zuzuu" });

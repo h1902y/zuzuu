@@ -23,7 +23,8 @@ import { SessionManager, type Session } from "./sessions.js";
 import { AuthGate } from "./auth.js";
 import { createFsApi } from "./fs-api.js";
 import { createZuzuuApi } from "./zuzuu-routes.js";
-import { runZuzuuMut } from "./zuzuu-cli.js";
+import { runZuzuuMut, type ZuzuuMutResult } from "./zuzuu-cli.js";
+import crypto from "node:crypto";
 import { search } from "./search.js";
 import { listFiles } from "./file-list.js";
 import { listWorkflows, saveWorkflow } from "./workflows.js";
@@ -85,6 +86,9 @@ export class WebcodeServer {
   private readonly auth: AuthGate;
   private readonly commandAllowlist: Set<string>;
   private server: ServerType | null = null;
+  /** serializes worktree squash-merges so two agents exiting at once don't race
+   *  on the shared main working tree (Wave B concurrency) */
+  private worktreeCloses: Promise<unknown> = Promise.resolve();
 
   constructor(private readonly cfg: ServerConfig) {
     this.root = cfg.root;
@@ -121,9 +125,25 @@ export class WebcodeServer {
    * never fatal. Session.runCloseHook guarantees this runs once per session.
    */
   private async closeAgentSession(session: Session): Promise<SessionCloseResult> {
-    const r = await runZuzuuMut(session.cwd, ["session", "merge"], {
-      binary: this.cfg.zuzuuBinary,
-    });
+    // Worktree-backed agents (Wave B): squash-merge via `session worktree close`
+    // run from the MAIN tree (this.root) — the merge checks out the base + folds
+    // the branch there, then removes the worktree. Serialize closes so two agents
+    // exiting at once don't race on the shared main working tree. In-place agents
+    // keep the original `session merge` from their own cwd.
+    if (session.usesWorktree) {
+      const run = this.worktreeCloses.then(() =>
+        runZuzuuMut(this.root, ["session", "worktree", "close", session.id], { binary: this.cfg.zuzuuBinary }),
+      );
+      this.worktreeCloses = run.catch(() => undefined); // never let one failure poison the chain
+      return this.mapCloseResult(await run);
+    }
+    return this.mapCloseResult(
+      await runZuzuuMut(session.cwd, ["session", "merge"], { binary: this.cfg.zuzuuBinary }),
+    );
+  }
+
+  /** Map a CLI mutation result onto the SessionCloseResult envelope. */
+  private mapCloseResult(r: ZuzuuMutResult): SessionCloseResult {
     if (r.ok) return { ok: true, merge: r.data as SessionMergeResult };
     if (r.code === "absent") return { cliAbsent: true };
     return { ok: false, ...(r.stderr !== undefined ? { stderr: r.stderr } : {}), ...(r.data !== undefined ? { refusal: r.data as Record<string, unknown> } : {}) };
@@ -178,12 +198,35 @@ export class WebcodeServer {
       if (body.host !== undefined && (typeof body.host !== "string" || body.host.length > 64)) {
         return c.json({ error: "bad host" }, 400);
       }
-      const cwd = body.cwd ? safeJoin(this.root, body.cwd) : this.root;
+      let cwd = body.cwd ? safeJoin(this.root, body.cwd) : this.root;
       const type = body.type ?? "shell";
+
+      // Wave B concurrency: an agent launched at the workspace root gets its OWN
+      // git worktree (own checked-out dir + branch, shared .git) so multiple
+      // agents run at once without fighting over the single working tree.
+      // Pre-generate the id, open the worktree with it, then spawn the PTY there.
+      // Any failure (non-git workspace, absent CLI) → fall back to the in-place
+      // model. An explicit subdir cwd opts out (the agent runs in place there).
+      let agentId: string | undefined;
+      let sessionWorktree = false;
+      if (type === "agent" && !body.cwd) {
+        agentId = crypto.randomBytes(8).toString("hex");
+        const wt = await runZuzuuMut(this.root, ["session", "worktree", "open", agentId], {
+          binary: this.cfg.zuzuuBinary,
+        });
+        const data = wt.ok ? (wt.data as { ok?: boolean; worktree?: string }) : null;
+        if (data?.ok && typeof data.worktree === "string") {
+          cwd = data.worktree;
+          sessionWorktree = true;
+        }
+      }
+
       const session = this.sessions.create(cwd, body.cols, body.rows, {
         ...(body.command !== undefined ? { command: body.command, args: body.args ?? [] } : {}),
         type,
         ...(body.host !== undefined ? { host: body.host } : {}),
+        ...(agentId ? { id: agentId } : {}),
+        ...(sessionWorktree ? { sessionWorktree: true } : {}),
         ...(type === "agent" ? { onClose: (s: Session) => this.closeAgentSession(s) } : {}),
       });
       return c.json(session.info(), 201);

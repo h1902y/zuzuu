@@ -119,7 +119,7 @@ export function mainBranch(cwd) {
 }
 
 /** Commits on the session branch beyond main (best-effort; 0 on any trouble). */
-function countCheckpoints(cwd, branch) {
+export function countCheckpoints(cwd, branch) {
   const main = mainBranch(cwd);
   if (!main || main === branch) return 0;
   const r = git(['rev-list', '--count', `${main}..${branch}`], cwd);
@@ -179,7 +179,7 @@ const EXCLUDE_ZUZUU_OWN = `:(exclude)${ZUZUU_OWN_PATH}`;
 
 /** Worktree has changes the USER cares about — anything beyond zuzuu's own
  *  runtime-managed tracked files. Gates a merge from off the session branch. */
-function userDirty(cwd) {
+export function userDirty(cwd) {
   return !!git(['status', '--porcelain', '-uall', '--', '.', EXCLUDE_ZUZUU_OWN], cwd).out;
 }
 
@@ -244,7 +244,7 @@ export function sessionStatus(cwd) {
   }
 }
 
-const defaultTitle = (branch) => `${branch} · ${new Date().toISOString().slice(0, 10)}`;
+export const defaultTitle = (branch) => `${branch} · ${new Date().toISOString().slice(0, 10)}`;
 
 /**
  * END: squash-merge the session branch into main as ONE commit

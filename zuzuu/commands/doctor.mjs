@@ -17,6 +17,7 @@ import {
 } from '../module/generation/read.mjs';
 import { MODULES } from '../module/contract.mjs';
 import { sessionStatus } from '../sessions/session-git.mjs';
+import { pruneWorktrees, listSessionWorktrees } from '../sessions/session-worktree.mjs';
 import { leftoverLine } from './session.mjs';
 
 /**
@@ -200,6 +201,19 @@ export async function doctor() {
     if (leftover) warn(leftover);
     else if (ss.active) info(`session branch ${ss.active.branch} checked out (${ss.active.checkpoints} checkpoint(s)) — squashes to ${ss.mainBranch ?? 'main'} at session end`);
   } catch { /* session-git check must never break doctor — fail-open */ }
+
+  // session worktrees (Wave B concurrency): prune dead bookkeeping (deleted
+  // dirs from crashed sessions), then SURFACE any remaining ones with the
+  // recovery path. We never auto-merge — a leftover worktree may hold uncommitted
+  // work or conflict; the human (or the daemon's close hook) folds it back.
+  try {
+    pruneWorktrees(process.cwd());
+    const wts = listSessionWorktrees(process.cwd());
+    if (wts.length) {
+      warn(`${wts.length} session worktree(s) present — if a session crashed, recover with \`zuzuu session worktree close <id>\` (or discard <id> --yes):`);
+      for (const w of wts) info(`  ${w.branch}  ${w.path}`);
+    }
+  } catch { /* worktree reconcile must never break doctor — fail-open */ }
 
   // live-session reconciliation: close out lost/killed sessions (no SessionEnd).
   const before = listLive().length;

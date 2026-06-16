@@ -18,6 +18,7 @@ import { captureTrace } from '../core/capture-core.mjs';
 import { SessionState } from '../core/session.mjs';
 import { openLive, touchLive, closeLive, updateLive } from '../live/live-store.mjs';
 import { sessionGitEnabled, openSession, checkpoint, closeSession } from '../sessions/session-git.mjs';
+import { inSessionWorktree } from '../sessions/session-worktree.mjs';
 import { loadRules, evaluate, toPreToolUseDecision, toGeminiDecision } from '../guardrails/engine.mjs';
 import { paths, liveDir as liveDirOf } from '../core/store.mjs';
 import { computeDigest } from '../digest/compose.mjs';
@@ -94,7 +95,9 @@ export function handleHook({ event, payload = {}, cwd = process.cwd(), now = Dat
       // Invisible session-git: one session = one branch. A leftover branch
       // (crashed session) BLOCKS a new one — record that on the live record so
       // doctor/status surface the recovery path. Never blocks the session itself.
-      if (sessionGitEnabled(cwd)) {
+      // In a daemon-owned session WORKTREE the agent is already on its branch —
+      // the daemon opened it — so defer the in-place open (Wave B concurrency).
+      if (sessionGitEnabled(cwd) && !inSessionWorktree(cwd)) {
         const r = openSession(cwd, id);
         if (r?.blocked) updateLive(id, { sessionGit: { blocked: true, existing: r.existing } }, cwd);
       }
@@ -116,7 +119,9 @@ export function handleHook({ event, payload = {}, cwd = process.cwd(), now = Dat
       // Squash the session branch to ONE `session: <title>` commit on main
       // (default title: `<branch> · <date>`). Conflicts abort + restore; the
       // leftover branch is then recovered via the next-session prompt or doctor.
-      if (sessionGitEnabled(cwd)) closeSession(cwd, {});
+      // In a daemon-owned worktree the daemon's close hook owns the squash-merge
+      // (`session worktree close`), so defer here (Wave B concurrency).
+      if (sessionGitEnabled(cwd) && !inSessionWorktree(cwd)) closeSession(cwd, {});
     } catch { /* fail-open */ }
     closeLive(id, cwd);
   } else {
