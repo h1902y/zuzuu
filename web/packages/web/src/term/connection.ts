@@ -41,14 +41,36 @@ export class TermConnection {
   private everOutput = false;
   private openWaiters: (() => void)[] = [];
   private outputWaiters: (() => void)[] = [];
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private readonly sessionId: string,
     private readonly term: Terminal,
     private readonly events: ConnectionEvents,
-  ) {}
+  ) {
+    // Recover instantly on network-return / tab-refocus (laptop wake) instead of
+    // waiting out the backoff. The server-side PTY persists, so reattach replays
+    // a fresh snapshot — nothing is lost.
+    if (typeof window !== "undefined") window.addEventListener("online", this.wake);
+    if (typeof document !== "undefined") document.addEventListener("visibilitychange", this.wake);
+  }
+
+  /** Reconnect now if we're disconnected (and the user didn't close us). */
+  private readonly wake = (): void => {
+    if (this.closedByUser) return;
+    if (this.ws && (this.ws.readyState === WebSocket.CONNECTING || this.ws.readyState === WebSocket.OPEN)) return;
+    this.retries = 0; // a wake is a fresh start — don't carry backoff
+    this.connect();
+  };
 
   connect(): void {
+    if (this.closedByUser) return;
+    // never run two sockets at once (a wake racing the backoff timer)
+    if (this.ws && (this.ws.readyState === WebSocket.CONNECTING || this.ws.readyState === WebSocket.OPEN)) return;
+    if (this.reconnectTimer !== null) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     this.events.onStatus(this.retries > 0 ? "reconnecting" : "connecting");
     const ws = new WebSocket(wsUrl(`/ws/term/${this.sessionId}`));
     ws.binaryType = "arraybuffer";
@@ -113,7 +135,8 @@ export class TermConnection {
       }
       this.retries += 1;
       this.events.onStatus("reconnecting");
-      setTimeout(() => {
+      this.reconnectTimer = setTimeout(() => {
+        this.reconnectTimer = null;
         if (!this.closedByUser) this.connect();
       }, delayMs);
     };
@@ -176,6 +199,9 @@ export class TermConnection {
   dispose(): void {
     this.closedByUser = true;
     if (this.ackTimer !== null) clearTimeout(this.ackTimer);
+    if (this.reconnectTimer !== null) clearTimeout(this.reconnectTimer);
+    if (typeof window !== "undefined") window.removeEventListener("online", this.wake);
+    if (typeof document !== "undefined") document.removeEventListener("visibilitychange", this.wake);
     this.ws?.close(1000);
     this.ws = null;
   }
