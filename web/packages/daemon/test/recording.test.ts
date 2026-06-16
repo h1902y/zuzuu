@@ -38,7 +38,7 @@ describe("asciicast recording", () => {
     expect(events.length).toBeGreaterThan(0);
     for (const [t, code] of events) {
       expect(typeof t).toBe("number");
-      expect(["o", "r"]).toContain(code); // never "i"
+      expect(["o", "r", "m"]).toContain(code); // output/resize/marker — never "i" (input)
     }
     // elapsed times are monotonically non-decreasing
     for (let i = 1; i < events.length; i++) {

@@ -32,7 +32,10 @@ const CWD_POLL_MS = 2_500;
 const REC_MAX_BYTES = 2 * 1024 * 1024;
 const REC_MAX_EVENTS = 10_000;
 
-type CastEvent = [number, "o" | "r", string];
+import { castBody, type CastEvent, type CastMark } from "./cast.js";
+
+/** Cap on command-boundary marks kept for the recording (ring; newest win). */
+const REC_MAX_MARKS = 1000;
 
 /** Resolve the live working directory of a process, shell-agnostically. */
 async function processCwd(pid: number): Promise<string | null> {
@@ -142,6 +145,10 @@ export class Session {
   private readonly castEvents: CastEvent[] = [];
   private castBytes = 0;
   castTruncated = false;
+  // Wave D: command-boundary markers (from OSC 133 "C") → asciicast `m` events
+  // so the recording's seek bar gets navigable per-command chapters.
+  private readonly marks: CastMark[] = [];
+  private cmdCount = 0;
 
   constructor(
     readonly cwd: string,
@@ -173,6 +180,20 @@ export class Session {
           this.send(encodeFrame(ServerOp.Cwd, JSON.stringify(this.cwdPayload())));
           this.onUpdate();
         }
+      }
+      return true;
+    });
+
+    // OSC 133 C (command output begins): the shell-integration semantic-prompt
+    // mark. Record a command-boundary marker so the saved recording gets a
+    // navigable per-command chapter (Wave D, L5). Mirror-only (server-side
+    // parse) — the client's own terminal/parser and the byte stream are
+    // untouched. Returns true (handled); the raw bytes are still recorded +
+    // streamed verbatim.
+    this.mirror.parser.registerOscHandler(133, (payload) => {
+      if (payload === "C" || payload.startsWith("C;")) {
+        this.marks.push({ t: (Date.now() - this.createdAt) / 1000, label: String(++this.cmdCount) });
+        if (this.marks.length > REC_MAX_MARKS) this.marks.shift();
       }
       return true;
     });
@@ -342,8 +363,9 @@ export class Session {
       env: { SHELL: process.env.SHELL ?? "", TERM: "xterm-256color" },
     };
     const lines = [JSON.stringify(header)];
-    for (const ev of this.castEvents) {
-      lines.push(JSON.stringify([Math.round(ev[0] * 1000) / 1000, ev[1], ev[2]]));
+    // interleave the command-boundary marks as asciicast `m` events (Wave D)
+    for (const line of castBody(this.castEvents, this.marks)) {
+      lines.push(JSON.stringify(line));
     }
     return lines.join("\n") + "\n";
   }
