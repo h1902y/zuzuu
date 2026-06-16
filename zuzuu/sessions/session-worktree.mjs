@@ -182,6 +182,23 @@ export function closeSessionWorktree(cwd, sessionId, { title } = {}) {
   }
 }
 
+/**
+ * Reconcile: prune git's bookkeeping for session worktrees whose dirs are gone
+ * (a crashed session, a manually-removed `.zuzuu/.worktrees/`). Safe — `git
+ * worktree prune` only drops admin entries for already-deleted dirs, never
+ * touching live worktrees or branches. Lets a new session reuse the short id.
+ */
+export function pruneWorktrees(cwd) {
+  try {
+    const root = repoRootOf(cwd);
+    if (!root) return { ok: false, reason: 'not-a-git-repo' };
+    const r = git(['worktree', 'prune'], root);
+    return r.ok ? { ok: true } : { ok: false, reason: r.err || 'prune-failed' };
+  } catch (e) {
+    return { ok: false, reason: String(e) };
+  }
+}
+
 /** Recovery: drop a session's worktree + branch WITHOUT merging (the caller gates). */
 export function discardSessionWorktree(cwd, sessionId) {
   try {

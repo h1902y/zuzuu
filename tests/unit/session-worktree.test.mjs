@@ -18,6 +18,7 @@ import {
   listSessionWorktrees,
   worktreePath,
   inSessionWorktree,
+  pruneWorktrees,
 } from '../../zuzuu/sessions/session-worktree.mjs';
 
 function git(args, cwd, input) {
@@ -159,6 +160,25 @@ test('inSessionWorktree: true inside a session worktree, false in the main tree'
 test('inSessionWorktree: false for a non-git dir (fail-soft)', () => {
   const d = mkdtempSync(join(tmpdir(), 'zz-wt-nox-'));
   try { assert.equal(inSessionWorktree(d), false); } finally { rmSync(d, { recursive: true, force: true }); }
+});
+
+test('pruneWorktrees: drops bookkeeping for a worktree whose dir was deleted (crash recovery)', () => {
+  tmpRepo((root) => {
+    openSessionWorktree(root, 'keep0001');
+    const { worktree } = openSessionWorktree(root, 'gone0001');
+    assert.equal(listSessionWorktrees(root).length, 2);
+    rmSync(worktree, { recursive: true, force: true }); // simulate a crashed/cleaned session dir
+    const r = pruneWorktrees(root);
+    assert.equal(r.ok, true);
+    const left = listSessionWorktrees(root);
+    assert.equal(left.length, 1, 'the deleted-dir worktree is pruned, the live one stays');
+    assert.equal(left[0].branch, 'zz/session-keep0001');
+  });
+});
+
+test('pruneWorktrees: non-git dir is a quiet {ok:false} no-op', () => {
+  const d = mkdtempSync(join(tmpdir(), 'zz-wt-prune-'));
+  try { assert.equal(pruneWorktrees(d).ok, false); } finally { rmSync(d, { recursive: true, force: true }); }
 });
 
 test('non-git dir: every op is a quiet {ok:false} no-op', () => {
