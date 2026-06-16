@@ -17,6 +17,7 @@ import {
   closeSessionWorktree,
   listSessionWorktrees,
   worktreePath,
+  inSessionWorktree,
 } from '../../zuzuu/sessions/session-worktree.mjs';
 
 function git(args, cwd, input) {
@@ -145,6 +146,19 @@ test('conflict on close: abort cleanly — branch + worktree intact, base untouc
     assert.ok(existsSync(worktree), 'worktree kept for retry');
     assert.equal(git(['rev-parse', '-q', '--verify', 'refs/heads/zz/session-conf0001'], root).length > 0, true);
   });
+});
+
+test('inSessionWorktree: true inside a session worktree, false in the main tree', () => {
+  tmpRepo((root) => {
+    const { worktree } = openSessionWorktree(root, 'detect01');
+    assert.equal(inSessionWorktree(worktree), true, 'cwd inside the worktree');
+    assert.equal(inSessionWorktree(root), false, 'main tree is not a session worktree');
+  });
+});
+
+test('inSessionWorktree: false for a non-git dir (fail-soft)', () => {
+  const d = mkdtempSync(join(tmpdir(), 'zz-wt-nox-'));
+  try { assert.equal(inSessionWorktree(d), false); } finally { rmSync(d, { recursive: true, force: true }); }
 });
 
 test('non-git dir: every op is a quiet {ok:false} no-op', () => {

@@ -14,7 +14,7 @@
 // can't drift.
 
 import { existsSync, mkdirSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, basename } from 'node:path';
 import { git, branchExists, currentBranch, cleanupSquashState } from './git.mjs';
 import {
   sessionGitEnabled,
@@ -38,6 +38,23 @@ export function worktreePath(root, sessionId) {
 }
 
 const repoRootOf = (cwd) => git(['rev-parse', '--show-toplevel'], cwd).out || null;
+
+/**
+ * True if `cwd` resolves into a session worktree we created — i.e. its repo
+ * toplevel sits at `<repo>/.zuzuu/.worktrees/<short-id>`. The host lifecycle
+ * hooks use this to DEFER in-place branch open/close to the daemon (which owns
+ * the worktree's branch lifecycle) while still capturing + checkpointing.
+ * Fail-soft: any git trouble → false (treat as the normal in-place model).
+ */
+export function inSessionWorktree(cwd) {
+  try {
+    const top = repoRootOf(cwd);
+    if (!top) return false;
+    return basename(dirname(top)) === '.worktrees' && basename(dirname(dirname(top))) === '.zuzuu';
+  } catch {
+    return false;
+  }
+}
 
 /** All registered worktrees as { path, branch } (parsed from porcelain). */
 function allWorktrees(root) {
