@@ -20,12 +20,12 @@ npm run dev                          # daemon + web in parallel
 # then open http://localhost:5173/auth?token=dev
 
 # Tests (vitest, daemon package only)
-npm run test -w zuzuu-web
-npm run test -w zuzuu-web -- safe-path           # single file by name filter
-npm run test -w zuzuu-web -- -t "symlink"        # single test by title
+npm run test -w @zuzuucodes/web
+npm run test -w @zuzuucodes/web -- safe-path           # single file by name filter
+npm run test -w @zuzuucodes/web -- -t "symlink"        # single test by title
 
 # Run the built app against a workspace
-npm run -w zuzuu-web start -- ~/code/my-project  # prints http://127.0.0.1:7770/?token=…
+npm run -w @zuzuucodes/web start -- ~/code/my-project  # prints http://127.0.0.1:7770/?token=…
 ```
 
 ## Architecture
@@ -33,14 +33,16 @@ npm run -w zuzuu-web start -- ~/code/my-project  # prints http://127.0.0.1:7770/
 npm-workspaces monorepo, all TypeScript (strict, `noUncheckedIndexedAccess`), extending `tsconfig.base.json`.
 
 - **`packages/protocol`** (`@zuzuu-web/protocol`) — shared wire types: binary WS opcodes (`ClientOp`/`ServerOp`), flow-control watermarks, REST schemas for fs/git/sessions/workflows. Both other packages import it; build it first.
-- **`packages/daemon`** (`zuzuu-web`) — Hono + `@hono/node-server` + `ws`. CLI entry `src/index.ts`, HTTP/WS wiring and security gates in `src/server.ts`. Subsystems: PTY sessions (`src/sessions.ts`, `@lydell/node-pty` + headless xterm mirror), terminal WS (`src/ws-term.ts`), fs REST API (`src/fs-api.ts`), fs-events WS (`src/ws-fs.ts`), git via subprocess (`src/git.ts`), ripgrep search (`src/search.ts`), workflows, shell history, shell-integration injection (`src/shell-integration/`). Serves the built web SPA from `web/dist`.
+- **`packages/daemon`** (`@zuzuucodes/web`) — Hono + `@hono/node-server` + `ws`. CLI entry `src/index.ts`, HTTP/WS wiring and security gates in `src/server.ts`. Subsystems: PTY sessions (`src/sessions.ts`, `@lydell/node-pty` + headless xterm mirror), terminal WS (`src/ws-term.ts`), fs REST API (`src/fs-api.ts`), fs-events WS (`src/ws-fs.ts`), git via subprocess (`src/git.ts`), ripgrep search (`src/search.ts`), asciicast assembly (`src/cast.ts`), the zuzuu-CLI spawn layer (`src/zuzuu-cli.ts`), workflows, shell history, shell-integration injection (`src/shell-integration/`). Serves the built web SPA from `web/dist`.
 - **`packages/web`** (`@zuzuu-web/web`) — Vite + React 19 + Tailwind v4. Zustand stores in `src/state/`, TanStack Query for REST data, Monaco in `src/editor/`, terminal connection + command-block model in `src/term/`, file tree/search in `src/explorer/`, cmdk palette in `src/palette/`, REST client in `src/lib/api.ts`. Layout is `sidebar | session center | right panel`: the left sidebar (`src/app/Sidebar.tsx`) is the file workspace (one consolidated workspace dropdown + the tree); the right panel (`src/panel/`) is ONE surface with two modes — files (the EditorPane renders in it) and modules (a dashboard of five ModuleTiles — the cards ARE the navigation, no tabs — with per-module drill-ins; kit components in `src/panel/kit/`); mode rules live in `src/state/right-panel.ts` (open file → files, last tab closed → modules at the dashboard root). The term "faculty" is fully retired in product code (it survives only in `zuzuu/commands/migrations/*` for brownfield homes).
 - **`hosted/`** — cloud mode. `hosted/broker` is a control plane that provisions per-user sandboxes (`BROKER_BACKEND=local` spawns a child daemon; `fly` uses the Fly Machines API). `hosted/sandbox` is the Docker image + `fly.toml` that runs the daemon with `WEBCODE_HOSTED=1`.
 
 ### Data paths that matter
 
 - **Terminal**: binary WS frames with a 1-byte opcode. End-to-end flow control — the client acks bytes only after xterm actually renders them; past 128 KB unacked the daemon pauses the PTY (constants in protocol). Don't bypass this; it's what keeps `yes`/giant `cat` from freezing the tab.
-- **Session persistence**: PTYs are keyed by session id and decoupled from sockets. A headless xterm mirrors output server-side; reattach replays a serialized snapshot (screen + 10k scrollback) then streams live.
+- **Session persistence**: PTYs are keyed by session id and decoupled from sockets. A headless xterm mirrors output server-side; reattach replays a serialized snapshot (screen + 10k scrollback) then streams live. Client reconnect is **indefinite** with capped backoff + `online`/`visibilitychange` wake triggers (`src/term/reconnect.ts`) so a laptop sleep / long blip recovers on its own (Wave A / resilience).
+- **Concurrent agent sessions (Wave B)**: each `type:"agent"` session launched at the workspace root spawns its PTY in **its own git worktree** (`.zuzuu/.worktrees/<short-id>`, gitignored), so N agents run at once without fighting over the single working tree. The daemon opens the worktree via the bundled CLI (`session worktree open <id>`) before the synchronous PTY spawn, and squash-merges it back on exit (`session worktree close`, serialized across exits). Falls back to the in-place `session merge` model on a non-git workspace / absent CLI; an explicit subdir `cwd` opts out. The flow-controlled PTY path is untouched — this is additive (injected id + worktree cwd).
+- **Recording markers (Wave D)**: the headless mirror parses OSC 133 "C" (command output begins) into asciicast `m` markers; `recording()` interleaves them via `src/cast.ts` `castBody`, so the saved `.cast` (played by `CastView`/asciinema-player) gets navigable per-command chapters. Mirror-only parse — the byte stream stays verbatim.
 - **Command blocks**: a shell hook auto-injected at PTY spawn (temp `ZDOTDIR` for zsh, `--rcfile` for bash, `vendor_conf.d` for fish) emits OSC 133 (prompt/command/exit marks) and OSC 7 (cwd). The web client builds blocks, quick fixes, and cwd sync from these; `lsof`/procfs polling is the fallback for shells without the hook.
 - **File watching**: chokidar v4, non-recursive, only on directories the user has expanded — keeps fd usage bounded. Fs events push over `/ws/fs` and invalidate React Query caches.
 

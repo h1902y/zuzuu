@@ -307,7 +307,7 @@ With the spine built (observe + serve on 5 hosts; the local evolve loop proven i
 | # | Workstream | What it is | Status |
 |---|---|---|---|
 | **W1** | **Home & onboarding** | the hidden `.zuzuu/` home (decision below), the narrated `zz init` experience, the self-explaining directory contract | **in build (now)** — it gates W2/W4 and the education story |
-| **W2** | **Visual workbench** | a local app for non-terminal users: file tree \| **embedded terminal** \| file preview. **zuzuu-web evolves into this** — the read-only observe dashboard (shipped) is the workbench's first milestone, same daemon + app, growing panes | design; after W1 |
+| **W2** | **Visual workbench** | a local app for non-terminal users: file tree \| **embedded terminal** \| file preview. **zuzuu-web evolves into this** — the read-only observe dashboard (shipped) is the workbench's first milestone, same daemon + app, growing panes | **shipped + iterating** — workbench v1 + Mobbin redesign live; session-management ladder **A→D shipped** (concurrency/manifest/replay — see §14) |
 | **W3** | **Faculty health & HITL UX** | make "is it actually improving?" visible — review-ceremony polish, per-faculty health surfaces, eval-ranked inbox | design |
 | **W4** | **Marketplace modules** | persona-opinionated home templates (accountant, CEO, …): a template = a `.zuzuu/` layout + seed faculties. Only after the W1 contract is stable | concept |
 | **W5** | **Workflows/tasks faculty** | task management + scheduled workflows/triggers as a faculty — YAML-native, mirroring DevOps practice, never a bespoke format | concept |
@@ -323,6 +323,28 @@ With the spine built (observe + serve on 5 hosts; the local evolve loop proven i
 
 - **(d) Cloud sandboxes** — the user's project directory hosted in a fly.io sandbox, the full zuzuu harness running there, accessed from browser/mobile (remote workbench). Charged as usage with a markup. Open source + local-native stays free; *cloud convenience* is the paid layer.
 - **(e) zuzuu-codes broker** — for users who run no host and want none: a natively-integrated host built **over pi** (Stage 3 alignment, §6), with zuzuu as the inference broker. Never an OpenCode fork, never from scratch.
+
+---
+
+## 14. Session management — the maturity ladder (added 2026-06-17)
+
+Sessions are the workbench's core unit (W2). A 2026-06-16 research pass (cloud terminals, devcontainers, Fly Machines, Claude Squad / Vibe Kanban / ccmanager) graded session capability on a **maturity ladder L1→L7** and set a wave sequence toward **portability** (move a session across machines / to cloud and back, work + context + replay intact). Verdict on reuse: **nothing embeddable** (every tool is a whole app; AGPL on Claude Squad/Daytona/Coder) → **build on thin native primitives** (git worktrees) and reuse only license-clean MIT libs (`@xterm/headless`+serialize — already used, `asciinema-player` — already used, Fly Machines API, Mutagen). Full spec + the six resolved decisions: `docs/specs/2026-06-16-session-management-roadmap-l2-to-l7.md`.
+
+Foundation already in place: each session is a `zz/session-*` git branch (W2.2), and PTYs persist server-side with serialized-snapshot replay (zuzuu-web). The ladder builds up from there.
+
+**Shipped (local tier, merged to `main` 2026-06-17 — all rigorous TDD, characterization-first on session-git, the flow-controlled PTY hot path untouched):**
+- **A — resilience (L3):** client reconnects **indefinitely** with capped backoff + `online`/`visibilitychange` wake triggers, so sleep/blips recover on their own (the server already persisted PTYs + snapshot-replay).
+- **B — concurrency (L4):** **a git worktree per session** (own checked-out dir + branch, shared `.git`, under `.zuzuu/.worktrees/`) → N agents run at once without fighting over the single working tree; the host hook defers in-worktree branch ops to the daemon; the single-active-agent UI guard is lifted; `doctor` prunes/surfaces orphans.
+- **C — portable manifest (L4):** a **content-addressed, git-tracked session manifest** (`.zuzuu/manifests/<id>.json`) — the durable session *definition* (host, branch/commit, trace pointer, counts) and the portability unit — plus `session restore` (re-open the worktree, or recreate a gone branch from the recorded commit).
+- **D — navigable replay (L5):** OSC 133 command boundaries → asciicast `m` chapter markers in the recording (asciinema-player already seeks; custom I-frame machinery was assessed as premature).
+
+**Designed, NOT built — infra-gated, awaiting accounts + explicit go (don't treat as present):**
+- **E — runtime isolation (hybrid):** optional container-per-worktree via `devcontainer.json` for agents that run servers/tests/migrations. **§7 decision: opt-in, deferred until users hit runtime collisions** (interim mitigation: a per-session port-hash helper).
+- **F — Fly local↔cloud sync:** keep the project dir local (source of truth) while agents run in a Fly Machine, mirrored both ways via **Mutagen over Fly's WireGuard mesh** + git-native reconciliation, with `suspend/resume` for idle. The portability enabler; needs a Fly account/credentials.
+- **G — portable sessions (L7):** compose C (manifest) + E (workspace def) + F (sync) + A (transport) to move a session across machines / to cloud and back. (Stretch: a browser-native runtime spike — deferred; L7 is delivered via the Fly cloud tier, not an in-browser runtime.)
+- **H — sharing/collab (L6):** observer/collab links (upterm-style read-only + force-command on a relay); slots after F (needs the relay cloud introduces).
+
+These last waves can't be hermetically TDD'd or honestly verified without provisioned infra, so they stay design-only until the cloud tier is greenlit.
 
 ---
 
