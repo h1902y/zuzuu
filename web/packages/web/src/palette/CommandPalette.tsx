@@ -4,6 +4,11 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Workflow } from "@zuzuu-web/protocol";
 import { api } from "../lib/api";
 import { useSessions } from "../state/sessions";
+import { useOpenTabs } from "../state/open-tabs";
+import { zuzuuApi } from "../lib/zuzuu-api";
+import { pickerRows } from "../app/session-picker";
+import { openTabItems } from "../app/active-tab";
+import { sessionPaletteItems } from "../app/session-palette";
 import { useExplorer } from "../state/explorer";
 import { useBlocks } from "../state/blocks";
 import { termRegistry } from "../term/registry";
@@ -174,6 +179,23 @@ export function CommandPalette({
   const openModule = useRightPanel((s) => s.openModule);
   const blockHistory = useBlocks((s) => s.history);
   const { tabs, activeId, setActive, create } = useSessions();
+  const openIds = useOpenTabs((s) => s.openIds);
+  const openActiveId = useOpenTabs((s) => s.activeId);
+
+  // Center tab strip → palette session actions (focus / close-current). The
+  // browser reserves ⌘1..9 / ⌘W / ⌘T, so the palette is the reliable surface
+  // for switching/closing open session tabs.
+  const zuzuuSessions = useQuery({
+    queryKey: ["zuzuu", "sessions"],
+    queryFn: zuzuuApi.sessions,
+    enabled: open,
+    staleTime: 6_000,
+  });
+  const sessionActions = useMemo(() => {
+    const rows = pickerRows(zuzuuSessions.data?.sessions ?? [], tabs);
+    const tabItems = openTabItems(openIds, rows, tabs).map((t) => ({ id: t.id, label: t.label }));
+    return sessionPaletteItems(tabItems, openActiveId);
+  }, [zuzuuSessions.data, tabs, openIds, openActiveId]);
 
   const files = useQuery({
     queryKey: ["files"],
@@ -455,19 +477,25 @@ export function CommandPalette({
             </Command.Group>
           )}
 
-          {/* ── Sessions ── (filtered mode: show all, not just top 5) */}
+          {/* ── Sessions ── open-tab actions (focus / close current) + new */}
           {!historyOnly && !isEmpty && (
             <Command.Group heading="Sessions">
-              {tabs.map((t) => (
+              {sessionActions.map((a) => (
                 <Item
-                  key={`s-${t.id}`}
-                  value={`session ${t.title} ${t.id}`}
-                  onSelect={() => run(() => setActive(t.id))}
+                  key={a.id}
+                  value={`session ${a.action} ${a.title} ${a.sessionId}`}
+                  onSelect={() =>
+                    run(() =>
+                      a.action === "focus"
+                        ? useOpenTabs.getState().focus(a.sessionId)
+                        : useOpenTabs.getState().close(a.sessionId),
+                    )
+                  }
                 >
                   <RowIcon path={ICON.term} />
                   <RowBody
-                    label={t.title}
-                    desc={t.id === activeId ? "Active session" : undefined}
+                    label={a.title}
+                    desc={a.sessionId === openActiveId && a.action === "focus" ? "Active session" : undefined}
                   />
                 </Item>
               ))}
