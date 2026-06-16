@@ -10,7 +10,7 @@
 // catches up.
 import type { ZuzuuSessionEntry } from "@zuzuu-web/protocol";
 import { agentTabTitle } from "../modules/host-launch";
-import type { PickerRow } from "./session-picker";
+import { sessionDisplayName, type PickerRow } from "./session-picker";
 
 /** The slice of a live PTY tab this resolver needs (a useSessions.SessionTab). */
 export interface ResolveTab {
@@ -88,7 +88,7 @@ export function openTabItems(openIds: string[], rows: PickerRow[], tabs: Resolve
     const state = String(row?.session.state ?? "");
     return {
       id,
-      label: agentTabTitle(row?.session.host),
+      label: row ? sessionDisplayName(row.session) : agentTabTitle(undefined),
       live: row?.live ?? false,
       outside: !(row?.live ?? false) && LIVE_STATES.has(state),
     };

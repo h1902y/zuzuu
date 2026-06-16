@@ -22,6 +22,7 @@ import {
   discloseTurns,
   contentTurns,
   discloseContentTurns,
+  filterContentNodes,
   type TreeTurn,
   type TreeToolRow,
   type ContentTurn,
@@ -323,7 +324,9 @@ export function SessionTree({
   // Fail-soft on the daemon (missing/thin transcript → nodes []), so we degrade
   // to the counts/kinds T1 tree below when there's no content.
   const contentQ = useSessionContentQuery(sessionId, enabled);
-  const richTurns = contentTurns(contentQ.data?.nodes ?? null);
+  const [query, setQuery] = useState("");
+  const rawNodes = contentQ.data?.nodes ?? [];
+  const richTurns = contentTurns(filterContentNodes(rawNodes, query));
   const turns = treeTurns(treeQ.data?.root ?? null);
 
   const tail = tailState(alive, sessionState);
@@ -357,8 +360,29 @@ export function SessionTree({
   // no content (transcript missing/gone, or a thin host with nothing yet),
   // degrade to the counts/kinds T1 tree — fail-soft, never empty if either has
   // signal.
-  if (richTurns.length > 0) {
-    return <ContentTurnList turns={richTurns} tail={liveAffordance} />;
+  // Content transcript present → search bar + the conversation. The search bar
+  // persists even when a query filters everything out (so it can be cleared).
+  if (rawNodes.length > 0) {
+    return (
+      <div className="flex h-full flex-col">
+        <div className="shrink-0 border-b border-[var(--border)] bg-card px-2 py-1.5">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search this session — messages, tools, output…"
+            aria-label="Search this session"
+            className="wc-input w-full px-2 py-1 text-meta"
+          />
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {richTurns.length > 0 ? (
+            <ContentTurnList turns={richTurns} tail={query.trim() ? null : liveAffordance} />
+          ) : (
+            <div className="wc-sans p-4 text-meta text-muted-foreground">No messages match “{query.trim()}”.</div>
+          )}
+        </div>
+      </div>
+    );
   }
 
   if (turns.length === 0) {

@@ -421,6 +421,17 @@ export function createZuzuuApi(getRoot: () => string, opts: ApiOpts = {}): Hono 
     return c.json(r.data as Record<string, unknown>);
   });
 
+  // Set/clear a session's user label (`zuzuu session label <id> --text <label>`).
+  // A blank label clears it. Persisted outside the index (survives re-capture).
+  app.post("/session-label/:id", async (c) => {
+    const id = c.req.param("id");
+    if (!SAFE_ID.test(id)) return c.json({ error: "bad id" }, 400);
+    const body = await readBody(c);
+    const label = typeof body.label === "string" ? body.label : "";
+    if (label.length > 200) return c.json({ error: "label too long" }, 400);
+    return mutate(c, ["session", "label", id, "--text", label]);
+  });
+
   app.get("/status", async (c) => {
     const viaCli = await runZuzuu(root, ["status"], { binary: opts.binary });
     if (viaCli) return c.json(viaCli);

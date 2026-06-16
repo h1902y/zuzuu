@@ -34,10 +34,10 @@ import { SessionComposer } from "../components/SessionComposer";
 import { centerCard } from "../lib/session-cards";
 import { sessionStateMeta, shortSessionId, fmtDuration } from "../panel/sections";
 import { relativeTime } from "../panel/kit";
-import { agentTabTitle } from "../modules/host-launch";
-import { groupRowsByBand, pickerCollapsedSummary, pickerRows, type PickerBand, type PickerRow } from "./session-picker";
+import { filterPickerRows, groupRowsByBand, pickerCollapsedSummary, pickerRows, sessionDisplayName, type PickerBand, type PickerRow } from "./session-picker";
 import { useSessionDiffQuery, useSessionGitQuery, useZuzuuHealthQuery } from "./queries";
 import { SessionChanges } from "./SessionChanges";
+import { detectAttention, type AttentionEvent, type AttentionSnapshot } from "./attention";
 import { zuzuuApi } from "../lib/zuzuu-api";
 
 /** Which sub-surface of the viewed session is showing. */
@@ -87,7 +87,7 @@ function PickerRowButton({
         <StatusPill tone={pillTone(meta.tone)}>{meta.label}</StatusPill>
       )}
       <span className="wc-sans max-w-[12rem] truncate text-ui font-medium text-foreground">
-        {agentTabTitle(s.host) || s.host || "session"}
+        {sessionDisplayName(s)}
       </span>
       {outside && (
         <span className="wc-sans shrink-0 text-meta text-muted-foreground" title="Running outside the workbench">
@@ -115,6 +115,7 @@ function SessionPicker({
   onSelect: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
 
   if (rows.length === 0) return null;
 
@@ -122,7 +123,8 @@ function SessionPicker({
   // (viewedId is the active tab's id, which may be a PTY id, not a trace id)
   const viewedRow = rows.find((r) => tabIdFor(r.session) === viewedId) ?? null;
   const summary = pickerCollapsedSummary(rows, viewedRow);
-  const groups = groupRowsByBand(rows);
+  // search narrows the expanded list (host / state / branch / id)
+  const groups = groupRowsByBand(filterPickerRows(rows, query));
 
   const handleSelect = (id: string) => {
     onSelect(id);
@@ -150,7 +152,7 @@ function SessionPicker({
               </StatusPill>
             )}
             <span className="wc-sans min-w-0 truncate text-ui font-medium text-foreground">
-              {agentTabTitle(viewedRow.session.host) || viewedRow.session.host || "session"}
+              {sessionDisplayName(viewedRow.session)}
             </span>
           </>
         )}
@@ -167,9 +169,18 @@ function SessionPicker({
         </svg>
       </button>
 
-      {/* expanded: vertical grouped list */}
+      {/* expanded: search box + vertical grouped list */}
       {open && (
-        <div className="max-h-64 overflow-y-auto border-t border-[var(--border)] pb-1">
+        <div className="max-h-72 overflow-y-auto border-t border-[var(--border)] pb-1">
+          <div className="sticky top-0 z-10 bg-card px-2 py-1.5">
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search sessions — host, state, branch…"
+              aria-label="Search sessions"
+              className="wc-input w-full px-2 py-1 text-meta"
+            />
+          </div>
           {(["now", "recent", "older"] as PickerBand[]).map((band) => {
             const bandRows = groups.get(band) ?? [];
             if (bandRows.length === 0) return null;
@@ -189,6 +200,9 @@ function SessionPicker({
               </div>
             );
           })}
+          {query.trim() && [...groups.values()].every((g) => g.length === 0) && (
+            <div className="wc-sans px-3 py-2 text-meta text-muted-foreground">No sessions match “{query.trim()}”.</div>
+          )}
         </div>
       )}
     </div>
@@ -217,12 +231,53 @@ function TreeViewHeader({
 }) {
   const meta = sessionStateMeta(session.state);
   const branch = session.git?.branch ?? null;
+  const qc = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const startEdit = () => {
+    setDraft(session.label ?? "");
+    setEditing(true);
+  };
+  const save = async () => {
+    setEditing(false);
+    try {
+      await zuzuuApi.setSessionLabel(session.id, draft);
+    } catch {
+      /* fail-soft: a rename failure leaves the prior name */
+    }
+    void qc.invalidateQueries({ queryKey: ["zuzuu", "sessions"] });
+  };
   return (
     <Bar border="b" surface="surface" className="!gap-2 !px-3 !py-1.5">
       <StatusPill tone={pillTone(meta.tone)}>{meta.label}</StatusPill>
-      <span className="wc-sans min-w-0 truncate text-ui font-medium text-foreground">
-        {agentTabTitle(session.host) || session.host || "session"}
-      </span>
+      {editing ? (
+        <input
+          autoFocus
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") void save();
+            if (e.key === "Escape") setEditing(false);
+          }}
+          onBlur={() => void save()}
+          placeholder={sessionDisplayName({ host: session.host })}
+          aria-label="Rename session"
+          className="wc-input min-w-0 flex-1 px-2 py-0.5 text-ui"
+        />
+      ) : (
+        <button
+          onClick={startEdit}
+          title="Rename session"
+          className="group/name flex min-w-0 items-center gap-1.5 text-left"
+        >
+          <span className="wc-sans min-w-0 truncate text-ui font-medium text-foreground">
+            {sessionDisplayName(session)}
+          </span>
+          <svg viewBox="0 0 16 16" className="h-3 w-3 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/name:opacity-100" fill="none" stroke="currentColor" strokeWidth="1.4">
+            <path d="M11 2.5l2.5 2.5L6 12.5 3 13l.5-3L11 2.5z" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+      )}
       {branch && (
         <span className="wc-mono inline-flex shrink-0 items-center gap-1 text-meta text-muted-foreground" title={`Session branch ${branch}`}>
           <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M5 5.5v5M5 3a1.5 1.5 0 100 3 1.5 1.5 0 000-3zM5 10.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3zM11 3a1.5 1.5 0 100 3 1.5 1.5 0 000-3zM11 6c0 3-3 3-6 4.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
@@ -317,6 +372,46 @@ export function SessionPane() {
     useOpenTabs.getState().reconcile(known);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tabs, sessionsQ.data]);
+
+  // W1-C attention: notify + toast when a session finishes/crashes. Compare the
+  // poll snapshots; a transition live → terminal is the signal.
+  const prevSnaps = useRef<AttentionSnapshot[]>([]);
+  const [toasts, setToasts] = useState<AttentionEvent[]>([]);
+  useEffect(() => {
+    if (typeof Notification !== "undefined" && Notification.permission === "default") {
+      void Notification.requestPermission().catch(() => {});
+    }
+  }, []);
+  useEffect(() => {
+    const next: AttentionSnapshot[] = allSessions.map((s) => ({
+      id: s.id,
+      state: String(s.state ?? ""),
+      label: sessionDisplayName(s),
+    }));
+    const events = prevSnaps.current.length ? detectAttention(prevSnaps.current, next) : [];
+    prevSnaps.current = next;
+    if (events.length === 0) return;
+    setToasts((t) => [...t, ...events]);
+    // desktop notification only when tabbed away (Warp's model)
+    if (typeof Notification !== "undefined" && Notification.permission === "granted" && document.visibilityState === "hidden") {
+      for (const e of events) {
+        try {
+          new Notification(`zuzuu — ${e.label}`, { body: e.kind === "finished" ? "Session finished" : "Session crashed" });
+        } catch {
+          /* notifications best-effort */
+        }
+      }
+    }
+    const ids = new Set(events.map((e) => e.sessionId));
+    window.setTimeout(() => setToasts((t) => t.filter((x) => !ids.has(x.sessionId))), 8000);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionsQ.data]);
+
+  const jumpToSession = (sessionId: string) => {
+    const s = allSessions.find((x) => x.id === sessionId);
+    if (s) useOpenTabs.getState().open(tabIdFor(s));
+    setToasts((t) => t.filter((x) => x.sessionId !== sessionId));
+  };
 
   // per-viewed-session work tab: tree (default) | terminal (live only)
   const [workTab, setWorkTab] = useState<Record<string, WorkTab>>({});
@@ -462,6 +557,26 @@ export function SessionPane() {
             (viewed.session.state === "active" || viewed.session.state === "opening")
           }
         />
+      )}
+
+      {/* W1-C attention toasts — a session finished/crashed; click to jump to it */}
+      {toasts.length > 0 && (
+        <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
+          {toasts.map((e) => (
+            <button
+              key={e.sessionId}
+              onClick={() => jumpToSession(e.sessionId)}
+              className="flex items-center gap-2 rounded-[var(--radius-ui)] border border-[var(--border)] bg-popover px-3 py-2 text-ui text-foreground shadow-[var(--shadow-menu)] transition-colors hover:bg-[var(--accent)]"
+              style={{ boxShadow: "var(--shadow-menu)" }}
+            >
+              <StatusDot tone={e.kind === "finished" ? "ok" : "bad"} />
+              <span className="wc-sans min-w-0 max-w-[16rem] truncate">
+                {e.label} {e.kind === "finished" ? "finished" : "crashed"}
+              </span>
+              <span className="wc-sans shrink-0 text-meta text-accent-dim">· view</span>
+            </button>
+          ))}
+        </div>
       )}
     </div>
   );

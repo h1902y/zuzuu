@@ -8,6 +8,7 @@
 //
 // React/fetch-free so the ordering + live/past resolution are unit-tested.
 import type { ZuzuuSessionEntry } from "@zuzuu-web/protocol";
+import { agentTabTitle } from "../modules/host-launch";
 
 /** Recency band for a session row's grouping in the picker. */
 export type PickerBand = "now" | "recent" | "older";
@@ -103,6 +104,28 @@ export function resolveViewed(rows: PickerRow[], selectedId: string | null): Pic
     if (hit) return hit;
   }
   return rows[0] ?? null;
+}
+
+/** The name to show for a session: the user label if set, else the friendly
+ *  host title (agentTabTitle), else "agent". The one place display naming lives
+ *  so the picker, tab strip, and header agree. */
+export function sessionDisplayName(session: { label?: string; host?: string }): string {
+  return session.label?.trim() || agentTabTitle(session.host);
+}
+
+/**
+ * Filter picker rows by a free-text query (case-insensitive substring over the
+ * session's host, state, git branch, and id). A blank query returns all rows.
+ * Pure so the picker's search box is unit-tested without the DOM.
+ */
+export function filterPickerRows(rows: PickerRow[], query: string): PickerRow[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return rows;
+  return rows.filter((r) => {
+    const s = r.session;
+    const hay = [s.host, s.state, s.git?.branch, s.id].filter(Boolean).join(" ").toLowerCase();
+    return hay.includes(q);
+  });
 }
 
 /** A collapsed-summary description for the session picker header. */
