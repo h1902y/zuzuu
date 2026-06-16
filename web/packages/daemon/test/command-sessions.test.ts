@@ -12,6 +12,7 @@ import {
   realpathSync,
   readFileSync,
   existsSync,
+  mkdirSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -78,13 +79,49 @@ const postJson = (server: WebcodeServer, headers: Record<string, string>, body: 
     body: JSON.stringify(body),
   });
 
-/** A zuzuu stub that logs each invocation and prints merge JSON. */
+/** A zuzuu stub for the in-place (non-worktree) path: the worktree-open probe
+ *  reports a non-git workspace (→ daemon falls back to in-place), and only the
+ *  `session merge` call is logged + answered with merge JSON. */
 function mergeStub(r: string, payload = '{"ok":true,"mergedAs":"abc12345","mergedTo":"main","commits":2,"branch":"zz/session-x"}') {
   const marker = path.join(r, "merge-calls.log");
   const stub = path.join(r, "zuzuu-merge-stub.sh");
-  writeFileSync(stub, `#!/bin/sh\necho "run $@" >> '${marker}'\necho '${payload}'\n`);
+  writeFileSync(
+    stub,
+    `#!/bin/sh
+case "$*" in
+  *"worktree open"*) echo '{"ok":false,"reason":"not-a-git-repo"}'; exit 1 ;;
+  *) echo "run $@" >> '${marker}'; echo '${payload}' ;;
+esac
+`,
+  );
   chmodSync(stub, 0o755);
   return { stub, marker };
+}
+
+/** A zuzuu stub for the worktree path: `worktree open` mkdir's a real dir and
+ *  returns it; `worktree close` is logged + answered with merge JSON. */
+function worktreeStub(r: string) {
+  const marker = path.join(r, "wt-calls.log");
+  const wt = path.join(r, ".zuzuu", ".worktrees", "agent");
+  const stub = path.join(r, "zuzuu-wt-stub.sh");
+  writeFileSync(
+    stub,
+    `#!/bin/sh
+case "$*" in
+  *"worktree open"*)
+    mkdir -p '${wt}'
+    echo '{"ok":true,"branch":"zz/session-agent","worktree":"${wt}","base":"main"}'
+    ;;
+  *"worktree close"*)
+    echo "run $@" >> '${marker}'
+    echo '{"ok":true,"mergedAs":"deadbeef","mergedTo":"main","commits":1}'
+    ;;
+  *"session merge"*) echo "run $@" >> '${marker}'; echo '{"ok":true}' ;;
+esac
+`,
+  );
+  chmodSync(stub, 0o755);
+  return { stub, marker, wt };
 }
 
 describe("Session: direct command spawn", () => {
@@ -298,6 +335,59 @@ describe("agent exit → session-git merge", () => {
     const server = makeServer();
     const headers = await authedHeaders(server);
     expect((await server.app.request("/api/sessions/deadbeef", { headers })).status).toBe(404);
+    server.stop();
+  });
+});
+
+describe("Wave B: worktree-backed agent sessions", () => {
+  it("an agent at the workspace root spawns in its own worktree dir", async () => {
+    const { stub, wt } = worktreeStub(root);
+    const server = makeServer({ commandAllowlist: ["/bin/echo"], zuzuuBinary: stub });
+    const headers = await authedHeaders(server);
+    const created = await (
+      await postJson(server, headers, { command: "/bin/echo", args: ["hi"], type: "agent", host: "claude" })
+    ).json();
+    // the PTY's cwd is the worktree the CLI returned, not the workspace root
+    expect(created.cwd).toBe(realpathSync(wt));
+    expect(created.cwd).not.toBe(root);
+    server.stop();
+  });
+
+  it("worktree-backed agent exit closes via `session worktree close`, NOT `session merge`", async () => {
+    const { stub, marker } = worktreeStub(root);
+    const server = makeServer({ commandAllowlist: ["/bin/echo"], zuzuuBinary: stub });
+    const headers = await authedHeaders(server);
+    const created = await (
+      await postJson(server, headers, { command: "/bin/echo", args: ["bye"], type: "agent", host: "claude" })
+    ).json();
+    let detail: Record<string, unknown> = {};
+    await waitFor(async () => {
+      detail = await (await server.app.request(`/api/sessions/${created.id}`, { headers })).json();
+      return detail.closeResult !== undefined;
+    });
+    expect(detail.closeResult).toEqual({
+      ok: true,
+      merge: { ok: true, mergedAs: "deadbeef", mergedTo: "main", commits: 1 },
+    });
+    await sleep(200);
+    const calls = readFileSync(marker, "utf8").trim().split("\n");
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toContain(`session worktree close ${created.id}`);
+    expect(calls[0]).not.toContain("session merge");
+    server.stop();
+  });
+
+  it("an explicit subdir cwd opts OUT of worktree backing (runs in place)", async () => {
+    const { stub } = worktreeStub(root);
+    const sub = path.join(root, "sub");
+    mkdirSync(sub);
+    const server = makeServer({ commandAllowlist: ["/bin/echo"], zuzuuBinary: stub });
+    const headers = await authedHeaders(server);
+    const created = await (
+      await postJson(server, headers, { command: "/bin/echo", args: ["x"], type: "agent", cwd: "sub" })
+    ).json();
+    expect(created.cwd).toBe(realpathSync(sub)); // ran in the subdir, in place
+    expect(created.cwd).not.toContain(".worktrees"); // never opened a worktree
     server.stop();
   });
 });

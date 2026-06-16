@@ -83,6 +83,18 @@ export interface SessionSpawnOpts {
   /** host CLI name for agent sessions (display/bookkeeping only) */
   host?: string;
   /**
+   * Inject the canonical session id instead of generating one. The server uses
+   * this to open a git worktree with the SAME id BEFORE constructing the Session
+   * (the PTY spawns synchronously in the worktree dir). Absent → random hex.
+   */
+  id?: string;
+  /**
+   * This agent runs inside its own daemon-owned git worktree (Wave B
+   * concurrency). The close hook squash-merges via `session worktree close`
+   * (from the main tree) instead of the in-place `session merge`.
+   */
+  sessionWorktree?: boolean;
+  /**
    * Runs ONCE when an agent PTY exits (the zuzuu session-git merge); its
    * resolved value is stored as `closeResult` and surfaced over REST.
    */
@@ -100,8 +112,10 @@ export interface SessionSpawnOpts {
  * the kernel pty buffer, so `yes` / giant `cat` never overruns the browser.
  */
 export class Session {
-  readonly id = crypto.randomBytes(8).toString("hex");
+  readonly id: string;
   readonly createdAt = Date.now();
+  /** true when this agent runs in its own git worktree (Wave B concurrency) */
+  readonly usesWorktree: boolean;
   title: string;
   alive = true;
   readonly type: SessionType;
@@ -137,6 +151,8 @@ export class Session {
     private readonly onUpdate: () => void,
     private readonly opts: SessionSpawnOpts = {},
   ) {
+    this.id = opts.id ?? crypto.randomBytes(8).toString("hex");
+    this.usesWorktree = opts.sessionWorktree === true;
     this.cwdAbs = cwd;
     this.type = opts.type ?? "shell";
     this.host = opts.host;
