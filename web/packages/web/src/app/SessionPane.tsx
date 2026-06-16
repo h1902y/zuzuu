@@ -686,7 +686,7 @@ function ViewedSession({
             when selected (its own diff query is lazy). */}
         {view === "changes" && (
           <div className="absolute inset-0">
-            <SessionChanges sessionId={session.id} alive={live} />
+            <SessionChanges session={session} alive={live} />
           </div>
         )}
       </div>

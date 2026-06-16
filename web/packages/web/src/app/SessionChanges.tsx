@@ -3,10 +3,36 @@
 // fail-soft: a session whose diff can't be resolved (merged branch gone) reads
 // "Diff not available"; one with no net change reads "No changes". Source =
 // `zuzuu session diff <id>` via the daemon (never touches the PTY/working tree).
-import { useState } from "react";
-import type { SessionDiffFile } from "@zuzuu-web/protocol";
+import { useState, type ReactNode } from "react";
+import type { SessionDiffFile, ZuzuuSessionEntry } from "@zuzuu-web/protocol";
 import { useSessionDiffQuery, useSessionFileDiffQuery } from "./queries";
 import { Spinner, cx } from "../components/ui";
+import { fmtDuration } from "../panel/sections";
+import { summarizeOutcome } from "./outcome";
+
+/** Compact, read-only outcome summary at the top of the Changes view: the whole
+ *  run in one line — files +/− · turns · tools · errors · duration. */
+function OutcomeCard({ session, diffTotals }: { session: ZuzuuSessionEntry; diffTotals: { files: number; additions: number; deletions: number } | null }) {
+  const o = summarizeOutcome(session, diffTotals);
+  const dur = fmtDuration(o.durationMs);
+  return (
+    <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-[var(--border)] bg-card px-3 py-1.5 text-meta text-muted-foreground">
+      <span className="wc-mono inline-flex items-center gap-1.5">
+        <span className="wc-sans text-foreground">
+          {o.files} file{o.files === 1 ? "" : "s"}
+        </span>
+        {o.additions > 0 && <span className="text-success">+{o.additions}</span>}
+        {o.deletions > 0 && <span className="text-error">−{o.deletions}</span>}
+      </span>
+      <span className="wc-mono">{o.turns} turn{o.turns === 1 ? "" : "s"}</span>
+      <span className="wc-mono">{o.tools} tool{o.tools === 1 ? "" : "s"}</span>
+      <span className={cx("wc-mono", o.errors > 0 && "text-error")}>
+        {o.errors} error{o.errors === 1 ? "" : "s"}
+      </span>
+      {dur && <span className="wc-mono ml-auto">{dur}</span>}
+    </div>
+  );
+}
 
 /** git status letter → tone. */
 function statusTone(status: string): "add" | "remove" | "change" {
@@ -97,7 +123,8 @@ function FileRow({ sessionId, file }: { sessionId: string; file: SessionDiffFile
   );
 }
 
-export function SessionChanges({ sessionId, alive }: { sessionId: string; alive: boolean }) {
+export function SessionChanges({ session, alive }: { session: ZuzuuSessionEntry; alive: boolean }) {
+  const sessionId = session.id;
   const q = useSessionDiffQuery(sessionId, true);
   void alive; // polling cadence is handled in the query; alive kept for parity/intent
 
@@ -110,38 +137,37 @@ export function SessionChanges({ sessionId, alive }: { sessionId: string; alive:
   }
 
   const d = q.data;
+  const diffTotals = d?.available ? d.totals : null;
+
+  let body: ReactNode;
   if (!d || !d.available) {
-    return (
-      <div className="flex h-full items-center justify-center p-8 text-center">
+    body = (
+      <div className="flex flex-1 items-center justify-center p-8 text-center">
         <p className="max-w-xs text-ui leading-relaxed text-muted-foreground">
           Diff not available — this session's branch was merged or removed.
         </p>
       </div>
     );
-  }
-  if (d.files.length === 0) {
-    return (
-      <div className="flex h-full items-center justify-center p-8 text-center">
+  } else if (d.files.length === 0) {
+    body = (
+      <div className="flex flex-1 items-center justify-center p-8 text-center">
         <p className="max-w-xs text-ui leading-relaxed text-muted-foreground">No changes in this session yet.</p>
+      </div>
+    );
+  } else {
+    body = (
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {d.files.map((f) => (
+          <FileRow key={f.path} sessionId={sessionId} file={f} />
+        ))}
       </div>
     );
   }
 
   return (
     <div className="flex h-full flex-col">
-      {/* totals header */}
-      <div className="flex shrink-0 items-center gap-2 border-b border-[var(--border)] bg-card px-3 py-1.5 text-meta text-muted-foreground">
-        <span className="wc-sans text-foreground">
-          {d.totals.files} file{d.totals.files === 1 ? "" : "s"} changed
-        </span>
-        {d.totals.additions > 0 && <span className="wc-mono text-success">+{d.totals.additions}</span>}
-        {d.totals.deletions > 0 && <span className="wc-mono text-error">−{d.totals.deletions}</span>}
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {d.files.map((f) => (
-          <FileRow key={f.path} sessionId={sessionId} file={f} />
-        ))}
-      </div>
+      <OutcomeCard session={session} diffTotals={diffTotals} />
+      {body}
     </div>
   );
 }
