@@ -421,6 +421,22 @@ export function createZuzuuApi(getRoot: () => string, opts: ApiOpts = {}): Hono 
     return c.json(r.data as Record<string, unknown>);
   });
 
+  // Trace-linked diff (`zuzuu session diff <id> --authors --json`): each changed
+  // file → the turn that wrote it (the last tool call whose input mentioned the
+  // path). CLI-first (the daemon never re-mines transcripts); absent → 503,
+  // unknown id → { authors: {} } 404. Read-only: pure git + transcript reads,
+  // never touches the PTY / capture / working tree.
+  app.get("/session-file-authors/:id", async (c) => {
+    const id = c.req.param("id");
+    if (!SAFE_ID.test(id)) return c.json({ error: "bad id" }, 400);
+    const r = await runZuzuuMut(root, ["session", "diff", id, "--authors"], { binary: opts.binary });
+    if (!r.ok) {
+      if (r.code === "absent") return c.json({ error: "zuzuu CLI required" }, 503);
+      return c.json({ sessionId: id, authors: {} }, 404);
+    }
+    return c.json(r.data as Record<string, unknown>);
+  });
+
   // Set/clear a session's user label (`zuzuu session label <id> --text <label>`).
   // A blank label clears it. Persisted outside the index (survives re-capture).
   app.post("/session-label/:id", async (c) => {

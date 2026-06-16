@@ -329,6 +329,23 @@ export interface SessionFileDiffResponse {
   truncated?: boolean;
 }
 
+/** The turn that wrote one changed file (W2b: trace-linked diff). `turn` is the
+ *  tool label (Write/Edit/Bash/…) of the LAST tool call whose input mentioned
+ *  the file; `ts` is that call's ISO timestamp. */
+export interface SessionFileAuthor {
+  turn: string;
+  ts: string;
+}
+
+/** GET /session-file-authors/:id — `zuzuu session diff <id> --authors --json`.
+ *  Maps each changed file path to the turn that wrote it (best-effort — a path
+ *  no tool mentioned is simply absent). Fail-soft: no diff / no transcript →
+ *  authors {} (never an error). */
+export interface SessionFileAuthorsResponse {
+  sessionId: string;
+  authors: Record<string, SessionFileAuthor>;
+}
+
 // ── Write side (mutations are CLI-only; the daemon shells out to zuzuu) ──
 
 /** The 5 normalized 0-1 signal components behind a proposal's score
