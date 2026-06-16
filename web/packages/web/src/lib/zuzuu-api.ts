@@ -4,7 +4,8 @@ import type {
   ModuleOverviewResponse, SessionInspectResponse, SessionTraceResponse, SessionTreeResponse,
   ModuleGenerationList, ModuleGenerationDiff, CheckpointList,
   CheckpointMintResult, CheckpointRollbackResult,
-  SessionsResponse, SessionContentResponse, SessionDiffResponse, SessionFileDiffResponse, SessionLabelResponse, DigestResponse,
+  SessionsResponse, SessionContentResponse, SessionDiffResponse, SessionFileDiffResponse,
+  SessionFileAuthorsResponse, SessionLabelResponse, DigestResponse,
   EvalResponse, HostsResponse, ApproveResult, RejectResult, RollbackResult,
   SessionGitStatus, SessionMergeResult,
 } from "@zuzuu-web/protocol";
@@ -83,6 +84,10 @@ export const zuzuuApi = {
   /** one changed file's unified diff for a session (size-capped) */
   sessionFileDiff: (id: string, path: string) =>
     request<SessionFileDiffResponse>(`/session-file-diff/${encodeURIComponent(id)}?path=${encodeURIComponent(path)}`),
+  /** trace-linked diff — each changed file mapped to the turn that wrote it (W2b);
+   *  best-effort (a path no tool mentioned is absent). Fail-soft: 404 → authors {} */
+  sessionFileAuthors: (id: string) =>
+    request<SessionFileAuthorsResponse>(`/session-file-authors/${encodeURIComponent(id)}`),
   /** set/clear a session's user label (blank clears it) */
   setSessionLabel: (id: string, label: string) =>
     request<SessionLabelResponse>(`/session-label/${encodeURIComponent(id)}`, json({ label })),

@@ -85,6 +85,17 @@ export const useSessionFileDiffQuery = (sessionId: string, path: string, enabled
     enabled,
   });
 
+/** Trace-linked diff (W2b) — each changed file mapped to the turn that wrote it.
+ *  Polled gently alongside the diff so a live session's authors fill in as the
+ *  transcript grows. Fail-soft: a missing diff / thin transcript → authors {}. */
+export const useSessionFileAuthorsQuery = (sessionId: string, enabled: boolean) =>
+  useQuery({
+    queryKey: ["zuzuu", "session-file-authors", sessionId],
+    queryFn: () => zuzuuApi.sessionFileAuthors(sessionId),
+    refetchInterval: 8000,
+    enabled,
+  });
+
 const parentOf = (path: string) => path.split("/").slice(0, -1).join("/");
 
 /** Start the fs-events socket once the workspace is known and map pushed

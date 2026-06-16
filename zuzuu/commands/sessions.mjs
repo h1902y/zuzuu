@@ -537,6 +537,73 @@ export function sessionFileDiffData(cwd, idArg, path) {
   }
 }
 
+// ── W2b: trace-linked diff (changed file → the turn that wrote it) ──────────
+// Bridges the git diff (what changed) to the captured transcript (who wrote it):
+// for each changed path, the LAST tool node whose toolInput mentions that path.
+// "Mentions" = the full repo-relative path OR its basename appears literally in
+// the tool's serialized input (best-effort, no JSON parse — inputs are already
+// stringified DISPLAY nodes). Best-effort throughout: an unmatched path is
+// simply absent from the result; a thin host (no tool nodes) yields {}.
+
+const basename = (p) => String(p ?? '').split('/').pop() ?? '';
+
+/**
+ * Pure: map each changed file path to the LAST tool node that wrote it.
+ * @param {Array<{kind,label,ts,toolInput?}>} nodes  DISPLAY content nodes (sessionContentData shape)
+ * @param {string[]} paths  the changed file paths (from sessionDiffData)
+ * @returns {Record<string, { turn: string, ts: string }>}  path → writing turn (absent when unmatched)
+ */
+export function fileAuthorsFromNodes(nodes, paths) {
+  const out = {};
+  if (!Array.isArray(nodes) || !Array.isArray(paths) || !paths.length) return out;
+  // Walk in order; later tool nodes overwrite earlier ones for the same path.
+  for (const n of nodes) {
+    if (!n || n.kind !== 'tool') continue;
+    const input = typeof n.toolInput === 'string' ? n.toolInput : '';
+    if (!input) continue;
+    for (const path of paths) {
+      if (typeof path !== 'string' || !path) continue;
+      const base = basename(path);
+      if (input.includes(path) || (base && input.includes(base))) {
+        out[path] = { turn: n.label || 'tool', ts: n.ts ?? '' };
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Pure-ish: { sessionId, authors } where authors maps each changed file to the
+ * turn that wrote it. Loads the changed-file paths (sessionDiffData) + the
+ * ordered content nodes (sessionContentData) and applies fileAuthorsFromNodes.
+ * Fail-soft: unknown id → null; no diff / no content → { authors: {} }, never throws.
+ * @param {string} cwd
+ * @param {string} idArg  session id or unique prefix
+ * @param {{transcripts?: Array<object>, paths?: string[]}} [opts]  injectable for tests
+ * @returns {{ sessionId: string, authors: Record<string, {turn,ts}> } | null}
+ */
+export function sessionFileAuthorsData(cwd, idArg, { transcripts, paths } = {}) {
+  if (!idArg) return null;
+  const s = matchSession(readIndex(cwd).sessions, idArg);
+  if (!s) return null;
+  let authors = {};
+  try {
+    // Changed paths: injected (tests) or resolved from the session's diff.
+    let changed = paths;
+    if (!Array.isArray(changed)) {
+      const diff = sessionDiffData(cwd, s.id);
+      changed = diff && diff.available ? diff.files.map((f) => f.path) : [];
+    }
+    if (changed.length) {
+      const content = sessionContentData(cwd, s.id, { transcripts });
+      authors = fileAuthorsFromNodes(content ? content.nodes : [], changed);
+    }
+  } catch {
+    authors = {}; // fail-soft
+  }
+  return { sessionId: s.id, authors };
+}
+
 const fmtDur = (ms) => (ms < 60_000 ? `${(ms / 1000).toFixed(0)}s` : `${(ms / 60_000).toFixed(1)}m`);
 
 /** `zuzuu sessions [--json]` — the recorded-sessions list with state labels. */
@@ -669,12 +736,31 @@ export function sessionLabel(args = {}) {
   console.log(label ? `labelled ${s.id}: ${label}` : `cleared label for ${s.id}`);
 }
 
-/** `zuzuu session diff <id> [--json] [--file <path>]` — what the session changed
- *  (files + per-file unified diff), resolved from its git branch / merge commit. */
+/** `zuzuu session diff <id> [--json] [--file <path>] [--authors]` — what the
+ *  session changed (files + per-file unified diff), resolved from its git branch
+ *  / merge commit. `--authors` (W2b): trace-linked diff — each changed file → the
+ *  turn that wrote it (the last tool node whose toolInput mentions the path). */
 export function sessionDiff(args = {}) {
   const cwd = process.cwd();
   const id = args._?.[1];
   const file = args.file;
+  // --authors: trace-linked diff (changed file → the turn that wrote it).
+  if (args.authors) {
+    const d = sessionFileAuthorsData(cwd, id);
+    if (!d) {
+      console.error(id ? `no recorded session matching '${id}'` : 'usage: zuzuu session diff <id> --authors [--json]');
+      process.exit(1);
+    }
+    if (args.json) { console.log(JSON.stringify(d)); return; }
+    const entries = Object.entries(d.authors);
+    if (!entries.length) { console.log(`${d.sessionId}: no trace-linked authors (diff or transcript unavailable)`); return; }
+    console.log(`${d.sessionId}: ${entries.length} file author(s)`);
+    for (const [path, a] of entries) {
+      const ts = a.ts ? a.ts.slice(11, 19) : '--:--:--';
+      console.log(`  ${ts}  ${a.turn.padEnd(10)}  ${path}`);
+    }
+    return;
+  }
   if (file) {
     const d = sessionFileDiffData(cwd, id, file);
     if (!d) {

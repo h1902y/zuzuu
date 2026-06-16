@@ -4,8 +4,8 @@
 // "Diff not available"; one with no net change reads "No changes". Source =
 // `zuzuu session diff <id>` via the daemon (never touches the PTY/working tree).
 import { useState, type ReactNode } from "react";
-import type { SessionDiffFile, ZuzuuSessionEntry } from "@zuzuu-web/protocol";
-import { useSessionDiffQuery, useSessionFileDiffQuery } from "./queries";
+import type { SessionDiffFile, SessionFileAuthor, ZuzuuSessionEntry } from "@zuzuu-web/protocol";
+import { useSessionDiffQuery, useSessionFileDiffQuery, useSessionFileAuthorsQuery } from "./queries";
 import { Spinner, cx } from "../components/ui";
 import { fmtDuration } from "../panel/sections";
 import { summarizeOutcome } from "./outcome";
@@ -67,7 +67,7 @@ function UnifiedDiff({ text }: { text: string }) {
   );
 }
 
-function FileRow({ sessionId, file }: { sessionId: string; file: SessionDiffFile }) {
+function FileRow({ sessionId, file, author }: { sessionId: string; file: SessionDiffFile; author?: SessionFileAuthor }) {
   const [open, setOpen] = useState(false);
   const diffQ = useSessionFileDiffQuery(sessionId, file.path, open);
   const tone = statusTone(file.status);
@@ -91,6 +91,15 @@ function FileRow({ sessionId, file }: { sessionId: string; file: SessionDiffFile
           {file.status}
         </span>
         <span className="wc-mono min-w-0 flex-1 truncate text-ui text-foreground">{file.path}</span>
+        {/* W2b: the turn that wrote this file (best-effort — absent → nothing) */}
+        {author && (
+          <span
+            className="wc-mono shrink-0 rounded-[var(--radius-sm)] bg-[var(--accent)] px-1.5 text-meta text-muted-foreground"
+            title={`written by the ${author.turn} turn${author.ts ? ` at ${author.ts}` : ""}`}
+          >
+            {author.turn}
+          </span>
+        )}
         {file.additions > 0 && <span className="wc-mono shrink-0 text-meta text-success">+{file.additions}</span>}
         {file.deletions > 0 && <span className="wc-mono shrink-0 text-meta text-error">−{file.deletions}</span>}
         <svg
@@ -126,6 +135,10 @@ function FileRow({ sessionId, file }: { sessionId: string; file: SessionDiffFile
 export function SessionChanges({ session, alive }: { session: ZuzuuSessionEntry; alive: boolean }) {
   const sessionId = session.id;
   const q = useSessionDiffQuery(sessionId, true);
+  // W2b: trace-linked authors (best-effort; absent → no badge). Gated on a
+  // resolvable diff so we don't query authors when there's nothing changed.
+  const authorsQ = useSessionFileAuthorsQuery(sessionId, q.data?.available === true);
+  const authors = authorsQ.data?.authors ?? {};
   void alive; // polling cadence is handled in the query; alive kept for parity/intent
 
   if (q.isPending) {
@@ -158,7 +171,7 @@ export function SessionChanges({ session, alive }: { session: ZuzuuSessionEntry;
     body = (
       <div className="min-h-0 flex-1 overflow-y-auto">
         {d.files.map((f) => (
-          <FileRow key={f.path} sessionId={sessionId} file={f} />
+          <FileRow key={f.path} sessionId={sessionId} file={f} author={authors[f.path]} />
         ))}
       </div>
     );
