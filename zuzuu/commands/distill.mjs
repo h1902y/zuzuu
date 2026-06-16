@@ -22,7 +22,13 @@ export async function distill(args) {
   if (args['all-modules'] || args.allModules) {
     const sessions = pairs.map(mineHostSession).filter(Boolean);
     const hosts = new Set(sessions.map((s) => s.host));
-    const miners = registry.miners();
+    // Skip miners whose module is disabled (manifest.enabled === false) — fail-soft.
+    const miners = registry.minersFor(agentDir).filter((miner) => {
+      try {
+        const entry = registry.moduleOf(agentDir, miner.module);
+        return entry?.manifest?.enabled !== false;
+      } catch { return true; }
+    });
     console.log(`distilled ${sessions.length} session(s) across ${hosts.size} host(s) and ${miners.length} module miner(s):`);
     let total = 0;
     for (const miner of miners) {

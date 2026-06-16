@@ -1,6 +1,11 @@
 // Shared types for the zuzuu modules dashboard (the /api/zuzuu/* contract).
 
-export type ModuleKey = "knowledge" | "memory" | "actions" | "instructions" | "guardrails";
+/** A module key is any slug (e.g. "knowledge", "memory", or a user-composed
+ *  module like "todo"). The five built-ins are just seed templates. */
+export type ModuleKey = string;
+
+/** The five built-in module keys (seed templates; kept for fallback metadata). */
+export const BUILTIN_MODULE_KEYS = ["knowledge", "memory", "actions", "instructions", "guardrails"] as const;
 
 export interface ZuzuuHealth {
   home: boolean;
@@ -158,6 +163,8 @@ export interface ModuleOverviewEntry {
   counts: { items: number; pending: number; errors: number };
   /** up to 3 top item titles */
   top: string[];
+  /** whether this module is enabled (default true; toggled via zuzuu module enable/disable) */
+  enabled?: boolean;
 }
 
 export interface ModuleOverviewResponse {
@@ -185,6 +192,10 @@ export interface ZuzuuSessionEntry {
   generation?: string | null;
   git?: { commit: string | null; branch: string | null };
   traceRef?: string | null;
+  /** daemon PTY runtime id (U4/KTD2 join key) when the session ran in the
+   *  workbench; absent for CLI / non-workbench sessions. Backward-tolerant:
+   *  older records (pre-U4) simply omit it. */
+  ptyId?: string;
 }
 
 export interface SessionsResponse {
@@ -203,6 +214,80 @@ export interface SessionInspectResponse {
 
 export interface DigestResponse {
   text: string;
+}
+
+/** One ordered per-action record from a captured OTLP trace blob.
+ *  kind ∈ "turn" | "tool" | "other":
+ *   - "turn"  — a user-prompt → response cycle
+ *   - "tool"  — one tool invocation (Bash, Write, etc.)
+ *   - "other" — any other span that is not the SESSION root
+ *  ts is the span's start time as an ISO 8601 string.
+ *  status is "ok" | "error" when set (OTLP code 1 or 2); absent when UNSET. */
+export interface SessionTraceAction {
+  kind: "turn" | "tool" | "other";
+  label: string;
+  ts: string;
+  status?: "ok" | "error";
+}
+
+/** GET /session-trace/:id — `zuzuu session trace <id> --json`.
+ *  Fail-soft: if the blob is missing, actions is [] (never an error). */
+export interface SessionTraceResponse {
+  sessionId: string;
+  actions: SessionTraceAction[];
+}
+
+/** One node in a nested session tree (`zuzuu session tree <id> --json`).
+ *  kind ∈ "session" | "turn" | "tool" | "other":
+ *   - "session" — the root SESSION span (always the tree root, no parentSpanId)
+ *   - "turn"    — a user-prompt → response cycle (child of session)
+ *   - "tool"    — one tool invocation (child of turn)
+ *   - "other"   — any other span
+ *  children is always present (may be []).
+ *  Honest cross-host degradation: Gemini sessions have turns only (no tool children). */
+export interface SessionTreeNode {
+  kind: "session" | "turn" | "tool" | "other";
+  label: string;
+  ts: string;
+  status?: "ok" | "error";
+  children: SessionTreeNode[];
+}
+
+/** GET /session-tree/:id — `zuzuu session tree <id> --json`.
+ *  Fail-soft: if the blob is missing, root is null (never an error). */
+export interface SessionTreeResponse {
+  sessionId: string;
+  root: SessionTreeNode | null;
+}
+
+/** One ordered DISPLAY content node (`zuzuu session content <id> --json`):
+ *  the REAL host-transcript content, read on demand (never stored — the trace
+ *  blob keeps byte counts only). Privacy-aware: display-time redaction + a
+ *  per-tool-output size cap are applied by the CLI before this reaches the wire.
+ *  kind ∈ "agent_text" | "user_text" | "tool":
+ *   - "agent_text" — the agent's reply text (in `text`)
+ *   - "user_text"  — a user prompt (in `text`)
+ *   - "tool"       — one tool call: `toolInput` + `toolOutput` + `status`
+ *  ts is the node's timestamp as an ISO 8601 string ('' when unknown).
+ *  truncated is true when `toolOutput` was cut by the size cap.
+ *  Honest cross-host degradation: Gemini yields text nodes only (no tool content). */
+export interface SessionContentNode {
+  kind: "agent_text" | "user_text" | "tool";
+  label: string;
+  ts: string;
+  text?: string;
+  toolInput?: string;
+  toolOutput?: string;
+  status?: "ok" | "error";
+  truncated?: boolean;
+}
+
+/** GET /session-content/:id — `zuzuu session content <id> --json`.
+ *  Fail-soft: a missing/gone transcript (or a thin host) → nodes is []
+ *  (never an error). */
+export interface SessionContentResponse {
+  sessionId: string;
+  nodes: SessionContentNode[];
 }
 
 // ── Write side (mutations are CLI-only; the daemon shells out to zuzuu) ──

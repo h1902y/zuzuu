@@ -15,7 +15,7 @@
 // list from manifest.itemsDir, schemas serve from the home, the overview and
 // digest include them. Fail-soft like everything on the serve path.
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { paths } from '../core/store.mjs';
 import { listModuleItems } from '../module/items.mjs';
@@ -95,12 +95,94 @@ export function moduleOverviewData(agentDir) {
       ui: entry.manifest?.ui ?? {},
       kinds: entry.manifest?.kinds ?? [],
       declarative: entry.declarative,
+      composed: !!entry.composed,
+      enabled: entry.manifest?.enabled !== false,
+      capabilities: Object.keys(entry.manifest?.capabilities ?? {}),
       ...(entry.manifestError ? { manifestError: entry.manifestError } : {}),
       counts: { items: items.length, pending: pendingCount(agentDir, entry), errors: errors.length },
       top: items.slice(0, 3).map((i) => i.title ?? i.id),
     };
   });
   return { modules };
+}
+
+// --- enable / disable -------------------------------------------------------
+
+/**
+ * Pure-ish: set `enabled` on a module's home module.json.
+ * Reads the current JSON, sets the field, writes it back.
+ * Returns {ok:true, id, enabled} or {ok:false, error} if no manifest.
+ */
+export function setModuleEnabled(agentDir, id, enabled) {
+  const p = join(agentDir, id, 'module.json');
+  if (!existsSync(p)) return { ok: false, error: `no module.json for '${id}'` };
+  try {
+    const raw = JSON.parse(readFileSync(p, 'utf8'));
+    raw.enabled = enabled;
+    writeFileSync(p, JSON.stringify(raw, null, 2) + '\n', 'utf8');
+    return { ok: true, id, enabled };
+  } catch (e) {
+    return { ok: false, error: e.message ?? String(e) };
+  }
+}
+
+// --- module new (WS-D: guided creation) ------------------------------------
+
+/** A safe module slug: lowercase alphanumeric start, then alnum/underscore/hyphen. */
+const SLUG = /^[a-z0-9][a-z0-9_-]*$/;
+
+/**
+ * Pure-ish: compose a declarative module's home from a few choices — ZERO
+ * bespoke code, just the manifest + schema the spine already understands.
+ * Writes `<id>/module.json` (id/title/tagline/itemsDir + a capabilities map:
+ * each named capability → {} except `mine`, which carries its first kind) and
+ * `<id>/schema.json` ({kinds, required}). Refuses a bad slug or an existing dir.
+ * Returns {ok:true, id, path} or {ok:false, error}.
+ */
+export function createModuleFiles(agentDir, { id, title, tagline, capabilities, kinds, required } = {}) {
+  if (typeof id !== 'string' || !SLUG.test(id)) {
+    return { ok: false, error: `invalid module id '${id ?? ''}' — must be a slug (lowercase, [a-z0-9_-])` };
+  }
+  // Refuse a built-in slug even when its dir isn't seeded yet — creating
+  // `<home>/knowledge/` here would shadow the real built-in module.
+  if (MODULES.includes(id)) {
+    return { ok: false, error: `'${id}' is a reserved built-in module` };
+  }
+  const dir = join(agentDir, id);
+  if (existsSync(dir)) return { ok: false, error: `module '${id}' already exists` };
+
+  const caps = Array.isArray(capabilities) ? capabilities : [];
+  const kindList = Array.isArray(kinds) ? kinds : [];
+  const reqList = Array.isArray(required) && required.length ? required : ['body'];
+
+  const capabilityMap = {};
+  for (const name of caps) {
+    capabilityMap[name] = name === 'mine' ? { kind: kindList[0] } : {};
+  }
+
+  const manifest = {
+    id,
+    title: title || id,
+    tagline: tagline || '',
+    itemsDir: 'items',
+    capabilities: capabilityMap,
+  };
+  const schema = { kinds: kindList, required: reqList };
+
+  try {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'module.json'), JSON.stringify(manifest, null, 2) + '\n', 'utf8');
+    writeFileSync(join(dir, 'schema.json'), JSON.stringify(schema, null, 2) + '\n', 'utf8');
+  } catch (e) {
+    return { ok: false, error: e.message ?? String(e) };
+  }
+  return { ok: true, id, path: dir };
+}
+
+/** Split a comma-list flag (string|true|array) into trimmed, non-empty names. */
+function commaList(v) {
+  if (v == null || v === true) return [];
+  return [].concat(v).flatMap((s) => String(s).split(',')).map((s) => s.trim()).filter(Boolean);
 }
 
 // --- per-module generations (W2.5 Phase 2) ---------------------------------
@@ -184,16 +266,56 @@ function moduleGenerationCmd(agentDir, module, rest, args, log) {
  *  also `zuzuu module <m> generations | generation show|rollback <id>`. */
 export function module(args = {}, log = console.log) {
   const [sub, f] = args._ ?? [];
+
+  // guided creation: `module new <id> --title … --capabilities a,b --kinds x --required body`
+  if (sub === 'new') {
+    if (!f) { console.error('usage: zuzuu module new <id> [--title T] [--tagline T] [--capabilities a,b] [--kinds x,y] [--required body]'); process.exitCode = 1; return; }
+    const r = createModuleFiles(paths().dir, {
+      id: f,
+      title: typeof args.title === 'string' ? args.title : undefined,
+      tagline: typeof args.tagline === 'string' ? args.tagline : undefined,
+      capabilities: commaList(args.capabilities),
+      kinds: commaList(args.kinds),
+      required: commaList(args.required),
+    });
+    if (!r.ok) {
+      if (args.json) { log(JSON.stringify({ ok: false, error: r.error })); }
+      else console.error(`module new: ${r.error}`);
+      process.exitCode = 1;
+      return;
+    }
+    if (args.json) { log(JSON.stringify({ ok: true, id: r.id, path: r.path })); return; }
+    log(`✓ created module '${r.id}' — ${r.path}`);
+    return;
+  }
+
   // per-module generations: `module <m> generations|generation …`
   if (MODULES.includes(sub) && (f === 'generations' || f === 'generation')) {
     return moduleGenerationCmd(paths().dir, sub, (args._ ?? []).slice(1), args, log);
   }
-  if (!sub || !['items', 'schema', 'manifest', 'overview'].includes(sub)) {
-    console.error('usage: zuzuu module items <module> [--json|--jsonl] · module schema <module> [--json] · module manifest <module> [--json] · module overview [--json] · module <module> generations · module <module> generation show|rollback <id>');
+  if (!sub || !['items', 'schema', 'manifest', 'overview', 'enable', 'disable'].includes(sub)) {
+    console.error('usage: zuzuu module items <module> [--json|--jsonl] · module schema <module> [--json] · module manifest <module> [--json] · module overview [--json] · module enable <id> · module disable <id> · module <module> generations · module <module> generation show|rollback <id>');
     process.exitCode = 1;
     return;
   }
   const agentDir = paths().dir;
+
+  if (sub === 'enable' || sub === 'disable') {
+    const enabled = sub === 'enable';
+    if (!f) {
+      console.error(`usage: zuzuu module ${sub} <module-id>`);
+      process.exitCode = 1;
+      return;
+    }
+    const r = setModuleEnabled(agentDir, f, enabled);
+    if (!r.ok) {
+      if (args.json) { log(JSON.stringify({ ok: false, error: r.error })); process.exitCode = 1; return; }
+      console.error(`module ${sub}: ${r.error}`); process.exitCode = 1; return;
+    }
+    if (args.json) { log(JSON.stringify({ ok: true, id: r.id, enabled: r.enabled })); return; }
+    log(`${enabled ? '✓ enabled' : '✓ disabled'} module '${f}'`);
+    return;
+  }
 
   if (sub === 'overview') {
     const d = moduleOverviewData(agentDir);

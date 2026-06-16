@@ -139,6 +139,15 @@ export async function web(args = {}, deps = {}) {
     return;
   }
 
+  // --print-url: emit just the authed URL for a live daemon (one-command
+  // recovery of a lost tab — scriptable, no side effects, no browser open).
+  // The persisted token means this URL stays valid across daemon restarts.
+  if (args['print-url'] || args.printUrl) {
+    if (await isAlive(inst)) d.log(urlOf(inst));
+    else d.log(`no workbench running for ${dir}`);
+    return;
+  }
+
   // --status: report without side effects
   if (args.status) {
     if (await isAlive(inst)) {

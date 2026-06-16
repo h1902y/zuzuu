@@ -32,15 +32,15 @@ function write(rec, cwd) {
   return rec;
 }
 
-/** Open (or refresh) a live session record. `generation` is the active gen id (WS3-T3). */
-export function openLive({ id, host, transcriptPath, startedAt, now, generation = null }, cwd = process.cwd()) {
+/** Open (or refresh) a live session record. `generation` is the active gen id
+ *  (WS3-T3); `ptyId` is the daemon PTY join key (U4/KTD2), present only when the
+ *  session ran under the workbench. Both are sticky once set. */
+export function openLive({ id, host, transcriptPath, startedAt, now, generation = null, ptyId = null }, cwd = process.cwd()) {
   const existing = read(id, cwd);
-  return write(
-    existing
-      ? { ...existing, lastSeen: now, transcriptPath: transcriptPath ?? existing.transcriptPath, generation: existing.generation ?? generation }
-      : { id, host, status: SessionState.ACTIVE, startedAt, lastSeen: now, transcriptPath, generation },
-    cwd,
-  );
+  const merged = existing
+    ? { ...existing, lastSeen: now, transcriptPath: transcriptPath ?? existing.transcriptPath, generation: existing.generation ?? generation, ptyId: existing.ptyId ?? ptyId ?? null }
+    : { id, host, status: SessionState.ACTIVE, startedAt, lastSeen: now, transcriptPath, generation, ptyId: ptyId ?? null };
+  return write(merged, cwd);
 }
 
 /** Bump the heartbeat; create the record if a signal arrives before SessionStart. */

@@ -1,153 +1,545 @@
-// The center session pane. Each session is rendered as a CONVERSATION first:
-// a calm transcript of one-line receipts (the default tab) with the live
-// xterm terminal demoted to a sibling "Terminal" tab in the same work pane.
-// Also: the agent-session tab strip, the load-time center cards (recovery /
-// setup) and the bottom session composer ("Start a session with…").
-import { useRef, useState } from "react";
+// The single-focus center (T3 + T4) — built on "a session is a tree".
+//
+// ONE focus collapses the old competing surfaces (tab strip, conversation
+// header, active band, 40% history block, detail page, recovery modal) into:
+//
+//   [slim session picker] +
+//   [SessionTree | Terminal tabs for the selected session] +
+//   [one composer] +
+//   [one inline recovery banner when a leftover session exists]
+//
+// The slim picker (T3) lists sessions active/now → recent → older; selecting a
+// row sets which session the center VIEWS. A LIVE session (a workbench PTY is
+// attached, resolved by the U4 ptyId join key) streams — its terminal tab is the
+// live surface and its tree grows; a PAST session renders the SessionTree
+// statically from its trace, with no terminal tab.
+//
+// PTY hot path is untouched: every live PTY tab keeps an always-mounted TermView
+// (visibility toggle, never unmounted) so the WebSocket / flow-control survive
+// switching the viewed session.
+import { useEffect, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { ZuzuuSessionEntry } from "@zuzuu-web/protocol";
 import { useSessions } from "../state/sessions";
+import { useOpenTabs } from "../state/open-tabs";
+import { openTabItems, resolveActiveTab, tabIdFor } from "./active-tab";
+import { SessionTabStrip } from "./SessionTabStrip";
+import { mergeSessionWithFallback, refreshSessionGit } from "../lib/session-git-actions";
+import { describeZuzuuError } from "../lib/zuzuu-api";
 import { TermView } from "../term/TermView";
-import { Bar, Tab, TabBar, IconButton, StatusDot } from "../components/ui";
-import { RecoveryCard, SetupZuzuuCard, SessionTranscript } from "../components/SessionCards";
+import { SessionTree } from "../term/SessionTree";
+import { Bar, Tab, TabBar, StatusDot, StatusPill, cx } from "../components/ui";
+import { RecoveryBanner, SetupZuzuuCard } from "../components/SessionCards";
 import { SessionComposer } from "../components/SessionComposer";
 import { centerCard } from "../lib/session-cards";
+import { sessionStateMeta, shortSessionId, fmtDuration } from "../panel/sections";
+import { relativeTime } from "../panel/kit";
 import { agentTabTitle } from "../modules/host-launch";
+import { groupRowsByBand, pickerCollapsedSummary, pickerRows, type PickerBand, type PickerRow } from "./session-picker";
 import { useSessionGitQuery, useZuzuuHealthQuery } from "./queries";
+import { zuzuuApi } from "../lib/zuzuu-api";
 
-/** Which sub-surface of a session's work pane is showing. */
-type WorkTab = "conversation" | "terminal";
+/** Which sub-surface of the viewed session is showing. */
+type WorkTab = "tree" | "terminal";
+
+function pillTone(tone: string): "ok" | "warn" | "bad" | "neutral" {
+  if (tone === "ok") return "ok";
+  if (tone === "warn") return "warn";
+  if (tone === "danger") return "bad";
+  return "neutral";
+}
+
+// ── the slim session picker (T3) ──────────────────────────────────────────
+// A compact horizontal strip of session rows: status pill · host · relative
+// time · duration. Live rows pulse; the "running outside the workbench" state
+// reads quietly here (a row note), never a separate persistent band.
+
+function PickerRowButton({
+  row,
+  active,
+  onSelect,
+}: {
+  row: PickerRow;
+  active: boolean;
+  onSelect: () => void;
+}) {
+  const s = row.session;
+  const meta = sessionStateMeta(s.state);
+  const when = relativeTime(s.startedAt ?? undefined);
+  const dur = fmtDuration(s.durationMs);
+  // "running outside the workbench": a live-state trace with no workbench PTY.
+  const outside = !row.live && (s.state === "active" || s.state === "opening");
+  return (
+    <button
+      onClick={onSelect}
+      title={`View session ${s.id}`}
+      className={cx(
+        "group mx-1 flex w-[calc(100%-0.5rem)] items-center gap-2 rounded-[var(--radius-ui)] border px-2 py-1 text-left transition-colors",
+        active
+          ? "border-[var(--border)] bg-[var(--accent)]"
+          : "border-transparent hover:border-[var(--border)] hover:bg-[var(--accent)]",
+      )}
+    >
+      {row.live ? (
+        <StatusDot tone="ok" pulse />
+      ) : (
+        <StatusPill tone={pillTone(meta.tone)}>{meta.label}</StatusPill>
+      )}
+      <span className="wc-sans max-w-[12rem] truncate text-ui font-medium text-foreground">
+        {agentTabTitle(s.host) || s.host || "session"}
+      </span>
+      {outside && (
+        <span className="wc-sans shrink-0 text-meta text-muted-foreground" title="Running outside the workbench">
+          · outside
+        </span>
+      )}
+      <span className="flex shrink-0 items-baseline gap-2 text-meta text-muted-foreground">
+        {when && <span className="wc-sans">{when}</span>}
+        {dur && <span className="wc-mono">{dur}</span>}
+      </span>
+    </button>
+  );
+}
+
+/** Band header label map. */
+const BAND_LABEL: Record<PickerBand, string> = { now: "now", recent: "recent", older: "older" };
+
+function SessionPicker({
+  rows,
+  viewedId,
+  onSelect,
+}: {
+  rows: PickerRow[];
+  viewedId: string | null;
+  onSelect: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  if (rows.length === 0) return null;
+
+  // the currently-viewed row for the summary — matched on the CANONICAL tab id
+  // (viewedId is the active tab's id, which may be a PTY id, not a trace id)
+  const viewedRow = rows.find((r) => tabIdFor(r.session) === viewedId) ?? null;
+  const summary = pickerCollapsedSummary(rows, viewedRow);
+  const groups = groupRowsByBand(rows);
+
+  const handleSelect = (id: string) => {
+    onSelect(id);
+    setOpen(false); // collapse on select
+  };
+
+  return (
+    <div className="border-b border-[var(--border)] bg-card">
+      {/* collapsed summary row — always visible */}
+      <button
+        aria-expanded={open}
+        aria-label={`${summary.countLabel} — toggle session list`}
+        onClick={() => setOpen((v) => !v)}
+        className={cx(
+          "flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-[var(--accent)]",
+        )}
+      >
+        {viewedRow && (
+          <>
+            {viewedRow.live ? (
+              <StatusDot tone="ok" pulse />
+            ) : (
+              <StatusPill tone={pillTone(sessionStateMeta(viewedRow.session.state).tone)}>
+                {sessionStateMeta(viewedRow.session.state).label}
+              </StatusPill>
+            )}
+            <span className="wc-sans min-w-0 truncate text-ui font-medium text-foreground">
+              {agentTabTitle(viewedRow.session.host) || viewedRow.session.host || "session"}
+            </span>
+          </>
+        )}
+        <span className="wc-sans ml-auto shrink-0 text-meta text-muted-foreground">{summary.countLabel}</span>
+        {/* chevron */}
+        <svg
+          viewBox="0 0 16 16"
+          className={cx("h-3 w-3 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.4"
+        >
+          <path d="M4 6l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+
+      {/* expanded: vertical grouped list */}
+      {open && (
+        <div className="max-h-64 overflow-y-auto border-t border-[var(--border)] pb-1">
+          {(["now", "recent", "older"] as PickerBand[]).map((band) => {
+            const bandRows = groups.get(band) ?? [];
+            if (bandRows.length === 0) return null;
+            return (
+              <div key={band}>
+                <div className="wc-sans px-3 py-1 text-meta font-medium uppercase tracking-wide text-muted-foreground">
+                  {BAND_LABEL[band]}
+                </div>
+                {bandRows.map((row) => (
+                  <PickerRowButton
+                    key={row.session.id}
+                    row={row}
+                    active={tabIdFor(row.session) === viewedId}
+                    onSelect={() => handleSelect(tabIdFor(row.session))}
+                  />
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── the one tree-view header (T4) ──────────────────────────────────────────
+// Collapses the old ActiveCard / ConversationHeader / SessionDetail headers
+// into ONE: state · host · branch · short id, plus merge/end for a live session.
+
+function TreeViewHeader({
+  session,
+  live,
+  onMerge,
+  onEnd,
+  busy,
+}: {
+  session: ZuzuuSessionEntry;
+  live: boolean;
+  onMerge?: () => void;
+  onEnd?: () => void;
+  busy: boolean;
+}) {
+  const meta = sessionStateMeta(session.state);
+  const branch = session.git?.branch ?? null;
+  return (
+    <Bar border="b" surface="surface" className="!gap-2 !px-3 !py-1.5">
+      <StatusPill tone={pillTone(meta.tone)}>{meta.label}</StatusPill>
+      <span className="wc-sans min-w-0 truncate text-ui font-medium text-foreground">
+        {agentTabTitle(session.host) || session.host || "session"}
+      </span>
+      {branch && (
+        <span className="wc-mono inline-flex shrink-0 items-center gap-1 text-meta text-muted-foreground" title={`Session branch ${branch}`}>
+          <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M5 5.5v5M5 3a1.5 1.5 0 100 3 1.5 1.5 0 000-3zM5 10.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3zM11 3a1.5 1.5 0 100 3 1.5 1.5 0 000-3zM11 6c0 3-3 3-6 4.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          {branch}
+        </span>
+      )}
+      <span className="wc-mono ml-auto shrink-0 text-meta text-muted-foreground">{shortSessionId(session.id)}</span>
+      {live && onMerge && (
+        <button
+          onClick={onMerge}
+          disabled={busy}
+          className="wc-sans shrink-0 rounded-[var(--radius-sm)] border border-[var(--border)] px-2 py-0.5 text-meta text-muted-foreground transition-colors hover:bg-[var(--accent)] hover:text-foreground disabled:opacity-50"
+          title="Squash this session's checkpoints to main"
+        >
+          Merge to main
+        </button>
+      )}
+      {live && onEnd && (
+        <button
+          onClick={onEnd}
+          disabled={busy}
+          className="wc-sans shrink-0 rounded-[var(--radius-sm)] border border-[var(--border)] px-2 py-0.5 text-meta text-muted-foreground transition-colors hover:bg-[var(--accent)] hover:text-foreground disabled:opacity-50"
+          title="End the session and close its terminal"
+        >
+          End
+        </button>
+      )}
+    </Bar>
+  );
+}
+
+// ── main component ─────────────────────────────────────────────────────────
 
 export function SessionPane() {
-  const { tabs, activeId, loaded: sessionsLoaded, close, setActive } = useSessions();
+  const { tabs, loaded: sessionsLoaded, close } = useSessions();
   const zuzuuHealth = useZuzuuHealthQuery();
   const zuzuuHome = zuzuuHealth.data?.home === true;
-  // session-git status for the recovery card (shares the footer indicator's cache)
   const sessionGit = useSessionGitQuery(zuzuuHome);
+
   const composerRef = useRef<HTMLDivElement>(null);
   const focusComposer = () => composerRef.current?.focus();
 
-  // per-session work-pane tab — conversation is the hero default; the terminal
-  // is on-demand. Tracked per id so switching sessions keeps each one's view.
+  // the captured-session list (T3 picker source) — shared cache + cadence.
+  const sessionsQ = useQuery({
+    queryKey: ["zuzuu", "sessions"],
+    queryFn: zuzuuApi.sessions,
+    refetchInterval: 6000,
+  });
+  const allSessions = sessionsQ.data?.sessions ?? [];
+  const rows = pickerRows(allSessions, tabs);
+
+  // The center's OPEN tabs (editor model). The picker is the all-sessions
+  // browser; this is what's open. The active tab drives the body + composer.
+  const openTabs = useOpenTabs();
+  const items = openTabItems(openTabs.openIds, rows, tabs);
+  const active = resolveActiveTab(openTabs.activeId, rows, tabs);
+  const viewed = active.row;
+  const viewedPtyTab = active.ptyTabId ? tabs.find((t) => t.id === active.ptyTabId) : undefined;
+
+  // Auto-open the most-relevant session ONCE on first load, so the center starts
+  // focused on something. A ref (not emptiness) guards it, so closing the last
+  // tab is respected and never re-popped.
+  const autoOpened = useRef(false);
+  useEffect(() => {
+    if (autoOpened.current || rows.length === 0) return;
+    autoOpened.current = true;
+    useOpenTabs.getState().open(tabIdFor(rows[0]!.session));
+  }, [rows]);
+
+  // Drop open tabs whose session has vanished entirely (not a live PTY tab and
+  // not in the trace list). An ended session keeps its trace row, so its tab
+  // survives as a past tab until the user closes it. Deps are the stable query
+  // refs, so this runs on data changes, not every render.
+  useEffect(() => {
+    const known = new Set<string>();
+    for (const t of tabs) known.add(t.id);
+    for (const s of allSessions) {
+      known.add(s.id);
+      if (s.ptyId) known.add(s.ptyId);
+    }
+    useOpenTabs.getState().reconcile(known);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tabs, sessionsQ.data]);
+
+  // per-viewed-session work tab: tree (default) | terminal (live only)
   const [workTab, setWorkTab] = useState<Record<string, WorkTab>>({});
-  const tabOf = (id: string): WorkTab => workTab[id] ?? "conversation";
+  const tabOf = (id: string): WorkTab => workTab[id] ?? "tree";
   const setTabOf = (id: string, t: WorkTab) => setWorkTab((m) => ({ ...m, [id]: t }));
 
-  // hold the boot-time card until health + session-git have answered once, so
-  // a leftover branch renders recovery directly instead of flashing the rest state
-  const bootUnknown =
-    tabs.length === 0 && (zuzuuHealth.isPending || (zuzuuHome && sessionGit.isPending));
-  const card =
-    sessionsLoaded && !bootUnknown ? centerCard(tabs.length, sessionGit.data) : { kind: "none" as const };
+  // recovery banner (leftover session branch) — shown once, inline, dismissable.
+  // Branches of currently-live sessions (running here OR outside the workbench)
+  // are NOT abandoned work, so they never trigger the recovery prompt.
+  const [recoveryDismissed, setRecoveryDismissed] = useState(false);
+  const liveBranches = new Set(
+    rows
+      .filter((r) => r.live || r.session.state === "active" || r.session.state === "opening")
+      .map((r) => r.session.git?.branch)
+      .filter((b): b is string => !!b),
+  );
+  const bootUnknown = zuzuuHealth.isPending || (zuzuuHome && sessionGit.isPending);
+  const card = !bootUnknown ? centerCard(0, sessionGit.data, liveBranches) : { kind: "none" as const };
+  const showRecovery = card.kind === "recovery" && !recoveryDismissed;
+
   // onboarding owns the empty pane until a zuzuu home exists
   const showSetup =
-    sessionsLoaded && !bootUnknown && tabs.length === 0 && zuzuuHealth.data?.home === false;
+    sessionsLoaded && !bootUnknown && allSessions.length === 0 && zuzuuHealth.data?.home === false;
+
+  // lifecycle actions for a LIVE viewed session
+  const queryClient = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const endViewed = async () => {
+    if (!viewedPtyTab) return;
+    setBusy(true);
+    try {
+      await close(viewedPtyTab.id);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const mergeViewed = () => {
+    setBusy(true);
+    void mergeSessionWithFallback()
+      .catch((err: unknown) => window.alert(describeZuzuuError(err)))
+      .finally(() => {
+        setBusy(false);
+        refreshSessionGit(queryClient);
+      });
+  };
+
+  // Close a tab from the strip: remove it from view. A LIVE session keeps
+  // running (its PTY tab stays mounted, reachable from the picker) — close ≠ end.
+  // A DEAD session's lingering PTY tab is cleaned up so hidden TermViews don't leak.
+  const closeTabView = (id: string) => {
+    openTabs.close(id);
+    const t = tabs.find((x) => x.id === id);
+    if (t && !t.alive) void close(t.id);
+  };
 
   return (
     <div className="flex h-full min-w-0 flex-col">
-      <Bar border="b" surface="surface" className="!gap-0 overflow-x-auto !px-0">
-        <TabBar>
-          {tabs.map((tab) => {
-            // agent tabs carry the host's display name; shells keep the live title
-            const label = tab.type === "agent" ? agentTabTitle(tab.host) : tab.title;
-            return (
-              <Tab
-                key={tab.id}
-                active={tab.id === activeId}
-                onClick={() => setActive(tab.id)}
-                onClose={() => void close(tab.id)}
-                title={tab.cwdLive ? `${label} · ${tab.cwdLive.cwd}` : label}
-                leading={<StatusDot tone={tab.alive ? "ok" : "idle"} />}
-              >
-                {label}
-              </Tab>
-            );
-          })}
-        </TabBar>
-        <IconButton
-          title="New agent session — pick a host below"
-          iconPath="M8 3v10M3 8h10"
-          className="mx-1"
-          onClick={focusComposer}
+      {/* one inline recovery banner — NOT a modal, NOT a duplicate band */}
+      {showRecovery && card.kind === "recovery" && (
+        <RecoveryBanner
+          branch={card.branch}
+          checkpoints={card.checkpoints}
+          onDismiss={() => setRecoveryDismissed(true)}
         />
-      </Bar>
-      {/* the work pane — one per session, all kept mounted so the terminals
-          (and their PTYs) survive session switches and work-tab switches */}
+      )}
+
+      {/* the OPEN-sessions tab strip (editor model). Closing a tab removes it
+          from view — it does NOT end the session (End/Stop do that). */}
+      <SessionTabStrip
+        items={items}
+        activeId={openTabs.activeId}
+        onSelect={openTabs.focus}
+        onClose={closeTabView}
+      />
+
+      {/* the slim session picker — the ALL-sessions browser. Selecting a row
+          opens (or focuses) it as a tab. */}
+      <SessionPicker rows={rows} viewedId={openTabs.activeId} onSelect={openTabs.open} />
+
+      {/* the viewed session: tree | terminal. Every LIVE PTY tab keeps an
+          always-mounted TermView (visibility toggle) so the PTY survives both
+          session switches AND tree↔terminal switches — the hot path is untouched. */}
       <div className="relative min-h-0 flex-1">
-        {tabs.map((tab) => {
-          const active = tab.id === activeId;
-          const view = tabOf(tab.id);
-          return (
-            <div
-              key={tab.id}
-              className="absolute inset-0 flex min-h-0 flex-col"
-              style={{ visibility: active ? "visible" : "hidden" }}
-            >
-              {/* work-pane sub-tabs: Conversation (the hero) | Terminal (raw) */}
-              <Bar border="b" surface="app" className="!px-0">
-                <TabBar>
-                  <Tab
-                    active={view === "conversation"}
-                    onClick={() => setTabOf(tab.id, "conversation")}
-                  >
-                    Conversation
-                  </Tab>
-                  <Tab
-                    active={view === "terminal"}
-                    onClick={() => setTabOf(tab.id, "terminal")}
-                    leading={<StatusDot tone={tab.alive ? "ok" : "idle"} />}
-                  >
-                    Terminal
-                  </Tab>
-                </TabBar>
-              </Bar>
-              <div className="relative min-h-0 flex-1">
-                {/* Conversation — the receipts transcript (default surface) */}
-                <div
-                  className="absolute inset-0"
-                  style={{ visibility: view === "conversation" ? "visible" : "hidden" }}
-                >
-                  <SessionTranscript sessionId={tab.id} alive={tab.alive} />
-                </div>
-                {/* Terminal — the SAME TermView, only relocated into this tab
-                    panel. Kept always-mounted (visibility toggle, never
-                    unmounted) so the PTY / WebSocket / flow-control are
-                    untouched. */}
-                <div
-                  className="absolute inset-0"
-                  style={{ visibility: active && view === "terminal" ? "visible" : "hidden" }}
-                >
-                  <TermView
-                    sessionId={tab.id}
-                    active={active && view === "terminal"}
-                    sessionType={tab.type}
-                    host={tab.host}
-                    onStartNew={focusComposer}
-                    onCloseTab={() => void close(tab.id)}
-                  />
-                </div>
-              </div>
-            </div>
-          );
-        })}
-        {/* the calm resting state — nothing but the mark above the composer */}
-        {tabs.length === 0 && card.kind === "none" && !showSetup && (
+        {viewed && (
+          <ViewedSession
+            key={tabIdFor(viewed.session)}
+            row={viewed}
+            ptyTab={viewedPtyTab}
+            workTab={tabOf(tabIdFor(viewed.session))}
+            onSetWorkTab={(t) => setTabOf(tabIdFor(viewed.session), t)}
+            onFocusComposer={focusComposer}
+            onCloseTab={() => closeTabView(tabIdFor(viewed.session))}
+            onEnd={() => void endViewed()}
+            onMerge={mergeViewed}
+            busy={busy}
+          />
+        )}
+
+        {/* the calm resting state — no tab open (nothing captured yet, or every
+            tab closed), no setup pending */}
+        {!viewed && !showSetup && !showRecovery && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <span className="select-none text-2xl text-ink-600">❯_</span>
+            <span className="select-none text-2xl text-muted-foreground">❯_</span>
           </div>
         )}
-        {/* load-time center cards: recovery (leftover session branch) and
-            setup (no zuzuu home yet) keep their center placement */}
-        {(card.kind === "recovery" || showSetup) && (
-          <div className="absolute inset-0 z-30 flex items-center justify-center bg-app/90 p-6">
-            {card.kind === "recovery" ? (
-              <RecoveryCard branch={card.branch} checkpoints={card.checkpoints} />
-            ) : (
-              <SetupZuzuuCard zuzuuBin={zuzuuHealth.data?.zuzuuBin ?? false} />
-            )}
+
+        {/* setup onboarding (no zuzuu home yet) keeps its centered placement */}
+        {showSetup && (
+          <div className="absolute inset-0 z-30 flex items-center justify-center bg-background/90 p-6">
+            <SetupZuzuuCard zuzuuBin={zuzuuHealth.data?.zuzuuBin ?? false} />
+          </div>
+        )}
+
+        {/* keep EVERY live PTY's TermView mounted, even when not the viewed
+            session, so its WebSocket / flow-control never tears down. Only the
+            viewed-and-terminal one is visible; the rest are hidden. */}
+        {tabs
+          .filter((t) => t.id !== viewedPtyTab?.id)
+          .map((t) => (
+            <div key={t.id} className="absolute inset-0" style={{ visibility: "hidden" }} aria-hidden>
+              <TermView
+                sessionId={t.id}
+                active={false}
+                sessionType={t.type}
+                host={t.host}
+                onStartNew={focusComposer}
+                onCloseTab={() => closeTabView(t.id)}
+              />
+            </div>
+          ))}
+      </div>
+
+      {/* the composer — the one way to start a session. When viewing a session
+          that runs in the user's own terminal (live trace, no workbench PTY),
+          the composer notes that Send starts a NEW session, not a reply. */}
+      {zuzuuHome && (
+        <SessionComposer
+          ref={composerRef}
+          activeLiveTab={viewedPtyTab?.alive ? viewedPtyTab : undefined}
+          viewingExternal={
+            !!viewed &&
+            !viewed.live &&
+            (viewed.session.state === "active" || viewed.session.state === "opening")
+          }
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * The viewed session's body: the one tree-view header + tree | terminal tabs.
+ * A LIVE session gets a Terminal tab (its always-mounted TermView is the live
+ * surface) and merge/end actions; a PAST session renders only the static tree.
+ */
+function ViewedSession({
+  row,
+  ptyTab,
+  workTab,
+  onSetWorkTab,
+  onFocusComposer,
+  onCloseTab,
+  onEnd,
+  onMerge,
+  busy,
+}: {
+  row: PickerRow;
+  ptyTab: ReturnType<typeof useSessions.getState>["tabs"][number] | undefined;
+  workTab: WorkTab;
+  onSetWorkTab: (t: WorkTab) => void;
+  onFocusComposer: () => void;
+  onCloseTab: () => void;
+  onEnd: () => void;
+  onMerge: () => void;
+  busy: boolean;
+}) {
+  const session = row.session;
+  const live = row.live;
+  // a past session has no terminal tab → always the tree
+  const view: WorkTab = live ? workTab : "tree";
+
+  return (
+    <div className="absolute inset-0 flex min-h-0 flex-col">
+      <TreeViewHeader
+        session={session}
+        live={live}
+        onMerge={live ? onMerge : undefined}
+        onEnd={live ? onEnd : undefined}
+        busy={busy}
+      />
+      {live && (
+        <Bar border="b" surface="app" className="!px-0">
+          <TabBar>
+            <Tab active={view === "tree"} onClick={() => onSetWorkTab("tree")}>
+              Tree
+            </Tab>
+            <Tab
+              active={view === "terminal"}
+              onClick={() => onSetWorkTab("terminal")}
+              leading={<StatusDot tone={ptyTab?.alive ? "ok" : "idle"} />}
+            >
+              Terminal
+            </Tab>
+          </TabBar>
+        </Bar>
+      )}
+      <div className="relative min-h-0 flex-1">
+        {/* the tree (default surface for both live + past). The wrapper carries
+            the vertical scroll so earlier turns/messages are reachable when the
+            transcript overflows (the inner lists are h-full; this bounds them). */}
+        <div
+          className="absolute inset-0 min-h-0 overflow-y-auto"
+          style={{ visibility: view === "tree" ? "visible" : "hidden" }}
+        >
+          <SessionTree
+            sessionId={session.id}
+            alive={live}
+            enabled
+            onOpenTerminal={live ? () => onSetWorkTab("terminal") : undefined}
+            sessionState={session.state}
+          />
+        </div>
+        {/* the live terminal — the SAME TermView, always mounted (visibility
+            toggle, never unmounted) so the PTY / WebSocket / flow-control are
+            untouched. Only present for a live session with a workbench PTY. */}
+        {live && ptyTab && (
+          <div className="absolute inset-0" style={{ visibility: view === "terminal" ? "visible" : "hidden" }}>
+            <TermView
+              sessionId={ptyTab.id}
+              active={view === "terminal"}
+              sessionType={ptyTab.type}
+              host={ptyTab.host}
+              onStartNew={onFocusComposer}
+              onCloseTab={onCloseTab}
+            />
           </div>
         )}
       </div>
-      {/* the composer — the one way to start a session (hosts only) */}
-      {zuzuuHome && <SessionComposer ref={composerRef} />}
     </div>
   );
 }

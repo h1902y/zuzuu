@@ -69,7 +69,7 @@ function EntryIcon({ row }: { row: Row }) {
       </svg>
     );
   return (
-    <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0 text-ink-500" fill="currentColor">
+    <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" fill="currentColor">
       <path d="M4 1.5h5L13 5.5v9a1 1 0 01-1 1H4a1 1 0 01-1-1v-12a1 1 0 011-1zM9 2v4h4" fillRule="evenodd" />
     </svg>
   );
@@ -257,9 +257,9 @@ export function FileTree() {
                     onCancel={() => setRenaming(null)}
                   />
                 ) : (
-                  <span className={`truncate text-ui ${gitBadges.has(row.path) ? "text-warn" : "text-ink-100"}`}>
+                  <span className={`truncate text-ui ${gitBadges.has(row.path) ? "text-warn" : "text-foreground"}`}>
                     {row.name}
-                    {row.isSymlink && <span className="ml-1 text-ink-500">⤳</span>}
+                    {row.isSymlink && <span className="ml-1 text-muted-foreground">⤳</span>}
                   </span>
                 )}
                 {gitBadges.has(row.path) && (
@@ -287,7 +287,7 @@ export function FileTree() {
           })}
         </div>
         {rows.length === 0 && (
-          <div className="px-3 py-2 text-ui text-ink-500">empty workspace</div>
+          <div className="px-3 py-2 text-ui text-muted-foreground">empty workspace</div>
         )}
       </div>
       {ctxMenu && (

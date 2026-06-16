@@ -28,6 +28,42 @@ export const useZuzuuStatusQuery = (enabled: boolean) =>
 export const useSessionGitQuery = (enabled: boolean) =>
   useQuery({ queryKey: ["zuzuu", "session"], queryFn: zuzuuApi.sessionGit, refetchInterval: 6000, enabled });
 
+/** One session's ordered per-action trace records (U6) — feeds the agent-session
+ *  transcript + history. Read-only, fail-soft on the daemon; polled gently while
+ *  a session stays open (the trace fills in post-hoc as it's captured). */
+export const useSessionTraceQuery = (sessionId: string, enabled: boolean) =>
+  useQuery({
+    queryKey: ["zuzuu", "session-trace", sessionId],
+    queryFn: () => zuzuuApi.sessionTrace(sessionId),
+    refetchInterval: 8000,
+    enabled,
+  });
+
+/** One session's nested SESSION→TURN→TOOL tree (T1) — the source for the
+ *  SessionTree center view. Polled gently so a live session's tree fills in as
+ *  it's captured; past sessions are static (the cached result never changes). */
+export const useSessionTreeQuery = (sessionId: string, enabled: boolean) =>
+  useQuery({
+    queryKey: ["zuzuu", "session-tree", sessionId],
+    queryFn: () => zuzuuApi.sessionTree(sessionId),
+    refetchInterval: 8000,
+    enabled,
+  });
+
+/** One session's REAL host-transcript content (U1) — ordered DISPLAY nodes
+ *  (agent/user text + tool input/output), read on demand and never stored. The
+ *  content source for the content-rich SessionTree (T2). Polled gently so a live
+ *  session's content streams in as the transcript grows; a past session reads
+ *  once and stays static (the cached result never changes). Fail-soft on the
+ *  daemon: a missing/thin transcript → nodes []. */
+export const useSessionContentQuery = (sessionId: string, enabled: boolean) =>
+  useQuery({
+    queryKey: ["zuzuu", "session-content", sessionId],
+    queryFn: () => zuzuuApi.sessionContent(sessionId),
+    refetchInterval: 8000,
+    enabled,
+  });
+
 const parentOf = (path: string) => path.split("/").slice(0, -1).join("/");
 
 /** Start the fs-events socket once the workspace is known and map pushed

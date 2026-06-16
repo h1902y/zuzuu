@@ -1,6 +1,6 @@
 // Pure logic tests for the Start-agent-session host rows (no DOM needed).
 import { describe, expect, it } from "vitest";
-import { agentTabTitle, buildHostRows, composerDefaultHost, hostSpawnSpec } from "./host-launch";
+import { agentTabTitle, buildHostRows, composerDefaultHost, hostAcceptsArgvPrompt, hostSpawnSpec, resolveStart } from "./host-launch";
 
 describe("buildHostRows", () => {
   it("lists the four known hosts plus the always-available bundled OpenCode", () => {
@@ -92,5 +92,52 @@ describe("composerDefaultHost (Enter = first detected, in menu order)", () => {
 
   it("null only for an empty row set (defensive)", () => {
     expect(composerDefaultHost([])).toBeNull();
+  });
+});
+
+describe("resolveStart — argv-first hybrid", () => {
+  it("Claude Code & Codex take the task as a positional argv (no injection)", () => {
+    for (const cmd of ["claude", "codex"]) {
+      expect(hostAcceptsArgvPrompt(cmd)).toBe(true);
+      const start = resolveStart(cmd, "review the code");
+      expect(start?.spec.args).toEqual(["review the code"]);
+      expect(start?.injectPrompt).toBeUndefined();
+    }
+  });
+
+  it("hosts without a positional prompt arg inject keystrokes instead", () => {
+    for (const cmd of ["gemini", "pi", "zuzuu code"]) {
+      expect(hostAcceptsArgvPrompt(cmd)).toBe(false);
+      const start = resolveStart(cmd, "review the code");
+      expect(start?.spec.args).not.toContain("review the code");
+      expect(start?.injectPrompt).toBe("review the code");
+    }
+  });
+
+  it("OpenCode (zuzuu code) keeps its base argv and injects the task", () => {
+    const start = resolveStart("zuzuu code", "explain this project");
+    expect(start?.spec.command).toBe("zuzuu");
+    expect(start?.spec.args).toEqual(["code"]);
+    expect(start?.injectPrompt).toBe("explain this project");
+  });
+
+  it("a task starting with '-' falls back to injection even on argv hosts (no flag misparse)", () => {
+    const start = resolveStart("claude", "-v then explain");
+    expect(start?.spec.args).toEqual([]);
+    expect(start?.injectPrompt).toBe("-v then explain");
+  });
+
+  it("a blank task → neither argv nor injection (host opens idle)", () => {
+    expect(resolveStart("claude", "   ")).toEqual({ spec: hostSpawnSpec("claude") });
+    expect(resolveStart("claude")?.injectPrompt).toBeUndefined();
+  });
+
+  it("trims the task before deciding/placing it", () => {
+    expect(resolveStart("claude", "  do X  ")?.spec.args).toEqual(["do X"]);
+    expect(resolveStart("gemini", "  do X  ")?.injectPrompt).toBe("do X");
+  });
+
+  it("null for an unknown row", () => {
+    expect(resolveStart("nope", "x")).toBeNull();
   });
 });

@@ -83,27 +83,117 @@ export type CenterCard =
   | { kind: "recovery"; branch: string; checkpoints: number };
 
 /**
+ * Plain-language copy for the recovery banner (U4 — no git/checkpoint jargon).
+ * Exported as a pure function so unit tests can assert exact strings without a
+ * DOM renderer.
+ */
+export function recoveryBannerCopy(branch: string, checkpoints: number): {
+  lead: string;
+  branchLabel: string;
+  stepCount: string;
+  resumeLabel: string;
+  saveLabel: string;
+} {
+  return {
+    lead: "You have unfinished work from a previous session.",
+    branchLabel: branch,
+    stepCount: `${checkpoints} saved step${checkpoints === 1 ? "" : "s"}`,
+    resumeLabel: "Resume this work",
+    saveLabel: "Save to main & start new",
+  };
+}
+
+/**
  * What the terminal pane's center shows. Starting sessions moved to the
  * bottom composer bar — the center keeps only the load-time recovery card:
  * - sessions exist → nothing (the terminals),
  * - no sessions + a leftover session branch (same condition as the footer
- *   indicator's "leftover": active && !onSessionBranch) → recovery card,
+ *   indicator's "leftover": active && !onSessionBranch) WITH ≥1 saved step
+ *   → recovery card,
+ * - a leftover branch with 0 saved steps → nothing (there is nothing to
+ *   recover — typically a session running OUTSIDE the workbench, so its
+ *   branch is empty + not abandoned),
+ * - a leftover branch that belongs to a currently-live session (its branch is
+ *   in `liveBranches`) → nothing (it's running, not abandoned),
  * - otherwise → nothing (the calm resting state above the composer).
  */
 export function centerCard(
   tabCount: number,
   git: SessionGitStatus | undefined,
+  liveBranches?: Iterable<string>,
 ): CenterCard {
   if (tabCount > 0) return { kind: "none" };
   if (git?.enabled && !git.cliAbsent && git.active && !git.onSessionBranch) {
+    // Nothing to recover: the leftover branch has no saved steps. This is the
+    // empty-branch-of-an-outside-session case — don't nag.
+    if (git.active.checkpoints === 0) return { kind: "none" };
+    // The leftover branch is a currently-live session (running elsewhere) — not
+    // abandoned work, so no recovery prompt.
+    if (liveBranches) {
+      const live = liveBranches instanceof Set ? liveBranches : new Set(liveBranches);
+      if (live.has(git.active.branch)) return { kind: "none" };
+    }
     return { kind: "recovery", branch: git.active.branch, checkpoints: git.active.checkpoints };
   }
   return { kind: "none" };
 }
 
+// ── Session-end tail state (honest about live-outside-the-workbench) ──────
+// The transcript/tree tail keys on TWO signals, not one:
+//   • `alive`        — a workbench PTY is attached (live HERE),
+//   • `sessionState` — the captured trace lifecycle state.
+// A session can be NOT attached here yet still LIVE in the user's own terminal
+// (trace state 'active'/'opening') — calling that "ended" is wrong. Three states:
+//   "live"    → alive here → "the conversation is live in the terminal",
+//   "outside" → not alive but state active/opening → running in the user's own
+//               terminal, read-only here (NOT ended),
+//   "ended"   → not alive and a terminal/unknown state → "Session ended."
+export type TailState = "live" | "outside" | "ended";
+
+/** Resolve the session tail state from whether a workbench PTY is attached and
+ *  the captured trace lifecycle state. Pure so the three cases are unit-tested. */
+export function tailState(alive: boolean, sessionState?: string): TailState {
+  if (alive) return "live";
+  if (sessionState === "active" || sessionState === "opening") return "outside";
+  return "ended";
+}
+
 /** Single-active-agent v1 rule: at most ONE alive agent session (shells unlimited). */
 export const hasAliveAgent = (tabs: { type: string; alive: boolean }[]): boolean =>
   tabs.some((t) => t.type === "agent" && t.alive);
+
+// ── Active-session band resolution (U5) ─────────────────────────────────
+// The active trace session is represented ONCE. With U4's ptyId join key we
+// can tell whether the active session is already open in the workbench
+// (its live PTY tab) and whether that tab is the one in front of you. The
+// persistent "active session" band only lingers when the session is NOT the
+// current conversation — when it IS, its state folds into the conversation
+// header instead. A trace session with no live PTY (ran outside the
+// workbench) must read honestly, never offering a terminal we can't resume.
+//
+//   "in-conversation" → the live PTY is the focused tab → NO separate band
+//                       (the conversation header carries the state).
+//   "resume"          → a live PTY exists but isn't focused → compact resume.
+//   "outside"         → no live PTY (ptyId absent / tab gone) → honest
+//                       "running outside the workbench", no false terminal.
+export type ActiveBand = "in-conversation" | "resume" | "outside";
+
+/** Resolve how the pinned active session renders, given whether the
+ *  workbench owns its live PTY tab and whether that tab is focused. */
+export function activeBand(opts: { liveTab: boolean; focused: boolean }): ActiveBand {
+  if (!opts.liveTab) return "outside";
+  return opts.focused ? "in-conversation" : "resume";
+}
+
+/** Find the unified trace session a live PTY tab belongs to, via the U4 ptyId
+ *  join key. Pre-U4 records lack ptyId — for those the conversation header
+ *  simply shows no folded trace state (the band has the pre-U4 fallback). */
+export function traceSessionForTab<T extends { ptyId?: string }>(
+  sessions: T[],
+  tabId: string,
+): T | undefined {
+  return sessions.find((s) => s.ptyId === tabId);
+}
 
 export type EndCard =
   | { kind: "banner" } // shell sessions (and unknown outcomes) keep the plain exit banner

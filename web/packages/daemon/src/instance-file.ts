@@ -28,10 +28,54 @@ export function instancesDir(): string {
   return path.join(os.homedir(), ".webcode", "instances");
 }
 
+function instanceId(root: string): string {
+  return crypto.createHash("sha256").update(root).digest("hex").slice(0, 16);
+}
+
 /** Deterministic per-workspace file path. `root` must already be realpath'd. */
 export function instancePath(root: string, dir: string = instancesDir()): string {
-  const id = crypto.createHash("sha256").update(root).digest("hex").slice(0, 16);
-  return path.join(dir, `${id}.json`);
+  return path.join(dir, `${instanceId(root)}.json`);
+}
+
+/**
+ * Per-workspace PERSISTENT auth-token file — same id scheme as instancePath but
+ * `.token` rather than `.json`. Unlike the `.json` instance file (removed on
+ * shutdown), this survives restarts so the daemon can reuse a stable token and
+ * the browser's token-derived cookie keeps working across daemon restarts.
+ */
+export function tokenPath(root: string, dir: string = instancesDir()): string {
+  return path.join(dir, `${instanceId(root)}.token`);
+}
+
+/** Read the persisted token, or null if absent/empty. */
+export function readPersistentToken(root: string, dir: string = instancesDir()): string | null {
+  try {
+    const tok = fs.readFileSync(tokenPath(root, dir), "utf8").trim();
+    return tok.length > 0 ? tok : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Return the workspace's stable token, generating + persisting one (0600) on
+ * first use. Best-effort: if the write fails we still return a usable token
+ * (in-memory for this run) — a failed write only costs cross-restart cookie
+ * survival, never the run.
+ */
+export function ensurePersistentToken(root: string, dir: string = instancesDir()): string {
+  const existing = readPersistentToken(root, dir);
+  if (existing) return existing;
+  const tok = crypto.randomBytes(24).toString("base64url");
+  const file = tokenPath(root, dir);
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(file, tok + "\n", { mode: 0o600 });
+    fs.chmodSync(file, 0o600); // mode option only applies on create; enforce on overwrite too
+  } catch (err) {
+    console.warn(`zuzuu-web: could not persist auth token (${String(err)}) — using a per-run token`);
+  }
+  return tok;
 }
 
 /** Write the instance file (0600). Never throws — a failed write only costs reuse. */

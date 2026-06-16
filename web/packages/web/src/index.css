@@ -26,11 +26,17 @@
   --color-ink-850: #1B1E23; /* cards, tiles, proposal cards */
   --color-ink-800: #22262C; /* hover/active row fill (soft) */
   --color-ink-700: #2A2E35; /* hairline border (one step off card) */
-  --color-ink-600: #3A3E45; /* strong border */
+  --color-ink-600: #565C66; /* strong border — lifted to ~3:1 so brutal edges actually read */
   --color-ink-500: #6B6862; /* faint text (timestamps, disabled) */
+  --color-ink-400: #837F78; /* secondary muted text (between faint and muted) */
   --color-ink-300: #9A9690; /* muted text (labels, descriptions) */
+  --color-ink-200: #C9C6C2; /* low-emphasis text on dark surfaces */
   --color-ink-100: #E8E6E3; /* primary text/headings (warm) */
-  /* accent = primary action + active nav ONLY */
+  /* accent = primary action + active nav ONLY (the OLD custom kit's brand teal).
+     NOTE: this is the Tailwind `bg-accent`/`text-accent` token. shadcn uses a
+     SEPARATE `--accent` CSS var (subtle hover) — the shadcn components reference
+     that var directly (bg-[var(--accent)]) so the two systems don't collide.
+     See the shadcn semantic layer + the reconciliation note below. */
   --color-accent: #5be6c4;
   --color-accent-dim: #2f9a80;
   --color-danger: #f0726a;
@@ -114,18 +120,112 @@
   --height-bar: 34px;
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   shadcn semantic layer — brutal-minimal default, mapped to existing tokens
+   ───────────────────────────────────────────────────────────────────────── */
+:root {
+  --background: var(--color-app);
+  --foreground: var(--color-ink-100);
+  --card: var(--color-surface);
+  --card-foreground: var(--color-ink-100);
+  --popover: var(--color-elevated);
+  --popover-foreground: var(--color-ink-100);
+  --primary: var(--color-accent);
+  --primary-foreground: var(--color-app);
+  --secondary: var(--color-hover);
+  --secondary-foreground: var(--color-ink-100);
+  --muted: var(--color-muted);
+  --muted-foreground: var(--color-ink-300);
+  --accent: var(--color-hover);
+  --accent-foreground: var(--color-ink-100);
+  --destructive: var(--color-danger);
+  --destructive-foreground: var(--color-app);
+  --border: var(--color-border-strong);
+  --input: var(--color-border-strong);
+  --ring: var(--color-accent);
+  --radius: 0px;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  /* Reconciliation (WS-C): --color-muted / --color-border are intentionally NOT
+     re-mapped — their @theme values already match the shadcn intent
+     (muted=ink-500, border=ink-700), so shadcn `bg-muted`/`border-border` are
+     correct as-is. --color-accent is the EXCEPTION: the old kit owns it as the
+     brand teal (active-nav/primary-action), but shadcn's `accent` means a
+     subtle hover surface. We can't make one Tailwind utility mean both, so the
+     shadcn components reference the `--accent`/`--accent-foreground` CSS vars
+     DIRECTLY (e.g. `bg-[var(--accent)]`) instead of the `bg-accent` utility.
+     That keeps the old kit's teal untouched while shadcn hover/focus states
+     read correctly. (--accent = var(--color-hover) in :root above.) */
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-lg: var(--radius);
+  --radius-md: var(--radius);
+  --radius-sm: var(--radius);
+}
+
+/* Theme presets */
+[data-theme="soft"] {
+  --background: var(--color-app);
+  --foreground: var(--color-ink-100);
+  /* keep the strong border (border-strong) — softening it to the hairline
+     dropped it below readable; soft's distinction is curvature + elevation */
+  --shadow-menu: 0 4px 16px -6px rgb(0 0 0 / 0.30), 0 1px 3px rgb(0 0 0 / 0.25);
+  --radius: 6px;
+  /* Override Tailwind v4 radius tokens for soft theme */
+  --radius-lg: 6px;
+  --radius-md: 6px;
+  --radius-sm: 4px;
+}
+
 :root[data-theme="light"] {
   --color-ink-950: #FBFBFA; /* canvas */
   --color-ink-900: #FFFFFF; /* cards float */
   --color-ink-850: #F8F7F5; /* elevated — a hair off card */
   --color-ink-800: #F2F1EF; /* hover */
   --color-ink-700: #E6E4E1; /* hairline */
-  --color-ink-600: #D2CFC9; /* strong border */
+  --color-ink-600: #A8A39B; /* strong border — darkened to ~3:1 on white */
   --color-ink-500: #8C887F; /* faint */
+  --color-ink-400: #74706A; /* secondary muted */
   --color-ink-300: #5C584F; /* muted */
+  --color-ink-200: #3F3C37; /* low-emphasis */
   --color-ink-100: #2E2C28; /* primary, warm near-black */
   --shadow-menu: 0 4px 16px -6px rgb(0 0 0 / 0.08), 0 1px 3px rgb(0 0 0 / 0.06);
   --shadow-dialog: 0 16px 48px -12px rgb(0 0 0 / 0.12), 0 4px 12px rgb(0 0 0 / 0.08);
+
+  /* Brand fills stay saturated; their foreground must flip to dark ink in light
+     (the default --color-app is near-white in light → white-on-teal failed AA). */
+  --primary-foreground: var(--color-ink-100);
+  --destructive-foreground: var(--color-ink-100);
+
+  /* Module identity + status hues are tuned at L≈0.70 for the dark canvas; on
+     white they land 2–3:1 as text/icons. Re-tune to L≈0.50 (same hue angle) so
+     they pass AA on the light surfaces. */
+  --color-module-knowledge: oklch(0.50 0.15 250);
+  --color-module-memory: oklch(0.50 0.16 300);
+  --color-module-actions: oklch(0.50 0.14 150);
+  --color-module-instructions: oklch(0.50 0.12 80);
+  --color-module-guardrails: oklch(0.52 0.17 20);
+  --color-success: oklch(0.50 0.14 150);
+  --color-warn: oklch(0.52 0.13 80);
+  --color-error: oklch(0.52 0.18 25);
+  --color-info: oklch(0.50 0.13 250);
+  --color-running: oklch(0.50 0.16 300);
+  /* error-subtle is a row-background tint — its lightness must track the theme */
+  --color-error-subtle: oklch(0.94 0.04 25);
 }
 
 html,
@@ -161,7 +261,7 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.09em;
   font-weight: 560;
-  color: var(--color-ink-500);
+  color: var(--muted-foreground);
 }
 
 /* ── one canonical bar: fixed height, centered, standard padding ─────── */

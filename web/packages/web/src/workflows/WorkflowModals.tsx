@@ -20,7 +20,7 @@ function Modal({ title, children, onClose }: { title: string; children: React.Re
   return (
     <Overlay onClose={onClose} align="top" className="pt-[15vh]">
       <Dialog width="sm" className="p-4">
-        <div className="mb-3 text-body font-semibold text-ink-100">{title}</div>
+        <div className="mb-3 text-body font-semibold text-foreground">{title}</div>
         {children}
       </Dialog>
     </Overlay>
@@ -74,7 +74,7 @@ export function WorkflowSaveModal() {
           value={command}
           onChange={(e) => setCommand(e.target.value)}
         />
-        <p className="text-meta text-ink-500">
+        <p className="text-meta text-muted-foreground">
           Use <code className="text-accent">{"{{arg}}"}</code> for prompts.
           {args.length > 0 && ` Args: ${args.map((a) => a.name).join(", ")}`}
         </p>
@@ -115,7 +115,7 @@ export function WorkflowRunModal({ workflow, onClose }: { workflow: Workflow | n
   return (
     <Modal title={`Run: ${workflow.name}`} onClose={onClose}>
       <div className="space-y-2">
-        <p className="truncate font-mono text-meta text-ink-500">{workflow.command}</p>
+        <p className="truncate font-mono text-meta text-muted-foreground">{workflow.command}</p>
         {argDefs.map((a, i) => (
           <div key={a.name}>
             <label className="mb-0.5 block text-meta text-ink-400">{a.name}</label>

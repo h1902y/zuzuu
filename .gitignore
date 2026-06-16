@@ -15,6 +15,13 @@ experiments/**/out/
 .opencode/
 .claude/settings.json
 .claude/settings.local.json
+.claude/worktrees/
+
+# Local agent planning scratch (ce-plan output; not product docs)
+docs/plans/
+
+# Ad-hoc design-research screenshots (the written research in docs/design-research/ is tracked)
+docs/design-research/shots/
 
 # Personal/marketing federation layer — local-only, read by the personal vault.
 # (Older copies exist in git history from before this split.)

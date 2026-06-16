@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import { existsSync, readdirSync, statSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { event, trace, EventKind, Status } from '../core/event.mjs';
+import { contentNode, isoTs, joinText } from './content.mjs';
 
 const require = createRequire(import.meta.url);
 const PROJECTS_DIR = join(homedir(), '.claude', 'projects');
@@ -69,6 +70,54 @@ export const claudeCode = {
     } catch {
       return { commands: [], files: [], failures: [], sequences: [], correctionTurns: [], destructiveFailures: [] };
     }
+  },
+
+  // On-demand DISPLAY content (U1): reuses readJsonl + the same raw fields parse
+  // reads (message.content[] text / tool_use.input / tool_result.content), but
+  // emits ordered content nodes instead of byte-counted spans. Read-only; never
+  // stored. Throws nothing meaningful is caught one layer up (sessionContentData).
+  extractContent(ref) {
+    const file = typeof ref === 'string' ? ref : ref.ref;
+    const rows = readJsonl(file);
+    // Pass 1: tool_result bodies keyed by tool_use_id (+ error flag).
+    const results = new Map();
+    for (const r of rows) {
+      const c = r.message?.content;
+      if (!Array.isArray(c)) continue;
+      for (const b of c) {
+        if (b.type !== 'tool_result') continue;
+        const body = typeof b.content === 'string' ? b.content : joinText(b.content) || JSON.stringify(b.content ?? '');
+        results.set(b.tool_use_id, { output: body, isError: !!b.is_error });
+      }
+    }
+    // Pass 2: ordered nodes — user text turns, assistant text, tool calls.
+    const nodes = [];
+    for (const r of rows) {
+      const ts = isoTs(r.timestamp);
+      const content = r.message?.content;
+      if (r.type === 'user' && !r.isMeta) {
+        const isToolResult = Array.isArray(content) && content.some((b) => b.type === 'tool_result');
+        if (!isToolResult) {
+          const text = joinText(content);
+          if (text) nodes.push(contentNode({ kind: 'user_text', label: 'user', ts, text }));
+        }
+      }
+      if (r.type === 'assistant' && Array.isArray(content)) {
+        const text = joinText(content);
+        if (text) nodes.push(contentNode({ kind: 'agent_text', label: 'assistant', ts, text }));
+        for (const b of content) {
+          if (b.type !== 'tool_use') continue;
+          const res = results.get(b.id) || {};
+          const input = typeof b.input === 'string' ? b.input : JSON.stringify(b.input ?? {}, null, 2);
+          nodes.push(contentNode({
+            kind: 'tool', label: b.name || 'tool', ts,
+            toolInput: input, toolOutput: res.output ?? '',
+            status: res.isError ? 'error' : 'ok',
+          }));
+        }
+      }
+    }
+    return nodes;
   },
 
   listSessions(opts = {}) {

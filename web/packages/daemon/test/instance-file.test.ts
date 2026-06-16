@@ -4,9 +4,12 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
+  ensurePersistentToken,
   instancePath,
   readInstanceFile,
+  readPersistentToken,
   removeInstanceFile,
+  tokenPath,
   writeInstanceFile,
   type InstanceInfo,
 } from "../src/instance-file.js";
@@ -93,5 +96,42 @@ describe("removeInstanceFile", () => {
 
   it("is a no-op when the file is already gone", () => {
     expect(() => removeInstanceFile("/rm/never", 1, base)).not.toThrow();
+  });
+});
+
+describe("persistent token", () => {
+  it("tokenPath shares the json id but with a .token extension", () => {
+    const root = "/tok/path";
+    const json = path.basename(instancePath(root, base));
+    const tok = path.basename(tokenPath(root, base));
+    expect(tok).toBe(json.replace(/\.json$/, ".token"));
+    expect(tok).toMatch(/^[0-9a-f]{16}\.token$/);
+  });
+
+  it("ensurePersistentToken generates once then returns the same token (0600)", async () => {
+    const root = "/tok/idem";
+    expect(readPersistentToken(root, base)).toBeNull();
+    const first = ensurePersistentToken(root, base);
+    expect(first).toMatch(/^[A-Za-z0-9_-]{20,}$/); // base64url, no padding
+    expect(ensurePersistentToken(root, base)).toBe(first); // idempotent
+    expect(readPersistentToken(root, base)).toBe(first);
+    const mode = (await stat(tokenPath(root, base))).mode & 0o777;
+    expect(mode).toBe(0o600);
+  });
+
+  it("the token survives removeInstanceFile (which only drops the .json)", () => {
+    const i = info({ root: "/tok/survives" });
+    writeInstanceFile(i, base);
+    const tok = ensurePersistentToken(i.root, base);
+    removeInstanceFile(i.root, i.pid, base);
+    expect(existsSync(instancePath(i.root, base))).toBe(false); // .json gone
+    expect(existsSync(tokenPath(i.root, base))).toBe(true); // .token stays
+    expect(readPersistentToken(i.root, base)).toBe(tok);
+  });
+
+  it("readPersistentToken returns null for missing/empty and trims whitespace", () => {
+    expect(readPersistentToken("/tok/never", base)).toBeNull();
+    const tok = ensurePersistentToken("/tok/trim", base);
+    expect(tok.includes("\n")).toBe(false); // returned value is already trimmed
   });
 });

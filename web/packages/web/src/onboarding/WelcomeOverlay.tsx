@@ -66,13 +66,13 @@ function useCopyText(text: string) {
 function CliChip({ command }: { command: string }) {
   const { copied, copy } = useCopyText(command);
   return (
-    <div className="mt-3 flex items-center gap-2 rounded-[var(--radius-ui)] border border-border bg-app px-3 py-2">
+    <div className="mt-3 flex items-center gap-2 rounded-[var(--radius-ui)] border border-[var(--border)] bg-background px-3 py-2">
       {/* CLI command is machine data — wc-mono is correct here */}
       <span className="wc-mono flex-1 text-ui text-accent">{command}</span>
       <button
         onClick={copy}
         title="Copy command"
-        className="wc-focus shrink-0 rounded-[var(--radius-sm)] px-2 py-0.5 text-meta text-ink-500 transition-colors hover:bg-hover hover:text-ink-100"
+        className="wc-focus shrink-0 rounded-[var(--radius-sm)] px-2 py-0.5 text-meta text-muted-foreground transition-colors hover:bg-[var(--accent)] hover:text-foreground"
       >
         {copied ? "Copied" : "Copy"}
       </button>
@@ -95,10 +95,10 @@ function StepRow({ step, state, index }: StepRowProps) {
       className={cx(
         "rounded-[var(--radius-ui)] border px-4 py-3 transition-colors",
         isActive
-          ? "border-border-strong bg-elevated"
+          ? "border-[var(--border)] bg-popover"
           : isCompleted
-            ? "border-border bg-surface opacity-60"
-            : "border-border bg-surface",
+            ? "border-[var(--border)] bg-card opacity-60"
+            : "border-[var(--border)] bg-card",
       )}
     >
       {/* Row header — always visible */}
@@ -110,7 +110,7 @@ function StepRow({ step, state, index }: StepRowProps) {
           ) : isActive ? (
             <span className="wc-sans text-meta font-semibold text-accent">{index + 1}</span>
           ) : (
-            <span className="wc-mono text-meta text-ink-600">{index + 1}</span>
+            <span className="wc-mono text-meta text-muted-foreground">{index + 1}</span>
           )}
         </div>
 
@@ -119,26 +119,26 @@ function StepRow({ step, state, index }: StepRowProps) {
           <div
             className={cx(
               "wc-sans text-ui font-semibold",
-              isCompleted ? "text-ink-500" : isActive ? "text-ink-100" : "text-ink-400",
+              isCompleted ? "text-muted-foreground" : isActive ? "text-foreground" : "text-muted-foreground",
             )}
           >
             {step.title}
           </div>
-          <div className={cx("wc-sans mt-0.5 text-meta", isActive ? "text-ink-400" : "text-ink-500")}>
+          <div className={cx("wc-sans mt-0.5 text-meta", isActive ? "text-muted-foreground" : "text-muted-foreground")}>
             {step.subtitle}
           </div>
         </div>
 
         {/* Completed badge */}
         {isCompleted && (
-          <span className="wc-sans mt-0.5 shrink-0 text-meta text-ink-500">Done</span>
+          <span className="wc-sans mt-0.5 shrink-0 text-meta text-muted-foreground">Done</span>
         )}
       </div>
 
       {/* Expanded detail — active step only */}
       {isActive && (
         <div className="wc-rise-in ml-8 mt-3">
-          <p className="wc-sans text-meta leading-relaxed text-ink-400">{step.detail}</p>
+          <p className="wc-sans text-meta leading-relaxed text-muted-foreground">{step.detail}</p>
           {step.cli && <CliChip command={step.cli} />}
         </div>
       )}
@@ -160,11 +160,11 @@ function KeyboardTips() {
 
 function Tip({ kbd, label }: { kbd: string; label: string }) {
   return (
-    <div className="rounded-[var(--radius-ui)] border border-border bg-surface p-2">
+    <div className="rounded-[var(--radius-ui)] border border-[var(--border)] bg-card p-2">
       <div className="mb-0.5">
         <Kbd>{kbd}</Kbd>
       </div>
-      <div className="wc-sans mt-1 text-meta text-ink-500">{label}</div>
+      <div className="wc-sans mt-1 text-meta text-muted-foreground">{label}</div>
     </div>
   );
 }
@@ -173,10 +173,10 @@ function Tip({ kbd, label }: { kbd: string; label: string }) {
 
 function CompletionCard({ onDismiss }: { onDismiss: () => void }) {
   return (
-    <div className="wc-graduate rounded-[var(--radius-ui)] border border-border bg-elevated px-5 py-5 text-center">
+    <div className="wc-graduate rounded-[var(--radius-ui)] border border-[var(--border)] bg-popover px-5 py-5 text-center">
       <div className="mb-1 text-xl">✦</div>
-      <div className="wc-sans text-title font-semibold text-ink-100">Your agent is ready</div>
-      <p className="wc-sans mt-1.5 text-meta leading-relaxed text-ink-400">
+      <div className="wc-sans text-title font-semibold text-foreground">Your agent is ready</div>
+      <p className="wc-sans mt-1.5 text-meta leading-relaxed text-muted-foreground">
         zuzuu will observe your sessions and propose what it learned. Every approval makes your
         agent a little smarter.
       </p>
@@ -225,13 +225,13 @@ export function WelcomeOverlay({
     <Overlay onClose={onDismiss}>
       <Dialog width="md" className="wc-pop-in">
         {/* ── Header ─────────────────────────────────────────────────── */}
-        <div className="border-b border-border px-5 pt-5 pb-4">
+        <div className="border-b border-[var(--border)] px-5 pt-5 pb-4">
           <div className="flex items-start justify-between gap-2">
             <div>
-              <h1 className="wc-sans text-title font-semibold text-ink-100">
+              <h1 className="wc-sans text-title font-semibold text-foreground">
                 Get started with zuzuu
               </h1>
-              <p className="wc-sans mt-0.5 text-meta text-ink-500">
+              <p className="wc-sans mt-0.5 text-meta text-muted-foreground">
                 Working in{" "}
                 <span className="wc-mono text-accent">{workspaceName ?? "this folder"}</span>
               </p>
@@ -239,7 +239,7 @@ export function WelcomeOverlay({
             <button
               onClick={onDismiss}
               title="Close"
-              className="wc-focus shrink-0 rounded-[var(--radius-sm)] p-1 text-ink-500 hover:text-ink-100"
+              className="wc-focus shrink-0 rounded-[var(--radius-sm)] p-1 text-muted-foreground hover:text-foreground"
             >
               <svg
                 viewBox="0 0 16 16"
@@ -256,7 +256,7 @@ export function WelcomeOverlay({
           {/* Progress: words + bar */}
           {!allDone && (
             <div className="mt-3 space-y-1.5">
-              <div className="wc-sans flex items-center justify-between text-meta text-ink-500">
+              <div className="wc-sans flex items-center justify-between text-meta text-muted-foreground">
                 <span>
                   Step {Math.min(completedCount + 1, totalSteps)} of {totalSteps}
                 </span>
@@ -283,7 +283,7 @@ export function WelcomeOverlay({
               <div className="flex items-center gap-2 pt-1">
                 <button
                   onClick={onDismiss}
-                  className="wc-focus wc-sans text-meta text-ink-500 hover:text-ink-300"
+                  className="wc-focus wc-sans text-meta text-muted-foreground hover:text-foreground"
                 >
                   Skip for now
                 </button>
@@ -302,7 +302,7 @@ export function WelcomeOverlay({
 
         {/* ── Keyboard tips footer ───────────────────────────────────── */}
         {!allDone && (
-          <div className="border-t border-border px-4 py-3">
+          <div className="border-t border-[var(--border)] px-4 py-3">
             <div className="wc-eyebrow mb-2">Quick shortcuts</div>
             <KeyboardTips />
           </div>

@@ -36,8 +36,8 @@ export function Tab({
       className={cx(
         "group/tab relative flex max-w-52 items-center gap-1.5 px-3 text-ui transition-colors",
         active
-          ? "bg-app text-ink-100"
-          : "text-ink-400 hover:bg-hover hover:text-ink-200",
+          ? "bg-background text-foreground"
+          : "text-muted-foreground hover:bg-[var(--accent)] hover:text-foreground",
         className,
       )}
     >
@@ -54,11 +54,11 @@ export function Tab({
             e.stopPropagation();
             onClose();
           }}
-          className="ml-0.5 flex h-4 w-4 items-center justify-center rounded-[var(--radius-sm)] text-ink-500 hover:bg-elevated hover:text-ink-100"
+          className="ml-0.5 flex h-4 w-4 items-center justify-center rounded-[var(--radius-sm)] text-muted-foreground hover:bg-[var(--accent)] hover:text-foreground"
         >
           {dirty ? (
             <>
-              <span className="h-1.5 w-1.5 rounded-full bg-ink-300 group-hover/tab:hidden" />
+              <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground group-hover/tab:hidden" />
               <span className="hidden text-meta group-hover/tab:inline">×</span>
             </>
           ) : (
@@ -88,7 +88,7 @@ export function ModeTabs<T extends string>({
           onClick={() => onChange(mode)}
           className={cx(
             "relative px-2.5 text-meta uppercase tracking-wider transition-colors",
-            value === mode ? "text-ink-100" : "text-ink-500 hover:text-ink-300",
+            value === mode ? "text-foreground" : "text-muted-foreground hover:text-foreground",
           )}
         >
           {value === mode && <span className="absolute inset-x-1.5 -bottom-px h-px bg-accent" />}

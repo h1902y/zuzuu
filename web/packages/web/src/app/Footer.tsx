@@ -2,10 +2,13 @@
 // session-git indicator · the agent progression pill · a quiet ⌘K hint. The
 // workspace/recents switcher moved entirely into the sidebar's single
 // workspace dropdown (one directory control), so the footer is status-only.
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Settings2 } from "lucide-react";
 import { useConnection } from "../state/connection";
 import { Bar, Kbd, StatusDot } from "../components/ui";
 import { SessionIndicator } from "../components/SessionIndicator";
+import { Settings } from "../components/Settings";
 import { zuzuuApi } from "../lib/zuzuu-api";
 import { pendingTotal } from "../panel/sections";
 
@@ -49,17 +52,17 @@ function AgentProgressionPill({ zuzuuHome }: { zuzuuHome: boolean }) {
 
   return (
     <span
-      className="flex shrink-0 items-center gap-1 rounded-[var(--radius-sm)] px-1.5 py-0.5 text-meta text-ink-500"
+      className="flex shrink-0 items-center gap-1 rounded-[var(--radius-sm)] px-1.5 py-0.5 text-meta text-muted-foreground"
       style={{ background: "color-mix(in oklab, var(--color-ink-600) 8%, transparent)" }}
       title="Your agent's current state — snapshots saved, facts known, proposals awaiting review"
     >
-      <span className="wc-sans text-ink-400">Your agent:</span>
+      <span className="wc-sans text-muted-foreground">Your agent:</span>
       {parts.length > 0 && (
-        <span className="wc-sans text-ink-300">{parts.join(" · ")}</span>
+        <span className="wc-sans text-muted-foreground">{parts.join(" · ")}</span>
       )}
       {hasPending && (
         <>
-          <span aria-hidden className="text-ink-600">·</span>
+          <span aria-hidden className="text-muted-foreground">·</span>
           <span
             className="wc-sans font-medium tabular-nums"
             style={{ color: "color-mix(in oklab, var(--color-warn) 82%, white)" }}
@@ -80,20 +83,22 @@ export function Footer({
   onOpenPalette: () => void;
 }) {
   const conn = useConnection();
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const connTone = conn.state === "connected" ? "ok" : conn.state === "reconnecting" ? "warn" : "bad";
   const connLabel =
     conn.state === "connected" ? "Connected" : conn.state === "reconnecting" ? "Reconnecting…" : "Disconnected";
 
   return (
-    <Bar border="t" surface="surface" className="relative !gap-2.5 text-meta text-ink-500">
+    <>
+    <Bar border="t" surface="surface" className="relative !gap-2.5 text-meta text-muted-foreground">
       {/* calm connection status */}
       <span className="flex shrink-0 items-center gap-1.5" title={`daemon ${conn.state}`}>
         <StatusDot tone={connTone} pulse={conn.state === "reconnecting"} />
-        <span className="wc-sans text-ink-400">{connLabel}</span>
+        <span className="wc-sans text-muted-foreground">{connLabel}</span>
       </span>
 
-      <span aria-hidden className="text-ink-600">·</span>
+      <span aria-hidden className="text-muted-foreground">·</span>
 
       {/* session-git indicator (restyled context-only; its own quiet popover) */}
       <SessionIndicator enabled={zuzuuHome} />
@@ -103,12 +108,24 @@ export function Footer({
 
       <button
         onClick={onOpenPalette}
-        className="wc-sans ml-auto flex shrink-0 items-center gap-1.5 rounded-[var(--radius-sm)] px-1 text-ink-400 transition-colors hover:text-ink-100"
+        className="wc-sans ml-auto flex shrink-0 items-center gap-1.5 rounded-[var(--radius-sm)] px-1 text-muted-foreground transition-colors hover:text-foreground"
         title="Command palette"
       >
         <span>Commands</span>
         <Kbd>⌘K</Kbd>
       </button>
+
+      <button
+        onClick={() => setSettingsOpen(true)}
+        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-muted-foreground transition-colors hover:bg-[var(--accent)] hover:text-foreground"
+        title="Settings"
+        aria-label="Open settings"
+      >
+        <Settings2 className="h-3.5 w-3.5" />
+      </button>
     </Bar>
+
+    <Settings open={settingsOpen} onOpenChange={setSettingsOpen} />
+    </>
   );
 }

@@ -12,19 +12,21 @@ import { WelcomeOverlay } from "./onboarding/WelcomeOverlay";
 import { VaultPicker } from "./onboarding/VaultPicker";
 import { DialogHost } from "./components/ui";
 import { WorkflowSaveModal, WorkflowRunModal } from "./workflows/WorkflowModals";
-import { RightPanel } from "./panel/RightPanel";
+import { ModulesList } from "./panel/ModulesList";
 import { ReviewFlow } from "./modules/ReviewFlow";
 import { agentTabTitle } from "./modules/host-launch";
 import { api } from "./lib/api";
 import { Layout } from "./app/Layout";
 import { Sidebar } from "./app/Sidebar";
-import { SessionPane } from "./app/SessionPane";
+import { CenterWorkArea } from "./app/CenterWorkArea";
 import { Footer } from "./app/Footer";
 import { TakeoverOverlay } from "./app/TakeoverOverlay";
 import { initTabGuard } from "./state/takeover";
 import { useGlobalShortcuts } from "./app/shortcuts";
 import { saveRecording, switchVault } from "./app/vault";
 import { useFsEventBridge, useWorkspaceConfigQuery, useWorkspaceQuery, useZuzuuHealthQuery } from "./app/queries";
+import { ReconnectScreen } from "./app/ReconnectScreen";
+import { useAuthLoss } from "./state/auth-loss";
 
 // the ⌘K palette rides its own chunk — loaded on first open
 const CommandPalette = lazy(() =>
@@ -35,6 +37,7 @@ export default function App() {
   const { tabs, activeId, init } = useSessions();
   const [initError, setInitError] = useState<string | null>(null);
 
+  const authLost = useAuthLoss((s) => s.lost);
   const workspace = useWorkspaceQuery();
   const wsConfig = useWorkspaceConfigQuery();
   const conn = useConnection();
@@ -74,9 +77,14 @@ export default function App() {
     document.title = tabLabel ? `${tabLabel} — ${name}` : name;
   }, [activeTab, workspace.data]);
 
+  // Auth loss (any 401) takes precedence over generic error states: a friendly
+  // "run `zz web`" screen, not a raw "not authorized". Recovery routes through
+  // the daemon's token exchange (see ReconnectScreen's security note).
+  if (authLost) return <ReconnectScreen />;
+
   if (workspace.error || initError) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 text-ink-300">
+      <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground">
         <div className="text-2xl text-accent">❯_</div>
         <div className="max-w-md text-center text-sm leading-relaxed">
           {(workspace.error as Error | null)?.message ?? initError}
@@ -91,9 +99,9 @@ export default function App() {
       <DisconnectedBanner state={conn.state} />
       <Layout
         sidebar={<Sidebar />}
-        center={<SessionPane />}
+        center={<CenterWorkArea zuzuuHome={zuzuuHome} />}
         right={
-          <RightPanel
+          <ModulesList
             zuzuuHome={zuzuuHome}
             zuzuuBin={zuzuuHealth.data?.zuzuuBin ?? true}
             onCollapse={() => setRightCollapsed(true)}

@@ -14,6 +14,7 @@ import { join } from 'node:path';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { event, trace, EventKind } from '../core/event.mjs';
 import { emptySignals } from './signals.mjs';
+import { contentNode, isoTs } from './content.mjs';
 
 const TMP_DIR = join(homedir(), '.gemini', 'tmp');
 
@@ -63,6 +64,21 @@ export const geminiCli = {
       }
     }
     return out.sort((a, b) => b.mtime - a.mtime);
+  },
+
+  // On-demand DISPLAY content (U1): logs.json is PROMPT-ONLY, so this honestly
+  // emits user_text nodes and NO tool content (the thin host). Read-only.
+  extractContent(ref) {
+    const { file, sessionId } = ref;
+    const rows = readLog(file)
+      .filter((r) => r.sessionId === sessionId && r.type === 'user')
+      .sort((a, b) => (a.messageId ?? 0) - (b.messageId ?? 0));
+    const nodes = [];
+    for (const r of rows) {
+      const text = clean(r.message);
+      if (text) nodes.push(contentNode({ kind: 'user_text', label: 'user', ts: isoTs(r.timestamp), text }));
+    }
+    return nodes;
   },
 
   parse(ref) {

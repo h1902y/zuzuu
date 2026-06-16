@@ -18,6 +18,7 @@ import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { event, trace, EventKind, Status } from '../core/event.mjs';
 import { assembleSignals, emptySignals } from './signals.mjs';
+import { contentNode, isoTs } from './content.mjs';
 
 const require = createRequire(import.meta.url);
 const DB_PATH = join(homedir(), '.local', 'share', 'opencode', 'opencode.db');
@@ -135,6 +136,36 @@ export function signalsFromParts(parts) {
   return assembleSignals(shellCalls);
 }
 
+// Pure DISPLAY-content normalization (U1) — host-agnostic, hermetically
+// testable. Walks messages+parts in time order into ordered content nodes
+// (user/assistant text from text parts; tool nodes from tool parts with
+// state.input/output + status). Mirrors buildTrace's field reads, no spans.
+export function contentFromParts(messages, parts) {
+  const roleByMsg = new Map(messages.map((m) => [m.id, m.role]));
+  const ordered = [...parts].sort((a, b) => (a.time_created || 0) - (b.time_created || 0));
+  const nodes = [];
+  for (const p of ordered) {
+    const ts = isoTs(p.time_created);
+    if (p.type === 'text') {
+      const role = roleByMsg.get(p.messageId);
+      const text = clean(p.text || '');
+      if (!text) continue;
+      if (role === 'assistant') nodes.push(contentNode({ kind: 'agent_text', label: 'assistant', ts, text }));
+      else if (role === 'user') nodes.push(contentNode({ kind: 'user_text', label: 'user', ts, text }));
+    } else if (p.type === 'tool') {
+      const st = p.state || {};
+      const input = typeof st.input === 'string' ? st.input : JSON.stringify(st.input ?? {}, null, 2);
+      const output = typeof st.output === 'string' ? st.output : JSON.stringify(st.output ?? '');
+      nodes.push(contentNode({
+        kind: 'tool', label: p.tool || 'tool', ts,
+        toolInput: input, toolOutput: output,
+        status: st.status === 'error' ? 'error' : 'ok',
+      }));
+    }
+  }
+  return nodes;
+}
+
 export const opencode = {
   name: 'opencode',
 
@@ -163,6 +194,31 @@ export const opencode = {
       }
     } catch {
       return emptySignals();
+    }
+  },
+
+  // On-demand DISPLAY content (U1): reuses the same SQLite read parse uses, then
+  // delegates to the pure contentFromParts. Read-only; never stored.
+  extractContent(ref) {
+    const dbPath = ref?.db || DB_PATH;
+    const sid = ref?.sessionId || ref;
+    if (!existsSync(dbPath)) return [];
+    const db = openDb(dbPath);
+    try {
+      const messages = db
+        .prepare('SELECT id, data FROM message WHERE session_id = ? ORDER BY time_created')
+        .all(sid)
+        .map((m) => ({ id: m.id, role: JSON.parse(m.data).role }));
+      const parts = db
+        .prepare('SELECT message_id, time_created, data FROM part WHERE session_id = ? ORDER BY time_created')
+        .all(sid)
+        .map((p) => {
+          const d = JSON.parse(p.data);
+          return { messageId: p.message_id, time_created: p.time_created, type: d.type, text: d.text, tool: d.tool, state: d.state };
+        });
+      return contentFromParts(messages, parts);
+    } finally {
+      db.close();
     }
   },
 

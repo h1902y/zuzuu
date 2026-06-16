@@ -21,6 +21,7 @@ const RECORDS = [
     traceId: 'a'.repeat(32), traceRef: '.zuzuu/.traces/claude-code-sess-test.otlp.jsonl',
     git: { commit: 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef', branch: 'main' },
     counts: { turns: 2, tools: 2, errors: 1 }, generation: 'gen_001',
+    ptyId: 'pty0011223344aabb', // U4: workbench session carries the PTY join key
   },
   {
     id: 'sess-gone', host: 'claude-code', status: 'abandoned',
@@ -64,6 +65,10 @@ test('sessions --json: list with state labels, newest first, full record shape',
       assert.ok('generation' in s);
       assert.ok('git' in s);
     }
+    // U4 (KTD2): the PTY join key surfaces on the wire only when the record
+    // carries it; records without one stay byte-for-byte the same (no ptyId key).
+    assert.equal(a.ptyId, 'pty0011223344aabb');
+    assert.equal('ptyId' in b, false);
   });
 });
 

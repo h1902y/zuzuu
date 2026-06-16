@@ -2,12 +2,16 @@
 import { describe, expect, it } from "vitest";
 import type { SessionCloseResult, SessionGitStatus } from "@zuzuu-web/protocol";
 import {
+  activeBand,
   blockReceipt,
   centerCard,
   endCard,
   fmtDuration,
   hasAliveAgent,
   receiptForCommand,
+  recoveryBannerCopy,
+  tailState,
+  traceSessionForTab,
 } from "./session-cards";
 
 const leftover: SessionGitStatus = {
@@ -41,6 +45,62 @@ describe("centerCard (none / recovery — starting moved to the composer)", () =
     expect(centerCard(0, { ...leftover, cliAbsent: true })).toEqual({ kind: "none" });
     expect(centerCard(0, { ...leftover, active: null })).toEqual({ kind: "none" });
   });
+
+  it("suppresses recovery when the leftover branch has 0 saved steps (nothing to recover)", () => {
+    // An empty leftover branch — e.g. a session running outside the workbench:
+    // not abandoned work, so don't nag.
+    expect(
+      centerCard(0, {
+        ...leftover,
+        active: { branch: "zz/session-abc", checkpoints: 0, dirty: false, noNetChanges: false },
+      }),
+    ).toEqual({ kind: "none" });
+  });
+
+  it("keeps recovery when the leftover branch has >= 1 saved step (real abandoned work)", () => {
+    expect(
+      centerCard(0, {
+        ...leftover,
+        active: { branch: "zz/session-abc", checkpoints: 1, dirty: false, noNetChanges: false },
+      }),
+    ).toEqual({ kind: "recovery", branch: "zz/session-abc", checkpoints: 1 });
+  });
+
+  it("suppresses recovery when the leftover branch belongs to a currently-live session", () => {
+    // Even with saved steps, a branch that matches a live session is running,
+    // not abandoned — no recovery prompt.
+    expect(centerCard(0, leftover, new Set(["zz/session-abc"]))).toEqual({ kind: "none" });
+    // a non-matching live branch leaves the recovery card intact
+    expect(centerCard(0, leftover, new Set(["zz/session-other"]))).toEqual({
+      kind: "recovery",
+      branch: "zz/session-abc",
+      checkpoints: 3,
+    });
+    // an iterable (not just a Set) is accepted too
+    expect(centerCard(0, leftover, ["zz/session-abc"])).toEqual({ kind: "none" });
+  });
+});
+
+describe("tailState (honest live-outside-the-workbench tail)", () => {
+  it("alive (workbench PTY attached) → live, regardless of trace state", () => {
+    expect(tailState(true)).toBe("live");
+    expect(tailState(true, "active")).toBe("live");
+    expect(tailState(true, "completed")).toBe("live");
+  });
+
+  it("not alive but trace state active/opening → outside (running in the user's terminal)", () => {
+    expect(tailState(false, "active")).toBe("outside");
+    expect(tailState(false, "opening")).toBe("outside");
+  });
+
+  it("not alive and ended/unknown state → ended", () => {
+    expect(tailState(false, "completed")).toBe("ended");
+    expect(tailState(false, "abandoned")).toBe("ended");
+    expect(tailState(false, "crashed")).toBe("ended");
+    expect(tailState(false, "captured")).toBe("ended");
+    expect(tailState(false, undefined)).toBe("ended");
+    expect(tailState(false)).toBe("ended");
+  });
 });
 
 describe("hasAliveAgent (single-active-agent v1 rule)", () => {
@@ -56,6 +116,42 @@ describe("hasAliveAgent (single-active-agent v1 rule)", () => {
         { type: "agent", alive: true },
       ]),
     ).toBe(true);
+  });
+});
+
+describe("activeBand (U5 — the active session is represented once)", () => {
+  it("a live PTY that is the focused tab folds into the conversation — NO band", () => {
+    expect(activeBand({ liveTab: true, focused: true })).toBe("in-conversation");
+  });
+
+  it("a live PTY that is not focused lingers only as a compact resume entry", () => {
+    expect(activeBand({ liveTab: true, focused: false })).toBe("resume");
+  });
+
+  it("no live PTY (ran outside the workbench) reads honestly — no false terminal", () => {
+    // focused is irrelevant when there is no tab to focus
+    expect(activeBand({ liveTab: false, focused: false })).toBe("outside");
+    expect(activeBand({ liveTab: false, focused: true })).toBe("outside");
+  });
+});
+
+describe("traceSessionForTab (U4 ptyId join → unified session header)", () => {
+  const sessions = [
+    { id: "trace-a", ptyId: "pty-1" },
+    { id: "trace-b", ptyId: "pty-2" },
+    { id: "trace-outside" }, // ran outside the workbench — no ptyId
+  ];
+
+  it("joins a live PTY tab to its trace session by ptyId", () => {
+    expect(traceSessionForTab(sessions, "pty-2")).toEqual({ id: "trace-b", ptyId: "pty-2" });
+  });
+
+  it("returns undefined for a tab no trace session claims (pre-U4 / unknown)", () => {
+    expect(traceSessionForTab(sessions, "pty-unknown")).toBeUndefined();
+  });
+
+  it("never matches an outside (ptyId-less) session to a tab", () => {
+    expect(traceSessionForTab(sessions, "")).toBeUndefined();
   });
 });
 
@@ -184,6 +280,34 @@ describe("receiptForCommand (humanize a command into a sans label + glyph)", () 
   it("everything else is a plain run, first line only", () => {
     expect(receiptForCommand("npm test\n# second line")).toEqual({ label: "npm test", glyph: "run" });
     expect(receiptForCommand("   ")).toEqual({ label: "(empty command)", glyph: "run" });
+  });
+});
+
+describe("recoveryBannerCopy (U4 — plain-language, no git/checkpoint jargon)", () => {
+  it("uses plain lead sentence with no jargon", () => {
+    const copy = recoveryBannerCopy("zz/session-abc", 3);
+    expect(copy.lead).toBe("You have unfinished work from a previous session.");
+    expect(copy.lead).not.toMatch(/checkpoint/i);
+    expect(copy.lead).not.toMatch(/branch/i);
+  });
+
+  it("shows the branch name as the work label", () => {
+    const copy = recoveryBannerCopy("zz/session-abc", 3);
+    expect(copy.branchLabel).toBe("zz/session-abc");
+  });
+
+  it("uses 'saved step' (not 'checkpoint') with correct singular/plural", () => {
+    expect(recoveryBannerCopy("zz/s", 1).stepCount).toBe("1 saved step");
+    expect(recoveryBannerCopy("zz/s", 3).stepCount).toBe("3 saved steps");
+    expect(recoveryBannerCopy("zz/s", 0).stepCount).toBe("0 saved steps");
+  });
+
+  it("labels the resume action 'Resume this work'", () => {
+    expect(recoveryBannerCopy("zz/s", 2).resumeLabel).toBe("Resume this work");
+  });
+
+  it("labels the merge action 'Save to main & start new'", () => {
+    expect(recoveryBannerCopy("zz/s", 2).saveLabel).toBe("Save to main & start new");
   });
 });
 

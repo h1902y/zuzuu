@@ -98,7 +98,7 @@ export function proposals(args) {
   const id = args._[1];
   if (sub === 'show') {
     const module = moduleOf(agentDir, id, only);
-    const a = registry.get(module);
+    const a = registry.adapterFor(agentDir, module);
     const p = (a && typeof a.getProposal === 'function') ? a.getProposal(agentDir, id) : getProposal(agentDir, id);
     if (!p) return console.error('not found');
     // show always prints JSON (both with and without --json flag)

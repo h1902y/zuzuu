@@ -1,10 +1,10 @@
 // REST client for the /api/zuzuu/* observe + act routes (mirrors lib/api.ts).
 import type {
   ZuzuuHealth, ZuzuuStatus, ModuleSummary, ModuleDetail, ModuleSchema, InboxResponse,
-  ModuleOverviewResponse, SessionInspectResponse,
+  ModuleOverviewResponse, SessionInspectResponse, SessionTraceResponse, SessionTreeResponse,
   ModuleGenerationList, ModuleGenerationDiff, CheckpointList,
   CheckpointMintResult, CheckpointRollbackResult,
-  SessionsResponse, DigestResponse,
+  SessionsResponse, SessionContentResponse, DigestResponse,
   EvalResponse, HostsResponse, ApproveResult, RejectResult, RollbackResult,
   SessionGitStatus, SessionMergeResult,
 } from "@zuzuu-web/protocol";
@@ -67,6 +67,16 @@ export const zuzuuApi = {
   sessions: () => request<SessionsResponse>("/sessions"),
   /** one session's trace summary + per-module signals (503 = CLI absent) */
   sessionInspect: (id: string) => request<SessionInspectResponse>(`/session-inspect/${encodeURIComponent(id)}`),
+  /** one session's ordered per-action trace records (U6) — the post-hoc source
+   *  for the agent-session transcript + history (fail-soft: 404 → empty list) */
+  sessionTrace: (id: string) => request<SessionTraceResponse>(`/session-trace/${encodeURIComponent(id)}`),
+  /** one session's nested SESSION→TURN→TOOL tree (T1) — the source for the
+   *  SessionTree center view (fail-soft: missing blob → root null) */
+  sessionTree: (id: string) => request<SessionTreeResponse>(`/session-tree/${encodeURIComponent(id)}`),
+  /** one session's REAL host-transcript content (U1) — ordered DISPLAY nodes
+   *  (agent/user text + tool input/output), read on demand, never stored. The
+   *  source for the content-rich SessionTree (fail-soft: missing/thin → nodes []) */
+  sessionContent: (id: string) => request<SessionContentResponse>(`/session-content/${encodeURIComponent(id)}`),
   digest: () => request<DigestResponse>("/digest"),
   evalRanked: () => request<EvalResponse>("/eval"),
   hosts: () => request<HostsResponse>("/hosts"),
@@ -76,6 +86,15 @@ export const zuzuuApi = {
     request<ApproveResult>(`/proposals/${encodeURIComponent(id)}/approve`, json({ module })),
   rejectProposal: (id: string, module: string, reason?: string) =>
     request<RejectResult>(`/proposals/${encodeURIComponent(id)}/reject`, json(reason ? { module, reason } : { module })),
+  /** guided module creation (WS-D): compose a declarative module from a few
+   *  choices → zuzuu module new <id> … (returns {ok, id, path} or 502 on exists) */
+  createModule: (payload: {
+    id: string; title: string; tagline: string;
+    capabilities: string[]; kinds: string[]; required: string[];
+  }) => request<{ ok?: boolean; id?: string; path?: string }>("/module/new", json(payload)),
+  /** toggle a module on/off (zuzuu module enable|disable <key>) */
+  setModuleEnabled: (key: string, enabled: boolean) =>
+    request<{ ok?: boolean }>(`/module/${encodeURIComponent(key)}/enabled`, json({ enabled })),
   approveAction: (slug: string) =>
     request<ApproveResult>(`/actions/${encodeURIComponent(slug)}/approve`, json({})),
   rejectAction: (slug: string) =>

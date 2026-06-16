@@ -182,6 +182,12 @@ export class Session {
         TERM: "xterm-256color",
         COLORTERM: "truecolor",
         WEBCODE: "1",
+        // The explicit join key (U4/KTD2): the daemon's PTY id is injected into
+        // the host launch env so the host's SessionStart hook can record it onto
+        // the durable trace record — linking PTY runtime <-> trace <-> git branch
+        // by an explicit key rather than fragile cwd correlation. Set for all
+        // sessions; agent sessions are the ones the hook actually fires for.
+        ZUZUU_PTY_ID: this.id,
       },
     });
 

@@ -63,7 +63,7 @@ export function DialogHost() {
   return (
     <Overlay z={90} onClose={() => close(current.kind === "prompt" ? null : false)}>
       <Dialog width="sm" className="p-4">
-        <div className="wc-sans mb-3 text-title font-semibold text-ink-100">{current.title}</div>
+        <div className="wc-sans mb-3 text-title font-semibold text-foreground">{current.title}</div>
         {current.kind === "prompt" ? (
           <Field
             autoFocus
@@ -75,7 +75,7 @@ export function DialogHost() {
             }}
           />
         ) : (
-          current.message && <p className="text-ui text-ink-300">{current.message}</p>
+          current.message && <p className="text-ui text-muted-foreground">{current.message}</p>
         )}
         <div className="mt-4 flex justify-end gap-2">
           <Button variant="ghost" onClick={() => close(current.kind === "prompt" ? null : false)}>

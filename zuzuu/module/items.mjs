@@ -33,10 +33,11 @@ export function itemsDirFor(agentDir, module, itemsDir) {
   return join(agentDir, module, sub);
 }
 
-/** Canonical envelope file path for one item. */
-export function itemPathFor(agentDir, module, id) {
+/** Canonical envelope file path for one item. `itemsDir` (declarative modules)
+ *  honors a custom items subdir so write paths match the read paths. */
+export function itemPathFor(agentDir, module, id, itemsDir) {
   if (module === 'actions') return join(agentDir, 'actions', id, 'ACTION.md');
-  return join(itemsDirFor(agentDir, module), `${id}.md`);
+  return join(itemsDirFor(agentDir, module, itemsDir), `${id}.md`);
 }
 
 /**
@@ -72,9 +73,11 @@ export function listModuleItems(agentDir, module, opts = {}) {
   return { items, errors };
 }
 
-/** Write one envelope item to its canonical path. Returns the path. */
-export function writeModuleItem(agentDir, item) {
-  const path = itemPathFor(agentDir, item.module, item.id);
+/** Write one envelope item to its canonical path. Returns the path.
+ *  `opts.itemsDir` lets declarative modules write to a custom items subdir
+ *  (matching listModuleItems, which already reads from manifest.itemsDir). */
+export function writeModuleItem(agentDir, item, { itemsDir } = {}) {
+  const path = itemPathFor(agentDir, item.module, item.id, itemsDir);
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, serializeEnvelope(item));
   return path;

@@ -78,8 +78,8 @@ function CsvText({ file }: { file: OpenFile }) {
 
 export function BinaryCard({ file }: { file: OpenFile }) {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-3 text-ink-300">
-      <svg viewBox="0 0 24 24" className="h-10 w-10 text-ink-500" fill="none" stroke="currentColor" strokeWidth="1.2">
+    <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground">
+      <svg viewBox="0 0 24 24" className="h-10 w-10 text-muted-foreground" fill="none" stroke="currentColor" strokeWidth="1.2">
         <path d="M6 2h8l4 4v14a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2zM14 2v4h4" strokeLinejoin="round" />
         <path d="M9 13h6M9 16h4" strokeLinecap="round" />
       </svg>
@@ -87,7 +87,7 @@ export function BinaryCard({ file }: { file: OpenFile }) {
         {file.name}
         {file.size !== undefined && <> · {formatBytes(file.size)}</>}
       </div>
-      <div className="text-meta text-ink-500">binary file — no preview</div>
+      <div className="text-meta text-muted-foreground">binary file — no preview</div>
       <div className="flex items-center gap-2">
         <button onClick={() => void api.openLocal(file.path)} className={btn}>Open</button>
         <ActionMenu items={localFileActions(file.path)} title="More" />
@@ -97,11 +97,11 @@ export function BinaryCard({ file }: { file: OpenFile }) {
 }
 
 const btn =
-  "rounded border border-border px-3 py-1 text-ui hover:border-accent-dim hover:text-ink-100";
+  "rounded border border-[var(--border)] px-3 py-1 text-ui hover:border-accent-dim hover:text-foreground";
 
 function Card({ children, muted }: { children: React.ReactNode; muted?: boolean }) {
   return (
-    <div className={`flex h-full items-center justify-center px-4 text-ui ${muted ? "text-ink-500" : "text-ink-300"}`}>
+    <div className={`flex h-full items-center justify-center px-4 text-ui ${muted ? "text-muted-foreground" : "text-muted-foreground"}`}>
       <div>{children}</div>
     </div>
   );

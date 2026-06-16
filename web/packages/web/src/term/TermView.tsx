@@ -25,6 +25,15 @@ import { useWorkflowDraft } from "../workflows/draft";
 
 const FONT_FAMILY = '"JetBrains Mono Variable", ui-monospace, Menlo, monospace';
 
+// Start-with-a-task injection timing (only hosts WITHOUT a positional prompt
+// arg take this path — see resolveStart's argv-first hybrid). We gate on the
+// PTY's FIRST OUTPUT (the host has started rendering) rather than socket-open,
+// which is far more reliable than a blind delay; then a short settle so the
+// input box is actually drawn. FIRST_OUTPUT_TIMEOUT_MS is the fallback so a
+// silent host still gets the task. Tunable per host if one proves flaky.
+const FIRST_OUTPUT_TIMEOUT_MS = 4000;
+const INITIAL_INPUT_SETTLE_MS = 250;
+
 const THEME = {
   background: "#0a0d12",
   foreground: "#d6dde8",
@@ -79,6 +88,7 @@ export function TermView({
   const setTitle = useSessions((s) => s.setTitle);
   const setCwd = useSessions((s) => s.setCwd);
   const markExited = useSessions((s) => s.markExited);
+  const markStarted = useSessions((s) => s.markStarted);
   const setBlocks = useBlocks((s) => s.setBlocks);
   const addCommand = useBlocks((s) => s.addCommand);
   const openWorkflowDraft = useWorkflowDraft((s) => s.open);
@@ -118,6 +128,9 @@ export function TermView({
       },
       onStatus: setStatus,
       onCwd: (cwd) => setCwd(sessionId, cwd),
+      // first PTY output → the session has started rendering (flips the
+      // composer's "starting…" to "running")
+      onFirstOutput: () => markStarted(sessionId),
     });
     termRegistry.set(sessionId, conn);
 
@@ -207,6 +220,27 @@ export function TermView({
       }
       fit.fit();
       conn.connect();
+      // "Start with a task" (injection path — hosts without a positional prompt
+      // arg): inject the queued task once the host has actually started (first
+      // PTY output, with a timeout fallback) + a short settle so its input box
+      // is drawn. Gating on real output beats a blind delay. Peek-then-clear so
+      // a StrictMode throwaway mount disposed before sending doesn't consume the
+      // prompt. Same path the user typing would take — the PTY hot path is
+      // untouched.
+      const initial = termRegistry.getPendingInput(sessionId);
+      if (initial) {
+        void conn
+          .whenOpen()
+          .then(() => conn.whenFirstOutput(FIRST_OUTPUT_TIMEOUT_MS))
+          .then(() => {
+            if (disposed) return;
+            window.setTimeout(() => {
+              if (disposed) return;
+              termRegistry.clearPendingInput(sessionId);
+              conn.sendInput(initial);
+            }, INITIAL_INPUT_SETTLE_MS);
+          });
+      }
     });
 
     const ro = new ResizeObserver(() => {
@@ -225,7 +259,7 @@ export function TermView({
       term.dispose();
       termRef.current = null;
     };
-  }, [sessionId, setTitle, setCwd, markExited, setBlocks, addCommand, queryClient]);
+  }, [sessionId, setTitle, setCwd, markExited, markStarted, setBlocks, addCommand, queryClient]);
 
   useEffect(() => {
     if (active) termRef.current?.focus();
@@ -276,7 +310,7 @@ export function TermView({
         />
       )}
       {stickyCmd && (
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center gap-2 border-b border-border bg-surface/95 px-3 py-1 text-ui backdrop-blur">
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center gap-2 border-b border-[var(--border)] bg-card/95 px-3 py-1 text-ui backdrop-blur">
           <span
             className={`h-1.5 w-1.5 shrink-0 rounded-full ${
               stickyCmd.exitCode === null
@@ -286,25 +320,25 @@ export function TermView({
                   : "bg-danger"
             }`}
           />
-          <span className="truncate text-ink-300">{stickyCmd.command.split("\n")[0]}</span>
+          <span className="truncate text-muted-foreground">{stickyCmd.command.split("\n")[0]}</span>
         </div>
       )}
       {status === "reconnecting" && (
-        <div className="absolute right-3 top-2 rounded bg-hover px-2 py-0.5 text-meta text-warn">
+        <div className="absolute right-3 top-2 rounded bg-[var(--accent)] px-2 py-0.5 text-meta text-warn">
           reconnecting…
         </div>
       )}
       {/* shell sessions keep the plain exit banner; agent sessions get the
           end-of-session card (or the banner once dismissed / outcome unknown) */}
       {exitCode !== null && (!showEndCard || end.kind === "banner") && (
-        <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 border-t border-border bg-surface/95 px-3 py-1.5 text-ui text-ink-300">
+        <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 border-t border-[var(--border)] bg-card/95 px-3 py-1.5 text-ui text-muted-foreground">
           process exited with code {exitCode}
         </div>
       )}
       {/* utility runs never merge — skip the spinner, show their card at once */}
       {showEndCard && detail.isPending && !isUtility && (
         <div className="absolute inset-0 z-30 flex items-center justify-center bg-ink-950/70 p-6">
-          <div className="flex items-center gap-2 text-ui text-ink-300">
+          <div className="flex items-center gap-2 text-ui text-muted-foreground">
             <Spinner /> session ended — merging checkpoints…
           </div>
         </div>
@@ -320,7 +354,7 @@ export function TermView({
         </div>
       )}
       {status === "closed" && exitCode === null && (
-        <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 border-t border-border bg-surface/95 px-3 py-1.5 text-ui text-danger">
+        <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 border-t border-[var(--border)] bg-card/95 px-3 py-1.5 text-ui text-danger">
           disconnected — session may be attached in another window
         </div>
       )}

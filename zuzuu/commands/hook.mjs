@@ -30,6 +30,15 @@ function sessionGenerationMarker(agentDir) {
   try { return listCheckpointIds(agentDir).slice(-1)[0] ?? null; } catch { return null; }
 }
 
+// The daemon injects its PTY id into the host launch env (U4/KTD2) under this
+// name; the SessionStart hook reads it to make the PTY <-> trace join explicit.
+const PTY_ID_ENV = 'ZUZUU_PTY_ID';
+/** Read the injected PTY id from the OS environment (null when not under the
+ *  workbench / launched directly). Fail-soft. */
+function injectedPtyId() {
+  try { const { env } = process; return env[PTY_ID_ENV] || null; } catch { return null; }
+}
+
 // Lifecycle events, normalized across hosts (verified by observing each host):
 //   open  — session starts
 //   turn  — agent finished a response turn (per-turn "still alive"); re-capture
@@ -48,10 +57,10 @@ export function geminiRef(payload = {}) {
   return { file: join(projDir, 'logs.json'), sessionId: payload.session_id };
 }
 
-function safeCapture(adapter, ref, status, cwd, generation = null) {
+function safeCapture(adapter, ref, status, cwd, generation = null, ptyId = null) {
   if (!adapter || !ref) return;
   try {
-    captureTrace({ adapter, ref, status, cwd, generation });
+    captureTrace({ adapter, ref, status, cwd, generation, ptyId });
   } catch {
     /* source not yet readable, etc. — never break the hook */
   }
@@ -62,7 +71,7 @@ function safeCapture(adapter, ref, status, cwd, generation = null) {
  * re-parses the transcript file (`transcript_path`); OpenCode re-reads its
  * SQLite store keyed by `session_id`. Pure-ish (injected now/cwd) for tests.
  */
-export function handleHook({ event, payload = {}, cwd = process.cwd(), now = Date.now(), host = 'claude-code' }) {
+export function handleHook({ event, payload = {}, cwd = process.cwd(), now = Date.now(), host = 'claude-code', ptyId = injectedPtyId() }) {
   const id = payload.session_id;
   if (!id) return { event, skipped: 'no session_id' };
   let ref;
@@ -78,8 +87,8 @@ export function handleHook({ event, payload = {}, cwd = process.cwd(), now = Dat
     let generation = null;
     try { generation = sessionGenerationMarker(paths(cwd).dir); } catch { /* fail-open */ }
     try {
-      openLive({ id, host, transcriptPath: ref, startedAt: new Date(now).toISOString(), now, generation }, cwd);
-      safeCapture(adapter, ref, SessionState.ACTIVE, cwd, generation);
+      openLive({ id, host, transcriptPath: ref, startedAt: new Date(now).toISOString(), now, generation, ptyId }, cwd);
+      safeCapture(adapter, ref, SessionState.ACTIVE, cwd, generation, ptyId);
     } catch { /* live/capture hiccup must not block grounding below */ }
     try {
       // Invisible session-git: one session = one branch. A leftover branch
@@ -135,6 +144,23 @@ function guardrailsLogName(sessionId) {
 const GATE_EVENTS = new Set(['PreToolUse', 'BeforeTool']);
 
 /**
+ * Is the guardrails module disabled? Reads `.zuzuu/guardrails/module.json`'s
+ * `enabled` flag directly (the hook runs out-of-process per tool call — a direct
+ * read is cheaper and safer than spinning the whole registry). Fail-open: any
+ * trouble (no file, bad JSON, read error) → treat as ENABLED (normal flow), so a
+ * disabled module never enforces but a flaky read never silently drops the gate.
+ */
+function guardrailsDisabled(dir) {
+  try {
+    const p = join(dir, 'guardrails', 'module.json');
+    const raw = JSON.parse(readFileSync(p, 'utf8'));
+    return raw.enabled === false;
+  } catch {
+    return false; // no manifest / unreadable → behave as enabled
+  }
+}
+
+/**
  * Evaluate a tool call against the guardrail rule items and return the host's
  * block decision (or null = fail-open / no match → host's normal flow). Logs
  * matched decisions.
@@ -143,6 +169,9 @@ const GATE_EVENTS = new Set(['PreToolUse', 'BeforeTool']);
 export function gateDecision({ host = 'claude-code', payload = {}, cwd = process.cwd() } = {}) {
   try {
     const { dir } = paths(cwd);
+    // A DISABLED guardrails module enforces nothing — emit no decision (the
+    // host's normal permission flow), same as a no-match. Fail-open by design.
+    if (guardrailsDisabled(dir)) return null;
     const loaded = loadRules(join(dir, 'guardrails'));
     if (!loaded.ok) return null;
     const verdict = evaluate(loaded.rules, { tool: payload.tool_name, input: payload.tool_input });

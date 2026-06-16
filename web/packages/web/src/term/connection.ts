@@ -18,6 +18,11 @@ export interface ConnectionEvents {
   onExit: (exitCode: number) => void;
   onStatus: (status: "connecting" | "open" | "reconnecting" | "closed") => void;
   onCwd: (cwd: CwdPayload) => void;
+  /** Fires once, on the FIRST output byte from the PTY — a real "the host has
+   *  started rendering" signal (used to gate start-with-a-task injection and to
+   *  flip the composer's starting→running state). Socket-open alone is too
+   *  early: the TUI hasn't drawn its input yet and swallows keystrokes. */
+  onFirstOutput?: () => void;
 }
 
 /**
@@ -32,7 +37,9 @@ export class TermConnection {
   private closedByUser = false;
   private firstReplayDone = false;
   private everOpened = false;
+  private everOutput = false;
   private openWaiters: (() => void)[] = [];
+  private outputWaiters: (() => void)[] = [];
 
   constructor(
     private readonly sessionId: string,
@@ -69,6 +76,11 @@ export class TermConnection {
           this.term.write(payload);
           break;
         case ServerOp.Output:
+          if (!this.everOutput) {
+            this.everOutput = true;
+            for (const resolve of this.outputWaiters.splice(0)) resolve();
+            this.events.onFirstOutput?.();
+          }
           this.term.write(payload, () => this.ack(payload.length));
           break;
         case ServerOp.Exit: {
@@ -111,6 +123,17 @@ export class TermConnection {
   whenOpen(): Promise<void> {
     if (this.everOpened) return Promise.resolve();
     return new Promise((resolve) => this.openWaiters.push(resolve));
+  }
+
+  /** Resolves on the first PTY output (the host has started rendering) — or
+   *  after `timeoutMs` as a fallback so a silent host never hangs the caller.
+   *  Resolves immediately if output has already arrived. */
+  whenFirstOutput(timeoutMs = 0): Promise<void> {
+    if (this.everOutput) return Promise.resolve();
+    return new Promise((resolve) => {
+      this.outputWaiters.push(resolve);
+      if (timeoutMs > 0) setTimeout(resolve, timeoutMs); // resolve() is idempotent
+    });
   }
 
   sendInput(data: string): void {

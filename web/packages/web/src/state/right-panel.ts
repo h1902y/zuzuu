@@ -1,62 +1,72 @@
-// The right panel's mode store + the editor-store subscription that enforces
-// the layout rules (one surface, two modes):
-//   - opening a file (tree, search hit, ⌘K, module item — every path routes
-//     through the editor store) forces mode 'files'
-//   - closing the LAST editor tab forces mode 'modules'
-//   - the `‹ modules` affordance flips mode WITHOUT touching editor tabs;
-//     while tabs exist, module mode shows a `files ›` return chip (showFiles)
-// Module mode itself is the panel root (drill null) with two slide-in
-// drill-ins: a module's view (card click) or a session's detail (row
-// click). Every return to module mode lands on the panel ROOT (drill
-// cleared — deliberately simple).
+// Center work-area selection store (WS-C).
+//
+// The layout is now: sidebar (files) | CENTER (work area) | RIGHT (modules list).
+// The right column is ALWAYS the modules master list — there is no more
+// files-vs-modules mode toggle. The center work area renders by precedence:
+//   (1) editor open (useEditor has open files) → the EditorPane
+//   (2) else a module is selected → that module's detail (ModuleView)
+//   (3) else → the single-focus session home (slim picker + SessionTree |
+//             Terminal tabs + composer + inline recovery banner)
+//
+// This store owns the center selection (a module — editor wins by precedence).
+// There is NO separate session-detail route (T4): a past session is VIEWED in
+// the home surface (the slim picker selects which session the center renders as
+// a tree) — it is not a competing center page. So the only center selection is
+// a module.
 import { create } from "zustand";
 import type { ModuleKey } from "@zuzuu-web/protocol";
-import { useEditor } from "./editor";
 
-export type RightPanelMode = "files" | "modules";
-
-/** What slides over the panel root: a module view or a session detail. */
-export type PanelDrill =
+/** What the center work area shows when no editor file is open. */
+export type CenterSelection =
   | { kind: "module"; key: ModuleKey }
-  | { kind: "session"; id: string };
+  | null;
 
 interface RightPanelState {
-  mode: RightPanelMode;
-  /** the drill-in showing over the panel root; null = the root */
-  drill: PanelDrill | null;
-  /** the `files ›` return chip — only meaningful while editor tabs exist */
-  showFiles: () => void;
-  /** the `‹ modules` affordance — editor tabs stay open; panel root */
-  showModules: () => void;
-  /** card click → that module's drill-in */
+  /** the center selection: a module detail, or none (the session home) */
+  selection: CenterSelection;
+  /** convenience read: the selected module key (null when not a module) */
+  selectedModule: ModuleKey | null;
+  /** open a module's detail in the center (module list row click) */
   openModule: (key: ModuleKey) => void;
-  /** session row click → that session's detail */
-  openSession: (id: string) => void;
-  /** back chevron → the panel root */
-  closeDrill: () => void;
+  /** clear a module selection → back to the session home */
+  closeModule: () => void;
+  /** clear whatever is selected → the session home */
+  closeCenter: () => void;
+
+  /** Module ids with an enabled-toggle mutation in flight. Shared across BOTH
+   *  toggle surfaces (the master-list row Switch + the ModuleView hero Switch)
+   *  so a toggle on one disables the other — serializing the two against the
+   *  SAME module + the SAME overview cache (no racing optimistic restores). */
+  togglingIds: Set<string>;
+  /** Mark a module's toggle as in-flight. */
+  beginToggle: (id: string) => void;
+  /** Clear a module's in-flight mark. */
+  endToggle: (id: string) => void;
+  /** Is this module's toggle currently in flight? */
+  isToggling: (id: string) => boolean;
 }
 
-export const useRightPanel = create<RightPanelState>((set) => ({
-  mode: "modules",
-  drill: null,
-  showFiles: () =>
-    set((s) => (useEditor.getState().openFiles.length > 0 ? { mode: "files" } : s)),
-  showModules: () => set({ mode: "modules", drill: null }),
-  openModule: (key) => set({ mode: "modules", drill: { kind: "module", key } }),
-  openSession: (id) => set({ mode: "modules", drill: { kind: "session", id } }),
-  closeDrill: () => set({ drill: null }),
-}));
+export const useRightPanel = create<RightPanelState>((set, get) => ({
+  selection: null,
+  selectedModule: null,
+  openModule: (key) => set({ selection: { kind: "module", key }, selectedModule: key }),
+  closeModule: () => set({ selection: null, selectedModule: null }),
+  closeCenter: () => set({ selection: null, selectedModule: null }),
 
-// One wiring point for "opening a file forces files mode": every open path
-// (FileTree, search, ⌘K, terminal links, module clicks) lands in the editor
-// store, so we watch it instead of patching N call sites. A re-focus of an
-// already-open tab (activePath change) counts as opening too.
-useEditor.subscribe((s, prev) => {
-  if (s.openFiles.length === 0) {
-    if (prev.openFiles.length > 0) useRightPanel.setState({ mode: "modules", drill: null });
-    return;
-  }
-  if (s.openFiles.length > prev.openFiles.length || s.activePath !== prev.activePath) {
-    useRightPanel.setState({ mode: "files" });
-  }
-});
+  togglingIds: new Set<string>(),
+  beginToggle: (id) =>
+    set((s) => {
+      if (s.togglingIds.has(id)) return s;
+      const next = new Set(s.togglingIds);
+      next.add(id);
+      return { togglingIds: next };
+    }),
+  endToggle: (id) =>
+    set((s) => {
+      if (!s.togglingIds.has(id)) return s;
+      const next = new Set(s.togglingIds);
+      next.delete(id);
+      return { togglingIds: next };
+    }),
+  isToggling: (id) => get().togglingIds.has(id),
+}));

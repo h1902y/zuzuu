@@ -63,7 +63,7 @@ function LadderNode({
       <div className="flex flex-col items-center" style={{ width: 20, flexShrink: 0 }}>
         {/* upward connector (not shown for the very first item) */}
         {index > 0 && (
-          <div className="w-px flex-none bg-border" style={{ height: 10 }} />
+          <div className="w-px flex-none bg-[var(--border)]" style={{ height: 10 }} />
         )}
         {/* node */}
         <div
@@ -75,8 +75,8 @@ function LadderNode({
                   background: `color-mix(in oklab, ${hue} 18%, transparent)`,
                 }
               : {
-                  background: "var(--color-hover)",
-                  border: "1px solid var(--color-border)",
+                  background: "var(--accent)",
+                  border: "1px solid var(--border)",
                 }
           }
         >
@@ -89,31 +89,31 @@ function LadderNode({
         </div>
         {/* downward connector (not shown after the last item) */}
         {!isLast && (
-          <div className="w-px flex-1 bg-border" style={{ minHeight: 10 }} />
+          <div className="w-px flex-1 bg-[var(--border)]" style={{ minHeight: 10 }} />
         )}
       </div>
 
       {/* content column */}
       <div
         className={`mb-3 min-w-0 flex-1 rounded-[var(--radius-ui)] px-2.5 py-2 transition-colors ${
-          isActive ? "bg-elevated" : "bg-transparent hover:bg-hover"
+          isActive ? "bg-popover" : "bg-transparent hover:bg-[var(--accent)]"
         }`}
       >
         {/* top row: gen label + active pill + time */}
         <div className="flex items-center gap-2">
-          <span className="wc-mono text-ui font-medium text-ink-100">
+          <span className="wc-mono text-ui font-medium text-foreground">
             {versionLabel(gen.id)}
           </span>
           {isActive && (
             <StatusPill tone="ok">Active</StatusPill>
           )}
-          <span className="ml-auto shrink-0 wc-mono text-meta text-ink-500">
+          <span className="ml-auto shrink-0 wc-mono text-meta text-muted-foreground">
             {timeLabel ?? "—"}
           </span>
         </div>
 
         {/* provenance row */}
-        <div className="mt-0.5 flex items-center gap-1 text-meta text-ink-500">
+        <div className="mt-0.5 flex items-center gap-1 text-meta text-muted-foreground">
           {gen.mintedFrom.length > 0 ? (
             <>
               <span>
@@ -121,12 +121,12 @@ function LadderNode({
                 {gen.mintedFrom.length !== 1 ? "s" : ""}
               </span>
               <span>·</span>
-              <span className="wc-mono text-ink-500 truncate max-w-[120px]" title={gen.id}>
+              <span className="wc-mono text-muted-foreground truncate max-w-[120px]" title={gen.id}>
                 {gen.id}
               </span>
             </>
           ) : (
-            <span className="wc-mono text-ink-500 truncate max-w-[160px]" title={gen.id}>
+            <span className="wc-mono text-muted-foreground truncate max-w-[160px]" title={gen.id}>
               {gen.id}
             </span>
           )}
@@ -150,7 +150,7 @@ function LadderNode({
             >
               {busy ? "…" : `Make version ${genNum} active`}
             </Button>
-            <span className="text-meta text-ink-500">
+            <span className="text-meta text-muted-foreground">
               This won't delete version {total}.
             </span>
           </div>
@@ -220,7 +220,7 @@ export function ModuleGenerations({ moduleKey }: { moduleKey: ModuleKey }) {
 
   if (q.isLoading) {
     return (
-      <div className="text-meta text-ink-500 px-1 py-2">
+      <div className="text-meta text-muted-foreground px-1 py-2">
         Loading version history…
       </div>
     );
@@ -229,8 +229,8 @@ export function ModuleGenerations({ moduleKey }: { moduleKey: ModuleKey }) {
   if (gens.length === 0) {
     return (
       <div className="px-1 py-3">
-        <p className="text-ui text-ink-300">No versions yet.</p>
-        <p className="mt-1 text-meta text-ink-500">
+        <p className="text-ui text-foreground">No versions yet.</p>
+        <p className="mt-1 text-meta text-muted-foreground">
           Approving a {moduleKey} proposal saves version 1.
         </p>
       </div>
@@ -274,10 +274,10 @@ export function ModuleGenerations({ moduleKey }: { moduleKey: ModuleKey }) {
       {/* ── header: level label + diff toggle ── */}
       <div className="mb-3 flex items-center gap-3">
         <div className="flex-1 min-w-0">
-          <span className="wc-sans text-ui font-medium text-ink-100">
+          <span className="wc-sans text-ui font-medium text-foreground">
             Version {currentGenNum}
           </span>
-          <span className="ml-2 text-meta text-ink-500">
+          <span className="ml-2 text-meta text-muted-foreground">
             Version {currentGenNum} is active · {gens.length} version{gens.length !== 1 ? "s" : ""}
           </span>
         </div>
@@ -299,12 +299,12 @@ export function ModuleGenerations({ moduleKey }: { moduleKey: ModuleKey }) {
             {/* group header */}
             <button
               onClick={() => toggleGroup(bucket)}
-              className="wc-focus mb-1.5 flex w-full items-center gap-1.5 rounded-[var(--radius-sm)] px-1 py-0.5 text-left hover:bg-hover"
+              className="wc-focus mb-1.5 flex w-full items-center gap-1.5 rounded-[var(--radius-sm)] px-1 py-0.5 text-left hover:bg-[var(--accent)]"
             >
               <span className="wc-eyebrow flex-1">{bucket}</span>
               <svg
                 viewBox="0 0 16 16"
-                className={`h-3 w-3 text-ink-500 transition-transform ${isCollapsed ? "-rotate-90" : ""}`}
+                className={`h-3 w-3 text-muted-foreground transition-transform ${isCollapsed ? "-rotate-90" : ""}`}
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="1.4"
@@ -337,7 +337,7 @@ export function ModuleGenerations({ moduleKey }: { moduleKey: ModuleKey }) {
       })}
 
       {err && (
-        <div className="mt-2 break-all rounded-[var(--radius-sm)] border border-border bg-elevated px-2 py-1.5 wc-mono text-meta text-danger">
+        <div className="mt-2 break-all rounded-[var(--radius-sm)] border border-[var(--border)] bg-popover px-2 py-1.5 wc-mono text-meta text-danger">
           {err}
         </div>
       )}

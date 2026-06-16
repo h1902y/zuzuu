@@ -16,7 +16,7 @@ import type {
   WorkspaceInfo,
 } from "@zuzuu-web/protocol";
 
-class ApiError extends Error {
+export class ApiError extends Error {
   constructor(
     readonly status: number,
     message: string,

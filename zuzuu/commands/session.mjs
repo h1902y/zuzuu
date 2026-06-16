@@ -9,7 +9,7 @@
 // the thin print layer (xxxData pattern — pure data fns + --json everywhere).
 
 import { sessionStatus, closeSession, continueSession, discardSession } from '../sessions/session-git.mjs';
-import { sessionInspect } from './sessions.mjs';
+import { sessionInspect, sessionTrace, sessionTree, sessionContent } from './sessions.mjs';
 
 /** Pure: structured session-git state (the leftover detector included). */
 export function sessionStatusData(cwd = process.cwd()) {
@@ -104,6 +104,21 @@ export function session(args = {}) {
     return;
   }
 
-  console.error(`unknown: zuzuu session ${sub}\nusage: zuzuu session [status|merge [--title t]|continue|discard --yes|inspect <id>]`);
+  if (sub === 'trace') {
+    sessionTrace(args);
+    return;
+  }
+
+  if (sub === 'tree') {
+    sessionTree(args);
+    return;
+  }
+
+  if (sub === 'content') {
+    sessionContent(args);
+    return;
+  }
+
+  console.error(`unknown: zuzuu session ${sub}\nusage: zuzuu session [status|merge [--title t]|continue|discard --yes|inspect <id>|trace <id>|tree <id>|content <id>]`);
   process.exit(1);
 }

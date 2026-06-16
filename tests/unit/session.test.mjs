@@ -29,6 +29,27 @@ test('makeSession: generation param threads through', () => {
   assert.equal(s.generation, 'gen_003');
 });
 
+// U4 characterization: a record built WITHOUT a ptyId carries no ptyId facet
+// at all (the field is omitted, not null) — non-workbench / CLI sessions stay
+// exactly as before.
+test('makeSession: omits the ptyId facet when none is provided (characterization)', () => {
+  const s = makeSession({ id: 'sess-1', host: 'claude-code', startedAt: '2026-06-09T10:00:00.000Z', endedAt: '2026-06-09T10:00:01.000Z' });
+  assert.equal('ptyId' in s, false);
+});
+
+// U4: the daemon PTY join key threads through onto the durable record.
+test('makeSession: ptyId facet threads through when provided (U4 join key)', () => {
+  const s = makeSession({ id: 'sess-1', host: 'claude-code', ptyId: 'a1b2c3d4', startedAt: '2026-06-09T10:00:00.000Z', endedAt: '2026-06-09T10:00:01.000Z' });
+  assert.equal(s.ptyId, 'a1b2c3d4');
+});
+
+// An empty/null ptyId is treated as absent (the facet is omitted), so a
+// pty-less spawn never persists a meaningless empty key.
+test('makeSession: empty/null ptyId is treated as absent', () => {
+  assert.equal('ptyId' in makeSession({ id: 's', host: 'h', ptyId: '' }), false);
+  assert.equal('ptyId' in makeSession({ id: 's', host: 'h', ptyId: null }), false);
+});
+
 test('makeSession rejects an unknown status', () => {
   assert.throws(() => makeSession({ id: '1', host: 'h', status: 'bogus' }), /unknown status/);
 });

@@ -171,3 +171,20 @@ test('--status: not running → says so, no side effects', async () => {
   assert.match(logsOf(calls), /no workbench running/);
   assert.ok(!calls.some((c) => ['launch', 'open', 'kill', 'removeFile'].includes(c[0])), 'read-only');
 });
+
+// ── --print-url ────────────────────────────────────────────────────────────
+
+test('--print-url: running → emits ONLY the authed url, no browser, no spawn', async () => {
+  const { calls, deps } = fakeDeps({ instance: INST, alive: true, probe: true });
+  await web({ 'print-url': true }, deps);
+  const logLines = calls.filter((c) => c[0] === 'log').map((c) => c[1]);
+  assert.deepEqual(logLines, ['http://127.0.0.1:7771/?token=tok123'], 'sole output is the URL (scriptable)');
+  assert.ok(!calls.some((c) => ['launch', 'open', 'kill', 'removeFile'].includes(c[0])), 'read-only');
+});
+
+test('--print-url: not running → reports it, no spawn', async () => {
+  const { calls, deps } = fakeDeps({ instance: INST, alive: false });
+  await web({ 'print-url': true }, deps);
+  assert.match(logsOf(calls), /no workbench running/);
+  assert.ok(!calls.some((c) => ['launch', 'open'].includes(c[0])), 'no side effects');
+});
