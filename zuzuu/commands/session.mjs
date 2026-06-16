@@ -11,6 +11,7 @@
 import { sessionStatus, closeSession, continueSession, discardSession } from '../sessions/session-git.mjs';
 import { sessionInspect, sessionTrace, sessionTree, sessionContent, sessionDiff, sessionLabel } from './sessions.mjs';
 import { sessionWorktree } from './session-worktree.mjs';
+import { sessionManifest, sessionRestore } from './session-manifest.mjs';
 
 /** Pure: structured session-git state (the leftover detector included). */
 export function sessionStatusData(cwd = process.cwd()) {
@@ -136,6 +137,16 @@ export function session(args = {}) {
     return;
   }
 
-  console.error(`unknown: zuzuu session ${sub}\nusage: zuzuu session [status|merge [--title t]|continue|discard --yes|inspect <id>|trace <id>|tree <id>|content <id>|diff <id> [--file p]|label <id> --text "name"|worktree [open|close|list|discard] <id>]`);
+  if (sub === 'manifest') {
+    sessionManifest({ ...args, _: args._.slice(1) });
+    return;
+  }
+
+  if (sub === 'restore') {
+    sessionRestore({ ...args, _: args._.slice(1) });
+    return;
+  }
+
+  console.error(`unknown: zuzuu session ${sub}\nusage: zuzuu session [status|merge [--title t]|continue|discard --yes|inspect <id>|trace <id>|tree <id>|content <id>|diff <id> [--file p]|label <id> --text "name"|worktree [open|close|list|discard] <id>|manifest <id> [--write]|restore <id>]`);
   process.exit(1);
 }
