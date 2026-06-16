@@ -118,15 +118,15 @@ Ordered for dependency + risk. Each wave: rigorous TDD; **characterization-first
 
 ---
 
-## 7. Open decisions for review
-1. **Worktrees-only vs hybrid containers** for B — start worktrees-only (covers file-editing agents), add E (containers) when runtime isolation is needed? (Recommended.)
-2. **Fly sync engine** — Mutagen vs Syncthing vs git-only for the live mirror (F).
-3. **Adopt `devcontainers`** as the workspace-definition standard (C/E/F), or a lighter zuzuu-native def?
-4. **Sharing transport** (H) — self-hosted upterm-style relay vs sshx-style E2E mesh; when (after F, or a local-only earlier cut)?
-5. **L7 browser-native runtime** — worth a spike (container2wasm/WebContainers) or defer indefinitely?
-6. **Sequencing** — confirm A-first, or prioritize B (concurrency) since it's the headline ask?
+## 7. Decisions (resolved 2026-06-17)
+1. **Concurrency isolation** — **worktrees-only first**; container-per-worktree (Wave E) is opt-in, added when users hit runtime collisions. Interim mitigation: a per-session port-hash helper.
+2. **Fly sync engine** — **git-native reconciliation (already have) + Mutagen** (MIT) for the live working-dir mirror over Fly's WireGuard mesh. Syncthing only if continuous multi-device is later needed.
+3. **Workspace/session definition** — **split**: a lightweight **zuzuu-native session manifest** (Wave C; no Docker assumption) for the session unit; **honor `devcontainers`** for the *environment* definition only in the container/cloud tier (Waves E/F).
+4. **Sharing transport** — **defer until after F**, then start with the **upterm model** (read-only/observer links + force-command on a Fly-hosted relay); layer E2E + presence (sshx ideas) later for SaaS.
+5. **L7 browser-native runtime** — **defer** (research spike only). Doesn't fit "wrap real agent CLIs"; L7 portability is delivered via the Fly cloud tier, not an in-browser runtime.
+6. **Sequencing** — **A → B → C → D → E → F → G**, with **H after F**. Lead with **A (resilience)**: lowest-risk, benefits every session today, and is a prerequisite for trustworthy concurrency + cloud moves.
 
 ---
 
 ## 8. Next step
-Review this document (decisions in §7), then begin **Wave A (resilience)** — or whichever wave we agree to lead with — under rigorous TDD, characterization-first.
+Decisions above are approved. **Wave A (resilience) is the active build**, characterization-first TDD: capture current reconnect/persistence behavior in tests, then harden (persistent client reconnection across sleep/blips, sequence-aware delta on top of the existing snapshot replay, server-side grace/TTL). The flow-controlled binary PTY hot path stays additive-only.
