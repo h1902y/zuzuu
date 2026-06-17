@@ -4,20 +4,20 @@
     {
       "id": "18e6ce93-8a46-4457-92f2-43e991a91de9",
       "host": "claude-code",
-      "status": "active",
+      "status": "completed",
       "startedAt": "2026-06-12T06:09:32.728Z",
-      "endedAt": "2026-06-13T14:57:39.488Z",
-      "durationMs": 118086760,
+      "endedAt": "2026-06-17T09:01:41.127Z",
+      "durationMs": 442328399,
       "traceId": "bf2eb12687da4d9ad1a399a5a6a6234d",
       "traceRef": ".zuzuu/.traces/claude-code-18e6ce93-8a46-4457-92f2-43e991a91de9.otlp.jsonl",
       "git": {
-        "commit": "fb7e635d28630c0dee01a1f33e67afc552d8cbbe",
-        "branch": "zz/session-3283593c"
+        "commit": "ed96166fd7afbabc7ec5214927aada448f26f379",
+        "branch": "zz/session-18e6ce93"
       },
       "counts": {
-        "turns": 48,
-        "tools": 630,
-        "errors": 22
+        "turns": 124,
+        "tools": 2214,
+        "errors": 64
       },
       "generation": null
     },
