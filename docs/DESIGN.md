@@ -6,7 +6,9 @@
 >
 > **Naming:** the project is **zuzuu** (current name; a return to the original concept) — was **motorsandsensors / mns** in the v0 phase (and **zuzuagents** / *zuzu* before that). The CLI is `zuzuu`. Sibling projects keep their own names (Zuzucodes Labs, Flow Engine, Notes). Where this doc says "we", it means zuzuu.
 >
-> **Status — read this honestly:** the design ran ahead of the build by intent; the build has now caught up to the spine. *Built + verified* (exp-1–13, 309 hermetic tests): the observe layer (trace capture across **5** real hosts, the `zuzuu` CLI, live capture); serve (faculty home, a session digest to all 5 hosts, the enforced gate on all 5, five faculties on one **shared spine** — proposal/provenance/trail/gate); and the **evolve loop in code** — trace miners (per faculty) → a mechanical **eval lens** → human-gated `zuzuu review` → versioned **generations** (immutable lockfiles, `mint`/`rollback`/drift-check) → Runs that pin a generation. What remains **solved-on-paper / unproven:** the loop graduating an agent from a *real* multi-session corpus (only golden-tested so far); the LLM-judge eval rung (mechanical-only today; `getScorer` seam exists); the Memory episode distiller (schema + stub miner only); and the Cloudflare-Workflows async runtime.
+> **Terminology:** the five us-owned faculties were renamed **faculty → module** — code, CLI, the session digest, and the managed instruction block now all say **module**, so this doc has been migrated to match. "Faculty" survives here only where the text quotes the old wording verbatim (the 2026-06-10 anatomy-revision notes in §3). Older experiment records, commit messages, and code comments that say "faculty/faculties" predate the rename; treat them as the same concept.
+>
+> **Status — read this honestly:** the design ran ahead of the build by intent; the build has now caught up to the spine. *Built + verified* (exp-1–13, 309 hermetic tests): the observe layer (trace capture across **5** real hosts, the `zuzuu` CLI, live capture); serve (module home, a session digest to all 5 hosts, the enforced gate on all 5, five modules on one **shared spine** — proposal/provenance/trail/gate); and the **evolve loop in code** — trace miners (per module) → a mechanical **eval lens** → human-gated `zuzuu review` → versioned **generations** (immutable lockfiles, `mint`/`rollback`/drift-check) → Runs that pin a generation. What remains **solved-on-paper / unproven:** the loop graduating an agent from a *real* multi-session corpus (only golden-tested so far); the LLM-judge eval rung (mechanical-only today; `getScorer` seam exists); the Memory episode distiller (schema + stub miner only); and the Cloudflare-Workflows async runtime.
 
 ---
 
@@ -14,12 +16,12 @@
 
 Your host coding-agent — **Claude Code / Codex / Gemini CLI** — gives an agent a **brain** (the reasoning loop + the model). **zuzuu gives that agent an evolving Memory, body of Knowledge, set of Actions (skills), and Guardrails — improved automatically from how you actually work.**
 
-The differentiator versus static wrappers (OpenClaw, Hermes, entire.io): **our faculties *graduate*.** They level up across versioned **generations**, and you configure the graduation mechanism from observability insights. We don't run a competing agent loop and we don't sell inference — we **wrap, serve, observe, and evolve** the host you already pay for.
+The differentiator versus static wrappers (OpenClaw, Hermes, entire.io): **our modules *graduate*.** They level up across versioned **generations**, and you configure the graduation mechanism from observability insights. We don't run a competing agent loop and we don't sell inference — we **wrap, serve, observe, and evolve** the host you already pay for.
 
 ### The loop (the whole product in six steps)
 1. **Wrap** the live *interactive* host session (never headless — see §7).
-2. **Serve** faculties (via MCP / instruction-files / filesystem) **and observe** the session as a normalized **trace**.
-3. **Evaluate** — score faculty operations from the trace.
+2. **Serve** modules (via MCP / instruction-files / filesystem) **and observe** the session as a normalized **trace**.
+3. **Evaluate** — score module operations from the trace.
 4. **Propose** — a trace-miner suggests a graduation (memory promotion, tool crystallization, guardrail tightening, substrate tier-up).
 5. **Approve** — a human disposes, async and out-of-band, in an inbox.
 6. **Pin** — the approved change becomes a new **generation** (rollback = flip a pointer).
@@ -30,46 +32,46 @@ The differentiator versus static wrappers (OpenClaw, Hermes, entire.io): **our f
 
 ## 2. The core hypothesis — generational graduation
 
-An agent's components (memory, knowledge, tools, prompt, guardrails) **improve over versioned generations**, and a **human sits in an async, out-of-band loop** to evaluate and promote them. The missing piece the field doesn't have: not just *configuring* faculties, but **growing** them from the trace of real use.
+An agent's components (memory, knowledge, tools, prompt, guardrails) **improve over versioned generations**, and a **human sits in an async, out-of-band loop** to evaluate and promote them. The missing piece the field doesn't have: not just *configuring* modules, but **growing** them from the trace of real use.
 
 ### The efficiency corollary (the business thesis, 2026-06-10)
 
 The graduation hypothesis has a commercial sharp edge: **a workspace that has graduated — good/bad practices and instructions baked in, the optimal tool set, project-specific knowledge and memory — makes an agent extremely efficient *even on a not-so-powerful model*.** Hyper-personalization substitutes for raw model power. That's the pitch in one line: *zuzuu-style working = better agent-AI-first project management*, because the workspace itself is specialized for the project. Falsifiable, and worth proving: **a benchmark suite** showing a zuzuu-equipped weak model beating bare stronger/open setups on project-local tasks (tracked as a roadmap issue; the testing suite grows a benchmarks layer for it).
 
 ### The two axes (the crux — never fuse them)
-Every faculty evolves on **two independent axes**:
+Every module evolves on **two independent axes**:
 
 | Axis | What evolves | How it changes |
 |---|---|---|
-| **Substrate** | *how* a faculty is implemented | **set** by an operator — a tier choice behind a stable interface |
-| **Contents / capability** | *what* a faculty has accumulated + its promotion to richer forms | **earned** from trace data via a governed pipeline |
+| **Substrate** | *how* a module is implemented | **set** by an operator — a tier choice behind a stable interface |
+| **Contents / capability** | *what* a module has accumulated + its promotion to richer forms | **earned** from trace data via a governed pipeline |
 
 The true symmetry — and the core hypothesis — lives on the **contents axis**: Knowledge's episodic→semantic promotion and Actions' *crystallization* are **the same governed pipeline**. One trace feeds both; one human gate; one unit of versioning (the generation). Both substrate ladders expand *power over accumulated stuff* and **converge on the vector tier** (semantic recall / semantic tool-selection — same pgvector substrate). A substrate jump only counts as evolution if it *changes what the agent can do* — which is why code-organization (script→OOP→package) is **hygiene, not a rung**.
 
 ### The unified promotion engine
 ```
-observe (trace spans)  →  eval (score the faculty's operations)  →
+observe (trace spans)  →  eval (score the module's operations)  →
   trace-miner detects a promotion signal  →  files a Proposal  →
     human approves (async, out-of-band, in an inbox)  →  pin as new generation
 ```
-- **Proposal** is a first-class entity: `{ faculty, kind, trigger_signal, evidence (trace refs + eval scores), suggested_diff, status: pending|approved|rejected }`. It is the bridge from observability to generation.
+- **Proposal** is a first-class entity: `{ module, kind, trigger_signal, evidence (trace refs + eval scores), suggested_diff, status: pending|approved|rejected }`. It is the bridge from observability to generation.
 - **Async + human-gated, never auto in v1.** Auto-crystallization from traces is the same research-grade problem (reward-hacking / overfit) we deliberately cut. The async human loop *is* the safety boundary.
 
 ---
 
 ## 3. Architecture — *be / run / evolve*
 
-The organizing principle: for any primitive, ask whether it is part of what the agent **is** (a faculty), what **runs & bounds** it (the runtime), or what **grows** it (the evolution engine).
+The organizing principle: for any primitive, ask whether it is part of what the agent **is** (a module), what **runs & bounds** it (the runtime), or what **grows** it (the evolution engine).
 
-> **One-line story:** an **agent** is a durable entity composed of **evolving faculties**, running on a **runtime**, grown by an **evolution engine** that *observes* the faculties running, *evaluates* what it sees, and *graduates* them into new generations — human-gated. The system **learns from the observability traces of previous runs**: that loop is the whole product.
+> **One-line story:** an **agent** is a durable entity composed of **evolving modules**, running on a **runtime**, grown by an **evolution engine** that *observes* the modules running, *evaluates* what it sees, and *graduates* them into new generations — human-gated. The system **learns from the observability traces of previous runs**: that loop is the whole product.
 
 ### ① The Agent — what it *is* (the 5 + 3 anatomy)
 
-> **Revised 2026-06-10** (was "7 faculties, 4 us / 3 host"). Two fixes: **Instructions** promoted to a faculty (the pinned `system_prompt`/steering artifact always behaved like one — us-owned, evolving, pinned — but had no name), and the host trio stopped being called "faculties" (a process, an engine, and an arena aren't faculties of the agent). Operational definition of a faculty: **us-owned · contents accumulate from traces · graduate via proposals · pinned in generations · served to the host.**
+> **Revised 2026-06-10** (was "7 faculties, 4 us / 3 host"). Two fixes: **Instructions** promoted to a module (the pinned `system_prompt`/steering artifact always behaved like one — us-owned, evolving, pinned — but had no name), and the host trio stopped being called "faculties" (a process, an engine, and an arena aren't faculties of the agent). Operational definition of a module: **us-owned · contents accumulate from traces · graduate via proposals · pinned in generations · served to the host.** *(These five were called "faculties" until the later faculty→module rename — see the Terminology note up top.)*
 
-**Five faculties (ours):**
+**Five modules (ours):**
 
-| Faculty | Cognitive analog | Role | Evolves by |
+| Module | Cognitive analog | Role | Evolves by |
 |---|---|---|---|
 | **Knowledge** *(semantic)* | semantic memory | what's *true* — domain facts, entities | extraction + entity-resolution + reflection; substrate ladder `md → relational → graph → vector` |
 | **Memory** *(episodic)* | episodic memory | what *happened* to me — past runs/conversations | distilling the trace into curated recollection; reflection |
@@ -77,22 +79,22 @@ The organizing principle: for any primitive, ask whether it is part of what the 
 | **Instructions** *(directive)* | self-schema / values | who I *am*, how I should behave — the pinned `system_prompt` + project steering | steering text mined/refined from trace insights; pinned per generation |
 | **Guardrails** *(protective)* | inhibitory control | what I must *not* do — enforced gates on tool I/O, not advice | inspector rules in an ordered gate pipeline; pinned in the generation |
 
-**Host anatomy (not faculties — what ours plug into):** **Cognition** (the reason→act→observe *process*; steerable only via Instructions injection), **Model** (the *engine*; the host's subscription/choice), **Workspace** (the *arena*; the real machine/repo).
+**Host anatomy (not modules — what ours plug into):** **Cognition** (the reason→act→observe *process*; steerable only via Instructions injection), **Model** (the *engine*; the host's subscription/choice), **Workspace** (the *arena*; the real machine/repo).
 
 **The deep structure:** the five map cleanly onto cognitive systems — semantic, episodic, and procedural memory plus the self-schema (Instructions) and executive inhibition (Guardrails). Cognition reasons over all of them; Model is the substrate; Workspace the arena.
 
-> **Vocabulary note:** earlier docs called the *semantic* faculty "Memory", and pre-2026-06-10 docs say "4 faculties" with Instructions folded into serving mechanics. Canonical now: **Knowledge** = semantic, **Memory** = episodic, **five** us-owned faculties, host trio = anatomy.
+> **Vocabulary note:** earlier docs called the *semantic* module "Memory", and pre-2026-06-10 docs say "4 faculties" with Instructions folded into serving mechanics. Canonical now: **Knowledge** = semantic, **Memory** = episodic, **five** us-owned modules, host trio = anatomy. (And the five were "faculties" until the faculty→module rename — Terminology note up top.)
 
 ### ② The Runtime — serve, observe, evolve (it does **not** run the agent loop)
 
-Because the **host** owns the agent loop and inference, our runtime is *not* "run the agent." It **serves faculties to a host we don't run, captures the boundary trace, and durably runs the async evolution loop.**
+Because the **host** owns the agent loop and inference, our runtime is *not* "run the agent." It **serves modules to a host we don't run, captures the boundary trace, and durably runs the async evolution loop.**
 
 | Primitive | Role (reframed for the wrap-the-host model) |
 |---|---|
-| **Activation** | *when we act* — scheduled **graduation reviews** + on-demand faculty calls. The user drives the agent loop from their terminal; our heartbeat is the evolution review. |
+| **Activation** | *when we act* — scheduled **graduation reviews** + on-demand module calls. The user drives the agent loop from their terminal; our heartbeat is the evolution review. |
 | **Durable execution** | runs **only the async evolution loop** (eval → propose → graduate) on Cloudflare Workflows + `waitForEvent` — **not** the hot agent loop. *This dissolves the CF-Workflows loop-length risk.* |
-| **Budget** | tracks **our** faculty-execution cost (sandbox/embeddings) + **observes** host token spend (we don't enforce the host's inference). |
-| **Identity & permissions** | user identity, per-user faculty scoping, secrets for *our* Action execution (proxy-side injection so the sandbox never holds a raw secret). |
+| **Budget** | tracks **our** module-execution cost (sandbox/embeddings) + **observes** host token spend (we don't enforce the host's inference). |
+| **Identity & permissions** | user identity, per-user module scoping, secrets for *our* Action execution (proxy-side injection so the sandbox never holds a raw secret). |
 | **Inference** | the **host's** for the agent loop (free to us); our *internal* LLM ops (extraction, eval-judge, proposals) run on **our own cheap model** — until **MCP Sampling** lets us run them on the user's model (north-star; not host-supported today). |
 
 ### ③ The Evolution engine — what *grows* it
@@ -101,9 +103,9 @@ Because the **host** owns the agent loop and inference, our runtime is *not* "ru
 Observability/traces  →  Evaluation  →  Generations  →  Governance (human async loop)
    (capture the run)      (judge it)     (pin/rollback)   (approve the promotion)
 ```
-- **Observability** — the typed, append-only, tree-shaped trace of every run. The keystone artifact; also the raw episodic stream that feeds the Memory faculty. **Build it first.**
+- **Observability** — the typed, append-only, tree-shaped trace of every run. The keystone artifact; also the raw episodic stream that feeds the Memory module. **Build it first.**
 - **Evaluation** — scores the trace; swappable scorer (code assertion → LLM-judge → human). Distinct from observability: capture vs judge.
-- **Generations** — the spine: an immutable pin of faculty definitions + an active pointer + `forkedFrom`; rollback = flip the pointer.
+- **Generations** — the spine: an immutable pin of module definitions + an active pointer + `forkedFrom`; rollback = flip the pointer.
 - **Governance** — the human, async and out-of-band: approves a proposal → it becomes a new generation. The trace-miner proposes; the human disposes.
 
 ---
@@ -112,18 +114,18 @@ Observability/traces  →  Evaluation  →  Generations  →  Governance (human 
 
 Three levels, distinct lifetimes:
 
-- **Agent (durable):** identity, role/title, reporting position, **active-generation pointer**, generation lineage, attached faculty refs (Memory/Knowledge/Actions, M:N), budget policy. It is an **employee, not a script** — it never "finishes."
+- **Agent (durable):** identity, role/title, reporting position, **active-generation pointer**, generation lineage, attached module refs (Memory/Knowledge/Actions, M:N), budget policy. It is an **employee, not a script** — it never "finishes."
 - **Generation (immutable pin — the lockfile):** `{ system_prompt (+hash), model, tool refs+versions, memory/knowledge refs+schema-versions, input_guardrails, output_guardrails, budget envelope }`. Immutable version rows + `isActive` pointer + `forkedFrom`; **rollback = flip the pointer.**
 - **Run / Episode (transient):** one invocation under a generation = a bounded goal-loop. Composable termination: `goal-reached` (typed end-turn tool) **OR** `budget-envelope-zero` **OR** `max-rounds/stall` **OR** `waiting-for-human`. Emits a **trace** (tree of typed spans). Runs are the substrate for evals + promotion mining — *not* a generation.
 
-First-class entities **`Agent` / `Memory` / `Knowledge` / `Actions`**, joined **many-to-many** — an agent *composes* faculties, it does not own them. A generation pins **references to specific versions**; promoting a shared faculty is a versioned event each attached agent **opts into** by re-pinning. **Decision: model M:N + identity from day 1, run single-owner in v1** (sharing designed-in, not exercised) — avoids a retrofit without paying the concurrency cost early.
+First-class entities **`Agent` / `Memory` / `Knowledge` / `Actions`**, joined **many-to-many** — an agent *composes* modules, it does not own them. A generation pins **references to specific versions**; promoting a shared module is a versioned event each attached agent **opts into** by re-pinning. **Decision: model M:N + identity from day 1, run single-owner in v1** (sharing designed-in, not exercised) — avoids a retrofit without paying the concurrency cost early.
 
 ---
 
-## 5. The faculties in depth
+## 5. The modules in depth
 
 ### Knowledge (semantic) — interface `remember` / `recall` / `relate`
-- **Substrate ladder (earned):** `L0 markdown → L1 relational (Postgres) → L2 graph (Apache AGE, Cypher) → L3 pgvector (semantic recall)`. AGE/pgvector are **opt-in top rungs**, not a foundational commitment (this killed the "platform-wide unified graph" risk — the graph lives *inside* the faculty's top tier, per agent). **AGE is a "prove-it"** — benchmark vs relational + recursive CTEs + pgvector before betting the hot path on Cypher.
+- **Substrate ladder (earned):** `L0 markdown → L1 relational (Postgres) → L2 graph (Apache AGE, Cypher) → L3 pgvector (semantic recall)`. AGE/pgvector are **opt-in top rungs**, not a foundational commitment (this killed the "platform-wide unified graph" risk — the graph lives *inside* the module's top tier, per agent). **AGE is a "prove-it"** — benchmark vs relational + recursive CTEs + pgvector before betting the hot path on Cypher.
 - **Contents lifecycle:** `working-state → mined candidate fact → proposal → approved fact/relation → schema/tier promotion → archive/forget`. Entity-resolution (dedup + linking on write) is a built-in sub-process; reflection promotes episodes→semantics.
 - **Eval is operation-level, not state-reproduction:** assert over the memory *operations* in the trace (right query? read hit/miss? write ok? entity-resolution hit/miss?). No snapshots, no temporal querying.
 
@@ -148,7 +150,7 @@ First-class entities **`Agent` / `Memory` / `Knowledge` / `Actions`**, joined **
 The agent's *curated* recollection distilled from the raw observability stream: seed (system prompt) → conversation scaffolding → historic-conversation analysis → steering. Likely a different substrate from Knowledge (append-heavy run/conversation log + summarization, vs relational/graph/vector facts) — confirm during build.
 
 ### Instructions (directive) — who the agent is
-The pinned steering artifact: the generation's `system_prompt` (+hash) at platform level; per-project, `.zuzuu/instructions/` served via instruction-file injection. Evolves like every faculty — steering text refined from trace insights ("the agent keeps doing X wrong" → a proposal to amend the instructions → human approves → new generation). Distinct from host-owned Cognition (the loop itself): Instructions is *our artifact that shapes* the loop. *(Promoted to a faculty 2026-06-10 — it always met the operational definition.)*
+The pinned steering artifact: the generation's `system_prompt` (+hash) at platform level; per-project, `.zuzuu/instructions/` served via instruction-file injection. Evolves like every module — steering text refined from trace insights ("the agent keeps doing X wrong" → a proposal to amend the instructions → human approves → new generation). Distinct from host-owned Cognition (the loop itself): Instructions is *our artifact that shapes* the loop. *(Promoted to a module 2026-06-10 — it always met the operational definition.)*
 
 ### Guardrails (protective) — the enforced membrane, pinned in the generation
 Input (prompt-injection scan, PII scrub, schema validation) + output (schema validation, moderation, redaction-before-persist, policy) implemented as **inspectors in one ordered gate pipeline**; each returns `Allow / Deny / RequireApproval`; `RequireApproval` → `waitForEvent` pause → approval inbox. Each check is a **GUARDRAIL span** on the trace, so the safety trail *is* the execution trace.
@@ -163,11 +165,11 @@ Input (prompt-injection scan, PII scrub, schema validation) + output (schema val
 
 zuzuu is **terminal-first** in *experience* and **MCP-core** in *mechanism*, in three rings:
 
-1. **MCP core (host-agnostic backbone)** — faculties served over MCP: **Tools→Actions · Resources→Knowledge/Memory recall · Prompts→scaffolding · Roots→Workspace scoping · Elicitation→HITL/approval** (works on Claude Code today) **· Sampling→run our internal LLM ops on the user's model** (north-star; *not host-supported yet*). Every MCP call is a trace span.
+1. **MCP core (host-agnostic backbone)** — modules served over MCP: **Tools→Actions · Resources→Knowledge/Memory recall · Prompts→scaffolding · Roots→Workspace scoping · Elicitation→HITL/approval** (works on Claude Code today) **· Sampling→run our internal LLM ops on the user's model** (north-star; *not host-supported yet*). Every MCP call is a trace span.
 2. **Per-host shim (progressive enhancement)** — instruction-file injection (CLAUDE.md / AGENTS.md / GEMINI.md, `--append-system-prompt`) everywhere; **native lifecycle + pre-tool hooks on all five hosts** (Claude `SessionStart/Stop/SessionEnd/PreToolUse`; Gemini `SessionStart/AfterAgent/SessionEnd/BeforeTool`; Codex `SessionStart/Stop/PreToolUse`, interactive-only; OpenCode bus plugin + `tool.execute.before`; pi extension `session_start/turn_end/session_shutdown/tool_call`) → live capture + tool-gating, each wired from real captured payloads (exp-11 + exp-12). Capture *depth* still varies (Gemini's log is prompt-only; Claude/Codex/pi carry tool spans) — that's a per-host transcript-richness gap, not a hook-surface gap.
 3. **Server control-plane** — stores configs + learnings + generations, runs the async evolution loop + CI/CD-style trace analysis. Plus a **local-native mode**: the whole harness = instruction files + a local MCP server — non-intrusive, secret-free, optional server sync.
 
-### Three faculty-serving surfaces (pick per faculty/host)
+### Three module-serving surfaces (pick per module/host)
 - **MCP** — structured, fully observable (every call = a span). Default for Actions; needs host MCP support.
 - **Instruction-file injection** — CLAUDE.md/AGENTS.md/GEMINI.md, with **delimiter-block + auto-cleanup** coexistence discipline. Universal; for scaffolding/hints.
 - **Filesystem (mount / virtual-bash)** — serve Knowledge/Memory as files (the smfs model). **Most host-agnostic** (uses the agent's own `Read/Write/Grep/Bash`, zero MCP); "flagless grep = semantic / flagged = literal". *Tradeoff:* a raw `cat` isn't a clean span → use a **virtual-bash single-tool** (`run_bash` + shipped tool-description) when observability matters.
@@ -179,7 +181,7 @@ Because we **wrap & observe** a loop we don't drive, the HostAdapter follows ent
 
 ### Model & provider agnosticity — two distinct needs
 - **Need 1 — host-agnosticity:** the observe-adapter above; host owns model selection; assume no shared host model-schema.
-- **Need 2 — internal-inference agnosticity** (our own faculty ops; a **stopgap until MCP Sampling**, so don't over-build): a thin litellm-*style* surface (one canonical `complete()`/`stream()` + `drop_params`, provider from a `provider/model` string — aider's altitude, **not** vendoring litellm, **not** continue's ~70 subclasses). Config = two blocks: `host:` (adapters; model host-owned) + `inference:` (`default` + per-faculty overrides + custom providers + type-keyed fallbacks). Reusable pattern: separate **`api`** (wire protocol) from **`provider`** (id) → a new OpenAI-compatible vendor = zero code.
+- **Need 2 — internal-inference agnosticity** (our own module ops; a **stopgap until MCP Sampling**, so don't over-build): a thin litellm-*style* surface (one canonical `complete()`/`stream()` + `drop_params`, provider from a `provider/model` string — aider's altitude, **not** vendoring litellm, **not** continue's ~70 subclasses). Config = two blocks: `host:` (adapters; model host-owned) + `inference:` (`default` + per-module overrides + custom providers + type-keyed fallbacks). Reusable pattern: separate **`api`** (wire protocol) from **`provider`** (id) → a new OpenAI-compatible vendor = zero code.
 
 ### OpenCode as the default bundled host (adopted 2026-06-10 as stage 2 — see the three-stage sequence below)
 The host adapters assume the user *already runs* a host. But a newcomer who runs none of Claude Code / Codex / Gemini needs an agent to wrap. **OpenCode (OSS, MIT) is the natural default to bundle** — and it makes us a richer integration, not just an observer:
@@ -195,9 +197,9 @@ The host adapters assume the user *already runs* a host. But a newcomer who runs
 
 The efficiency corollary (§2) gets a delivery vehicle in three stages — each stage funds the evidence the next one needs. The pitch is constant throughout (*hyper-personalized workspace ⇒ same work on a cheaper model with fewer tokens*); only the depth of harness control grows:
 
-1. **Stage 1 — host-agnostic wrapper (building now):** wrap the hosts users already run — Claude Code, Gemini CLI, Codex (+ OpenCode as a peer). Faculties served via instruction-file injection + filesystem; live capture and the guardrails gate wherever the host's hook surface allows. The pitch here: *your existing subscription goes further* (§7 pricing edge preserved). Current state (exp-11 + exp-12): **post-hoc capture, live capture, and the enforced gate now span all five hosts** — Claude Code, Gemini CLI, Codex, OpenCode, and pi (Codex interactive-only — `codex exec` fires no hooks) — every one wired from real captured hook payloads and dogfooded end-to-end. The Stage-1 host-agnostic wrapper is complete; the gate is host-honest (deny hard-blocks everywhere; `ask` is native on Claude, defers elsewhere). Note pi is *also* the Stage-3 owned-harness target — here it's covered as a wrapped host; building the harness on pi stays benchmark-gated.
-2. **Stage 2 — double down on OpenCode (stage-1 host parity reached; launcher shipped 2026-06-11):** **`zuzuu code` is built** — one command ensures the faculty home, detects + installs OpenCode on demand (zero-dep: a runtime peer, never an npm dependency), wires the zuzuu plugin (capture + gate + grounding), and launches the real `opencode` interactively (configure + launch, never fork or drive). The one-step door for users who run no host. *Still to come in stage 2:* the **efficiency benchmark** (§2) at scale — token-per-task with/without faculties on cheap models — and optional zuzuu provider/credits onboarding. Not a fork — a distribution.
-3. **Stage 3 — granular control via pi (after OpenCode stabilizes, gated on benchmark evidence):** if the benchmark shows the efficiency ceiling sits in *context assembly itself* (system prompt, tool descriptions, compaction, per-turn faculty retrieval), build the owned harness on **pi** (earendil-works' minimal coding agent: 4-tool core, extension/skill/SDK surface) — never an OpenCode fork, never from scratch. pi needs its own adapter (one file, real-wire-observed) when this stage opens.
+1. **Stage 1 — host-agnostic wrapper (building now):** wrap the hosts users already run — Claude Code, Gemini CLI, Codex (+ OpenCode as a peer). Modules served via instruction-file injection + filesystem; live capture and the guardrails gate wherever the host's hook surface allows. The pitch here: *your existing subscription goes further* (§7 pricing edge preserved). Current state (exp-11 + exp-12): **post-hoc capture, live capture, and the enforced gate now span all five hosts** — Claude Code, Gemini CLI, Codex, OpenCode, and pi (Codex interactive-only — `codex exec` fires no hooks) — every one wired from real captured hook payloads and dogfooded end-to-end. The Stage-1 host-agnostic wrapper is complete; the gate is host-honest (deny hard-blocks everywhere; `ask` is native on Claude, defers elsewhere). Note pi is *also* the Stage-3 owned-harness target — here it's covered as a wrapped host; building the harness on pi stays benchmark-gated.
+2. **Stage 2 — double down on OpenCode (stage-1 host parity reached; launcher shipped 2026-06-11):** **`zuzuu code` is built** — one command ensures the module home, detects + installs OpenCode on demand (zero-dep: a runtime peer, never an npm dependency), wires the zuzuu plugin (capture + gate + grounding), and launches the real `opencode` interactively (configure + launch, never fork or drive). The one-step door for users who run no host. *Still to come in stage 2:* the **efficiency benchmark** (§2) at scale — token-per-task with/without modules on cheap models — and optional zuzuu provider/credits onboarding. Not a fork — a distribution.
+3. **Stage 3 — granular control via pi (after OpenCode stabilizes, gated on benchmark evidence):** if the benchmark shows the efficiency ceiling sits in *context assembly itself* (system prompt, tool descriptions, compaction, per-turn module retrieval), build the owned harness on **pi** (earendil-works' minimal coding agent: 4-tool core, extension/skill/SDK surface) — never an OpenCode fork, never from scratch. pi needs its own adapter (one file, real-wire-observed) when this stage opens.
 
 > Stage 1 is build; stages 2–3 are committed *direction*, contents unbuilt. Each transition has an explicit gate: stage 1 → 2 = wrapper stability across the four hosts; stage 2 → 3 = benchmark evidence that plugin-level serving can't reach the claimed efficiency.
 
@@ -224,7 +226,7 @@ The first *visual* build target: a design system + the canvas on which **agent n
 - **Side panel** (Labs `Sheet`): tabs Identity / Memory / Tools / Generation & Eval.
 - **Tech substrate (confirm at review):** React Flow (xyflow) + an auto-layout pass (elkjs or dagre, `direction: DOWN`). The strict 1:N tree makes layout trivial and stable.
 
-> Strict super→sub is **1:N** (every node has exactly one parent) → the canvas is a clean tree; M:N is for faculty *sharing*, not delegation topology.
+> Strict super→sub is **1:N** (every node has exactly one parent) → the canvas is a clean tree; M:N is for module *sharing*, not delegation topology.
 
 ---
 
@@ -259,7 +261,7 @@ An exhaustive, educative reference organized by the **primitive entities of an a
 
 **Where our decisions override the field's dominant patterns:** "snapshot/fork the run state for generations" → **pin definitions, observe data** (snapshots are eval substrate, not the generation model); "model the org as an arbitrary DAG" → **strict 1:N tree + mirror aliases**; "add cron/Temporal/Inngest as the runtime" → **CF Workflows only**; "flat per-call cost caps" → **shared decrementing budget envelope** up the recursive tree.
 
-**Top borrows (by leverage):** ① a typed append-only tree-shaped **trace**, one schema (the keystone — build first) → ② versioned-definition-row + `isActive` + `forkedFrom` generations → ③ a middleware/hook stack as the universal extensibility seam → then `reportsTo` self-FK org model, delegation-as-a-tool, durable `waitForEvent` HITL, shared budget envelope, tool-trace-as-eval-assertion, a unified Score table, per-faculty memory extractor + gatekeeper, schema-from-signature + effect-class, MCP as the tool protocol, spec-vs-instance sandbox, secret redaction, approval inbox, run-pulse visualization, proposal-first self-improvement, and **tickets (net-new — flagged, not assumed)**. Two near-twins to read cover-to-cover: **paperclip** (structural template — org DB model, ticket/dependency split, wakeup queue, locks) and **lobe-chat** (feature reference — tiered governed memory, supervisor enum, generation-tracing, approval-gated nightly self-review).
+**Top borrows (by leverage):** ① a typed append-only tree-shaped **trace**, one schema (the keystone — build first) → ② versioned-definition-row + `isActive` + `forkedFrom` generations → ③ a middleware/hook stack as the universal extensibility seam → then `reportsTo` self-FK org model, delegation-as-a-tool, durable `waitForEvent` HITL, shared budget envelope, tool-trace-as-eval-assertion, a unified Score table, per-module memory extractor + gatekeeper, schema-from-signature + effect-class, MCP as the tool protocol, spec-vs-instance sandbox, secret redaction, approval inbox, run-pulse visualization, proposal-first self-improvement, and **tickets (net-new — flagged, not assumed)**. Two near-twins to read cover-to-cover: **paperclip** (structural template — org DB model, ticket/dependency split, wakeup queue, locks) and **lobe-chat** (feature reference — tiered governed memory, supervisor enum, generation-tracing, approval-gated nightly self-review).
 
 ### The five source-level audits ([`inspiration/`](inspiration/))
 - **entire.io** ([`entire-io-host-adapter-audit.md`](inspiration/entire-io-host-adapter-audit.md)) — the closest prior art to our host-adapter layer. The blueprint for the **observe path**: `Agent` + optional `HookSupport`/capability interfaces + registry; one normalized `Event` (the basis of our trace schema); per-agent native hook-writer + one callback binary + graceful degradation; `RedactedBytes` redact-at-write; git-branch-as-storage for local-native mode. *entire stops at system-of-record (capture + link to commits); it does not evaluate or evolve — that graduation engine is our wedge.*
@@ -276,8 +278,8 @@ An exhaustive, educative reference organized by the **primitive entities of an a
 
 **Build order (incremental; each slice independently useful):**
 1. **Trace capture** (Claude-Code-first, local) — the keystone ← *the thing to build first*
-2. Faculty serving (MCP / filesystem / instruction-file)
-3. The four faculties (Memory · Knowledge · Actions · Guardrails)
+2. Module serving (MCP / filesystem / instruction-file)
+3. The four modules (Memory · Knowledge · Actions · Guardrails)
 4. The evolution/graduation engine (the differentiator — deliberately last; it consumes 1–3)
 
 **The first vertical slice that proves the whole loop end-to-end:** run an agent → emit a trace → run the Actions+Knowledge eval lens over it → the trace-miner files one *retire-unused-tool* or *high-failure-upgrade* proposal → it appears in the promotion inbox → a human approves → a new generation is pinned with the changed tool-set → the Evolution tab shows gen N→N+1 with the eval delta.
@@ -298,9 +300,9 @@ With the spine built (observe + serve on 5 hosts; the local evolve loop proven i
 
 ### Positioning, broadened
 
-**zuzuu turns any project folder into an AI-first directory.** The user keeps their folders, files, and working style; `zuzuu init` adds an opinionated external harness — the faculty home plus serving/observing mechanisms — so the terminal agent they already run works over that directory more efficiently (fewer tokens, less time, better output), with the human always in control. Coding is the **first vertical**, not the boundary: the same mechanism serves any folder-based knowledge work (an accountant's books, a CEO's briefings) — that's what the marketplace workstream (W4) makes concrete.
+**zuzuu turns any project folder into an AI-first directory.** The user keeps their folders, files, and working style; `zuzuu init` adds an opinionated external harness — the module home plus serving/observing mechanisms — so the terminal agent they already run works over that directory more efficiently (fewer tokens, less time, better output), with the human always in control. Coding is the **first vertical**, not the boundary: the same mechanism serves any folder-based knowledge work (an accountant's books, a CEO's briefings) — that's what the marketplace workstream (W4) makes concrete.
 
-**Philosophy, stated explicitly: enhance, never reinvent.** We don't reinvent files/folders, file preview, terminals, task formats (a future tasks faculty is YAML-native, DevOps-shaped), or the host's agent loop. The differentiators are open source, local-native, and the graduation loop — everything else is borrowed, battle-tested practice.
+**Philosophy, stated explicitly: enhance, never reinvent.** We don't reinvent files/folders, file preview, terminals, task formats (a future tasks module is YAML-native, DevOps-shaped), or the host's agent loop. The differentiators are open source, local-native, and the graduation loop — everything else is borrowed, battle-tested practice.
 
 ### The six workstreams (dependency order)
 
@@ -308,14 +310,14 @@ With the spine built (observe + serve on 5 hosts; the local evolve loop proven i
 |---|---|---|---|
 | **W1** | **Home & onboarding** | the hidden `.zuzuu/` home (decision below), the narrated `zz init` experience, the self-explaining directory contract | **in build (now)** — it gates W2/W4 and the education story |
 | **W2** | **Visual workbench** | a local app for non-terminal users: file tree \| **embedded terminal** \| file preview. **zuzuu-web evolves into this** — the read-only observe dashboard (shipped) is the workbench's first milestone, same daemon + app, growing panes | **shipped + iterating** — workbench v1 + Mobbin redesign live; session-management ladder **A→D shipped** (concurrency/manifest/replay — see §14) |
-| **W3** | **Faculty health & HITL UX** | make "is it actually improving?" visible — review-ceremony polish, per-faculty health surfaces, eval-ranked inbox | design |
-| **W4** | **Marketplace modules** | persona-opinionated home templates (accountant, CEO, …): a template = a `.zuzuu/` layout + seed faculties. Only after the W1 contract is stable | concept |
-| **W5** | **Workflows/tasks faculty** | task management + scheduled workflows/triggers as a faculty — YAML-native, mirroring DevOps practice, never a bespoke format | concept |
+| **W3** | **Module health & HITL UX** | make "is it actually improving?" visible — review-ceremony polish, per-module health surfaces, eval-ranked inbox | design |
+| **W4** | **Marketplace templates** | persona-opinionated home templates (accountant, CEO, …): a template = a `.zuzuu/` layout + seed modules. Only after the W1 contract is stable | concept |
+| **W5** | **Workflows/tasks module** | task management + scheduled workflows/triggers as a module — YAML-native, mirroring DevOps practice, never a bespoke format | concept |
 | **W6** | **Efficiency benchmark** | the rigorous token/cost/time comparison (§2's falsifiable test); exp-14's ~80% lift is the informal precursor | deliberately deferred — premature before W1–W3 |
 
 ### Decisions recorded (2026-06-12)
 
-- **The home is hidden: `agent/` → `.zuzuu/`.** Reverses the 2026-06-11 visible-`agent/` decision, with cause: `agent/` is a common directory name (clash risk in brownfield repos), and un-announced visible folders read as clutter, not transparency. The model is `.git`: **transparency comes from porcelain** — `zz status` / `zz explain` / `zz digest`, the digest brief, the workbench — plus plain-text files inside and the human gate, not from an un-dotted dir. The only visible footprint of `zz init` is the managed faculties block in CLAUDE.md/AGENTS.md and three `.gitignore` lines. Inner layout is byte-identical; clean break (no users existed), one-shot migration gated on `agent/agent.json` so unrelated `agent/` dirs are never touched.
+- **The home is hidden: `agent/` → `.zuzuu/`.** Reverses the 2026-06-11 visible-`agent/` decision, with cause: `agent/` is a common directory name (clash risk in brownfield repos), and un-announced visible folders read as clutter, not transparency. The model is `.git`: **transparency comes from porcelain** — `zz status` / `zz explain` / `zz digest`, the digest brief, the workbench — plus plain-text files inside and the human gate, not from an un-dotted dir. The only visible footprint of `zz init` is the managed modules block in CLAUDE.md/AGENTS.md and three `.gitignore` lines. Inner layout is byte-identical; clean break (no users existed), one-shot migration gated on `agent/agent.json` so unrelated `agent/` dirs are never touched.
 - **The workbench's middle pane is an embedded terminal** (xterm.js running the real host CLI), not a custom chat UI. Zero reinvention, observe-model intact (we never drive the host), every host works day one. A chat UI over OpenCode's server API stays a possible later enhancement, not the foundation.
 - **ONE package, ONE repo (decided 2026-06-12, superseding the brief two-package design the same day):** the workbench lives in this repo at **`web/`** (absorbed from the webcode repo via git subtree, history preserved; a self-contained nested project — own lockfile/vitest, NOT a root workspace, so the root stays no-build/hermetic) and ships **inside `@zuzuucodes/cli`** as `web-app/` (staged by `scripts/build-web.mjs` in the publish pipeline). The web runtime's deps are the CLI package's **`optionalDependencies`** — `dependencies` stays empty and the CLI core never imports them, so a failed native build (node-pty) degrades the workbench, never the CLI; `--omit=optional` is the light install. ADK-style product statement: `npm i -g @zuzuucodes/cli` is the whole product — CLI + workbench, one install, one version, one OIDC pipeline. There is **no `@zuzuucodes/web` npm package**. `zuzuu web` resolves: repo dev build → staged `web-app/` → PATH → repair hint.
 

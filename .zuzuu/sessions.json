@@ -2,6 +2,46 @@
   "version": 1,
   "sessions": [
     {
+      "id": "2b842abd-7e4c-4d3c-8399-9328d3f4e407",
+      "host": "claude-code",
+      "status": "active",
+      "startedAt": "2026-06-17T11:59:23.370Z",
+      "endedAt": "2026-06-17T12:02:34.419Z",
+      "durationMs": 191049,
+      "traceId": "cf41ceebd0079bee0287d1f24f1459fd",
+      "traceRef": ".zuzuu/.traces/claude-code-2b842abd-7e4c-4d3c-8399-9328d3f4e407.otlp.jsonl",
+      "git": {
+        "commit": "0163a16bb9c5a4dd78a33575e844f581f6ffc78b",
+        "branch": "zz/session-5ca1d154"
+      },
+      "counts": {
+        "turns": 2,
+        "tools": 3,
+        "errors": 0
+      },
+      "generation": null
+    },
+    {
+      "id": "5ca1d154-166f-4d8a-9e04-1352f6f7e8e0",
+      "host": "claude-code",
+      "status": "completed",
+      "startedAt": "2026-06-17T09:01:45.700Z",
+      "endedAt": "2026-06-17T11:57:11.474Z",
+      "durationMs": 10525774,
+      "traceId": "f3314e89f33409197d3735b0f1a22255",
+      "traceRef": ".zuzuu/.traces/claude-code-5ca1d154-166f-4d8a-9e04-1352f6f7e8e0.otlp.jsonl",
+      "git": {
+        "commit": "0163a16bb9c5a4dd78a33575e844f581f6ffc78b",
+        "branch": "zz/session-5ca1d154"
+      },
+      "counts": {
+        "turns": 5,
+        "tools": 65,
+        "errors": 0
+      },
+      "generation": null
+    },
+    {
       "id": "18e6ce93-8a46-4457-92f2-43e991a91de9",
       "host": "claude-code",
       "status": "completed",

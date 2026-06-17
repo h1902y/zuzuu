@@ -4,26 +4,26 @@
 
 **Give the coding agent you already run an evolving Memory, Knowledge, Actions, and Guardrails — grown from how you actually work.**
 
-Your host agent — Claude Code, Codex, Gemini CLI, OpenCode — supplies the *brain* (the reasoning loop + the model). zuzuu wraps the host you already pay for: it **serves** faculties to it, **observes** every session as an OpenTelemetry trace, and (the end-game) **evolves** the faculties from those traces — human-gated, across versioned generations. We never run a competing agent loop and never drive the host headlessly.
+Your host agent — Claude Code, Codex, Gemini CLI, OpenCode — supplies the *brain* (the reasoning loop + the model). zuzuu wraps the host you already pay for: it **serves** modules to it, **observes** every session as an OpenTelemetry trace, and (the end-game) **evolves** the modules from those traces — human-gated, across versioned generations. We never run a competing agent loop and never drive the host headlessly.
 
 > Install `npm i -g @zuzuucodes/cli` — the command is **`zz`** (or `zuzuu`). Published with provenance; releases auto-publish from `main` via GitHub OIDC.
 
-> **Status (honest):** early build, moving fast. **Observe** works (5 real hosts, verified). **Serve** delivers the faculty home (`zuzuu init`), a session digest to every host, an **enforced guardrails gate** on all 5, and five faculties sharing one proposal/review spine. **Evolve** is now **wired and tested** — trace miners → a mechanical eval lens → human-gated `zuzuu review` → versioned **generations** (mint / rollback / drift-check) — but **not yet proven on a real graduation corpus** (the loop runs + passes hermetic tests; it hasn't yet improved an agent from real sessions end-to-end). Full design: [`docs/DESIGN.md`](docs/DESIGN.md).
+> **Status (honest):** early build, moving fast. **Observe** works (5 real hosts, verified). **Serve** delivers the module home (`zuzuu init`), a session digest to every host, an **enforced guardrails gate** on all 5, and five modules sharing one proposal/review spine. **Evolve** is now **wired and tested** — trace miners → a mechanical eval lens → human-gated `zuzuu review` → versioned **generations** (per-module mint / rollback, composed into whole-brain checkpoints) — but **not yet proven on a real graduation corpus** (the loop runs + passes hermetic tests; it hasn't yet improved an agent from real sessions end-to-end). Full design: [`docs/DESIGN.md`](docs/DESIGN.md).
 
 ## What works today
 
 ```bash
 npm install -g @zuzuucodes/cli   # zero dependencies — installs the `zuzuu` command (short alias: `zz`)
 
-# no coding agent yet? one command gives you a fully faculty-equipped one:
-zuzuu code        # scaffold the faculty home, install + wire OpenCode, launch it (capture + gate + grounding)
+# no coding agent yet? one command gives you a fully module-equipped one:
+zuzuu code        # scaffold the module home, install + wire OpenCode, launch it (capture + gate + grounding)
 
 zuzuu web         # prefer a visual app? the workbench: Home → review ceremony → embedded-terminal agent sessions
                   #   run several agents at once (each in its own git worktree); every session is a git branch you can diff & restore
 
 # already run Claude Code / Gemini / Codex / OpenCode / pi? wrap the one you have:
 zuzuu init        # scaffold your project's agent home (.zuzuu/) — git-style, hidden like .git
-zuzuu explain     # the 5 faculties + how graduation works (you're always in the loop)
+zuzuu explain     # the 5 modules + how graduation works (you're always in the loop)
 zuzuu inbox       # what's pending your approval · zuzuu review to approve/reject
 zuzuu capture     # turn your latest agent session into an OpenTelemetry trace
 zuzuu trace --last
@@ -58,7 +58,7 @@ All five verified against **real sessions** — never fixtures; every host's liv
 ```
    the host agent (yours)          zuzuu
   ┌─────────────────────┐     ┌──────────────────────────────┐
-  │ Cognition · Model · │ ◄── │ SERVE   faculties:           │
+  │ Cognition · Model · │ ◄── │ SERVE   modules:             │
   │ Workspace           │     │   knowledge · memory ·       │
   │  (we never drive)   │     │   actions · instructions ·   │
   │                     │     │   guardrails (enforced)      │
@@ -72,13 +72,13 @@ All five verified against **real sessions** — never fixtures; every host's liv
                               └──────────────────────────────┘
 ```
 
-**Five faculties**, each mapping onto a cognitive system — **Knowledge** (semantic: what's true), **Memory** (episodic: what happened), **Actions** (procedural: how to do things), **Instructions** (directive: who the agent is), **Guardrails** (protective: what it must not do — *enforced* on tool calls, fail-open). They improve across **versioned generations**, proposals mined from traces, **always human-approved**. That loop is the product; everything here is a step toward it.
+**Five modules**, each mapping onto a cognitive system — **Knowledge** (semantic: what's true), **Memory** (episodic: what happened), **Actions** (procedural: how to do things), **Instructions** (directive: who the agent is), **Guardrails** (protective: what it must not do — *enforced* on tool calls, fail-open). They improve across **versioned generations**, proposals mined from traces, **always human-approved**. That loop is the product; everything here is a step toward it.
 
 ## Repo map
 
 | Path | What |
 |---|---|
-| [`zuzuu/`](zuzuu/) + `bin/zuzuu.mjs` | the CLI — capture pipeline (`zuzuu/capture/`), live lifecycle, faculty home (product surface) |
+| [`zuzuu/`](zuzuu/) + `bin/zuzuu.mjs` | the CLI — capture pipeline (`zuzuu/capture/`), live lifecycle, module home (product surface) |
 | [`web/`](web/) | the visual workbench — nested project (daemon + React SPA), ships bundled inside the npm package |
 | [`tests/`](tests/) | hermetic unit + regression (`npm test`) + real-data smoke playgrounds (`npm run playground`) |
 | [`docs/`](docs/) | [`DESIGN.md`](docs/DESIGN.md) (the canon) + [`LOG.md`](docs/LOG.md) (the build journal) + [`inspiration/`](docs/inspiration/) (the research shelf) |
