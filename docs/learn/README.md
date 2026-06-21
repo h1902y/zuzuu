@@ -21,7 +21,7 @@ Each page builds on the last. **✅ written · 🚧 planned** (a page is written
 | 00 | ✅ [Motivation](00-motivation.md) | Why this exists — the problem with how agents remember and act, and the bet zuzuu makes |
 | 01 | ✅ [The mental model](01-mental-model.md) | The three primitives (zu · module · project), the mechanical/agentic operations, the one-substrate idea |
 | 02 | ✅ [The seed in one file](02-the-seed-in-one-file.md) | Read a real zu — inert, then runnable — the same file, two jobs |
-| 03 | 🚧 How a zu becomes queryable | The index, query-on-demand, why it's context-frugal |
+| 03 | ✅ [How a zu becomes queryable](03-how-a-zu-becomes-queryable.md) | The index, query-on-demand, why it's context-frugal |
 | 04 | 🚧 How an act runs safely | The tiered containment model and the policy block |
 | 05 | 🚧 How the system grows | The session, the objective stack, episodes → enhance → the human gate → the right module |
 | 06 | 🚧 Observing a host | The capture plugin and why it solves the loop's cold-start |
