@@ -144,3 +144,16 @@ test('enhance: below the corroboration threshold proposes nothing', () => {
     assert.equal(enhance({ home, module: 'actions' }, { threshold: 2 }).proposed, 0);
   });
 });
+
+test('snapshot: rollback prunes notes added after the target generation (no orphan)', () => {
+  withHome((home) => {
+    writeZu(home, 'knowledge', 'fact', { type: 'knowledge', title: 'v1' });
+    mint(home, 'knowledge'); // gen 1 = {fact}
+    writeZu(home, 'knowledge', 'later', { type: 'knowledge', title: 'added after gen1' });
+    mint(home, 'knowledge'); // gen 2 = {fact, later}
+    const r = rollback(home, 'knowledge', 1);
+    assert.equal(r.pruned, 1, 'the post-gen note is pruned');
+    assert.equal(existsSync(join(home, 'knowledge', 'items', 'later.md')), false, "rollback removed the note that wasn't in gen 1");
+    assert.equal(existsSync(join(home, 'knowledge', 'items', 'fact.md')), true, 'the pinned note is restored');
+  });
+});

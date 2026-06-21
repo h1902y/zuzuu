@@ -10,7 +10,7 @@
 //       identity) + a whole-home checkpoint = a Merkle of (module, active-hash).
 //       Zero-dep (node:crypto + node:fs).
 
-import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { paths, itemsDir } from '../notes/store.mjs';
@@ -74,15 +74,22 @@ export function rollback(home, module, n) {
   if (!entry) return { ok: false, error: `no generation ${n} for ${module}` };
   const idir = itemsDir(home, module);
   mkdirSync(idir, { recursive: true });
-  // restore: write every item from the snapshot (removes nothing not in the gen
-  // beyond overwriting — full restore of the pinned set)
+  // The pinned set is authoritative: PRUNE any note not in the generation before
+  // restoring. Without this, a note created AFTER the generation survives a
+  // rollback meant to undo it — the on-disk brain would diverge from the active
+  // generation (and a later mint would silently re-introduce the "deleted" note).
+  const pinned = new Set(Object.keys(entry.items));
+  let pruned = 0;
+  for (const f of readdirSync(idir)) {
+    if (f.endsWith('.md') && !pinned.has(f.slice(0, -3))) { rmSync(join(idir, f)); pruned++; }
+  }
   let restored = 0;
   for (const [id, hash] of Object.entries(entry.items)) {
     writeFileSync(join(idir, `${id}.md`), getBlob(home, hash));
     restored++;
   }
   writeFileSync(join(genDir(home, module), 'active'), String(n));
-  return { ok: true, module, n, restored };
+  return { ok: true, module, n, restored, pruned };
 }
 
 // ── whole-brain checkpoints ─────────────────────────────────────────────────

@@ -80,7 +80,10 @@ function build(home, db) {
         if (key === 'body' || key === 'id') continue;
         if (key === 'relations' && val && typeof val === 'object' && !Array.isArray(val)) {
           for (const [rtype, dsts] of Object.entries(val)) {
-            for (const d of [].concat(dsts)) insLink.run(addr, rtype, str(d));
+            // normalize a bare-id target ('render') to a full addr ('actions:render')
+            // — enhance/relate write bare ids, and the graph walk joins on the full
+            // addr, so without this `related()` returns nothing for them.
+            for (const d of [].concat(dsts)) { const dv = str(d); insLink.run(addr, rtype, dv.includes(':') ? dv : `${module}:${dv}`); }
           }
         }
         if (key === 'tags') for (const t of [].concat(val)) insProp.run(addr, 'tag', str(t));

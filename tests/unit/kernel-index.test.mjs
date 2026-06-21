@@ -105,3 +105,13 @@ test('toon: values with commas are quoted', () => {
   const out = toon('notes', [{ title: 'a, b, c' }], ['title']);
   assert.match(out, /"a, b, c"/);
 });
+
+test('related: follows a BARE-id relation target (the shape enhance/relate write)', () => {
+  withBrain({
+    'actions:pull': { type: 'action', relations: { 'related-to': 'render' } }, // bare id, not 'actions:render'
+    'actions:render': { type: 'action', title: 'render' },
+  }, (home) => {
+    const hits = related(home, 'actions:pull', { depth: 1 });
+    assert.ok(hits.some((r) => r.addr === 'actions:render'), 'bare-id target resolves to the full addr in the walk');
+  });
+});

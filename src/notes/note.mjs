@@ -26,9 +26,12 @@ const unquote = (s) => {
   return t;
 };
 
+const SCALARISH = /^(-?\d+(\.\d+)?|true|false|null)$/; // a string that would re-parse as a non-string
 const quoteScalar = (s) => {
+  if (typeof s === 'number' || typeof s === 'boolean' || s === null) return String(s); // emit numbers/booleans/null bare so they round-trip as types
   const t = String(s);
   if (t.includes('\n')) throw new Error('frontmatter values must be single-line');
+  if (SCALARISH.test(t)) return JSON.stringify(t); // quote a string that LOOKS scalar, so it stays a string
   return /[:#'"\\[\]{}]|^-\s|^[\s]|[\s]$|^$/.test(t) ? JSON.stringify(t) : t;
 };
 
@@ -46,6 +49,12 @@ const parseValueToken = (raw) => {
   if (looksInlineJson(t)) {
     try { return JSON.parse(t); } catch { /* fall through to scalar */ }
   }
+  // bare (unquoted) booleans / null / numbers coerce to their type — a quoted
+  // form ("5", "true") stays a string via unquote, so types round-trip exactly.
+  if (t === 'true') return true;
+  if (t === 'false') return false;
+  if (t === 'null') return null;
+  if (/^-?\d+(\.\d+)?$/.test(t)) return Number(t);
   return unquote(t);
 };
 
@@ -130,12 +139,14 @@ export function serialize(item) {
     if (isScalar(val)) {
       lines.push(`${key}: ${quoteScalar(val)}`);
     } else if (Array.isArray(val)) {
-      if (val.every(isScalar)) { lines.push(`${key}:`); for (const v of val) lines.push(`  - ${quoteScalar(v)}`); }
+      if (val.length === 0) lines.push(`${key}: []`); // inline JSON, so an empty array round-trips as []
+      else if (val.every(isScalar)) { lines.push(`${key}:`); for (const v of val) lines.push(`  - ${quoteScalar(v)}`); }
       else lines.push(`${key}: ${JSON.stringify(val)}`);
     } else {
       // plain object: block one-level map if all values are scalars, else inline JSON
       const entries = Object.entries(val);
-      if (entries.every(([, v]) => isScalar(v))) { lines.push(`${key}:`); for (const [k, v] of entries) lines.push(`  ${k}: ${quoteScalar(v)}`); }
+      if (entries.length === 0) lines.push(`${key}: {}`); // empty object round-trips as {}
+      else if (entries.every(([, v]) => isScalar(v))) { lines.push(`${key}:`); for (const [k, v] of entries) lines.push(`  ${k}: ${quoteScalar(v)}`); }
       else lines.push(`${key}: ${JSON.stringify(val)}`);
     }
   }

@@ -27,10 +27,11 @@ test('parse: no frontmatter block → fail-soft', () => {
 });
 
 test('parse: unknown keys are preserved (OKF — tolerate unknown)', () => {
-  const r = parse('---\ntype: knowledge\nzz_custom: hello\nanother_one: 42\n---\nx');
+  const r = parse('---\ntype: knowledge\nzz_custom: hello\nanother_one: 42\nquoted_num: "7"\n---\nx');
   assert.equal(r.ok, true);
   assert.equal(r.item.zz_custom, 'hello');
-  assert.equal(r.item.another_one, '42'); // scalars are strings unless inline-JSON
+  assert.equal(r.item.another_one, 42); // bare scalars coerce to their type (number)
+  assert.equal(r.item.quoted_num, '7'); // a quoted scalar stays a string
 });
 
 // ── parse: collections — block lists, block maps, inline JSON ──────────────
@@ -129,4 +130,17 @@ test('slugify + deriveTitle', () => {
   assert.equal(slugify('Acme Prefers Blue!'), 'acme-prefers-blue');
   assert.equal(deriveTitle('# A Heading\nmore'), 'A Heading');
   assert.equal(deriveTitle('', 'fallback-id'), 'fallback-id');
+});
+
+test('round-trip: numbers, booleans, null, and empty collections keep their type', () => {
+  const item = { id: 'x', type: 'knowledge', count: 5, ratio: 1.5, flag: true, off: false, none: null, tags: [], meta: {}, looksNum: '42' };
+  const back = parse(serialize(item), { id: 'x' }).item;
+  assert.equal(back.count, 5);
+  assert.equal(back.ratio, 1.5);
+  assert.equal(back.flag, true);
+  assert.equal(back.off, false);
+  assert.equal(back.none, null);
+  assert.deepEqual(back.tags, []);          // empty array stays an array (not {})
+  assert.deepEqual(back.meta, {});          // empty object stays an object
+  assert.equal(back.looksNum, '42');        // a numeric-looking string stays a string
 });
