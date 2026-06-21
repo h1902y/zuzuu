@@ -13,7 +13,7 @@ import { openSessionWorktree } from '../../src/sessions/session-worktree.mjs';
 const sh = (cwd, ...a) => spawnSync(a[0], a.slice(1), { cwd, encoding: 'utf8' });
 function withRepo(fn) {
   const cwd = mkdtempSync(join(tmpdir(), 'zuzuu-coll-'));
-  sh(cwd, 'git', 'init', '-q'); sh(cwd, 'git', 'config', 'user.email', 't@t.co'); sh(cwd, 'git', 'config', 'user.name', 't');
+  sh(cwd, 'git', 'init', '-q', '-b', 'main'); sh(cwd, 'git', 'config', 'user.email', 't@t.co'); sh(cwd, 'git', 'config', 'user.name', 't');
   writeFileSync(join(cwd, 'a.txt'), 'x'); sh(cwd, 'git', 'add', '-A'); sh(cwd, 'git', 'commit', '-qm', 'init');
   try { return fn(cwd); } finally { rmSync(cwd, { recursive: true, force: true }); }
 }

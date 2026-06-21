@@ -15,7 +15,7 @@ const sh = (cwd, ...a) => spawnSync(a[0], a.slice(1), { cwd, encoding: 'utf8' })
 
 async function withGitRepo(fn) {
   const cwd = mkdtempSync(join(tmpdir(), 'zuzuu-cs-'));
-  sh(cwd, 'git', 'init', '-q');
+  sh(cwd, 'git', 'init', '-q', '-b', 'main');
   sh(cwd, 'git', 'config', 'user.email', 't@t.co');
   sh(cwd, 'git', 'config', 'user.name', 't');
   writeFileSync(join(cwd, 'a.txt'), 'hello');
