@@ -1,16 +1,18 @@
 // src/sessions/session-git.mjs — invisible session-git: one agent session = one branch.
 //
+// what: the OPEN/TURN/END lifecycle of a session as a git branch —
 //   OPEN  → create `zz/session-<shortid>` (a branch, never a worktree)
 //   TURN  → checkpoint commit ON the session branch
 //   END   → squash-merge to main as ONE commit `session: <title>`, delete branch
+// why:  every turn becomes an undoable checkpoint, and a session lands on main as
+//       one clean commit — without the user ever seeing the branch dance.
+// how:  THE most safety-critical module in the codebase (git mutations inside
+//       USERS' repos, from fail-open hooks); the invariants below are absolute.
+//       (Over the ~200-line cap by design: the lifecycle + its single-working-
+//       branch recovery is one cohesive responsibility the characterization tests
+//       pin as a unit; the git plumbing already lives in git.mjs.)
 //
-// (Over the ~200-line soft cap by design: the OPEN/TURN/END lifecycle + its
-// single-working-branch recovery is one cohesive, safety-critical responsibility
-// that the characterization tests pin as a unit — splitting it would scatter the
-// invariant across files. The git plumbing already lives in git.mjs.)
-//
-// THE most safety-critical module in the codebase: it runs git mutations inside
-// USERS' repos, triggered from fail-open lifecycle hooks. Therefore:
+// Therefore:
 //   - every exported op is try-wrapped and returns { ok:false, reason } — NEVER throws
 //   - all git goes through git.mjs plumbing — spawnSync argv arrays, no shell strings
 //   - non-repo / bare / detached HEAD / merge-rebase-in-progress / unborn HEAD → no-op

@@ -1,8 +1,11 @@
-// src/sessions/git.mjs — git PLUMBING for session-git (no session policy here).
+// src/sessions/git.mjs — git plumbing for session-git.
 //
-// Every helper is safe-by-construction: argv arrays only (no shell strings),
-// never throws, returns plain data. Session POLICY (open/checkpoint/close/
-// status and the safety gates) lives in session-git.mjs.
+// what: thin, safe-by-construction git helpers (currentBranch, branchExists,
+//       isDirty, …) — argv arrays only (no shell strings), never throw, return
+//       plain data.
+// why:  isolate raw git from policy. Session POLICY (open/checkpoint/close/status
+//       + the safety gates) lives in session-git.mjs; this file is just the wire.
+// how:  spawnSync over argv arrays; each call returns plain data. Zero-dep.
 
 import { spawnSync } from 'node:child_process';
 import { rmSync } from 'node:fs';

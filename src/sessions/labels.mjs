@@ -1,11 +1,11 @@
 // src/sessions/labels.mjs — user-given session labels (W1-B).
 //
-// A label is a human name for a session ("fix auth bug") shown in the workbench
-// instead of just the host. Stored in `.zuzuu/session-labels.json` as { id:
-// label } — deliberately SEPARATE from the capture-managed index
-// (sessions.json), whose records are REPLACED on every re-capture
-// (store.upsertSession). Keeping labels in a side map means a rename survives
-// re-capture. Fail-soft: a missing/corrupt file reads as {}.
+// what: a human name for a session ("fix auth bug"), stored in
+//       `.zuzuu/session-labels.json` as { id: label } and shown in the workbench
+//       instead of just the host.
+// why:  kept deliberately SEPARATE from the capture-managed index (sessions.json),
+//       whose records are replaced on every re-capture — so a rename survives.
+// how:  read/write a small JSON side-map; fail-soft (missing/corrupt → {}). Zero-dep.
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';

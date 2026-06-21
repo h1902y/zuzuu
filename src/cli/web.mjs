@@ -1,9 +1,15 @@
-// `zuzuu web` — launch the visual workbench (bundled with this package).
-// The workbench opens a browser-based UI and prints its own URL; zuzuu just starts it.
+// src/cli/web.mjs — `zz web`: launch the visual workbench.
 //
-// Deliberate difference from code.mjs: NO init/enable here. The workbench home
-// owns its own onboarding — this command's only job is: resolve and launch.
+// what: resolve and start the bundled web-app daemon (a browser UI that prints
+//       its own URL); reuse a live instance, or spawn fresh.
+// why:  the visual surface for the same brain the CLI serves. Unlike `code.mjs`
+//       it does NO init/enable — the workbench home owns its own onboarding; this
+//       command's only job is resolve + launch.
+// how:  singleton-per-workspace (a recorded instance file), 4-step resolution of
+//       the bundled vs dev vs PATH binary; the workbench ships inside the package
+//       as `web-app/` with its deps as optionalDependencies. Details below.
 //
+// ── packaging + runtime notes ───────────────────────────────────────────────
 // Packaging (single-package decision, 2026-06-12, DESIGN §13): the workbench
 // ships INSIDE @zuzuucodes/cli as `web-app/` (built from `web/`); its runtime
 // deps are this package's optionalDependencies. `dependencies` stays empty and

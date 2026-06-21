@@ -1,17 +1,15 @@
-// src/sessions/session-worktree.mjs — per-session git WORKTREES (Wave B).
+// src/sessions/session-worktree.mjs — per-session git worktrees (Wave B).
 //
-// The in-place model (session-git.mjs) checks a `zz/session-*` branch out in the
-// ONE working tree, so only one session can run at a time (the single-working-
-// branch invariant). For CONCURRENCY, each session instead gets its OWN worktree
-// (a separate checked-out dir on its own branch, sharing the repo's .git) under
-// `.zuzuu/.worktrees/<short-id>/` (git-ignored). N agents then run at once
-// without fighting over the working tree; the user's main tree never switches.
-//
-// Same safety posture as session-git.mjs: every op is try-wrapped and returns
-// { ok:false, reason } — NEVER throws; all git goes through the argv plumbing;
-// conflicts on close abort and leave the repo as it was. Checkpoint + the
-// merge/secret/dirty logic are REUSED from session-git.mjs so the two models
-// can't drift.
+// what: give each session its OWN git worktree (a separate checked-out dir on its
+//       own branch, sharing the repo's .git) under `.zuzuu/.worktrees/<short-id>/`
+//       (git-ignored), instead of checking the branch out in the one working tree.
+// why:  CONCURRENCY. The in-place model (session-git.mjs) allows only one session
+//       at a time (the single-working-branch invariant); worktrees let N agents
+//       run at once, and the user's main tree never switches.
+// how:  same safety posture as session-git.mjs — every op try-wrapped, returns
+//       { ok:false, reason }, never throws; all git via the argv plumbing;
+//       conflicts on close abort cleanly. Checkpoint + merge/secret/dirty logic
+//       are REUSED from session-git.mjs so the two models can't drift.
 
 import { existsSync, mkdirSync } from 'node:fs';
 import { join, dirname, basename } from 'node:path';

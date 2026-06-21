@@ -1,17 +1,15 @@
-// src/sessions/session-manifest.mjs — the portable SESSION MANIFEST (Wave C, L4).
+// src/sessions/session-manifest.mjs — the portable session manifest (Wave C, L4).
 //
-// A manifest is the durable, content-addressed DEFINITION of a session: enough
-// to identify, understand, and (Wave C restore) reconstitute it — host, state,
-// git base/branch/commit, the capture/trace pointer, counts, generation. It is
-// the session-level analogue of the per-module generation lockfile, and the
-// portability UNIT the cloud waves (E/F/G) will move across machines.
-//
-// content-addressing: a sha256 over the canonical (sorted-key) JSON of the
-// STABLE definition only — volatile runtime context (whether the worktree dir
-// currently exists, derived span counts) is attached OUTSIDE the hash so the
-// hash means "this session's definition", not "this machine right now".
-//
-// Fail-soft, zero-dep: pure data from the tracked index + labels + git argv.
+// what: the durable, content-addressed DEFINITION of a session — host, state, git
+//       base/branch/commit, the capture pointer, counts, generation — enough to
+//       identify, understand, and (restore) reconstitute it.
+// why:  the session-level analogue of the per-module generation lockfile, and the
+//       portability UNIT the cloud waves (E/F/G) move across machines.
+// how:  content-addressing = a sha256 over the canonical (sorted-key) JSON of the
+//       STABLE definition only; volatile runtime context (does the worktree exist
+//       here now, derived counts) rides OUTSIDE the hash, so the hash means "this
+//       session's definition", not "this machine right now". Fail-soft, zero-dep —
+//       pure data from the tracked index + labels + git argv.
 
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from 'node:fs';
