@@ -2,103 +2,94 @@
 
 [![ci](https://github.com/h1902y/zuzuu/actions/workflows/ci.yml/badge.svg)](https://github.com/h1902y/zuzuu/actions/workflows/ci.yml) [![npm](https://img.shields.io/npm/v/@zuzuucodes/cli)](https://www.npmjs.com/package/@zuzuucodes/cli) [![node](https://img.shields.io/node/v/@zuzuucodes/cli)](package.json) [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-**Give the coding agent you already run an evolving Memory, Knowledge, Actions, and Guardrails — grown from how you actually work.**
+**Your project directory becomes the coding agent's memory and toolkit — plain files you query on demand instead of stuffing into context, grown by a human-gated loop that learns from how you actually work.**
 
-Your host agent — Claude Code, Codex, Gemini CLI, OpenCode — supplies the *brain* (the reasoning loop + the model). zuzuu wraps the host you already pay for: it **serves** modules to it, **observes** every session as an OpenTelemetry trace, and (the end-game) **evolves** the modules from those traces — human-gated, across versioned generations. We never run a competing agent loop and never drive the host headlessly.
+The host agent you already run — Claude Code, Codex, Gemini CLI, OpenCode — supplies the *brain* (the reasoning loop + the model). zuzuu gives it an evolving body of **knowledge, memory, actions, and guardrails** that lives as plain markdown in your repo. It **observes** your real sessions, **proposes** what it learned, and — only with your approval — **writes** it back, versioned. We never run a competing agent loop and never drive the host headlessly.
 
-> Install `npm i -g @zuzuucodes/cli` — the command is **`zz`** (or `zuzuu`). Published with provenance; releases auto-publish from `main` via GitHub OIDC.
+> Install `npm i -g @zuzuucodes/cli` — the command is **`zz`** (or `zuzuu`). Zero runtime dependencies. Published with provenance; releases auto-publish from `main` via GitHub OIDC.
 
-> **Status (honest):** early build, moving fast. **Observe** works (5 real hosts, verified). **Serve** delivers the module home (`zuzuu init`), a session digest to every host, an **enforced guardrails gate** on all 5, and five modules sharing one proposal/review spine. **Evolve** is now **wired and tested** — trace miners → a mechanical eval lens → human-gated `zuzuu review` → versioned **generations** (per-module mint / rollback, composed into whole-brain checkpoints) — but **not yet proven on a real graduation corpus** (the loop runs + passes hermetic tests; it hasn't yet improved an agent from real sessions end-to-end). Full design: [`docs/DESIGN.md`](docs/DESIGN.md).
+## Everything is an envelope
 
-## What works today
+One file format underlies the whole system: a **markdown body + YAML frontmatter**, distinguished by `type`.
+
+```markdown
+---
+type: action            # the only required field
+title: Rebuild the deck index
+run: npm run build:index
+tags: [build, cards]
+---
+Regenerates `dist/index.json` from `src/cards/`. Safe to run anytime.
+```
+
+- A **zu** is one such file: one fact, optionally runnable (*knowledge that can also run*). Its id is the filename.
+- A **module** is a goal-shaped folder of zus; its `module.md` manifest is the same envelope.
+- A **project** is the `.zuzuu/` home — a git-citizen that lives *inside* your repo and never `git init`s its own.
+
+You **query** what's true, **act** on what's runnable, **check** integrity; zuzuu **observes** and **enhances**; you **review**. Five verbs over plain files.
+
+## Quickstart
 
 ```bash
-npm install -g @zuzuucodes/cli   # zero dependencies — installs the `zuzuu` command (short alias: `zz`)
+npm install -g @zuzuucodes/cli
 
-# no coding agent yet? one command gives you a fully module-equipped one:
-zuzuu code        # scaffold the module home, install + wire OpenCode, launch it (capture + gate + grounding)
+zz init                      # scaffold .zuzuu/ into this repo (git-style, hidden like .git)
+zz enable                    # wire the lifecycle hooks + the enforced guardrails gate
 
-zuzuu web         # prefer a visual app? the workbench: Home → review ceremony → embedded-terminal agent sessions
-                  #   run several agents at once (each in its own git worktree); every session is a git branch you can diff & restore
+# … now use your coding agent normally. zuzuu watches. Then:
 
-# already run Claude Code / Gemini / Codex / OpenCode / pi? wrap the one you have:
-zuzuu init        # scaffold your project's agent home (.zuzuu/) — git-style, hidden like .git
-zuzuu explain     # the 5 modules + how graduation works (you're always in the loop)
-zuzuu inbox       # what's pending your approval · zuzuu review to approve/reject
-zuzuu capture     # turn your latest agent session into an OpenTelemetry trace
-zuzuu trace --last
-zuzuu enable [--host gemini-cli|codex|opencode|pi]   # live capture + the guardrails gate
-zuzuu doctor      # health + lost-session reconciliation
+zz observe                   # mine your real sessions → evidence-backed proposals
+zz review                    # see what it learned, ranked
+zz review approve actions <id>   # the human gate — writes the zu + pins a generation
+zz act actions <id>          # run the procedure it just learned
 ```
 
-`zuzuu code` is the **bundled-host** path (Stage 2): it detects OpenCode (installs it on first run, with your OK — never an npm dependency, the zero-dep policy holds), wires the zuzuu plugin, and launches the real `opencode` — we configure + launch, never fork or drive it.
+Other verbs: `zz query <module> [text]` (FTS + graph), `zz check` (broken links · orphans · stale), `zz enhance`, `zz digest` (the session-start brief), `zz session` (every session is a git branch — `status·merge·worktree·manifest·restore`), `zz module <m> generations|rollback`, `zz doctor`, `zz code` (launch OpenCode pre-wired), `zz web` (the visual workbench), `zz migrate` (upgrade a pre-v2 home).
 
-| | Claude Code | Gemini CLI | Codex | OpenCode | pi |
-|---|---|---|---|---|---|
-| post-hoc capture | ✅ rich | ✅ thin | ✅ rich | ✅ rich | ✅ rich |
-| live capture | ✅ hooks | ✅ hooks | ✅ hooks¹ | ✅ plugin | ✅ extension |
-| guardrails gate | ✅ PreToolUse | ✅ BeforeTool | ✅ PreToolUse¹ | ✅ tool.execute.before | ✅ tool_call |
-
-¹ **Codex is interactive-only** — `codex exec` (headless) fires no hooks (verified, v0.138.0), so live capture + gate work when you run Codex interactively; headless Codex still gets post-hoc `zuzuu capture`.
-
-All five verified against **real sessions** — never fixtures; every host's live capture + gate was wired from **real captured hook payloads** and dogfooded end-to-end ([`docs/LOG.md`](docs/LOG.md) exp-11 Gemini/Codex, exp-12 OpenCode/pi). Gate semantics are host-honest: deny hard-blocks everywhere; `ask` maps to a native prompt on Claude, defers to the host elsewhere.
-
-**Prerequisites:** Node ≥ 22 — that's it. You need at least one supported agent you've already used, so a session exists to capture. (Hacking on zuzuu itself? `git clone https://github.com/h1902y/zuzuu && cd zuzuu && npm link`.)
-
-**`zuzuu init`** behaves like `git init`: empty dir → scaffolds the agent home + `AGENTS.md`/`CLAUDE.md`; existing project → adds the home and injects a small delimiter-marked block into your existing instruction files (your text is never touched); already initialized → restores missing pieces only. The home is **hidden like `.git` and self-explaining** — a `.zuzuu/` dir you can read and version in git (the only visible footprint is the managed block + three `.gitignore` lines; transparency lives in `zuzuu status` / `explain` / `digest`): `.zuzuu/README.md` (the explainer) · `knowledge/` (verified facts) · `memory/` (curated episodes) · `actions/` (runbooks) · `instructions/` (steering) · `guardrails/` (enforced rules), plus `generations/` (your checkpoints). Machine internals are dot-prefixed + git-ignored (`.zuzuu/.traces/`, `.zuzuu/.live/`). *(Pre-2026-06-12 homes at `agent/` migrate automatically on `zuzuu init`, or via `zuzuu migrate --home`.)*
-
-**Live capture** (`zuzuu enable`) is invisible by design: a minimal lifecycle hook set (Claude Code, Gemini CLI, Codex), a bus plugin (OpenCode), or an extension (pi) — each wrapped so it **always exits 0 / fails open — it can never break your agent**. The same hook carries the guardrails gate, applied in each host's own idiom (Claude/Codex `hookSpecificOutput`, Gemini `{decision:"deny"}`, OpenCode throws from `tool.execute.before`, pi returns `{block:true}` from `tool_call`). Most hosts emit no clean end-signal when a terminal is killed, so `zuzuu doctor` *reconciles* lost sessions afterward from the transcript still on disk (nothing lost).
-
-**Where your data lives:** transcripts are read **read-only**; output is git-native in your repo — `.zuzuu/sessions.json` (small tracked index, each session linked to a commit) + `.zuzuu/.traces/*.otlp.jsonl` (local, git-ignored). **Nothing is uploaded**; no raw tool input/output on the trace (byte sizes only).
-
-**Verify / troubleshoot:** `npm test` (hermetic) · `npm run playground` (⏭️ skip = that host isn't on *your* machine, not a failure) · `zuzuu doctor` (env + session health). "No host detected" → use a supported agent once in the repo, then retry.
-
-## The idea in one diagram
+## The loop
 
 ```
-   the host agent (yours)          zuzuu
-  ┌─────────────────────┐     ┌──────────────────────────────┐
-  │ Cognition · Model · │ ◄── │ SERVE   modules:             │
-  │ Workspace           │     │   knowledge · memory ·       │
-  │  (we never drive)   │     │   actions · instructions ·   │
-  │                     │     │   guardrails (enforced)      │
-  └──────────┬──────────┘     ├──────────────────────────────┤
-             │ sessions       │ OBSERVE traces (OTel,        │
-             └──────────────► │         git-native)          │
-                              ├──────────────────────────────┤
-                              │ EVOLVE  eval → propose →     │
-                              │         human gate → new     │
-                              │         generation  [design] │
-                              └──────────────────────────────┘
+   observe            enhance           review            write
+   ────────  ──────►  ───────  ──────►  ──────  ──────►  ──────────────
+   re-read your       mine what          you approve       the zu lands +
+   real sessions      recurred →         or reject         a generation is
+   (never drive)      typed proposals    (the moat)        pinned (rollback-able)
 ```
 
-**Five modules**, each mapping onto a cognitive system — **Knowledge** (semantic: what's true), **Memory** (episodic: what happened), **Actions** (procedural: how to do things), **Instructions** (directive: who the agent is), **Guardrails** (protective: what it must not do — *enforced* on tool calls, fail-open). They improve across **versioned generations**, proposals mined from traces, **always human-approved**. That loop is the product; everything here is a step toward it.
+Three things make it safe and sticky:
 
-## Where this is heading
+- **The human gate is the moat.** Every write to the brain passes through `zz review`. Automated memory systems poison themselves with confident-but-wrong reflections; the gate is the one defense, and the design keeps it cheap (proposals are batched, ranked, deduped).
+- **Observe, don't drive (Design B).** zuzuu re-parses the transcript your host already wrote — it never wraps, intercepts, or steers the agent. That's why it can't corrupt a session, and why adding a host is one adapter file.
+- **Immutable, append-only, rollback-able.** A zu is immutable until CRUD'd through the gate; the event log is append-only; a generation is a content-addressed snapshot. Roll a module — or the whole brain — back to any pinned moment with a pointer flip, never a `git revert`.
 
-The build above is real. The **direction** is a deliberate redesign — captured in `docs/`, **not yet built**. The thesis sharpened to one line:
+## Borrowed, not invented
 
-> Your project directory becomes the agent's memory and toolkit — plain files you **query on demand** instead of stuffing into context, grown by a **human-gated loop** that learns from how you actually work.
+| concern | borrowed thesis |
+|---|---|
+| the file format | **OKF** — `type` the only required field; tolerate + preserve unknown keys |
+| running an action safely | **Anthropic's sandbox-runtime** — advisory · contained · sandboxed tiers + a `run.allow` command-axis |
+| sessions & snapshots | **git's object model** — session = branch, content-addressed blobs, rollback = move a pointer |
+| the query store | **`node:sqlite`** — FTS5 + recursive-CTE graph walks over your markdown, zero-dep |
 
-Three primitives carry it: a **zu** (the atom — one markdown+frontmatter file; knowledge that can *also run*), a **module** (a goal-shaped, self-curating collection of zus), a **project** (`.zuzuu/`, the standing home). A session is a conversation is a git branch; what it learns flows, at close, into the right module through one human gate. Where it can, it **borrows proven theses rather than inventing** — OKF for the file format, Anthropic's sandbox-runtime for shell containment, git's own object model for sessions and snapshots.
+## Host coverage
 
-- **Read it as a book** — [`docs/learn/`](docs/learn/): motivation → mental model → a code tour that fills in as each rung ships.
-- **The design specs** — [`docs/specs/`](docs/specs/): [thesis & risks](docs/specs/thesis-and-risks.md) · [from-scratch blueprint](docs/specs/from-scratch-blueprint.md) · [sessions & enhance](docs/specs/enhance-and-sessions.md).
-- **The reasoning** — [`docs/inspiration/`](docs/inspiration/): a [git deep-dive](docs/inspiration/git-from-scratch.md) + [research syntheses](docs/inspiration/research/).
+zuzuu is host-agnostic by construction (the capture core iterates detected adapters, never a host name). **Claude Code is built and verified** end-to-end — transcript mining, the lifecycle hook, and the `PreToolUse` guardrails gate (it hard-blocks `rm -rf /` and friends, fails open on anything it can't evaluate). Re-adding the other hosts (Codex / Gemini CLI / OpenCode / pi) is **one adapter file + one registry line each** — the next step after the v2 rebuild.
+
+**Prerequisites:** Node ≥ 22. Hacking on zuzuu itself? `git clone https://github.com/h1902y/zuzuu && cd zuzuu && npm link`.
 
 ## Repo map
 
 | Path | What |
 |---|---|
-| [`zuzuu/`](zuzuu/) + `bin/zuzuu.mjs` | the CLI — capture pipeline (`zuzuu/capture/`), live lifecycle, module home (product surface) |
-| [`web/`](web/) | the visual workbench — nested project (daemon + React SPA), ships bundled inside the npm package |
-| [`tests/`](tests/) | hermetic unit + regression (`npm test`) + real-data smoke playgrounds (`npm run playground`) |
-| [`docs/`](docs/) | [`DESIGN.md`](docs/DESIGN.md) (the canon) + [`LOG.md`](docs/LOG.md) (build journal) + [`learn/`](docs/learn/) (the educative book) + [`specs/`](docs/specs/) (the redesign direction) + [`inspiration/`](docs/inspiration/) (research shelf) |
+| [`zuzuu/`](zuzuu/) + `bin/zuzuu.mjs` | the CLI — `kernel · capabilities · pipelines · hosts · cli · sessions` + `api.mjs` (~3.8k lines, zero-dep) |
+| [`web/`](web/) | the visual workbench — a nested project (daemon + React SPA), staged into the npm package at publish |
+| [`tests/`](tests/) | hermetic units (`npm test`) + a real-data observe playground (`node tests/playground/run.mjs 5`) |
+| [`docs/`](docs/) | [`learn/`](docs/learn/) (the educative book, read in order) · [`LOG.md`](docs/LOG.md) (build journal) · [`DESIGN.md`](docs/DESIGN.md) (strategy/rationale) · [`inspiration/`](docs/inspiration/) (research shelf) |
 
 ## How this is built (the method)
 
-**Prove on real data, record in the journal.** Every capability is verified against *real* sessions/wire data (never invented fixtures) before it counts; the record lives in [`docs/LOG.md`](docs/LOG.md) (append-only). Live experimentation happens in disposable project directories outside the repo, keeping the codebase clean. Built in public — day-by-day on X ([@h1902y](https://x.com/h1902y)).
+**Prove on real data, record in the journal.** Every capability is verified against *real* sessions (never invented fixtures) before it counts; the record lives in [`docs/LOG.md`](docs/LOG.md) (append-only). The core was rebuilt greenfield in 8 rungs — ~13k → ~3.8k lines — each rung green before the next, taught file-by-file in [`docs/learn/`](docs/learn/). Built in public — day-by-day on X ([@h1902y](https://x.com/h1902y)).
 
 ## License & status
 
-Personal project, early and changing daily. Issues/ideas welcome.
+Personal project, early and changing daily. MIT. Issues/ideas welcome.
