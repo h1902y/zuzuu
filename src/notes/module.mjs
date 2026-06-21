@@ -10,7 +10,7 @@
 //       manifest (+ sensible defaults). Zero-dep, fail-soft.
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { parse } from './item.mjs';
+import { parse } from './note.mjs';
 import { homeDir, manifestPath } from './store.mjs';
 
 // Capabilities every module has (reading + integrity are universal).

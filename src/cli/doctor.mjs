@@ -11,14 +11,14 @@
 //       Zero-dep, fail-soft (a broken probe degrades to a warning).
 
 import { existsSync } from 'node:fs';
-import { gitInfo, homeDir, repoRoot } from '../kernel/store.mjs';
-import { readIndex } from '../kernel/session.mjs';
+import { gitInfo, homeDir, repoRoot } from '../notes/store.mjs';
+import { readIndex } from '../sessions/record.mjs';
 import { detected } from '../hosts/registry.mjs';
 import { sessionStatus } from '../sessions/session-git.mjs';
 import { hooksInstalled } from './enable.mjs';
 import { leftoverWarning } from './session.mjs';
-import { open } from '../api.mjs';
-import { toon } from '../kernel/toon.mjs';
+import { open } from '../serve/api.mjs';
+import { toon } from '../notes/toon.mjs';
 
 /** A structured health report: {problems[], warnings[], info[], ok}. */
 export function doctorReport(cwd = process.cwd()) {

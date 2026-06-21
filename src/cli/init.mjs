@@ -12,8 +12,8 @@
 
 import { existsSync, mkdirSync, writeFileSync, readFileSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { serialize } from '../kernel/item.mjs';
-import { homeDir, repoRoot } from '../kernel/store.mjs';
+import { serialize } from '../notes/note.mjs';
+import { homeDir, repoRoot } from '../notes/store.mjs';
 
 // The five us-owned modules: id → manifest envelope (type: module).
 const MODULES = [

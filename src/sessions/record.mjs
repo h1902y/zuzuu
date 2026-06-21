@@ -13,7 +13,7 @@
 
 import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { paths } from './store.mjs';
+import { paths } from '../notes/store.mjs';
 
 const INDEX_VERSION = 1;
 

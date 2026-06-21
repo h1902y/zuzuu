@@ -5,7 +5,7 @@ import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, existsSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { migrateHome } from '../../src/cli/migrate.mjs';
-import { parse } from '../../src/kernel/item.mjs';
+import { parse } from '../../src/notes/note.mjs';
 
 function withV1Home(fn) {
   const cwd = mkdtempSync(join(tmpdir(), 'zuzuu-mig-'));

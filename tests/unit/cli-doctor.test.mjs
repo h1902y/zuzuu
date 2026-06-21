@@ -8,7 +8,7 @@ import { doctorReport, explain } from '../../src/cli/doctor.mjs';
 import { code } from '../../src/cli/code.mjs';
 import { initHome } from '../../src/cli/init.mjs';
 import { run } from '../../src/cli/index.mjs';
-import { resetCapabilities } from '../../src/capabilities/index.mjs';
+import { resetCapabilities } from '../../src/serve/wire.mjs';
 
 function withDir(fn) {
   const cwd = mkdtempSync(join(tmpdir(), 'zuzuu-dr-'));
@@ -35,7 +35,7 @@ test('doctor: no home → a problem, not healthy', () => {
 });
 
 test('doctor: a broken link surfaces as a warning', async () => {
-  const { serialize } = await import('../../src/kernel/item.mjs');
+  const { serialize } = await import('../../src/notes/note.mjs');
   const { writeFileSync } = await import('node:fs');
   withDir((cwd) => {
     initHome(cwd);

@@ -11,9 +11,9 @@
 // how:  aggregate harvested from v1's proven distill.aggregate; routing maps a
 //       candidate kind → {module, zu}. Zero-dep, fail-soft.
 
-import { slugify } from '../kernel/item.mjs';
+import { slugify } from '../notes/note.mjs';
 import { captureSignals } from '../hosts/capture.mjs';
-import { createProposal } from '../capabilities/propose.mjs';
+import { createProposal } from './propose.mjs';
 
 /**
  * Aggregate per-session signals → candidates above the corroboration threshold.

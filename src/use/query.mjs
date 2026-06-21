@@ -8,9 +8,9 @@
 // how:  composes kernel/index primitives + kernel/toon. Pure data fn + a thin
 //       CLI handler (AXI: content-first, contextual help, no prompts).
 
-import { paths } from '../kernel/store.mjs';
-import { search, related, count } from '../kernel/index.mjs';
-import { toon } from '../kernel/toon.mjs';
+import { paths } from '../notes/store.mjs';
+import { search, related, count } from '../notes/index.mjs';
+import { toon } from '../notes/toon.mjs';
 
 /**
  * Pure: the query result data.

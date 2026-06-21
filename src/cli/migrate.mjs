@@ -12,8 +12,8 @@
 
 import { existsSync, readFileSync, writeFileSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { serialize, parse } from '../kernel/item.mjs';
-import { homeDir, repoRoot } from '../kernel/store.mjs';
+import { serialize, parse } from '../notes/note.mjs';
+import { homeDir, repoRoot } from '../notes/store.mjs';
 
 // default capabilities/goal per known module (mirrors `init`)
 const DEFAULTS = {

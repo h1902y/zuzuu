@@ -6,12 +6,12 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { serialize } from '../../src/kernel/item.mjs';
-import { invoke } from '../../src/kernel/capability.mjs';
-import { registerAll, resetCapabilities } from '../../src/capabilities/index.mjs';
-import { createProposal } from '../../src/capabilities/propose.mjs';
-import { approve } from '../../src/capabilities/review.mjs';
-import { generations } from '../../src/kernel/snapshot.mjs';
+import { serialize } from '../../src/notes/note.mjs';
+import { invoke } from '../../src/serve/registry.mjs';
+import { registerAll, resetCapabilities } from '../../src/serve/wire.mjs';
+import { createProposal } from '../../src/loop/propose.mjs';
+import { approve } from '../../src/loop/review.mjs';
+import { generations } from '../../src/loop/snapshot.mjs';
 
 function withStack(fn) {
   const root = mkdtempSync(join(tmpdir(), 'zuzuu-stack-'));

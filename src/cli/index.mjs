@@ -10,7 +10,7 @@
 // how:  a flat switch; `run(argv, io)` returns an exit code and writes via the
 //       injected `log` (testable without a process). Zero-dep.
 
-import { open } from '../api.mjs';
+import { open } from '../serve/api.mjs';
 import { initHome } from './init.mjs';
 import { sessionCommand } from './session.mjs';
 import { enable, disable } from './enable.mjs';
@@ -19,9 +19,9 @@ import { code } from './code.mjs';
 import { web } from './web.mjs';
 import { migrateHome } from './migrate.mjs';
 import { runHook } from '../hosts/hook.mjs';
-import { observe } from '../pipelines/observe.mjs';
-import { digestText } from '../pipelines/digest.mjs';
-import { toon } from '../kernel/toon.mjs';
+import { observe } from '../loop/observe.mjs';
+import { digestText } from '../serve/digest.mjs';
+import { toon } from '../notes/toon.mjs';
 
 const MODULES = ['knowledge', 'memory', 'actions', 'instructions', 'guardrails'];
 

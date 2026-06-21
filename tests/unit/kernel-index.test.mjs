@@ -4,10 +4,10 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { serialize } from '../../src/kernel/item.mjs';
-import { search, related, count, brokenLinks } from '../../src/kernel/index.mjs';
-import { queryData } from '../../src/capabilities/query.mjs';
-import { toon } from '../../src/kernel/toon.mjs';
+import { serialize } from '../../src/notes/note.mjs';
+import { search, related, count, brokenLinks } from '../../src/notes/index.mjs';
+import { queryData } from '../../src/use/query.mjs';
+import { toon } from '../../src/notes/toon.mjs';
 
 // build a temp .zuzuu home with some zus and hand back the home dir
 function withBrain(zus, fn) {

@@ -13,7 +13,7 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { paths, itemsDir } from './store.mjs';
+import { paths, itemsDir } from '../notes/store.mjs';
 
 const sha = (buf) => createHash('sha256').update(buf).digest('hex');
 const storeDir = (home) => join(paths_(home).generations, '.store');

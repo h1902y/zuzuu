@@ -10,10 +10,10 @@
 // how:  reads the index (broken links) + the zus (orphans, stale). Fail-soft.
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { parse } from '../kernel/item.mjs';
-import { itemsDir } from '../kernel/store.mjs';
-import { brokenLinks } from '../kernel/index.mjs';
-import { listModules } from '../kernel/module.mjs';
+import { parse } from '../notes/note.mjs';
+import { itemsDir } from '../notes/store.mjs';
+import { brokenLinks } from '../notes/index.mjs';
+import { listModules } from '../notes/module.mjs';
 
 /** Every zu across all modules, parsed: [{ addr, item }]. */
 function allZus(home) {

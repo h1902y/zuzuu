@@ -13,12 +13,12 @@
 
 import { readFileSync, writeFileSync, mkdirSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { homeDir, repoRoot, liveDir } from '../kernel/store.mjs';
-import { gate, toPreToolUseDecision } from '../capabilities/gate.mjs';
+import { homeDir, repoRoot, liveDir } from '../notes/store.mjs';
+import { gate, toPreToolUseDecision } from '../guardrails/gate.mjs';
 import { sessionGitEnabled, openSession, checkpoint, closeSession } from '../sessions/session-git.mjs';
 import { inSessionWorktree } from '../sessions/session-worktree.mjs';
-import { observe } from '../pipelines/observe.mjs';
-import { digestText } from '../pipelines/digest.mjs';
+import { observe } from '../loop/observe.mjs';
+import { digestText } from '../serve/digest.mjs';
 
 // Host event vocabularies, mapped to one path (verified per-host wire data):
 // Claude SessionStart/Stop/SessionEnd · OpenCode session.created/idle/deleted

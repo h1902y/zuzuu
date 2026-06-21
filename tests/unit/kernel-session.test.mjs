@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import {
   SessionState, isTerminal, canTransition, transition, makeSession,
   readIndex, upsertSession, getSession, removeSession,
-} from '../../src/kernel/session.mjs';
+} from '../../src/sessions/record.mjs';
 
 function withCwd(fn) {
   const cwd = mkdtempSync(join(tmpdir(), 'zuzuu-ses-'));

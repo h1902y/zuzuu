@@ -14,7 +14,7 @@ import { createRequire } from 'node:module';
 import { existsSync, readdirSync, statSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { parse } from './item.mjs';
+import { parse } from './note.mjs';
 import { itemsDir } from './store.mjs';
 
 const require = createRequire(import.meta.url);

@@ -9,8 +9,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { run } from '../../src/cli/index.mjs';
 import { initHome } from '../../src/cli/init.mjs';
-import { serialize } from '../../src/kernel/item.mjs';
-import { resetCapabilities } from '../../src/capabilities/index.mjs';
+import { serialize } from '../../src/notes/note.mjs';
+import { resetCapabilities } from '../../src/serve/wire.mjs';
 
 async function withRepo(fn) {
   const cwd = mkdtempSync(join(tmpdir(), 'zuzuu-cli-'));
@@ -91,7 +91,7 @@ test('run: review approve applies a proposal by its human handle', async () => {
   await withRepo(async ({ cwd, io, out }) => {
     await run(['init'], io);
     // stage a proposal directly, then drive the gate through the CLI
-    const { createProposal } = await import('../../src/capabilities/propose.mjs');
+    const { createProposal } = await import('../../src/loop/propose.mjs');
     createProposal(join(cwd, '.zuzuu'), 'knowledge', { op: 'create', target: 'learned-fact', change: { type: 'knowledge', title: 'a learned fact', body: 'x' } });
     out.length = 0;
     assert.equal(await run(['review'], io), 0);

@@ -10,10 +10,10 @@
 //       these pure data operations. Zero-dep, fail-soft.
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
-import { serialize, parse } from '../kernel/item.mjs';
-import { itemPath, itemsDir } from '../kernel/store.mjs';
-import { logMutation } from '../kernel/log.mjs';
-import { mint } from '../kernel/snapshot.mjs';
+import { serialize, parse } from '../notes/note.mjs';
+import { itemPath, itemsDir } from '../notes/store.mjs';
+import { logMutation } from './log.mjs';
+import { mint } from './snapshot.mjs';
 import { readProposal, archiveProposal } from './propose.mjs';
 
 /**

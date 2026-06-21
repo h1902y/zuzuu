@@ -14,9 +14,9 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { parse } from '../kernel/item.mjs';
-import { itemPath, repoRoot } from '../kernel/store.mjs';
-import { logRun } from '../kernel/log.mjs';
+import { parse } from '../notes/note.mjs';
+import { itemPath, repoRoot } from '../notes/store.mjs';
+import { logRun } from '../loop/log.mjs';
 
 /** Is Anthropic's sandbox-runtime available as the contained-tier backend? */
 function srtAvailable() {

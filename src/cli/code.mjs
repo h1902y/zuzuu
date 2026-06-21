@@ -12,7 +12,7 @@
 import { existsSync, readSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { repoRoot, homeDir } from '../kernel/store.mjs';
+import { repoRoot, homeDir } from '../notes/store.mjs';
 import { initHome } from './init.mjs';
 import { enable } from './enable.mjs';
 

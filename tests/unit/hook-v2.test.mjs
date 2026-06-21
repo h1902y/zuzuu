@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { gateDecision, handleHook, writeDigest } from '../../src/hosts/hook.mjs';
 import { addHooks, removeHooks, isInstalled } from '../../src/cli/enable.mjs';
 import { initHome } from '../../src/cli/init.mjs';
-import { resetCapabilities } from '../../src/capabilities/index.mjs';
+import { resetCapabilities } from '../../src/serve/wire.mjs';
 
 function withHome(fn) {
   const cwd = mkdtempSync(join(tmpdir(), 'zuzuu-hook-'));

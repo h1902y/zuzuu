@@ -14,7 +14,7 @@ import { sessionStatus, closeSession, continueSession, discardSession } from '..
 import { openSessionWorktree, closeSessionWorktree, listSessionWorktrees, discardSessionWorktree } from '../sessions/session-worktree.mjs';
 import { writeSessionManifest, buildSessionManifest, listSessionManifests, restoreSession } from '../sessions/session-manifest.mjs';
 import { readSessionLabels, setSessionLabel } from '../sessions/labels.mjs';
-import { toon } from '../kernel/toon.mjs';
+import { toon } from '../notes/toon.mjs';
 
 /** The leftover-branch nudge (shared shape with doctor): a string or null. */
 export function leftoverWarning(ss) {

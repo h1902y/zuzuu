@@ -10,7 +10,7 @@
 // how:  a Map of name→{handler, permission}. invoke() is fail-soft (try-wrapped
 //       — a broken capability degrades, never crashes the host). Zero-dep.
 
-import { readManifest } from './module.mjs';
+import { readManifest } from '../notes/module.mjs';
 
 const REGISTRY = new Map();
 

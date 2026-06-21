@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { run } from '../../src/cli/index.mjs';
 import { openSession, checkpoint } from '../../src/sessions/session-git.mjs';
-import { resetCapabilities } from '../../src/capabilities/index.mjs';
+import { resetCapabilities } from '../../src/serve/wire.mjs';
 
 const sh = (cwd, ...a) => spawnSync(a[0], a.slice(1), { cwd, encoding: 'utf8' });
 

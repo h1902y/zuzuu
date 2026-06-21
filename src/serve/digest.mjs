@@ -8,8 +8,8 @@
 // how:  query each module's count via the api façade. Shared by `zz digest`
 //       (stdout) and the hook (file). Zero-dep, fail-soft.
 
-import { open } from '../api.mjs';
-import { toon } from '../kernel/toon.mjs';
+import { open } from './api.mjs';
+import { toon } from '../notes/toon.mjs';
 
 /** The brief as markdown text. Empty string if there's nothing to say. */
 export function digestText(cwd = process.cwd()) {

@@ -11,8 +11,8 @@
 //       no-root-wipe JSON-anchor fix — rules match over JSON.stringify(input).)
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { parse } from '../kernel/item.mjs';
-import { itemsDir } from '../kernel/store.mjs';
+import { parse } from '../notes/note.mjs';
+import { itemsDir } from '../notes/store.mjs';
 
 const SEVERITY = { deny: 3, ask: 2, allow: 1 };
 const ACTIONS = new Set(Object.keys(SEVERITY));

@@ -4,11 +4,11 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { serialize } from '../../src/kernel/item.mjs';
-import { readManifest } from '../../src/kernel/module.mjs';
-import { act } from '../../src/capabilities/act.mjs';
-import { loadRules, evaluate, gate, toPreToolUseDecision, clearCache } from '../../src/capabilities/gate.mjs';
-import { append, logRun, read } from '../../src/kernel/log.mjs';
+import { serialize } from '../../src/notes/note.mjs';
+import { readManifest } from '../../src/notes/module.mjs';
+import { act } from '../../src/use/act.mjs';
+import { loadRules, evaluate, gate, toPreToolUseDecision, clearCache } from '../../src/guardrails/gate.mjs';
+import { append, logRun, read } from '../../src/loop/log.mjs';
 
 function withHome(setup, fn) {
   const root = mkdtempSync(join(tmpdir(), 'zuzuu-r4-'));

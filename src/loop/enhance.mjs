@@ -10,8 +10,8 @@
 //       documented seam (the in-session judge, wired by the observe pipeline).
 //       Zero-dep, fail-soft.
 
-import { read } from '../kernel/log.mjs';
-import { itemsDir } from '../kernel/store.mjs';
+import { read } from './log.mjs';
+import { itemsDir } from '../notes/store.mjs';
 import { existsSync, readdirSync } from 'node:fs';
 import { createProposal } from './propose.mjs';
 

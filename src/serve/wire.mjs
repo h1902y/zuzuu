@@ -14,12 +14,12 @@
 // fifth, `review`, is the HUMAN gate — interactive, never agent-invoked — so it
 // is deliberately NOT registered. gate (the guardrails check) rides along.
 
-import { register, clear, list } from '../kernel/capability.mjs';
-import { queryData } from './query.mjs';
-import { act } from './act.mjs';
-import { enhance } from './enhance.mjs';
-import { check } from './check.mjs';
-import { gate } from './gate.mjs';
+import { register, clear, list } from './registry.mjs';
+import { queryData } from '../use/query.mjs';
+import { act } from '../use/act.mjs';
+import { enhance } from '../loop/enhance.mjs';
+import { check } from '../use/check.mjs';
+import { gate } from '../guardrails/gate.mjs';
 
 let wired = false;
 

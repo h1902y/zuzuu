@@ -13,7 +13,7 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { repoRoot } from '../kernel/store.mjs';
+import { repoRoot } from '../notes/store.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'bin', 'zuzuu.mjs');
 const SIGNATURE = '#zz-hook'; // a stable tag in the command, independent of the bin path
