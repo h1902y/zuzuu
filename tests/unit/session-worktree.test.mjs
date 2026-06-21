@@ -10,7 +10,7 @@ import { mkdtempSync, rmSync, writeFileSync, existsSync, readFileSync, realpathS
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { currentBranch, git as gitPlumb } from '../../zuzuu/sessions/git.mjs';
+import { currentBranch, git as gitPlumb } from '../../src/sessions/git.mjs';
 import {
   openSessionWorktree,
   checkpointWorktree,
@@ -19,7 +19,7 @@ import {
   worktreePath,
   inSessionWorktree,
   pruneWorktrees,
-} from '../../zuzuu/sessions/session-worktree.mjs';
+} from '../../src/sessions/session-worktree.mjs';
 
 function git(args, cwd, input) {
   const r = spawnSync('git', args, { cwd, encoding: 'utf8', input });

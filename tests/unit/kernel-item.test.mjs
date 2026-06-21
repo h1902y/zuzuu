@@ -1,7 +1,7 @@
 // kernel/item.mjs — the one envelope: parse · serialize · validate · id.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parse, serialize, validate, idFromPath, slugify, deriveTitle } from '../../zuzuu/kernel/item.mjs';
+import { parse, serialize, validate, idFromPath, slugify, deriveTitle } from '../../src/kernel/item.mjs';
 
 // ── parse: scalars, the required `type`, fail-soft ──────────────────────────
 

@@ -4,11 +4,11 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { doctorReport, explain } from '../../zuzuu/cli/doctor.mjs';
-import { code } from '../../zuzuu/cli/code.mjs';
-import { initHome } from '../../zuzuu/cli/init.mjs';
-import { run } from '../../zuzuu/cli/index.mjs';
-import { resetCapabilities } from '../../zuzuu/capabilities/index.mjs';
+import { doctorReport, explain } from '../../src/cli/doctor.mjs';
+import { code } from '../../src/cli/code.mjs';
+import { initHome } from '../../src/cli/init.mjs';
+import { run } from '../../src/cli/index.mjs';
+import { resetCapabilities } from '../../src/capabilities/index.mjs';
 
 function withDir(fn) {
   const cwd = mkdtempSync(join(tmpdir(), 'zuzuu-dr-'));
@@ -35,7 +35,7 @@ test('doctor: no home → a problem, not healthy', () => {
 });
 
 test('doctor: a broken link surfaces as a warning', async () => {
-  const { serialize } = await import('../../zuzuu/kernel/item.mjs');
+  const { serialize } = await import('../../src/kernel/item.mjs');
   const { writeFileSync } = await import('node:fs');
   withDir((cwd) => {
     initHome(cwd);

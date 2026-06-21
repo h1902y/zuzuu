@@ -4,12 +4,12 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { serialize, parse } from '../../zuzuu/kernel/item.mjs';
-import { mint, generations, rollback, mintCheckpoint, rollbackCheckpoint } from '../../zuzuu/kernel/snapshot.mjs';
-import { createProposal, listProposals, readProposal } from '../../zuzuu/capabilities/propose.mjs';
-import { approve, reject } from '../../zuzuu/capabilities/review.mjs';
-import { enhance } from '../../zuzuu/capabilities/enhance.mjs';
-import { logRun, read } from '../../zuzuu/kernel/log.mjs';
+import { serialize, parse } from '../../src/kernel/item.mjs';
+import { mint, generations, rollback, mintCheckpoint, rollbackCheckpoint } from '../../src/kernel/snapshot.mjs';
+import { createProposal, listProposals, readProposal } from '../../src/capabilities/propose.mjs';
+import { approve, reject } from '../../src/capabilities/review.mjs';
+import { enhance } from '../../src/capabilities/enhance.mjs';
+import { logRun, read } from '../../src/kernel/log.mjs';
 
 function withHome(fn) {
   const root = mkdtempSync(join(tmpdir(), 'zuzuu-r5-'));

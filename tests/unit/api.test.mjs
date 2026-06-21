@@ -4,9 +4,9 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { serialize } from '../../zuzuu/kernel/item.mjs';
-import { open } from '../../zuzuu/api.mjs';
-import { resetCapabilities } from '../../zuzuu/capabilities/index.mjs';
+import { serialize } from '../../src/kernel/item.mjs';
+import { open } from '../../src/api.mjs';
+import { resetCapabilities } from '../../src/capabilities/index.mjs';
 
 function withApi(fn) {
   const root = mkdtempSync(join(tmpdir(), 'zuzuu-api-'));

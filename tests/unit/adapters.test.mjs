@@ -7,12 +7,12 @@ import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRequire } from 'node:module';
-import { codex } from '../../zuzuu/hosts/adapters/codex.mjs';
-import { geminiCli } from '../../zuzuu/hosts/adapters/gemini-cli.mjs';
-import { signalsFromParts } from '../../zuzuu/hosts/adapters/opencode.mjs';
-import { pi } from '../../zuzuu/hosts/adapters/pi.mjs';
-import { assembleSignals, emptySignals } from '../../zuzuu/hosts/signals.mjs';
-import { all, detected } from '../../zuzuu/hosts/registry.mjs';
+import { codex } from '../../src/hosts/adapters/codex.mjs';
+import { geminiCli } from '../../src/hosts/adapters/gemini-cli.mjs';
+import { signalsFromParts } from '../../src/hosts/adapters/opencode.mjs';
+import { pi } from '../../src/hosts/adapters/pi.mjs';
+import { assembleSignals, emptySignals } from '../../src/hosts/signals.mjs';
+import { all, detected } from '../../src/hosts/registry.mjs';
 
 const tmp = () => mkdtempSync(join(tmpdir(), 'zuzuu-adp-'));
 const jsonl = (dir, rows) => { const f = join(dir, 's.jsonl'); writeFileSync(f, rows.map((r) => JSON.stringify(r)).join('\n') + '\n'); return f; };
@@ -87,7 +87,7 @@ test('opencode: mineSignals reads a real SQLite db (node:sqlite round-trip)', ()
   const part = (id, data) => db.prepare('INSERT INTO part VALUES (?,?,?,?,?)').run(id, 'm', 'ses_1', id, JSON.stringify(data));
   part(1, { type: 'tool', tool: 'bash', state: { status: 'completed', input: { command: 'npm ci' }, time: { start: 1 } } });
   db.close();
-  const { opencode } = require('../../zuzuu/hosts/adapters/opencode.mjs');
+  const { opencode } = require('../../src/hosts/adapters/opencode.mjs');
   const s = opencode.mineSignals({ db: dbPath, sessionId: 'ses_1' });
   assert.deepEqual(s.commands.map((c) => c.cmd), ['npm ci']);
   rmSync(dir, { recursive: true, force: true });

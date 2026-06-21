@@ -4,9 +4,9 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { serialize } from '../../zuzuu/kernel/item.mjs';
-import { readManifest, capabilitiesOf, listModules, moduleHas } from '../../zuzuu/kernel/module.mjs';
-import { register, get, has, list, clear, invoke, describe } from '../../zuzuu/kernel/capability.mjs';
+import { serialize } from '../../src/kernel/item.mjs';
+import { readManifest, capabilitiesOf, listModules, moduleHas } from '../../src/kernel/module.mjs';
+import { register, get, has, list, clear, invoke, describe } from '../../src/kernel/capability.mjs';
 
 function withHome(manifests, fn) {
   const root = mkdtempSync(join(tmpdir(), 'zuzuu-cap-'));

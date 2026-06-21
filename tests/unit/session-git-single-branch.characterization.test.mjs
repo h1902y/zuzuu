@@ -22,7 +22,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { openSession, listSessionBranches } from '../../zuzuu/sessions/session-git.mjs';
+import { openSession, listSessionBranches } from '../../src/sessions/session-git.mjs';
 
 function git(args, cwd, input) {
   const r = spawnSync('git', args, { cwd, encoding: 'utf8', input });

@@ -8,8 +8,8 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { captureSignals } from '../../../zuzuu/hosts/capture.mjs';
-import { observe } from '../../../zuzuu/pipelines/observe.mjs';
+import { captureSignals } from '../../../src/hosts/capture.mjs';
+import { observe } from '../../../src/pipelines/observe.mjs';
 import { run, check, note, skip } from '../_harness.mjs';
 
 await run('observe real sessions → review-queued proposals', async () => {

@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { readSessionLabels, setSessionLabel } from '../../zuzuu/sessions/labels.mjs';
+import { readSessionLabels, setSessionLabel } from '../../src/sessions/labels.mjs';
 
 function tmpHome(fn) {
   const root = mkdtempSync(join(tmpdir(), 'zz-lbl-'));

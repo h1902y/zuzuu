@@ -7,9 +7,9 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { run } from '../../zuzuu/cli/index.mjs';
-import { openSession, checkpoint } from '../../zuzuu/sessions/session-git.mjs';
-import { resetCapabilities } from '../../zuzuu/capabilities/index.mjs';
+import { run } from '../../src/cli/index.mjs';
+import { openSession, checkpoint } from '../../src/sessions/session-git.mjs';
+import { resetCapabilities } from '../../src/capabilities/index.mjs';
 
 const sh = (cwd, ...a) => spawnSync(a[0], a.slice(1), { cwd, encoding: 'utf8' });
 

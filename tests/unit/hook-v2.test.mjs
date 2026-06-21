@@ -4,10 +4,10 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, existsSync, readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { gateDecision, handleHook, writeDigest } from '../../zuzuu/hosts/hook.mjs';
-import { addHooks, removeHooks, isInstalled } from '../../zuzuu/cli/enable.mjs';
-import { initHome } from '../../zuzuu/cli/init.mjs';
-import { resetCapabilities } from '../../zuzuu/capabilities/index.mjs';
+import { gateDecision, handleHook, writeDigest } from '../../src/hosts/hook.mjs';
+import { addHooks, removeHooks, isInstalled } from '../../src/cli/enable.mjs';
+import { initHome } from '../../src/cli/init.mjs';
+import { resetCapabilities } from '../../src/capabilities/index.mjs';
 
 function withHome(fn) {
   const cwd = mkdtempSync(join(tmpdir(), 'zuzuu-hook-'));

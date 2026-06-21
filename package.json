@@ -40,7 +40,7 @@
   },
   "files": [
     "bin/",
-    "zuzuu/",
+    "src/",
     "web-app/",
     "LICENSE",
     "README.md"

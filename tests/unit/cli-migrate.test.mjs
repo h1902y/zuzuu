@@ -4,8 +4,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { migrateHome } from '../../zuzuu/cli/migrate.mjs';
-import { parse } from '../../zuzuu/kernel/item.mjs';
+import { migrateHome } from '../../src/cli/migrate.mjs';
+import { parse } from '../../src/kernel/item.mjs';
 
 function withV1Home(fn) {
   const cwd = mkdtempSync(join(tmpdir(), 'zuzuu-mig-'));
