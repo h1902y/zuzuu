@@ -15,9 +15,9 @@ import { homeDir, repoRoot } from '../notes/store.mjs';
 import { invoke } from './dispatch.mjs';
 import { listModules, readManifest } from '../notes/module.mjs';
 import { registerAll } from './wire.mjs';
-import { createProposal, listProposals, readProposal } from '../loop/propose.mjs';
-import { approve, reject } from '../loop/review.mjs';
-import { generations, rollback, mintCheckpoint, rollbackCheckpoint, listCheckpoints } from '../loop/snapshot.mjs';
+import { createProposal, listProposals, readProposal } from '../grow/propose.mjs';
+import { approve, reject } from '../grow/review.mjs';
+import { generations, rollback, mintCheckpoint, rollbackCheckpoint, listCheckpoints } from '../grow/snapshot.mjs';
 
 /**
  * Open the brain rooted at `cwd` (git-citizen: the `.zuzuu/` at the repo root).

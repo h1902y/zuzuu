@@ -2,7 +2,7 @@
 
 > This is the part that makes zuzuu more than "files in a folder." The brain *grows* from how you work — and it grows safely, because **nothing is written without your yes.** This page is the loop that does it.
 
-The code is `loop/enhance.mjs` (mine), `propose.mjs` (the queue), `review.mjs` (the gate), and `loop/snapshot.mjs` (versioned, rollback-able state).
+The code is `grow/enhance.mjs` (mine), `propose.mjs` (the queue), `review.mjs` (the gate), and `grow/snapshot.mjs` (versioned, rollback-able state).
 
 ## The loop
 
@@ -39,7 +39,7 @@ Rejecting archives the proposal (never deletes it — the audit trail) and write
 
 ## Snapshots: growth you can undo
 
-Every approved change mints a **generation** (`loop/snapshot.mjs`) — an immutable pin of the module's notes. The mechanism is the one git taught us (lesson on `git-from-scratch`): content-addressed blobs (identical content stored once), an integer-counter chain per module, and **rollback as a pointer-flip + content restore** — never a `git revert`.
+Every approved change mints a **generation** (`grow/snapshot.mjs`) — an immutable pin of the module's notes. The mechanism is the one git taught us (lesson on `git-from-scratch`): content-addressed blobs (identical content stored once), an integer-counter chain per module, and **rollback as a pointer-flip + content restore** — never a `git revert`.
 
 ```bash
 zz module knowledge generations      # the lineage (● = active)

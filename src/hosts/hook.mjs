@@ -17,7 +17,7 @@ import { homeDir, repoRoot, liveDir } from '../notes/store.mjs';
 import { gate, toPreToolUseDecision } from '../guardrails/gate.mjs';
 import { sessionGitEnabled, openSession, checkpoint, closeSession } from '../sessions/session-git.mjs';
 import { inSessionWorktree } from '../sessions/session-worktree.mjs';
-import { observe } from '../loop/observe.mjs';
+import { observe } from '../grow/observe.mjs';
 import { captureSignals } from './capture.mjs';
 import { digestText } from '../serve/digest.mjs';
 

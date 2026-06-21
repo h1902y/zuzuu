@@ -5,11 +5,11 @@ import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, existsSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { serialize, parse } from '../../src/notes/note.mjs';
-import { mint, generations, rollback, mintCheckpoint, rollbackCheckpoint } from '../../src/loop/snapshot.mjs';
-import { createProposal, listProposals, readProposal } from '../../src/loop/propose.mjs';
-import { approve, reject } from '../../src/loop/review.mjs';
-import { enhance } from '../../src/loop/enhance.mjs';
-import { logRun, read } from '../../src/loop/log.mjs';
+import { mint, generations, rollback, mintCheckpoint, rollbackCheckpoint } from '../../src/grow/snapshot.mjs';
+import { createProposal, listProposals, readProposal } from '../../src/grow/propose.mjs';
+import { approve, reject } from '../../src/grow/review.mjs';
+import { enhance } from '../../src/grow/enhance.mjs';
+import { logRun, read } from '../../src/grow/log.mjs';
 
 function withHome(fn) {
   const root = mkdtempSync(join(tmpdir(), 'zuzuu-r5-'));

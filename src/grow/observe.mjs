@@ -1,4 +1,4 @@
-// src/loop/observe.mjs — watched work → review-queued proposals.
+// src/grow/observe.mjs — watched work → review-queued proposals.
 //
 // what: the observe half of the loop. Aggregate per-session signals (from
 //       hosts/capture) across sessions with a corroboration threshold, then route
@@ -94,7 +94,7 @@ const ROUTE = {
  */
 export function observe(home, opts = {}) {
   // sessions are injected by the caller (the cli/hook capture via hosts/capture);
-  // observe itself never reaches into hosts/, so loop/ → hosts/ is not an edge.
+  // observe itself never reaches into hosts/, so grow/ → hosts/ is not an edge.
   const sessions = opts.sessions ?? [];
   const candidates = aggregate(sessions, opts);
   const proposals = [];

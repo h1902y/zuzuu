@@ -1,4 +1,4 @@
-// src/loop/review.mjs — the human gate.
+// src/grow/review.mjs — the human gate.
 //
 // what: apply or reject a proposal. Approving performs the mechanical CRUD on
 //       the module's notes, logs the mutation, and mints a generation. Rejecting

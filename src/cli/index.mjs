@@ -20,7 +20,7 @@ import { web } from './web.mjs';
 import { migrateHome } from './migrate.mjs';
 import { runHook } from '../hosts/hook.mjs';
 import { captureSignals } from '../hosts/capture.mjs';
-import { observe } from '../loop/observe.mjs';
+import { observe } from '../grow/observe.mjs';
 import { digestText } from '../serve/digest.mjs';
 import { toon } from '../notes/toon.mjs';
 

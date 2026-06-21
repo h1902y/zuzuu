@@ -1,4 +1,4 @@
-// src/loop/enhance.mjs — propose growth from what happened.
+// src/grow/enhance.mjs — propose growth from what happened.
 //
 // what: the `enhance` verb — mine a module's event log (and, when wired, the
 //       session conversation) for evidence-backed, typed proposals toward the

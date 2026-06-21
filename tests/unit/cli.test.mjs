@@ -92,7 +92,7 @@ test('run: review approve applies a proposal by its human handle', async () => {
   await withRepo(async ({ cwd, io, out }) => {
     await run(['init'], io);
     // stage a proposal directly, then drive the gate through the CLI
-    const { createProposal } = await import('../../src/loop/propose.mjs');
+    const { createProposal } = await import('../../src/grow/propose.mjs');
     createProposal(join(cwd, '.zuzuu'), 'knowledge', { op: 'create', target: 'learned-fact', change: { type: 'knowledge', title: 'a learned fact', body: 'x' } });
     out.length = 0;
     assert.equal(await run(['review'], io), 0);

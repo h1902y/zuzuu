@@ -1,4 +1,4 @@
-// src/loop/snapshot.mjs — content-addressed snapshots (generations + checkpoints).
+// src/grow/snapshot.mjs — content-addressed snapshots (generations + checkpoints).
 //
 // what: pin a module's current notes as an immutable generation, and roll back by
 //       restoring it. Compose all modules' actives into a whole-brain checkpoint.

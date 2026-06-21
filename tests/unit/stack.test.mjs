@@ -9,9 +9,9 @@ import { join } from 'node:path';
 import { serialize } from '../../src/notes/note.mjs';
 import { invoke } from '../../src/serve/dispatch.mjs';
 import { registerAll, resetCapabilities } from '../../src/serve/wire.mjs';
-import { createProposal } from '../../src/loop/propose.mjs';
-import { approve } from '../../src/loop/review.mjs';
-import { generations } from '../../src/loop/snapshot.mjs';
+import { createProposal } from '../../src/grow/propose.mjs';
+import { approve } from '../../src/grow/review.mjs';
+import { generations } from '../../src/grow/snapshot.mjs';
 
 function withStack(fn) {
   const root = mkdtempSync(join(tmpdir(), 'zuzuu-stack-'));

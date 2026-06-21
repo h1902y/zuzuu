@@ -1,4 +1,4 @@
-// src/loop/propose.mjs — the proposal queue.
+// src/grow/propose.mjs — the proposal queue.
 //
 // what: a proposal is an evidence-backed, typed change to a module's notes
 //       (create · update · delete · relate · deprecate) awaiting human review.

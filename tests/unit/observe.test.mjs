@@ -7,8 +7,8 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { claudeCode } from '../../src/hosts/adapters/claude-code.mjs';
-import { aggregate, observe } from '../../src/loop/observe.mjs';
-import { listProposals } from '../../src/loop/propose.mjs';
+import { aggregate, observe } from '../../src/grow/observe.mjs';
+import { listProposals } from '../../src/grow/propose.mjs';
 
 // one transcript line per row, exactly as Claude Code writes them
 function fixtureTranscript(rows) {
