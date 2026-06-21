@@ -16,13 +16,13 @@ function withHome(setup, fn) {
   setup(home);
   try { return fn(home); } finally { rmSync(root, { recursive: true, force: true }); }
 }
-const writeZu = (home, module, id, item) => {
+const writeZu = (home, module, id, note) => {
   mkdirSync(join(home, module, 'items'), { recursive: true });
-  writeFileSync(join(home, module, 'items', `${id}.md`), serialize({ id, ...item }));
+  writeFileSync(join(home, module, 'items', `${id}.md`), serialize({ id, ...note }));
 };
-const writeManifest = (home, module, item) => {
+const writeManifest = (home, module, note) => {
   mkdirSync(join(home, module), { recursive: true });
-  writeFileSync(join(home, module, 'module.md'), serialize({ type: 'module', id: module, ...item }));
+  writeFileSync(join(home, module, 'module.md'), serialize({ type: 'module', id: module, ...note }));
 };
 
 // ── kernel/log ──────────────────────────────────────────────────────────────
@@ -30,8 +30,8 @@ const writeManifest = (home, module, item) => {
 test('log: split by kind — runs → runs.jsonl, mutations → log.jsonl', () => {
   withHome(() => {}, (home) => {
     mkdirSync(join(home, 'actions'), { recursive: true });
-    append(home, 'actions', { event: 'run', item: 'x', success: true });
-    append(home, 'actions', { event: 'create', item: 'x', actor: 'human' });
+    append(home, 'actions', { event: 'run', note: 'x', success: true });
+    append(home, 'actions', { event: 'create', note: 'x', actor: 'human' });
     assert.ok(existsSync(join(home, 'actions', 'runs.jsonl')));
     assert.ok(existsSync(join(home, 'actions', 'log.jsonl')));
     assert.equal(read(home, 'actions', 'runs').length, 1);
@@ -45,7 +45,7 @@ test('log: fail-soft — a bad event is rejected, a bad line is skipped on read'
     assert.equal(append(home, 'm', { nope: 1 }), false);       // no event field
     assert.equal(append(home, 'm', { event: 'weird' }), false); // unknown kind
     logRun(home, 'm', 'z', { exitCode: 0, success: true });
-    assert.equal(read(home, 'm', 'runs')[0].item, 'z');
+    assert.equal(read(home, 'm', 'runs')[0].note, 'z');
   });
 });
 
@@ -114,7 +114,7 @@ test('act: runs an inline command, captures the normalized result, logs it', () 
     assert.equal(r.success, true);
     assert.equal(r.exitCode, 0);
     assert.match(r.stdout, /hello-world/);
-    assert.equal(read(home, 'actions', 'runs')[0].item, 'hello'); // logged
+    assert.equal(read(home, 'actions', 'runs')[0].note, 'hello'); // logged
   });
 });
 

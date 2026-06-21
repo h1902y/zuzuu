@@ -25,16 +25,16 @@ export function readManifest(home, module) {
   const path = manifestPath(home, module);
   const fallback = { id: module, title: module, note_type: null, enhance: null, schema: null, policy: null, capabilities: UNIVERSAL.slice() };
   if (!existsSync(path)) return fallback;
-  const { ok, item } = parse(readFileSync(path, 'utf8'), { id: module });
-  if (!ok || !item) return { ...fallback, manifestError: 'unparseable module.md' };
+  const { ok, note } = parse(readFileSync(path, 'utf8'), { id: module });
+  if (!ok || !note) return { ...fallback, manifestError: 'unparseable module.md' };
   return {
-    id: item.id ?? module,
-    title: item.title ?? module,
-    note_type: item.note_type ?? null,
-    enhance: item.enhance ?? null,
-    schema: item.schema ?? null,
-    policy: item.policy ?? null,
-    capabilities: capabilitiesOf(item),
+    id: note.id ?? module,
+    title: note.title ?? module,
+    note_type: note.note_type ?? null,
+    enhance: note.enhance ?? null,
+    schema: note.schema ?? null,
+    policy: note.policy ?? null,
+    capabilities: capabilitiesOf(note),
   };
 }
 

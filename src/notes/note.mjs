@@ -68,15 +68,15 @@ const parseValueToken = (raw) => {
  * not read from frontmatter.
  * @param {string} text
  * @param {{id?: string}} [opts]
- * @returns {{ok: boolean, item: object|null, errors: string[]}}
+ * @returns {{ok: boolean, note: object|null, errors: string[]}}
  */
 export function parse(text, { id } = {}) {
   const errors = [];
   const m = SPLIT.exec(String(text));
-  if (!m) return { ok: false, item: null, errors: ['no frontmatter block'] };
+  if (!m) return { ok: false, note: null, errors: ['no frontmatter block'] };
   const [, fm, body] = m;
-  const item = { body: body.trim() };
-  if (id != null) item.id = id;
+  const note = { body: body.trim() };
+  if (id != null) note.id = id;
 
   let key = null;       // current top-level key awaiting a block
   let mode = null;      // 'list' | 'map' once the first child resolves it
@@ -92,8 +92,8 @@ export function parse(text, { id } = {}) {
       const kv = KV.exec(line);
       if (!kv) { errors.push(`bad line: ${line}`); continue; }
       const [, k, val] = kv;
-      if (val === '') { key = k; item[k] = undefined; }   // opens a block
-      else { item[k] = parseValueToken(val); }
+      if (val === '') { key = k; note[k] = undefined; }   // opens a block
+      else { note[k] = parseValueToken(val); }
       continue;
     }
 
@@ -102,11 +102,11 @@ export function parse(text, { id } = {}) {
     if (line.startsWith('- ')) {
       // a list entry
       if (mode === 'map') { errors.push(`${key}: mixed map/list`); continue; }
-      if (mode !== 'list') { mode = 'list'; item[key] = []; }
+      if (mode !== 'list') { mode = 'list'; note[key] = []; }
       const rest = line.slice(2);
       const kv = KV.exec(rest);
-      if (kv && kv[2] !== '') { entry = { [kv[1]]: parseValueToken(kv[2]) }; item[key].push(entry); }
-      else { entry = null; item[key].push(parseValueToken(rest)); }
+      if (kv && kv[2] !== '') { entry = { [kv[1]]: parseValueToken(kv[2]) }; note[key].push(entry); }
+      else { entry = null; note[key].push(parseValueToken(rest)); }
     } else if (mode === 'list' && entry && indent >= 4) {
       // continuation of the current flat-map list entry
       const kv = KV.exec(line);
@@ -115,26 +115,26 @@ export function parse(text, { id } = {}) {
     } else {
       // a one-level map entry
       if (mode === 'list') { errors.push(`${key}: mixed list/map`); continue; }
-      if (mode !== 'map') { mode = 'map'; item[key] = {}; }
+      if (mode !== 'map') { mode = 'map'; note[key] = {}; }
       const kv = KV.exec(line);
       if (!kv) { errors.push(`bad ${key} line: ${line}`); continue; }
-      item[key][kv[1]] = parseValueToken(kv[2]);
+      note[key][kv[1]] = parseValueToken(kv[2]);
     }
   }
 
   // a key that opened a block but got no children resolves to {}
-  for (const k of Object.keys(item)) if (item[k] === undefined) item[k] = {};
+  for (const k of Object.keys(note)) if (note[k] === undefined) note[k] = {};
 
-  if (!item.type) errors.push('missing required field: type');
-  return { ok: errors.length === 0, item, errors };
+  if (!note.type) errors.push('missing required field: type');
+  return { ok: errors.length === 0, note, errors };
 }
 
 // ── serialize ─────────────────────────────────────────────────────────────
 
-/** Serialize a note item → file text that `parse` round-trips. `id` is omitted
+/** Serialize a note note → file text that `parse` round-trips. `id` is omitted
  *  (it lives in the filename, not the frontmatter). */
-export function serialize(item) {
-  const { id: _omit, body, ...fm } = item ?? {};
+export function serialize(note) {
+  const { id: _omit, body, ...fm } = note ?? {};
   const lines = ['---'];
   for (const [key, val] of Object.entries(fm)) {
     if (val === undefined) continue;
@@ -164,16 +164,16 @@ export function serialize(item) {
  * module's own requirements — it never rejects unknown keys.
  * @returns {{ok: boolean, errors: string[]}}
  */
-export function validate(item, schema = null) {
+export function validate(note, schema = null) {
   const errors = [];
-  if (!item || typeof item !== 'object') return { ok: false, errors: ['not an item'] };
-  if (!item.type) errors.push('missing required field: type');
+  if (!note || typeof note !== 'object') return { ok: false, errors: ['not a note'] };
+  if (!note.type) errors.push('missing required field: type');
   if (schema) {
     for (const r of schema.required ?? []) {
-      if (item[r] == null || item[r] === '') errors.push(`missing required field: ${r}`);
+      if (note[r] == null || note[r] === '') errors.push(`missing required field: ${r}`);
     }
-    if (Array.isArray(schema.kinds) && schema.kinds.length && item.type && !schema.kinds.includes(item.type)) {
-      errors.push(`type must be one of ${schema.kinds.join('|')} (got '${item.type}')`);
+    if (Array.isArray(schema.kinds) && schema.kinds.length && note.type && !schema.kinds.includes(note.type)) {
+      errors.push(`type must be one of ${schema.kinds.join('|')} (got '${note.type}')`);
     }
   }
   return { ok: errors.length === 0, errors };
@@ -189,7 +189,7 @@ export function idFromPath(filepath) {
 /** A safe id slug: lowercase, non-alphanumerics → `-`. (harvested from knowledge/items.mjs) */
 export function slugify(text, max = 60) {
   const s = String(text).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, max);
-  return s || 'item';
+  return s || 'note';
 }
 
 /** Title fallback = first non-empty body line, de-markdowned, capped. */

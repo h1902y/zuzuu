@@ -20,9 +20,9 @@ async function withRepo(fn) {
   try { return await fn({ cwd, io, out, text: () => out.join('\n') }); }
   finally { rmSync(cwd, { recursive: true, force: true }); resetCapabilities(); }
 }
-const note = (cwd, module, id, item) => {
+const note = (cwd, module, id, note) => {
   mkdirSync(join(cwd, '.zuzuu', module, 'items'), { recursive: true });
-  writeFileSync(join(cwd, '.zuzuu', module, 'items', `${id}.md`), serialize({ id, ...item }));
+  writeFileSync(join(cwd, '.zuzuu', module, 'items', `${id}.md`), serialize({ id, ...note }));
 };
 
 // ── init ─────────────────────────────────────────────────────────────────────

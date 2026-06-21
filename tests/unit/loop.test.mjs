@@ -16,11 +16,11 @@ function withHome(fn) {
   const home = join(root, '.zuzuu');
   try { return fn(home); } finally { rmSync(root, { recursive: true, force: true }); }
 }
-const writeZu = (home, module, id, item) => {
+const writeZu = (home, module, id, note) => {
   mkdirSync(join(home, module, 'items'), { recursive: true });
-  writeFileSync(join(home, module, 'items', `${id}.md`), serialize({ id, ...item }));
+  writeFileSync(join(home, module, 'items', `${id}.md`), serialize({ id, ...note }));
 };
-const readZu = (home, module, id) => parse(readFileSync(join(home, module, 'items', `${id}.md`), 'utf8'), { id }).item;
+const readZu = (home, module, id) => parse(readFileSync(join(home, module, 'items', `${id}.md`), 'utf8'), { id }).note;
 
 // ── snapshot ────────────────────────────────────────────────────────────────
 
@@ -163,7 +163,7 @@ test('review: an update merges nested object fields (keeps siblings, no silent l
     writeZu(home, 'knowledge', 'fact', { type: 'knowledge', relations: { about: 'x', uses: 'y' } });
     const p = createProposal(home, 'knowledge', { op: 'update', target: 'fact', change: { relations: { about: 'z' } } });
     approve(home, 'knowledge', p.id);
-    const f = parse(readFileSync(join(home, 'knowledge', 'items', 'fact.md'), 'utf8'), { id: 'fact' }).item;
+    const f = parse(readFileSync(join(home, 'knowledge', 'items', 'fact.md'), 'utf8'), { id: 'fact' }).note;
     assert.deepEqual(f.relations, { about: 'z', uses: 'y' }, "uses survived the partial update");
   });
 });

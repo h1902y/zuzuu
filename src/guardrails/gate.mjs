@@ -28,11 +28,11 @@ const cache = new Map(); // dir → { sig, rules }
 const NESTED_QUANTIFIER = /\((?:\?[:!=]<?[=!]?)?(?:\\.|\[[^\]]*\]|[^()\[\]\\])[+*]\)[+*?]/;
 
 /** Compile a rule note → a runtime rule, or null if malformed (skip, never block). */
-function compile(item) {
-  if (!item || !ACTIONS.has(item.action) || typeof item.pattern !== 'string' || !item.pattern) return null;
-  if (NESTED_QUANTIFIER.test(item.pattern)) return null; // ReDoS guard
+function compile(note) {
+  if (!note || !ACTIONS.has(note.action) || typeof note.pattern !== 'string' || !note.pattern) return null;
+  if (NESTED_QUANTIFIER.test(note.pattern)) return null; // ReDoS guard
   try {
-    return { id: item.id, action: item.action, tool: item.tool || '*', re: new RegExp(item.pattern, 'i'), reason: String(item.reason ?? '') };
+    return { id: note.id, action: note.action, tool: note.tool || '*', re: new RegExp(note.pattern, 'i'), reason: String(note.reason ?? '') };
   } catch {
     return null; // uncompilable pattern → skip this rule only
   }
@@ -72,8 +72,8 @@ export function loadRules(home, module = 'guardrails') {
   if (hit && hit.sig === sig) return hit.rules;
   const rules = [];
   for (const f of files) {
-    const { item } = parse(readFileSync(`${dir}/${f}`, 'utf8'), { id: f.slice(0, -3) });
-    const r = compile(item);
+    const { note } = parse(readFileSync(`${dir}/${f}`, 'utf8'), { id: f.slice(0, -3) });
+    const r = compile(note);
     if (r) rules.push(r);
   }
   cache.set(dir, { sig, rules });

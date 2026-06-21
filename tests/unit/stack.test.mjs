@@ -20,9 +20,9 @@ function withStack(fn) {
     mkdirSync(join(home, m, 'items'), { recursive: true });
     writeFileSync(join(home, m, 'module.md'), serialize({ id: m, type: 'module', title: m, capabilities: caps, ...extra }));
   };
-  const note = (m, id, item) => {
+  const note = (m, id, note) => {
     mkdirSync(join(home, m, 'items'), { recursive: true });
-    writeFileSync(join(home, m, 'items', `${id}.md`), serialize({ id, ...item }));
+    writeFileSync(join(home, m, 'items', `${id}.md`), serialize({ id, ...note }));
   };
   // a small but representative brain
   manifest('knowledge', ['query', 'check', 'enhance'], { note_type: 'knowledge' });

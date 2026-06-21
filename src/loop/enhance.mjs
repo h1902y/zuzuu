@@ -28,11 +28,11 @@ function knownItems(home, module) {
  * @returns {Array} the proposals staged
  */
 export function mineCoInvocation(home, module, { threshold = 2 } = {}) {
-  const runs = read(home, module, 'runs').filter((e) => e.session && e.item);
+  const runs = read(home, module, 'runs').filter((e) => e.session && e.note);
   const bySession = new Map();
   for (const e of runs) {
     if (!bySession.has(e.session)) bySession.set(e.session, new Set());
-    bySession.get(e.session).add(e.item);
+    bySession.get(e.session).add(e.note);
   }
   // count distinct sessions each unordered pair co-occurred in
   const pairCount = new Map();

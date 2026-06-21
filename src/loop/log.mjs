@@ -36,14 +36,14 @@ export function append(home, module, event) {
 }
 
 /** Convenience: a run event with the normalized result shape. */
-export function logRun(home, module, item, { inputs = {}, exitCode, success, ts, actor = 'agent', session = null } = {}) {
-  return append(home, module, { event: 'run', ts: ts ?? null, item, actor, session, inputs, exitCode, success });
+export function logRun(home, module, note, { inputs = {}, exitCode, success, ts, actor = 'agent', session = null } = {}) {
+  return append(home, module, { event: 'run', ts: ts ?? null, note, actor, session, inputs, exitCode, success });
 }
 
 /** Convenience: a mutation event. */
-export function logMutation(home, module, kind, item, extra = {}) {
+export function logMutation(home, module, kind, note, extra = {}) {
   if (!MUTATIONS.has(kind)) return false;
-  return append(home, module, { event: kind, ts: extra.ts ?? null, item, actor: extra.actor ?? 'human', ...extra });
+  return append(home, module, { event: kind, ts: extra.ts ?? null, note, actor: extra.actor ?? 'human', ...extra });
 }
 
 /** Read events from a log file (mutations | runs). Fail-soft → []. */

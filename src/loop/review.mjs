@@ -30,7 +30,7 @@ function mergeEdit(cur, change) {
 
 /**
  * Apply an approved proposal: mutate the notes, log it, mint a generation.
- * @returns {{ ok, op, item?, error? }}
+ * @returns {{ ok, op, note?, error? }}
  */
 export function approve(home, module, id, { edit = null } = {}) {
   const p = readProposal(home, module, id);
@@ -41,23 +41,23 @@ export function approve(home, module, id, { edit = null } = {}) {
     if (p.op === 'create' || p.op === 'update') {
       const target = p.target ?? change.id ?? id;
       mkdirSync(itemsDir(home, module), { recursive: true });
-      let item = change;
+      let note = change;
       if (p.op === 'update' && existsSync(itemPath(home, module, target))) {
-        const cur = parse(readFileSync(itemPath(home, module, target), 'utf8'), { id: target }).item ?? {};
-        item = mergeEdit(cur, change); // merge onto current — object fields merge one level, not replace wholesale
+        const cur = parse(readFileSync(itemPath(home, module, target), 'utf8'), { id: target }).note ?? {};
+        note = mergeEdit(cur, change); // merge onto current — object fields merge one level, not replace wholesale
       }
-      writeFileSync(itemPath(home, module, target), serialize(item));
+      writeFileSync(itemPath(home, module, target), serialize(note));
       logMutation(home, module, p.op, target, { proposal: id });
     } else if (p.op === 'relate') {
       // change = { from, type, to } — add a typed relation to the `from` note
       const { from, type, to } = change;
       const path = itemPath(home, module, from);
       if (!existsSync(path)) return { ok: false, error: `relate: no note '${from}'` };
-      const item = parse(readFileSync(path, 'utf8'), { id: from }).item;
-      item.relations = item.relations ?? {};
-      const cur = item.relations[type];
-      item.relations[type] = cur ? [...new Set([].concat(cur, to))] : to;
-      writeFileSync(path, serialize(item));
+      const note = parse(readFileSync(path, 'utf8'), { id: from }).note;
+      note.relations = note.relations ?? {};
+      const cur = note.relations[type];
+      note.relations[type] = cur ? [...new Set([].concat(cur, to))] : to;
+      writeFileSync(path, serialize(note));
       logMutation(home, module, 'update', from, { proposal: id, relation: type });
     } else if (p.op === 'delete' || p.op === 'deprecate') {
       const target = p.target;
@@ -65,9 +65,9 @@ export function approve(home, module, id, { edit = null } = {}) {
       if (!existsSync(path)) return { ok: false, error: `no note '${module}:${target}'` }; // no phantom log/mint
       if (p.op === 'delete') { rmSync(path); }
       else { // deprecate = flip status, keep the file
-        const item = parse(readFileSync(path, 'utf8'), { id: target }).item;
-        item.status = 'deprecated';
-        writeFileSync(path, serialize(item));
+        const note = parse(readFileSync(path, 'utf8'), { id: target }).note;
+        note.status = 'deprecated';
+        writeFileSync(path, serialize(note));
       }
       logMutation(home, module, p.op === 'delete' ? 'delete' : 'deprecate', target, { proposal: id });
     } else {
@@ -79,7 +79,7 @@ export function approve(home, module, id, { edit = null } = {}) {
 
   mint(home, module, { mintedFrom: [id] }); // snapshot the new state
   archiveProposal(home, module, id, 'approved');
-  return { ok: true, op: p.op, item: p.target ?? p.change?.id ?? id };
+  return { ok: true, op: p.op, note: p.target ?? p.change?.id ?? id };
 }
 
 /** Reject a proposal — archive it, write nothing. */

@@ -76,11 +76,11 @@ function build(home, db) {
       if (!f.endsWith('.md')) continue;
       const id = f.slice(0, -3);
       const addr = `${module}:${id}`;
-      const { ok, item } = parse(readFileSync(join(dir, f), 'utf8'), { id });
-      if (!ok || !item) continue; // fail-soft: a bad file just isn't indexed
-      insZu.run(addr, module, id, item.type ?? '', item.title ?? '', item.status ?? 'active', item.body ?? '');
-      insFts.run(addr, item.title ?? '', item.body ?? '');
-      for (const [key, val] of Object.entries(item)) {
+      const { ok, note } = parse(readFileSync(join(dir, f), 'utf8'), { id });
+      if (!ok || !note) continue; // fail-soft: a bad file just isn't indexed
+      insZu.run(addr, module, id, note.type ?? '', note.title ?? '', note.status ?? 'active', note.body ?? '');
+      insFts.run(addr, note.title ?? '', note.body ?? '');
+      for (const [key, val] of Object.entries(note)) {
         if (key === 'body' || key === 'id') continue;
         if (key === 'relations' && val && typeof val === 'object' && !Array.isArray(val)) {
           for (const [rtype, dsts] of Object.entries(val)) {

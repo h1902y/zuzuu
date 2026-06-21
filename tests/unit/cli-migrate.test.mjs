@@ -10,7 +10,7 @@ import { parse } from '../../src/notes/note.mjs';
 function withV1Home(fn) {
   const cwd = mkdtempSync(join(tmpdir(), 'zuzuu-mig-'));
   const home = join(cwd, '.zuzuu');
-  // a minimal v1 home: module.json manifests + a kind-typed item
+  // a minimal v1 home: module.json manifests + a kind-typed note
   mkdirSync(join(home, 'knowledge', 'items'), { recursive: true });
   writeFileSync(join(home, 'knowledge', 'module.json'), JSON.stringify({ id: 'knowledge', title: 'Knowledge', kinds: ['fact'] }));
   writeFileSync(join(home, 'knowledge', 'items', 'acme.md'), '---\nid: acme\nmodule: knowledge\nkind: fact\ntitle: Acme likes blue\n---\nBody.\n');
@@ -26,13 +26,13 @@ test('migrate: module.json → module.md (v2 envelope); json removed', () => {
     const md = readFileSync(join(home, 'knowledge', 'module.md'), 'utf8');
     assert.match(md, /type: module/);
     assert.match(md, /capabilities:/);
-    const { item } = parse(md, { id: 'knowledge' });
-    assert.equal(item.note_type, 'fact'); // read from the v1 manifest's kinds:['fact'], not the default
-    assert.deepEqual(item.capabilities, ['query', 'check', 'enhance']);
+    const { note } = parse(md, { id: 'knowledge' });
+    assert.equal(note.note_type, 'fact'); // read from the v1 manifest's kinds:['fact'], not the default
+    assert.deepEqual(note.capabilities, ['query', 'check', 'enhance']);
   });
 });
 
-test('migrate: an item folds kind→type and drops id/module', () => {
+test('migrate: a note folds kind→type and drops id/module', () => {
   withV1Home(({ cwd, home }) => {
     const r = migrateHome(cwd);
     assert.equal(r.items, 1);
@@ -42,10 +42,10 @@ test('migrate: an item folds kind→type and drops id/module', () => {
     assert.doesNotMatch(front, /^kind:/m, 'kind dropped');
     assert.doesNotMatch(front, /^module:/m, 'module dropped');
     assert.doesNotMatch(front, /^id:/m, 'id is the filename, not frontmatter');
-    // (parse re-injects id from the filename, so check the file, not the parsed item)
-    const { item } = parse(raw, { id: 'acme' });
-    assert.equal(item.type, 'fact');
-    assert.equal(item.title, 'Acme likes blue');
+    // (parse re-injects id from the filename, so check the file, not the parsed note)
+    const { note } = parse(raw, { id: 'acme' });
+    assert.equal(note.type, 'fact');
+    assert.equal(note.title, 'Acme likes blue');
   });
 });
 
@@ -77,10 +77,10 @@ test('migrate: a v1 per-slug Action dir (ACTION.md + run.mjs + kinds) is not dro
     assert.equal(existsSync(join(home, 'actions', 'items', 'run-tests.md')), true, 'the action note is migrated, not lost');
     assert.equal(existsSync(join(home, 'actions', 'items', 'run-tests.mjs')), true, 'the script is preserved');
     assert.equal(existsSync(join(home, 'actions', 'run-tests')), false, 'the v1 slug dir is removed');
-    const note = parse(readFileSync(join(home, 'actions', 'items', 'run-tests.md'), 'utf8'), { id: 'run-tests' }).item;
+    const note = parse(readFileSync(join(home, 'actions', 'items', 'run-tests.md'), 'utf8'), { id: 'run-tests' }).note;
     assert.equal(note.type, 'script');           // kind → type
     assert.match(note.run, /node items\/run-tests\.mjs --ci/); // payload.exec/args → run
-    const mod = parse(readFileSync(join(home, 'actions', 'module.md'), 'utf8'), { id: 'actions' }).item;
+    const mod = parse(readFileSync(join(home, 'actions', 'module.md'), 'utf8'), { id: 'actions' }).note;
     assert.equal(mod.note_type, 'script');        // v1 kinds[0] → note_type
   } finally { rmSync(cwd, { recursive: true, force: true }); }
 });

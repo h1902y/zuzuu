@@ -7,7 +7,7 @@
 // why:  so installed homes survive the cull (the v1 substrate that read them is
 //       gone). One-time, local, reversible via git.
 // how:  read module.json (tolerant JSON), emit module.md with the note
-//       serializer; for each item, fold kind→type and drop the now-redundant
+//       serializer; for each note, fold kind→type and drop the now-redundant
 //       id/module frontmatter keys. Zero-dep, fail-soft per file.
 
 import { existsSync, readFileSync, writeFileSync, readdirSync, rmSync, statSync, mkdirSync, copyFileSync } from 'node:fs';
@@ -20,17 +20,17 @@ const RUNNERS = { mjs: 'node', js: 'node', sh: 'sh', py: 'python3' };
 function migrateActionDir(subPath, slug, itemsDir, fallbackType) {
   const mdName = existsSync(join(subPath, 'ACTION.md')) ? 'ACTION.md' : readdirSync(subPath).find((f) => f.endsWith('.md'));
   if (!mdName) return false;
-  const { item } = parse(readFileSync(join(subPath, mdName), 'utf8'), { id: slug });
-  if (!item) return false;
+  const { note } = parse(readFileSync(join(subPath, mdName), 'utf8'), { id: slug });
+  if (!note) return false;
   mkdirSync(itemsDir, { recursive: true });
-  const next = { ...item, type: item.type ?? item.kind ?? fallbackType };
+  const next = { ...note, type: note.type ?? note.kind ?? fallbackType };
   // fold v1 payload.exec/args into a v2 `run`, copying the script alongside
   if (!next.run) {
-    const exec = item.payload?.exec || readdirSync(subPath).find((f) => /\.(mjs|js|sh|py)$/.test(f));
+    const exec = note.payload?.exec || readdirSync(subPath).find((f) => /\.(mjs|js|sh|py)$/.test(f));
     if (exec && existsSync(join(subPath, exec))) {
       const ext = exec.split('.').pop();
       copyFileSync(join(subPath, exec), join(itemsDir, `${slug}.${ext}`));
-      const args = item.payload?.args ? ' ' + [].concat(item.payload.args).join(' ') : '';
+      const args = note.payload?.args ? ' ' + [].concat(note.payload.args).join(' ') : '';
       next.run = `${RUNNERS[ext] ?? 'sh'} items/${slug}.${ext}${args}`;
     }
   }
@@ -52,14 +52,14 @@ const DEFAULTS = {
 
 const readJson = (p) => { try { return JSON.parse(readFileSync(p, 'utf8')); } catch { return null; } };
 
-/** Convert one item file in place: kind→type, drop id/module. Returns true if changed. */
+/** Convert one note file in place: kind→type, drop id/module. Returns true if changed. */
 function migrateItem(file, id, fallbackType) {
-  // NB: a v1 item validates ok:false (no `type`) — that's the very thing we fix,
-  // so use the parsed item regardless of validation.
-  const { item } = parse(readFileSync(file, 'utf8'), { id });
-  if (!item) return false;
-  if (item.type && !item.kind && !item.module) return false; // already v2
-  const next = { ...item };
+  // NB: a v1 note validates ok:false (no `type`) — that's the very thing we fix,
+  // so use the parsed note regardless of validation.
+  const { note } = parse(readFileSync(file, 'utf8'), { id });
+  if (!note) return false;
+  if (note.type && !note.kind && !note.module) return false; // already v2
+  const next = { ...note };
   next.type = next.type ?? next.kind ?? fallbackType;
   delete next.kind; delete next.module; delete next.id;
   writeFileSync(file, serialize(next));

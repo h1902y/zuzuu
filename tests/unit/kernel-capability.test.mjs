@@ -11,9 +11,9 @@ import { register, get, has, list, clear, invoke, describe } from '../../src/ser
 function withHome(manifests, fn) {
   const root = mkdtempSync(join(tmpdir(), 'zuzuu-cap-'));
   const home = join(root, '.zuzuu');
-  for (const [module, item] of Object.entries(manifests)) {
+  for (const [module, note] of Object.entries(manifests)) {
     mkdirSync(join(home, module, 'items'), { recursive: true });
-    writeFileSync(join(home, module, 'module.md'), serialize({ type: 'module', id: module, ...item }));
+    writeFileSync(join(home, module, 'module.md'), serialize({ type: 'module', id: module, ...note }));
   }
   try { return fn(home); } finally { rmSync(root, { recursive: true, force: true }); }
 }

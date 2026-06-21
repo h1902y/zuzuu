@@ -49,23 +49,23 @@ export function act(ctx, id, inputs = {}) {
   const { home, module, manifest } = ctx;
   const path = itemPath(home, module, id);
   if (!existsSync(path)) return { ok: false, ran: false, error: `no note '${module}:${id}'` };
-  const { ok, item } = parse(readFileSync(path, 'utf8'), { id });
-  if (!ok || !item) return { ok: false, ran: false, error: `unparseable note '${id}'` };
-  if (!item.run) return { ok: false, ran: false, error: `note '${id}' is not runnable (no run)` };
+  const { ok, note } = parse(readFileSync(path, 'utf8'), { id });
+  if (!ok || !note) return { ok: false, ran: false, error: `unparseable note '${id}'` };
+  if (!note.run) return { ok: false, ran: false, error: `note '${id}' is not runnable (no run)` };
 
   // policy: the note's own policy narrows the module default (never widens)
-  const policy = { ...(manifest.policy ?? {}), ...(item.policy ?? {}) };
+  const policy = { ...(manifest.policy ?? {}), ...(note.policy ?? {}) };
   const tier = policy.tier ?? 'advisory';
   const allow = policy.run?.allow ?? null;
 
   // the guardrails gate applies to curated runs too — a deny rule blocks them
-  const verdict = gate({ home, module: 'guardrails' }, { tool: 'Bash', input: { command: item.run } });
+  const verdict = gate({ home, module: 'guardrails' }, { tool: 'Bash', input: { command: note.run } });
   if (verdict && verdict.action === 'deny') {
     return { ok: false, ran: false, denied: true, error: `blocked by guardrail ${verdict.rule}: ${verdict.reason}` };
   }
 
   const cwd = repoRoot();
-  const [cmd, ...args] = tokenize(item.run);
+  const [cmd, ...args] = tokenize(note.run);
   // the run.allow command-axis — OUR layer: allowlisted, or a repo-local script.
   // An absolute path OUTSIDE the repo (e.g. /bin/sh) does NOT bypass the allowlist.
   if (allow && !allow.includes(cmd) && !underRepo(cmd, cwd)) {

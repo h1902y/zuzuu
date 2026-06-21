@@ -64,7 +64,7 @@ test('fail-open: garbage stdin, and projects with no rule items, never block', (
   }
 });
 
-test('a malformed rule item is skipped silently — seeds still enforce', () => {
+test('a malformed rule note is skipped silently — seeds still enforce', () => {
   withProject((cwd) => {
     const items = join(cwd, '.zuzuu', 'guardrails', 'items');
     mkdirSync(items, { recursive: true });
@@ -74,7 +74,7 @@ test('a malformed rule item is skipped silently — seeds still enforce', () => 
     assert.equal(denied.status, 0);
     assert.equal(JSON.parse(denied.stdout).hookSpecificOutput.permissionDecision, 'deny', 'seed rules survive a malformed sibling');
     const ok = gate(cwd, { session_id: 's1', tool_name: 'Bash', tool_input: { command: 'ls' } });
-    assert.equal(ok.stdout, '', 'no spurious decision from the malformed item');
+    assert.equal(ok.stdout, '', 'no spurious decision from the malformed note');
   });
 });
 

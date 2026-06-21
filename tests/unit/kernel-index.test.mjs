@@ -13,11 +13,11 @@ import { toon } from '../../src/notes/toon.mjs';
 function withBrain(notes, fn) {
   const root = mkdtempSync(join(tmpdir(), 'zuzuu-index-'));
   const home = join(root, '.zuzuu');
-  for (const [addr, item] of Object.entries(notes)) {
+  for (const [addr, note] of Object.entries(notes)) {
     const [module, id] = addr.split(':');
     const dir = join(home, module, 'items');
     mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, `${id}.md`), serialize(item));
+    writeFileSync(join(dir, `${id}.md`), serialize(note));
   }
   try { return fn(home); } finally { rmSync(root, { recursive: true, force: true }); }
 }

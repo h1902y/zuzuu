@@ -67,7 +67,7 @@ export function mint(home, module, { mintedFrom = [] } = {}) {
   return entry;
 }
 
-/** Roll a module back to generation n: restore each item's bytes, flip active. */
+/** Roll a module back to generation n: restore each note's bytes, flip active. */
 export function rollback(home, module, n) {
   const { generations: gens } = generations(home, module);
   const entry = gens.find((g) => g.n === n);

@@ -1,4 +1,4 @@
-// kernel/item.mjs — the one envelope: parse · serialize · validate · id.
+// kernel/note.mjs — the one envelope: parse · serialize · validate · id.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parse, serialize, validate, idFromPath, slugify, deriveTitle } from '../../src/notes/note.mjs';
@@ -8,62 +8,62 @@ import { parse, serialize, validate, idFromPath, slugify, deriveTitle } from '..
 test('parse: minimal note — only type required', () => {
   const r = parse('---\ntype: knowledge\n---\nA fact.');
   assert.equal(r.ok, true);
-  assert.equal(r.item.type, 'knowledge');
-  assert.equal(r.item.body, 'A fact.');
+  assert.equal(r.note.type, 'knowledge');
+  assert.equal(r.note.body, 'A fact.');
 });
 
 test('parse: missing type → not ok, but never throws', () => {
   const r = parse('---\ntitle: no type here\n---\nbody');
   assert.equal(r.ok, false);
   assert.ok(r.errors.some((e) => e.includes('type')));
-  assert.equal(r.item.title, 'no type here'); // still parsed, just invalid
+  assert.equal(r.note.title, 'no type here'); // still parsed, just invalid
 });
 
 test('parse: no frontmatter block → fail-soft', () => {
   const r = parse('just a body, no fences');
   assert.equal(r.ok, false);
-  assert.equal(r.item, null);
+  assert.equal(r.note, null);
   assert.deepEqual(r.errors, ['no frontmatter block']);
 });
 
 test('parse: unknown keys are preserved (OKF — tolerate unknown)', () => {
   const r = parse('---\ntype: knowledge\nzz_custom: hello\nanother_one: 42\nquoted_num: "7"\n---\nx');
   assert.equal(r.ok, true);
-  assert.equal(r.item.zz_custom, 'hello');
-  assert.equal(r.item.another_one, 42); // bare scalars coerce to their type (number)
-  assert.equal(r.item.quoted_num, '7'); // a quoted scalar stays a string
+  assert.equal(r.note.zz_custom, 'hello');
+  assert.equal(r.note.another_one, 42); // bare scalars coerce to their type (number)
+  assert.equal(r.note.quoted_num, '7'); // a quoted scalar stays a string
 });
 
 // ── parse: collections — block lists, block maps, inline JSON ──────────────
 
 test('parse: block list of scalars (tags)', () => {
   const r = parse('---\ntype: knowledge\ntags:\n  - client-acme\n  - design\n---\nx');
-  assert.deepEqual(r.item.tags, ['client-acme', 'design']);
+  assert.deepEqual(r.note.tags, ['client-acme', 'design']);
 });
 
 test('parse: block one-level map (relations)', () => {
   const r = parse('---\ntype: knowledge\nrelations:\n  about: client-acme\n  supersedes: v1\n---\nx');
-  assert.deepEqual(r.item.relations, { about: 'client-acme', supersedes: 'v1' });
+  assert.deepEqual(r.note.relations, { about: 'client-acme', supersedes: 'v1' });
 });
 
 test('parse: block list of flat maps (provenance)', () => {
   const r = parse('---\ntype: knowledge\nprovenance:\n  - session: ses_a\n    ref: turn-1\n---\nx');
-  assert.deepEqual(r.item.provenance, [{ session: 'ses_a', ref: 'turn-1' }]);
+  assert.deepEqual(r.note.provenance, [{ session: 'ses_a', ref: 'turn-1' }]);
 });
 
 test('parse: inline JSON for nested values (policy)', () => {
   const r = parse('---\ntype: action\npolicy: {"tier":"contained","filesystem":{"allowWrite":["./"]}}\n---\nx');
-  assert.deepEqual(r.item.policy, { tier: 'contained', filesystem: { allowWrite: ['./'] } });
+  assert.deepEqual(r.note.policy, { tier: 'contained', filesystem: { allowWrite: ['./'] } });
 });
 
 test('parse: inline JSON array (tags one line)', () => {
   const r = parse('---\ntype: knowledge\ntags: ["a","b"]\n---\nx');
-  assert.deepEqual(r.item.tags, ['a', 'b']);
+  assert.deepEqual(r.note.tags, ['a', 'b']);
 });
 
 // ── round-trip: serialize ∘ parse is stable ────────────────────────────────
 
-const rt = (item) => parse(serialize({ ...item, type: item.type ?? 'knowledge' })).item;
+const rt = (note) => parse(serialize({ ...note, type: note.type ?? 'knowledge' })).note;
 
 test('round-trip: a rich note survives parse∘serialize', () => {
   const src = {
@@ -80,8 +80,8 @@ test('round-trip: a rich note survives parse∘serialize', () => {
 
 test('round-trip: serialize is idempotent (parse→serialize→parse stable)', () => {
   const text = serialize({ type: 'knowledge', title: 'x', tags: ['a', 'b'], body: 'hi' });
-  const once = parse(text).item;
-  const twice = parse(serialize(once)).item;
+  const once = parse(text).note;
+  const twice = parse(serialize(once)).note;
   assert.deepEqual(twice, once);
 });
 
@@ -123,7 +123,7 @@ test('idFromPath: id = filename stem', () => {
 
 test('parse: id is injected by the caller, not read from frontmatter', () => {
   const r = parse('---\ntype: knowledge\n---\nx', { id: 'from-filename' });
-  assert.equal(r.item.id, 'from-filename');
+  assert.equal(r.note.id, 'from-filename');
 });
 
 test('slugify + deriveTitle', () => {
@@ -133,8 +133,8 @@ test('slugify + deriveTitle', () => {
 });
 
 test('round-trip: numbers, booleans, null, and empty collections keep their type', () => {
-  const item = { id: 'x', type: 'knowledge', count: 5, ratio: 1.5, flag: true, off: false, none: null, tags: [], meta: {}, looksNum: '42' };
-  const back = parse(serialize(item), { id: 'x' }).item;
+  const note = { id: 'x', type: 'knowledge', count: 5, ratio: 1.5, flag: true, off: false, none: null, tags: [], meta: {}, looksNum: '42' };
+  const back = parse(serialize(note), { id: 'x' }).note;
   assert.equal(back.count, 5);
   assert.equal(back.ratio, 1.5);
   assert.equal(back.flag, true);
@@ -148,8 +148,8 @@ test('round-trip: numbers, booleans, null, and empty collections keep their type
 test('round-trip: parse and serialize are symmetric — a multiline value never throws', () => {
   // a value with an embedded newline parses (inline JSON) and must re-serialize
   const text = '---\ntype: knowledge\nnote: ["line1\\nline2"]\n---\nbody\n';
-  const item = parse(text, { id: 'x' }).item;
-  assert.deepEqual(item.note, ['line1\nline2']);
-  assert.doesNotThrow(() => serialize(item)); // used to throw — froze the note against edits
-  assert.deepEqual(parse(serialize(item), { id: 'x' }).item.note, ['line1\nline2']);
+  const note = parse(text, { id: 'x' }).note;
+  assert.deepEqual(note.note, ['line1\nline2']);
+  assert.doesNotThrow(() => serialize(note)); // used to throw — froze the note against edits
+  assert.deepEqual(parse(serialize(note), { id: 'x' }).note.note, ['line1\nline2']);
 });

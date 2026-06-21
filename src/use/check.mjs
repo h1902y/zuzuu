@@ -15,7 +15,7 @@ import { itemsDir } from '../notes/store.mjs';
 import { brokenLinks } from '../notes/index.mjs';
 import { listModules } from '../notes/module.mjs';
 
-/** Every note across all modules, parsed: [{ addr, item }]. */
+/** Every note across all modules, parsed: [{ addr, note }]. */
 function allZus(home) {
   const out = [];
   for (const m of listModules(home)) {
@@ -24,8 +24,8 @@ function allZus(home) {
     for (const f of readdirSync(dir)) {
       if (!f.endsWith('.md')) continue;
       const id = f.slice(0, -3);
-      const { ok, item } = parse(readFileSync(`${dir}/${f}`, 'utf8'), { id });
-      if (ok && item) out.push({ addr: `${m.id}:${id}`, item });
+      const { ok, note } = parse(readFileSync(`${dir}/${f}`, 'utf8'), { id });
+      if (ok && note) out.push({ addr: `${m.id}:${id}`, note });
     }
   }
   return out;
@@ -41,21 +41,21 @@ export function checkData(home, { now = null } = {}) {
   // orphans: no outbound relations and not the target of any relation
   const hasOutbound = new Set();
   const linkedTo = new Set();
-  for (const { addr, item } of notes) {
-    const rels = item.relations && typeof item.relations === 'object' ? item.relations : {};
+  for (const { addr, note } of notes) {
+    const rels = note.relations && typeof note.relations === 'object' ? note.relations : {};
     const dsts = Object.values(rels).flatMap((v) => [].concat(v)).filter(Boolean);
     if (dsts.length) hasOutbound.add(addr);
     for (const d of dsts) linkedTo.add(String(d));
   }
   const orphans = notes
-    .filter(({ addr, item }) => !hasOutbound.has(addr)
-      && !linkedTo.has(addr) && !linkedTo.has(item.id ?? addr.split(':')[1]))
+    .filter(({ addr, note }) => !hasOutbound.has(addr)
+      && !linkedTo.has(addr) && !linkedTo.has(note.id ?? addr.split(':')[1]))
     .map(({ addr }) => addr);
 
   // stale: explicitly superseded, or deprecated, or bitemporally expired
   const stale = notes
-    .filter(({ item }) => item.superseded_by || item.status === 'deprecated')
-    .map(({ addr, item }) => ({ addr, why: item.superseded_by ? `superseded_by ${item.superseded_by}` : 'deprecated' }));
+    .filter(({ note }) => note.superseded_by || note.status === 'deprecated')
+    .map(({ addr, note }) => ({ addr, why: note.superseded_by ? `superseded_by ${note.superseded_by}` : 'deprecated' }));
 
   return { broken, orphans, stale };
 }
