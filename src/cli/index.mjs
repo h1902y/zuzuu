@@ -103,7 +103,7 @@ export async function run(argv, io = {}) {
         if (!r.ok) return fail(log, r.error);
         const v = r.value;
         if (!v.ran) return fail(log, v.error || 'did not run');
-        log(toon('run', [{ id, success: v.success, exit: v.exitCode, contained: v.contained }], ['id', 'success', 'exit', 'contained']));
+        log(toon('run', [{ id, success: v.success, exit: v.exitCode }], ['id', 'success', 'exit']));
         if (v.stdout) log(v.stdout.trimEnd());
         if (v.stderr) log(v.stderr.trimEnd());
         return v.success ? 0 : 1;
