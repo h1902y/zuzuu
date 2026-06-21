@@ -17,7 +17,6 @@ import { enable, disable } from './enable.mjs';
 import { doctor, status, explain } from './doctor.mjs';
 import { code } from './code.mjs';
 import { web } from './web.mjs';
-import { migrateHome } from './migrate.mjs';
 import { runHook } from '../hosts/hook.mjs';
 import { captureSignals } from '../hosts/capture.mjs';
 import { observe } from '../grow/observe.mjs';
@@ -54,7 +53,7 @@ const HELP = `zz — your project's brain (envelopes, queried/run/grown, human-g
   zz review approve <m> <id>    apply a proposal  (the human gate)
   zz review reject  <m> <id>    archive a proposal
   zz module [list | <m> generations | <m> rollback <n>]
-  zz session [status|merge|continue|discard --yes|worktree …|manifest|restore|label]
+  zz session [status|merge|continue|discard --yes|worktree …|label]
   zz doctor / status / explain  health · inventory · porcelain
   zz code [dir] / web           launch OpenCode (bundled host) · the workbench
   zz digest                     the session-start brief`;
@@ -196,12 +195,6 @@ export async function run(argv, io = {}) {
       case 'session':
         return sessionCommand(args, cwd, log);
 
-      case 'migrate': {
-        const r = migrateHome(cwd);
-        log(toon('migrate', [{ migrated: r.migrated, modules: r.modules ?? 0, items: r.items ?? 0 }], ['migrated', 'modules', 'items']));
-        if (r.alreadyV2) log('already on v2 — nothing to migrate');
-        return 0;
-      }
       case 'doctor':
         return doctor(cwd, log);
       case 'status':

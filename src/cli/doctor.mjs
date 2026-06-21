@@ -1,8 +1,8 @@
 // src/cli/doctor.mjs — health, inventory, and crash reconciliation.
 //
 // what: `zz doctor` (is everything wired? any leftover/crashed session?),
-//       `zz status` (detected hosts + recorded sessions), `zz explain` (porcelain
-//       — what this home is). All read-only.
+//       `zz status` (detected hosts + session-branch state), `zz explain`
+//       (porcelain — what this home is). All read-only.
 // why:  transparency is the .git model: the home is plain text + porcelain. These
 //       are the porcelain — they let a human (or agent) see the machine's state
 //       without reading internals. doctor surfaces a crashed session's leftover
@@ -12,7 +12,6 @@
 
 import { existsSync } from 'node:fs';
 import { gitInfo, homeDir, repoRoot } from '../notes/store.mjs';
-import { readIndex } from '../sessions/record.mjs';
 import { detected } from '../hosts/registry.mjs';
 import { sessionStatus } from '../sessions/session-git.mjs';
 import { hooksInstalled } from './enable.mjs';
@@ -69,8 +68,6 @@ export function status(cwd, log) {
     return { host: h.name, sessions: n };
   });
   log(toon('hosts', rows, ['host', 'sessions']));
-  const idx = readIndex(cwd);
-  log(toon('recorded', idx.sessions.slice(0, 10).map((s) => ({ id: String(s.id).slice(0, 12), host: s.host, status: s.status })), ['id', 'host', 'status']));
   try { const lw = leftoverWarning(sessionStatus(cwd)); if (lw) log(lw); } catch { /* fail-soft */ }
   return 0;
 }

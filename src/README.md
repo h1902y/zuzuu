@@ -27,8 +27,8 @@ src/
 | [`grow/`](grow/) | `observe` · `enhance` · `propose` · `review` · `snapshot` · `log` — the whole growth loop in one place | [05](../docs/learn/05-how-the-system-grows.md) · [06](../docs/learn/06-observing-a-host.md) |
 | [`guardrails/`](guardrails/) | `gate` — the enforced `PreToolUse` check | [04](../docs/learn/04-how-an-act-runs-safely.md) |
 | [`hosts/`](hosts/) | per-host adapters + `capture` · `signals` · `hook` (Design B) | [06](../docs/learn/06-observing-a-host.md) |
-| [`sessions/`](sessions/) | `record` (the index + lifecycle) + the git-branch engine (`session-git` · `worktree` · `manifest` · `labels`) | [08](../docs/learn/08-the-cull.md) |
-| [`cli/`](cli/) | the `zz` router + `init` · `enable` · `doctor` · `code` · `web` · `migrate` · `session` | [07](../docs/learn/07-the-cli-veneer.md) |
+| [`sessions/`](sessions/) | the git-branch engine — `session-git` (lifecycle) · `session-worktree` (concurrency) · `git` (plumbing) · `labels` | [08](../docs/learn/08-the-cull.md) |
+| [`cli/`](cli/) | the `zz` router + `init` · `enable` · `doctor` · `code` · `web` · `session` | [07](../docs/learn/07-the-cli-veneer.md) |
 | [`serve/`](serve/) | `api` (the façade) · `registry` (capability dispatch) · `wire` (registerAll) · `digest` | — |
 
 ## The one rule that replaced strict layering
