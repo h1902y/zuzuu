@@ -1,4 +1,4 @@
-// rung 8a — the session record + lifecycle + index (kernel/session).
+// sessions/record.mjs — the session record + lifecycle + index.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';

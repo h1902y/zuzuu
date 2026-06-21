@@ -1,7 +1,7 @@
 // Playground 5 — v2 observe, demonstrated on real transcripts.
 //
 // Mines the host sessions Claude/OpenCode/… ACTUALLY wrote on this machine
-// through the v2 observe stack (hosts/capture → pipelines/observe) and checks it
+// through the v2 observe stack (hosts/capture → loop/observe) and checks it
 // produces evidence-backed, module-routed proposals — the loop's cold-start.
 // Skips if no host has data here (not a failure).
 

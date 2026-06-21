@@ -4,6 +4,11 @@
 //   TURN  → checkpoint commit ON the session branch
 //   END   → squash-merge to main as ONE commit `session: <title>`, delete branch
 //
+// (Over the ~200-line soft cap by design: the OPEN/TURN/END lifecycle + its
+// single-working-branch recovery is one cohesive, safety-critical responsibility
+// that the characterization tests pin as a unit — splitting it would scatter the
+// invariant across files. The git plumbing already lives in git.mjs.)
+//
 // THE most safety-critical module in the codebase: it runs git mutations inside
 // USERS' repos, triggered from fail-open lifecycle hooks. Therefore:
 //   - every exported op is try-wrapped and returns { ok:false, reason } — NEVER throws

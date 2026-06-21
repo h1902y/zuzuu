@@ -1,4 +1,4 @@
-// rung 4 — capabilities/act + capabilities/gate + kernel/log.
+// use/act.mjs + guardrails/gate.mjs + loop/log.mjs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';

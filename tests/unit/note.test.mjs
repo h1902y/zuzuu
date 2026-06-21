@@ -1,4 +1,4 @@
-// kernel/note.mjs — the one envelope: parse · serialize · validate · id.
+// notes/note.mjs — the one envelope: parse · serialize · validate · id.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parse, serialize, validate, idFromPath, slugify, deriveTitle } from '../../src/notes/note.mjs';

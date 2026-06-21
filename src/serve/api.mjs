@@ -12,7 +12,7 @@
 //       repeat. Zero-dep.
 
 import { homeDir, repoRoot } from '../notes/store.mjs';
-import { invoke } from './registry.mjs';
+import { invoke } from './dispatch.mjs';
 import { listModules, readManifest } from '../notes/module.mjs';
 import { registerAll } from './wire.mjs';
 import { createProposal, listProposals, readProposal } from '../loop/propose.mjs';

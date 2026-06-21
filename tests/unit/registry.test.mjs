@@ -1,4 +1,4 @@
-// kernel/capability.mjs + kernel/module.mjs — the one registry + manifest.
+// serve/dispatch.mjs (the capability registry) + notes/module.mjs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { serialize } from '../../src/notes/note.mjs';
 import { readManifest, capabilitiesOf, listModules, moduleHas } from '../../src/notes/module.mjs';
-import { register, get, has, list, clear, invoke, describe } from '../../src/serve/registry.mjs';
+import { register, get, has, list, clear, invoke, describe } from '../../src/serve/dispatch.mjs';
 
 function withHome(manifests, fn) {
   const root = mkdtempSync(join(tmpdir(), 'zuzuu-cap-'));

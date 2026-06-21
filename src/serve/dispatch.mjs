@@ -1,4 +1,4 @@
-// src/serve/registry.mjs — the one capability registry.
+// src/serve/dispatch.mjs — the one capability registry.
 //
 // what: the single place capabilities (verbs over a module's notes) are
 //       registered and dispatched. A capability is a named handler; a module

@@ -7,7 +7,7 @@ import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { serialize } from '../../src/notes/note.mjs';
-import { invoke } from '../../src/serve/registry.mjs';
+import { invoke } from '../../src/serve/dispatch.mjs';
 import { registerAll, resetCapabilities } from '../../src/serve/wire.mjs';
 import { createProposal } from '../../src/loop/propose.mjs';
 import { approve } from '../../src/loop/review.mjs';

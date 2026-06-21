@@ -1,4 +1,4 @@
-// kernel/index.mjs + capabilities/query.mjs — the query engine.
+// notes/index.mjs (the query cache) + use/query.mjs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
