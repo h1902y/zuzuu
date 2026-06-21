@@ -137,6 +137,12 @@ export function openSession(cwd, sessionId) {
     const reason = disabledReason(cwd);
     if (reason) return { ok: false, reason };
     const target = sessionBranchName(sessionId);
+    // The branch name is a truncated id, so two distinct session ids can collide
+    // onto it. Stamp the FULL id on the branch and refuse to resume one that
+    // belongs to a different session (else session B silently commits onto A's
+    // branch). A branch from before this stamp (no zz-id) resumes as before.
+    const recorded = git(['config', `branch.${target}.zz-id`], cwd).out;
+    if (recorded && recorded !== String(sessionId)) return { ok: false, blocked: true, collision: true, existing: target, reason: 'id-collision' };
     const cur = currentBranch(cwd);
     if (cur === target) return { ok: true, resumed: true, branch: target };
     const existing = listSessionBranches(cwd);
@@ -144,6 +150,7 @@ export function openSession(cwd, sessionId) {
     const r = git(['checkout', '-q', '-b', target], cwd);
     if (!r.ok) return { ok: false, reason: r.err || 'checkout-failed' };
     git(['config', `branch.${target}.zz-base`, cur], cwd); // remember where to merge back (best-effort)
+    git(['config', `branch.${target}.zz-id`, String(sessionId)], cwd); // stamp the full id (collision guard)
     return { ok: true, branch: target };
   } catch (e) {
     return { ok: false, reason: String(e) };
@@ -152,8 +159,13 @@ export function openSession(cwd, sessionId) {
 
 // The secret family checkpoints must never commit — mirrors the seeded
 // no-secret-reads guardrail (scaffold.mjs RULES_SEED: .env / id_rsa / .pem).
-const SECRET_GLOBS = ['.env', '.env.*', '**/.env', '**/.env.*', '**/*.pem', '**/*.key', '**/id_rsa*'];
-const SECRET_RE = /(^|\/)\.env(\.|$)|(^|\/)id_rsa[^/]*$|\.pem$|\.key$/;
+const SECRET_GLOBS = [
+  '.env', '.env.*', '**/.env', '**/.env.*',
+  '**/*.pem', '**/*.key', '**/*.p12', '**/*.pfx', '**/*.crt',
+  '**/id_rsa*', '**/id_dsa*', '**/id_ecdsa*', '**/id_ed25519*',
+  '**/credentials',
+];
+const SECRET_RE = /(^|\/)\.env(\.|$)|(^|\/)(id_rsa|id_dsa|id_ecdsa|id_ed25519)[^/]*$|\.(pem|key|p12|pfx|crt)$|(^|\/)credentials$/;
 
 /** How many dirty/untracked paths are secret-family (and so were excluded). */
 function countExcludedSecrets(cwd) {
@@ -161,8 +173,13 @@ function countExcludedSecrets(cwd) {
   if (!out) return 0;
   let n = 0;
   for (const line of out.split('\n')) {
-    const p = line.slice(3);
-    const path = (p.includes(' -> ') ? p.split(' -> ').pop() : p).replace(/^"|"$/g, '');
+    // Extract the path tolerantly: the git() wrapper trims the whole stdout, so
+    // the FIRST porcelain line can lose its leading space (` M x` → `M x`). The
+    // `{1,2}` status match (with space in the class) handles both shapes — a bare
+    // slice(3) would shift the path and miss a secret.
+    const m = line.match(/^[ ?!MTADRCU]{1,2} (.+)$/);
+    const raw = m ? m[1] : line;
+    const path = (raw.includes(' -> ') ? raw.split(' -> ').pop() : raw).replace(/^"|"$/g, '');
     if (SECRET_RE.test(path)) n += 1;
   }
   return n;

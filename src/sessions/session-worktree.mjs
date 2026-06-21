@@ -97,6 +97,13 @@ export function openSessionWorktree(cwd, sessionId) {
     const base = mainBranch(cwd) || currentBranch(cwd);
     if (!base) return { ok: false, reason: 'no-base' };
 
+    // Collision guard: the worktree dir + branch are named from a truncated id, so
+    // two distinct sessions could share them — and close --force would destroy the
+    // other's uncommitted work. Refuse to reuse a branch stamped with a different
+    // full id. (A pre-stamp branch with no zz-id resumes as before.)
+    const recorded = git(['config', `branch.${branch}.zz-id`], root).out;
+    if (recorded && recorded !== String(sessionId)) return { ok: false, blocked: true, collision: true, branch, reason: 'id-collision' };
+
     if (allWorktrees(root).some((w) => w.path === wt)) {
       return { ok: true, resumed: true, branch, worktree: wt, base };
     }
@@ -106,6 +113,7 @@ export function openSessionWorktree(cwd, sessionId) {
       : git(['worktree', 'add', '-b', branch, wt, base], root);
     if (!add.ok) return { ok: false, reason: add.err || 'worktree-add-failed' };
     git(['config', `branch.${branch}.zz-base`, base], root); // remember where to merge back
+    git(['config', `branch.${branch}.zz-id`, String(sessionId)], root); // stamp the full id (collision guard)
     return { ok: true, branch, worktree: wt, base };
   } catch (e) {
     return { ok: false, reason: String(e) };
