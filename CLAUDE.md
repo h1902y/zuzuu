@@ -48,7 +48,6 @@ The **workbench** lives at `web/` — a self-contained nested project (own packa
 - **Hooks/plugins must never break the host:** always exit 0 (`… || true` wrappers, try-wrapped plugin), spawn detached, degrade silently. The guardrails **gate fails open** — engine/rule errors emit no decision (host's normal flow), never a block.
 - **Home deny rules are narrow** (`.zuzuu/.traces/`, `.zuzuu/.live/` only) — a blanket `.zuzuu/**` deny starves the agent of its own modules (which it's meant to read).
 - **Secrets:** keys never land in tracked files; scan before commit/push. Generated host-enablement config (`.opencode/`, `.claude/settings*.json`) is git-ignored.
-- The `<!-- >>> zuzuu:modules … -->` block at the bottom of this file is **managed by `zuzuu init`** (`home/inject.mjs`, currently `v9`) — don't hand-edit it.
 
 ## Load-bearing vocabulary (these terms carry decisions)
 
@@ -83,15 +82,3 @@ This project owns its **work** activities in [`.personal/tasks/`](.personal/task
 - Activity templates live at `~/Documents/personal/tasks/.schema/templates/` (canonical) — mirror that shape when creating a new task here.
 - When task state changes materially, reflect the headline in [`.personal/STATUS.md`](.personal/STATUS.md) (slim, work-only: Focus now / Shipped recently / Blockers / Next up) so the personal vault's dashboard stays current — that's the only cross-repo obligation.
 - Some tasks carry `[[wikilinks]]` to notes that live in the personal vault; those are cross-repo and won't resolve in Obsidian — leave them as references.
-
-<!-- >>> zuzuu:modules:v9 >>> -->
-## zuzuu — agent module home
-
-This project has a zuzuu module home at `.zuzuu/` (managed by the zuzuu CLI). Work to this contract:
-
-- **Ground.** At session start, read `.zuzuu/.live/digest.md` if it exists — your *zuzuu digest* (instructions, knowledge, actions, proposals, guardrails), regenerated each session. Trust it as ground truth; don't re-derive what it states or re-read module files it already summarized. (On Claude Code the same brief also arrives inline at session start.)
-- **Cite in-flight.** When an answer draws on a stored fact, say `from knowledge: <id>`; when you follow a runbook/action, name it. Make the module visible.
-- **Harvest at close.** Before ending, propose durable learnings as one-fact files in `.zuzuu/knowledge/inbox/` (plain text is fine), and propose any reusable procedure with `zuzuu act propose <slug>` (it lands in `actions/inbox/`). A human reviews both via `zuzuu review`. Never write `knowledge/items/` or active `actions/` directly.
-- **Respect `.zuzuu/guardrails/`** — hard rules, *enforced* on tool calls by the zuzuu gate; a refusal there is policy, not preference.
-- Do **not** read `.zuzuu/.traces/` or `.zuzuu/.live/` (zuzuu observability internals) — **except `.zuzuu/.live/digest.md`, which is written for you.**
-<!-- <<< zuzuu:modules <<< -->

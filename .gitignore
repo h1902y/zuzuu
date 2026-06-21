@@ -28,19 +28,4 @@ docs/design-research/shots/
 .personal/
 *.tgz
 
-# mns: local-only observability data
-
-# mns: local-only observability data
-.gemini/settings.json
-.codex/hooks.json
-
-# mns: local-only observability data
-.pi/extensions/zuzuu.ts
-
-# zuzuu: local-only observability data
-.zuzuu/.traces/
-.zuzuu/.live/
-.zuzuu/knowledge/.index.db
-# per-session git worktrees (Wave B concurrency) — working copies, never tracked
-.zuzuu/.worktrees/
 web-app/
