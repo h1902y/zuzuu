@@ -14,8 +14,8 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
-const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const web = join(root, 'web');
+const web = join(dirname(fileURLToPath(import.meta.url)), '..'); // this file lives in web/scripts/
+const root = join(web, '..');                                    // the repo root (web-app/ is staged here)
 const daemon = join(web, 'packages', 'daemon');
 const out = join(root, 'web-app');
 
