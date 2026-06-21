@@ -176,3 +176,15 @@ test('review: deleting a non-existent note returns ok:false (no phantom log/mint
     assert.equal(generations(home, 'knowledge').active, null, 'no generation minted for a no-op');
   });
 });
+
+test('review: approving a deprecate flips status to deprecated and KEEPS the file', () => {
+  withHome((home) => {
+    writeZu(home, 'knowledge', 'old', { type: 'knowledge', title: 'stale', status: 'active' });
+    const p = createProposal(home, 'knowledge', { op: 'deprecate', target: 'old' });
+    const r = approve(home, 'knowledge', p.id);
+    assert.equal(r.ok, true);
+    assert.equal(existsSync(join(home, 'knowledge', 'items', 'old.md')), true, 'deprecate keeps the file');
+    const note = parse(readFileSync(join(home, 'knowledge', 'items', 'old.md'), 'utf8'), { id: 'old' }).note;
+    assert.equal(note.status, 'deprecated');
+  });
+});

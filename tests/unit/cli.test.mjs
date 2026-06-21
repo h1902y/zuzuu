@@ -9,6 +9,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { run } from '../../src/cli/index.mjs';
 import { initHome } from '../../src/cli/init.mjs';
+import { readManifest } from '../../src/notes/module.mjs';
 import { serialize } from '../../src/notes/note.mjs';
 import { resetCapabilities } from '../../src/serve/wire.mjs';
 
@@ -114,5 +115,16 @@ test('run: check reports integrity per module; digest summarizes the brain', asy
     out.length = 0;
     assert.equal(await run(['digest'], io), 0);
     assert.match(out.join('\n'), /session brief/);
+  });
+});
+
+test('init: every scaffolded module.md round-trips its note_type through readManifest', async () => {
+  await withRepo(({ cwd }) => {
+    initHome(cwd);
+    const home = join(cwd, '.zuzuu');
+    const expected = { knowledge: 'knowledge', memory: 'episode', actions: 'action', instructions: 'instruction', guardrails: 'rule' };
+    for (const [m, t] of Object.entries(expected)) {
+      assert.equal(readManifest(home, m).note_type, t, `${m}.module.md note_type survived serialize∘parse`);
+    }
   });
 });
