@@ -14,6 +14,9 @@ import { open } from '../api.mjs';
 import { initHome } from './init.mjs';
 import { sessionCommand } from './session.mjs';
 import { enable, disable } from './enable.mjs';
+import { doctor, status, explain } from './doctor.mjs';
+import { code } from './code.mjs';
+import { web } from './web.mjs';
 import { runHook } from '../hosts/hook.mjs';
 import { observe } from '../pipelines/observe.mjs';
 import { digestText } from '../pipelines/digest.mjs';
@@ -50,6 +53,8 @@ const HELP = `zz — your project's brain (envelopes, queried/run/grown, human-g
   zz review reject  <m> <id>    archive a proposal
   zz module [list | <m> generations | <m> rollback <n>]
   zz session [status|merge|continue|discard --yes|worktree …|manifest|restore|label]
+  zz doctor / status / explain  health · inventory · porcelain
+  zz code [dir] / web           launch OpenCode (bundled host) · the workbench
   zz digest                     the session-start brief`;
 
 export async function run(argv, io = {}) {
@@ -187,6 +192,17 @@ export async function run(argv, io = {}) {
 
       case 'session':
         return sessionCommand(args, cwd, log);
+
+      case 'doctor':
+        return doctor(cwd, log);
+      case 'status':
+        return status(cwd, log);
+      case 'explain':
+        return explain(args._[0], log);
+      case 'code':
+        return code({ ...args, _: args._ }, { log });
+      case 'web':
+        return web({ ...args, _: args._ }) ?? 0;
 
       case 'enable': {
         const r = enable(cwd);

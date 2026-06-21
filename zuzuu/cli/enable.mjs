@@ -73,6 +73,11 @@ export function enable(cwd = process.cwd()) {
   return { ok: true, path, installed: isInstalled(readSettings(path)) };
 }
 
+/** True if the host hooks are installed in this repo. */
+export function hooksInstalled(cwd = process.cwd()) {
+  return isInstalled(readSettings(settingsPath(cwd)));
+}
+
 /** Remove ONLY zuzuu's entries. Returns {ok, path, removed}. */
 export function disable(cwd = process.cwd()) {
   const path = settingsPath(cwd);
