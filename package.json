@@ -6,18 +6,17 @@
     "access": "public"
   },
   "type": "module",
-  "description": "Give the coding agent you already run (Claude Code, Codex, Gemini CLI, OpenCode) evolving faculties \u2014 knowledge, memory, actions, instructions, guardrails \u2014 with host-agnostic OpenTelemetry session tracing. Zero dependencies.",
+  "description": "Give the coding agent you already run (Claude Code, Codex, Gemini CLI, OpenCode, pi) an evolving body of knowledge, memory, actions, and guardrails \u2014 plain markdown notes it queries, runs, and grows from your real sessions, every change human-gated. Zero dependencies.",
   "keywords": [
     "ai-agents",
     "claude-code",
     "codex",
     "gemini-cli",
     "opencode",
-    "opentelemetry",
-    "observability",
-    "tracing",
-    "guardrails",
     "agent-memory",
+    "knowledge-base",
+    "guardrails",
+    "human-in-the-loop",
     "cli"
   ],
   "homepage": "https://github.com/h1902y/zuzuu#readme",
@@ -40,19 +39,17 @@
   },
   "files": [
     "bin/",
-    "zuzuu/",
+    "src/",
     "web-app/",
     "LICENSE",
     "README.md"
   ],
   "scripts": {
     "zuzuu": "node bin/zuzuu.mjs",
-    "capture": "node zuzuu/capture/bin/capture.mjs",
-    "inspect": "node zuzuu/capture/bin/inspect-trace.mjs",
     "test": "node --test 'tests/**/*.test.mjs'",
     "playground": "node tests/playground/run.mjs",
     "prepublishOnly": "npm test",
-    "build:web": "node scripts/build-web.mjs"
+    "build:web": "node web/scripts/build-web.mjs"
   },
   "optionalDependencies": {
     "@hono/node-server": "^2.0.4",

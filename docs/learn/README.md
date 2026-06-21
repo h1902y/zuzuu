@@ -19,15 +19,15 @@ Each page builds on the last. **✅ written · 🚧 planned** (a page is written
 | # | Page | What you'll understand |
 |---|---|---|
 | 00 | ✅ [Motivation](00-motivation.md) | Why this exists — the problem with how agents remember and act, and the bet zuzuu makes |
-| 01 | ✅ [The mental model](01-mental-model.md) | The three primitives (zu · module · project), the mechanical/agentic operations, the one-substrate idea |
-| 02 | 🚧 The seed in one file | Read a real zu — inert, then runnable — the same file, two jobs |
-| 03 | 🚧 How a zu becomes queryable | The index, query-on-demand, why it's context-frugal |
-| 04 | 🚧 How an act runs safely | The tiered containment model and the policy block |
-| 05 | 🚧 How the system grows | The session, the objective stack, episodes → enhance → the human gate → the right module |
-| 06 | 🚧 Observing a host | The capture plugin and why it solves the loop's cold-start |
-| 07 | 🚧 Walk the kernel | A guided, file-by-file tour of the host-neutral core |
-| 08 | 🚧 Walk capabilities & pipelines | How verbs and processes compose over the kernel |
-| 09 | 🚧 Extending zuzuu | Add a module, a zu type, a host — by hand |
+| 01 | ✅ [The mental model](01-mental-model.md) | The three primitives (note · module · project), the mechanical/agentic operations, the one-substrate idea |
+| 02 | ✅ [The seed in one file](02-the-seed-in-one-file.md) | Read a real note — inert, then runnable — the same file, two jobs |
+| 03 | ✅ [How a note becomes queryable](03-how-a-note-becomes-queryable.md) | The index, query-on-demand, why it's context-frugal |
+| 04 | ✅ [How an act runs safely](04-how-an-act-runs-safely.md) | The tiered containment model and the policy block |
+| 05 | ✅ [How the system grows](05-how-the-system-grows.md) | The enhance loop: mine → propose → review → snapshot, the human gate, generations |
+| 06 | ✅ [Observing a host](06-observing-a-host.md) | Design B · the adapter (transcript→signals) · capture-core · observe routes corroborated candidates to modules |
+| 07 | ✅ [The CLI veneer](07-the-cli-veneer.md) | The thin router over api · AXI/TOON output · git-citizen idempotent init · the loop from the command line |
+| 08 | ✅ [The cull](08-the-cull.md) | Reabsorb the surviving v1 surfaces onto the kernel, drop the OTLP layer, delete v1 — ~13k → 3.8k |
+| 09 | 🚧 Extending zuzuu | Add a module, a note type, a host — by hand |
 | 10 | 🚧 The decisions & why | The forks we faced and how we resolved them (links to the design specs) |
 
 Read any time:

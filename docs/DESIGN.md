@@ -1,6 +1,8 @@
 # zuzuu — the design
 
-> **What this is:** the **canonical design document** — what we're building, why, the architecture, the decisions, and the research it stands on. It consolidates the prior set of concept/design docs into one entry point. Depth lives in [`inspiration/`](inspiration/) (the source-level audits and the 100-project field survey). For *what runs today* and how to use it, see the [repo README](../README.md).
+> **⚠️ Read this first (2026-06-21): role changed.** The v2 rebuild shipped (rungs 1–8 — see [`LOG.md`](LOG.md)) and the v1 substrate this document's **architecture** sections describe (§3 *be/run/evolve* mechanics, §5 the module spine, §6 deployment, and the OTLP/trace/`distill`/`capture` vocabulary throughout) is **deleted**. The canonical, current account of *how the code actually works* now lives in [**`../CLAUDE.md`**](../CLAUDE.md) (architecture) and [**`learn/`**](learn/) (the educative walk, lessons 02–08). This file is preserved as the **strategy & rationale** record — the *why*: the core hypothesis (§2), the be/run/evolve framing and the entity model (§3–4), interactive-first (§7), lineage and prior art (§9, §11), and the fixed decisions. Read those for the reasoning; read CLAUDE.md/learn for the implementation. Where a mechanism here conflicts with the shipped code, the code wins.
+>
+> **What this was:** the canonical design document — what we're building, why, the architecture, the decisions, and the research it stands on. Depth lives in [`inspiration/`](inspiration/) (the source-level audits and the 100-project field survey). For *what runs today*, see the [repo README](../README.md).
 >
 > **Provenance:** until 2026-06-10 this file *was* the repo `README.md` — older experiment records, commit messages, and code comments that cite "README §N" mean **this document**. Converged 2026-06-01 → 2026-06-08; build began 2026-06-09.
 >

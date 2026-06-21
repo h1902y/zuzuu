@@ -6,7 +6,7 @@ The bar: a first-time reader can read the whole repo. Not skim — read. That wo
 
 ## The seven rules
 
-**1. One file, one responsibility.** A file does a single, nameable job. If you can't describe it in one sentence without "and," it's two files. (The `sessions.mjs` split — data / trace / redact / diff — is the example.)
+**1. One file, one responsibility.** A file does a single, nameable job. If you can't describe it in one sentence without "and," it's two files. (`sessions/` is the example — the git plumbing, the branch policy, the worktree layer, the manifest, and the labels each get their own file.)
 
 **2. Small by default — a soft cap of ~200 lines.** Past it, find the seam. A few files earn an exception (a host adapter, a dense seed table) and justify it in their header. The cap forces rule 1.
 
@@ -14,38 +14,39 @@ The bar: a first-time reader can read the whole repo. Not skim — read. That wo
 
 **4. Public surface at the top, helpers below.** Exports first, in the order a caller meets them; private helpers underneath. Interface before machinery.
 
-**5. Names mirror the vocabulary.** The code uses the book's words: `zu`, `module`, `project`, `query`, `enhance`, `act`, `approval`, `session`. If lesson `01` names a concept, the code spells it the same. No synonyms, no drift.
+**5. Names mirror the vocabulary.** The code uses the book's words: `note`, `module`, `project`, `query`, `act`, `enhance`, `review`, `session`. The directories *are* the mental model — `notes/`, `use/`, `loop/`, `guardrails/`, `hosts/`, `sessions/`, `cli/`, `serve/`. If a lesson names a concept, the code spells it the same. No synonyms, no drift.
 
-**6. Dependencies point one direction.**
+**6. The brain is written in exactly one place.** The tree is filed by concept (not by a strict dependency layer), so it's a plain DAG — no import cycles. The invariant that matters more than any layer diagram:
 
 ```
-kernel  ←  capabilities  ←  pipelines  ←  hosts / cli
-(the 3     (verbs over      (processes     (the edges:
- primitives) the kernel)     that compose   observe, drive,
-                             capabilities)  the CLI veneer)
+   use/        loop/                         the rule:
+   query        observe → enhance → propose   only loop/ writes the brain,
+   act          → review → snapshot           and only through review (the gate).
+   check        + log (the feedback edge)      use/ only reads and runs.
 ```
 
-Inner layers never import outer ones. `kernel/` knows nothing about a host or a command. Read inward and you always stand on solid ground; read outward and you always know what a thing is built from. An import that points the wrong way is a bug, not a shortcut.
+`use/` and the rest never mutate your notes; every change to the brain flows through `loop/review.mjs`. (`act` does append a *run* to the git-ignored `runs.jsonl` via `loop/log` — telemetry the loop later mines — but that's not the brain.) Read a verb in `use/` and you know it can't rewrite your notes. An import cycle, or a note-write that skips the gate, is a bug — not a shortcut. (`tests/unit/architecture.test.mjs` pins both.)
 
 **7. Tests read as behavior.** A test is named for the behavior it pins, not the function it calls. The suite is executable documentation. When prose and a test disagree, the test wins. Golden values are pasted from real runs, never hand-computed.
 
 ## How to read the whole thing
 
-Follow the grain (rule 6), inside out:
+Read by concept, in the order the system works:
 
-1. **`kernel/`** — the three primitives and the store. Read first; everything builds on these. Start with `item.mjs` (the atom), then `store.mjs`, `index.mjs`, `capability.mjs`.
-2. **`capabilities/`** — one file per verb (`recall`, `run`, `gate`, `mine`, …). Each is a self-contained answer to "what can you do to items?"
-3. **`pipelines/`** — how verbs compose into processes (`evolve`, `serve`, `observe`).
-4. **`hosts/` and `cli/`** — the edges: how the outside world reaches the core.
+1. **`notes/`** — the substrate. Start with `note.mjs` (the atom — the envelope), then `store.mjs`, `index.mjs`. Everything builds on these.
+2. **`use/`** — one file per thing you *do* to the brain: `query` (read), `act` (run), `check` (inspect).
+3. **`loop/`** — how the brain *grows*, all in one place: `observe → enhance → propose → review → snapshot`, with `log` as the feedback edge.
+4. **`guardrails/` · `hosts/` · `sessions/`** — what's enforced, how a host is observed, and the session-as-git-branch engine.
+5. **`cli/` and `serve/`** — the edges: the `zz` veneer and the `api` façade that ties it together.
 
-Lessons `07`–`08` walk these file by file. This page is the map; those are the tours.
+Lessons `02`–`08` walk these file by file. This page is the map; those are the tours.
 
 ## When you add code
 
 You're adding a page to a book someone will read. Before a pull request:
 
 - Does each new file pass the seven rules?
-- Does it import only inward (rule 6)?
+- Does it keep the DAG acyclic, and route any write to the brain through `review` (rule 6)?
 - If it teaches something new about how the system works, does its build rung's lesson in `docs/learn/` get written or updated in the **same** change? (The coupling rule — see the [README](README.md).)
 
 Readable code is a feature here, equal to correctness. A clever file a newcomer can't follow has failed half its job.

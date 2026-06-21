@@ -16,9 +16,9 @@ import {
   readSessionManifest,
   listSessionManifests,
   restoreSession,
-} from '../../zuzuu/sessions/session-manifest.mjs';
-import { sessionBranchName } from '../../zuzuu/sessions/session-git.mjs';
-import { openSessionWorktree, worktreePath } from '../../zuzuu/sessions/session-worktree.mjs';
+} from '../../src/sessions/session-manifest.mjs';
+import { sessionBranchName } from '../../src/sessions/session-git.mjs';
+import { openSessionWorktree, worktreePath } from '../../src/sessions/session-worktree.mjs';
 
 function git(args, cwd) {
   const r = spawnSync('git', args, { cwd, encoding: 'utf8' });

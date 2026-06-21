@@ -1,0 +1,155 @@
+// notes/note.mjs — the one envelope: parse · serialize · validate · id.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { parse, serialize, validate, idFromPath, slugify, deriveTitle } from '../../src/notes/note.mjs';
+
+// ── parse: scalars, the required `type`, fail-soft ──────────────────────────
+
+test('parse: minimal note — only type required', () => {
+  const r = parse('---\ntype: knowledge\n---\nA fact.');
+  assert.equal(r.ok, true);
+  assert.equal(r.note.type, 'knowledge');
+  assert.equal(r.note.body, 'A fact.');
+});
+
+test('parse: missing type → not ok, but never throws', () => {
+  const r = parse('---\ntitle: no type here\n---\nbody');
+  assert.equal(r.ok, false);
+  assert.ok(r.errors.some((e) => e.includes('type')));
+  assert.equal(r.note.title, 'no type here'); // still parsed, just invalid
+});
+
+test('parse: no frontmatter block → fail-soft', () => {
+  const r = parse('just a body, no fences');
+  assert.equal(r.ok, false);
+  assert.equal(r.note, null);
+  assert.deepEqual(r.errors, ['no frontmatter block']);
+});
+
+test('parse: unknown keys are preserved (OKF — tolerate unknown)', () => {
+  const r = parse('---\ntype: knowledge\nzz_custom: hello\nanother_one: 42\nquoted_num: "7"\n---\nx');
+  assert.equal(r.ok, true);
+  assert.equal(r.note.zz_custom, 'hello');
+  assert.equal(r.note.another_one, 42); // bare scalars coerce to their type (number)
+  assert.equal(r.note.quoted_num, '7'); // a quoted scalar stays a string
+});
+
+// ── parse: collections — block lists, block maps, inline JSON ──────────────
+
+test('parse: block list of scalars (tags)', () => {
+  const r = parse('---\ntype: knowledge\ntags:\n  - client-acme\n  - design\n---\nx');
+  assert.deepEqual(r.note.tags, ['client-acme', 'design']);
+});
+
+test('parse: block one-level map (relations)', () => {
+  const r = parse('---\ntype: knowledge\nrelations:\n  about: client-acme\n  supersedes: v1\n---\nx');
+  assert.deepEqual(r.note.relations, { about: 'client-acme', supersedes: 'v1' });
+});
+
+test('parse: block list of flat maps (provenance)', () => {
+  const r = parse('---\ntype: knowledge\nprovenance:\n  - session: ses_a\n    ref: turn-1\n---\nx');
+  assert.deepEqual(r.note.provenance, [{ session: 'ses_a', ref: 'turn-1' }]);
+});
+
+test('parse: inline JSON for nested values (policy)', () => {
+  const r = parse('---\ntype: action\npolicy: {"tier":"contained","filesystem":{"allowWrite":["./"]}}\n---\nx');
+  assert.deepEqual(r.note.policy, { tier: 'contained', filesystem: { allowWrite: ['./'] } });
+});
+
+test('parse: inline JSON array (tags one line)', () => {
+  const r = parse('---\ntype: knowledge\ntags: ["a","b"]\n---\nx');
+  assert.deepEqual(r.note.tags, ['a', 'b']);
+});
+
+// ── round-trip: serialize ∘ parse is stable ────────────────────────────────
+
+const rt = (note) => parse(serialize({ ...note, type: note.type ?? 'knowledge' })).note;
+
+test('round-trip: a rich note survives parse∘serialize', () => {
+  const src = {
+    type: 'action', title: 'Build the report', status: 'active',
+    tags: ['reporting', 'decks'],
+    relations: { uses: 'client-acme-style' },
+    inputs: [{ name: 'client', required: true }],
+    policy: { tier: 'contained', filesystem: { allowWrite: ['./'] }, run: { allow: ['pandoc'] } },
+    body: 'Generates the weekly deck.',
+  };
+  const back = rt(src);
+  for (const k of Object.keys(src)) assert.deepEqual(back[k], src[k], `key ${k} round-trips`);
+});
+
+test('round-trip: serialize is idempotent (parse→serialize→parse stable)', () => {
+  const text = serialize({ type: 'knowledge', title: 'x', tags: ['a', 'b'], body: 'hi' });
+  const once = parse(text).note;
+  const twice = parse(serialize(once)).note;
+  assert.deepEqual(twice, once);
+});
+
+test('round-trip: scalar quoting — colons, brackets, backslashes (guardrail regex)', () => {
+  // the exact no-root-wipe pattern must survive
+  const pat = 'rm\\s+-[a-z]*r[a-z]*\\s+/(?![\\w/])';
+  const back = rt({ type: 'rule', pattern: pat, note: 'a: b # c', empty: '' });
+  assert.equal(back.pattern, pat);
+  assert.equal(back.note, 'a: b # c');
+  assert.equal(back.empty, '');
+});
+
+test('serialize: id is never written to frontmatter (it is the filename)', () => {
+  const text = serialize({ id: 'should-not-appear', type: 'knowledge', body: 'x' });
+  assert.ok(!text.includes('should-not-appear'));
+  assert.ok(text.includes('type: knowledge'));
+});
+
+// ── validate: OKF + optional module schema ─────────────────────────────────
+
+test('validate: only type required; unknown keys tolerated', () => {
+  assert.equal(validate({ type: 'knowledge', whatever: 1 }).ok, true);
+  assert.equal(validate({ title: 'no type' }).ok, false);
+});
+
+test('validate: optional schema adds required fields + kind enum', () => {
+  const schema = { required: ['title'], kinds: ['action'] };
+  assert.equal(validate({ type: 'action', title: 't' }, schema).ok, true);
+  assert.equal(validate({ type: 'action' }, schema).ok, false); // missing title
+  assert.equal(validate({ type: 'knowledge', title: 't' }, schema).ok, false); // wrong kind
+});
+
+// ── id + helpers ────────────────────────────────────────────────────────────
+
+test('idFromPath: id = filename stem', () => {
+  assert.equal(idFromPath('/a/b/client-acme-style.md'), 'client-acme-style');
+  assert.equal(idFromPath('build-report.md'), 'build-report');
+});
+
+test('parse: id is injected by the caller, not read from frontmatter', () => {
+  const r = parse('---\ntype: knowledge\n---\nx', { id: 'from-filename' });
+  assert.equal(r.note.id, 'from-filename');
+});
+
+test('slugify + deriveTitle', () => {
+  assert.equal(slugify('Acme Prefers Blue!'), 'acme-prefers-blue');
+  assert.equal(deriveTitle('# A Heading\nmore'), 'A Heading');
+  assert.equal(deriveTitle('', 'fallback-id'), 'fallback-id');
+});
+
+test('round-trip: numbers, booleans, null, and empty collections keep their type', () => {
+  const note = { id: 'x', type: 'knowledge', count: 5, ratio: 1.5, flag: true, off: false, none: null, tags: [], meta: {}, looksNum: '42' };
+  const back = parse(serialize(note), { id: 'x' }).note;
+  assert.equal(back.count, 5);
+  assert.equal(back.ratio, 1.5);
+  assert.equal(back.flag, true);
+  assert.equal(back.off, false);
+  assert.equal(back.none, null);
+  assert.deepEqual(back.tags, []);          // empty array stays an array (not {})
+  assert.deepEqual(back.meta, {});          // empty object stays an object
+  assert.equal(back.looksNum, '42');        // a numeric-looking string stays a string
+});
+
+test('round-trip: parse and serialize are symmetric — a multiline value never throws', () => {
+  // a value with an embedded newline parses (inline JSON) and must re-serialize
+  const text = '---\ntype: knowledge\nnote: ["line1\\nline2"]\n---\nbody\n';
+  const note = parse(text, { id: 'x' }).note;
+  assert.deepEqual(note.note, ['line1\nline2']);
+  assert.doesNotThrow(() => serialize(note)); // used to throw — froze the note against edits
+  assert.deepEqual(parse(serialize(note), { id: 'x' }).note.note, ['line1\nline2']);
+});
