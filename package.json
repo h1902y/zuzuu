@@ -47,8 +47,6 @@
   ],
   "scripts": {
     "zuzuu": "node bin/zuzuu.mjs",
-    "capture": "node zuzuu/capture/bin/capture.mjs",
-    "inspect": "node zuzuu/capture/bin/inspect-trace.mjs",
     "test": "node --test 'tests/**/*.test.mjs'",
     "playground": "node tests/playground/run.mjs",
     "prepublishOnly": "npm test",

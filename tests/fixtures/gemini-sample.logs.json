@@ -1,6 +1,0 @@
-[
-  { "sessionId": "gsess-1", "messageId": 0, "type": "user", "message": "what is this repo", "timestamp": "2026-06-09T11:00:00.000Z" },
-  { "sessionId": "gsess-1", "messageId": 1, "type": "user", "message": "add a function to parse dates", "timestamp": "2026-06-09T11:02:30.000Z" },
-  { "sessionId": "gsess-1", "messageId": 2, "type": "user", "message": "now write a test for it", "timestamp": "2026-06-09T11:05:00.000Z" },
-  { "sessionId": "gsess-OTHER", "messageId": 0, "type": "user", "message": "unrelated session, must be filtered out", "timestamp": "2026-06-09T12:00:00.000Z" }
-]
