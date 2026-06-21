@@ -19,6 +19,7 @@ import { code } from './code.mjs';
 import { web } from './web.mjs';
 import { migrateHome } from './migrate.mjs';
 import { runHook } from '../hosts/hook.mjs';
+import { captureSignals } from '../hosts/capture.mjs';
 import { observe } from '../loop/observe.mjs';
 import { digestText } from '../serve/digest.mjs';
 import { toon } from '../notes/toon.mjs';
@@ -124,7 +125,8 @@ export async function run(argv, io = {}) {
 
       case 'observe': {
         const zz = open(cwd);
-        const r = observe(zz.home, { cwd, scope: args.scope || 'all' });
+        const sessions = captureSignals({ cwd, scope: args.scope || 'all' });
+        const r = observe(zz.home, { cwd, sessions });
         log(toon('observe', [{ mined: r.sessionsMined, candidates: r.candidates, proposed: r.proposed }], ['mined', 'candidates', 'proposed']));
         if (r.proposals.length) log(toon('proposals', r.proposals.map((p) => ({ module: p.module, id: p.target, score: p.score })), ['module', 'id', 'score'], ['zz review <module>']));
         return 0;
@@ -134,7 +136,7 @@ export async function run(argv, io = {}) {
         const zz = open(cwd);
         const mods = args._[0] ? [args._[0]] : MODULES;
         // observe (transcript miner) + each module's enhance (event-log miner)
-        const obs = observe(zz.home, { cwd });
+        const obs = observe(zz.home, { cwd, sessions: captureSignals({ cwd }) });
         let total = obs.proposed;
         const rows = [{ source: 'observe', proposed: obs.proposed }];
         for (const m of mods) {

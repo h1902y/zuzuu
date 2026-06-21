@@ -18,6 +18,7 @@ import { gate, toPreToolUseDecision } from '../guardrails/gate.mjs';
 import { sessionGitEnabled, openSession, checkpoint, closeSession } from '../sessions/session-git.mjs';
 import { inSessionWorktree } from '../sessions/session-worktree.mjs';
 import { observe } from '../loop/observe.mjs';
+import { captureSignals } from './capture.mjs';
 import { digestText } from '../serve/digest.mjs';
 
 // Host event vocabularies, mapped to one path (verified per-host wire data):
@@ -82,7 +83,7 @@ export function handleHook({ event, payload = {}, cwd = process.cwd(), host = 'c
     try { if (sessionGitEnabled(cwd)) checkpoint(cwd); } catch { /* fail-open — commits only on the session branch */ }
   } else if (END.has(event)) {
     try { if (sessionGitEnabled(cwd) && !inSessionWorktree(cwd)) closeSession(cwd, {}); } catch { /* fail-open */ }
-    try { observe(homeDir(repoRoot(cwd)), { cwd, scope: 'last' }); } catch { /* mining is best-effort */ }
+    try { observe(homeDir(repoRoot(cwd)), { cwd, sessions: captureSignals({ cwd, scope: 'last' }) }); } catch { /* mining is best-effort */ }
     writeDigest(cwd);
   } else {
     return { event, skipped: 'unhandled event' };

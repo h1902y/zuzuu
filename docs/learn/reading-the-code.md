@@ -25,7 +25,7 @@ The bar: a first-time reader can read the whole repo. Not skim — read. That wo
    check        + log (the feedback edge)      use/ only reads and runs.
 ```
 
-`use/` and the rest never mutate your notes; every change flows through `loop/review.mjs`. Read a verb in `use/` and you know it can't surprise you. An import cycle, or a write that skips the gate, is a bug — not a shortcut.
+`use/` and the rest never mutate your notes; every change to the brain flows through `loop/review.mjs`. (`act` does append a *run* to the git-ignored `runs.jsonl` via `loop/log` — telemetry the loop later mines — but that's not the brain.) Read a verb in `use/` and you know it can't rewrite your notes. An import cycle, or a note-write that skips the gate, is a bug — not a shortcut. (`tests/unit/architecture.test.mjs` pins both.)
 
 **7. Tests read as behavior.** A test is named for the behavior it pins, not the function it calls. The suite is executable documentation. When prose and a test disagree, the test wins. Golden values are pasted from real runs, never hand-computed.
 

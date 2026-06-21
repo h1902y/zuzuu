@@ -21,7 +21,7 @@ await run('observe real sessions → review-queued proposals', async () => {
   const root = mkdtempSync(join(tmpdir(), 'zuzuu-pg5-'));
   const home = join(root, '.zuzuu');
   try {
-    const r = observe(home, { cwd, scope: 'all' });
+    const r = observe(home, { cwd, sessions });
     note(`${r.sessionsMined} mined → ${r.candidates} candidates → ${r.proposed} proposals`);
     for (const p of r.proposals) note(`  [${p.module}] ${p.target} (score ${p.score})`);
 
@@ -33,7 +33,7 @@ await run('observe real sessions → review-queued proposals', async () => {
       check(p.change && p.change.type, `${p.target} carries a typed note`);
     }
     // idempotency: re-observing the same evidence proposes nothing new (dedup).
-    check(observe(home, { cwd, scope: 'all' }).proposed === 0, 'a second observe is idempotent (deduped)');
+    check(observe(home, { cwd, sessions }).proposed === 0, 'a second observe is idempotent (deduped)');
     note('proposals are staged only — the human gate (review) is the one door to the brain');
   } finally {
     rmSync(root, { recursive: true, force: true });

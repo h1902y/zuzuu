@@ -12,8 +12,10 @@
 //       candidate kind → {module, note}. Zero-dep, fail-soft.
 
 import { slugify } from '../notes/note.mjs';
-import { captureSignals } from '../hosts/capture.mjs';
 import { createProposal } from './propose.mjs';
+// NB: observe does NOT import hosts/ — the caller captures and injects
+// `opts.sessions` (the cli/hook do). That keeps the import graph acyclic:
+// hosts → loop, never loop → hosts.
 
 /**
  * Aggregate per-session signals → candidates above the corroboration threshold.
@@ -91,9 +93,9 @@ const ROUTE = {
  * @returns {{ sessionsMined, candidates, proposed, proposals }}
  */
 export function observe(home, opts = {}) {
-  // `opts.sessions` injects pre-mined signals (tests / a caller that already
-  // captured); otherwise sweep the real host transcripts.
-  const sessions = opts.sessions ?? captureSignals(opts);
+  // sessions are injected by the caller (the cli/hook capture via hosts/capture);
+  // observe itself never reaches into hosts/, so loop/ → hosts/ is not an edge.
+  const sessions = opts.sessions ?? [];
   const candidates = aggregate(sessions, opts);
   const proposals = [];
   for (const c of candidates) {
