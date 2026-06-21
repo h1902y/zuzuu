@@ -157,3 +157,22 @@ test('snapshot: rollback prunes notes added after the target generation (no orph
     assert.equal(existsSync(join(home, 'knowledge', 'items', 'fact.md')), true, 'the pinned note is restored');
   });
 });
+
+test('review: an update merges nested object fields (keeps siblings, no silent loss)', () => {
+  withHome((home) => {
+    writeZu(home, 'knowledge', 'fact', { type: 'knowledge', relations: { about: 'x', uses: 'y' } });
+    const p = createProposal(home, 'knowledge', { op: 'update', target: 'fact', change: { relations: { about: 'z' } } });
+    approve(home, 'knowledge', p.id);
+    const f = parse(readFileSync(join(home, 'knowledge', 'items', 'fact.md'), 'utf8'), { id: 'fact' }).item;
+    assert.deepEqual(f.relations, { about: 'z', uses: 'y' }, "uses survived the partial update");
+  });
+});
+
+test('review: deleting a non-existent note returns ok:false (no phantom log/mint)', () => {
+  withHome((home) => {
+    const p = createProposal(home, 'knowledge', { op: 'delete', target: 'ghost' });
+    const r = approve(home, 'knowledge', p.id);
+    assert.equal(r.ok, false);
+    assert.equal(generations(home, 'knowledge').active, null, 'no generation minted for a no-op');
+  });
+});

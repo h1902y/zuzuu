@@ -37,17 +37,19 @@ export function createProposal(home, module, p) {
   return record;
 }
 
+const readJsonSafe = (f) => { try { return JSON.parse(readFileSync(f, 'utf8')); } catch { return null; } };
+
 export function listProposals(home, module) {
   const dir = propDir(home, module);
   if (!existsSync(dir)) return [];
   return readdirSync(dir).filter((f) => f.endsWith('.json'))
-    .map((f) => JSON.parse(readFileSync(join(dir, f), 'utf8')))
+    .map((f) => readJsonSafe(join(dir, f))).filter(Boolean) // a corrupt proposal file is skipped, not fatal
     .sort((a, b) => (b.score ?? 0) - (a.score ?? 0)); // ranked — the eval lever
 }
 
 export const readProposal = (home, module, id) => {
   const f = join(propDir(home, module), `${id}.json`);
-  return existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : null;
+  return existsSync(f) ? readJsonSafe(f) : null;
 };
 
 /** Move a decided proposal to archive/ (never deleted — the audit trail). */

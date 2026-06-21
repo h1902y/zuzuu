@@ -61,7 +61,7 @@ export function mint(home, module, { mintedFrom = [] } = {}) {
   const { generations: gens, active } = generations(home, module);
   const n = (gens.length ? Math.max(...gens.map((g) => g.n)) : 0) + 1;
   const root = sha(Object.entries(items).sort().map(([k, v]) => `${k}:${v}`).join('\n'));
-  const entry = { n, mintedAt: null, parent: active, root, mintedFrom, items };
+  const entry = { n, mintedAt: new Date().toISOString(), parent: active, root, mintedFrom, items };
   writeFileSync(join(dir, `${n}.json`), JSON.stringify(entry, null, 2) + '\n');
   writeFileSync(join(dir, 'active'), String(n));
   return entry;
@@ -105,9 +105,13 @@ export function mintCheckpoint(home, modules, { label = null } = {}) {
     if (active != null) pins[module] = active;
   }
   const root = sha(Object.entries(pins).sort().map(([m, n]) => `${m}:${n}`).join('\n'));
-  const id = root.slice(0, 12);
-  writeFileSync(join(cpDir(home), `${id}.json`), JSON.stringify({ id, label, pins, root }, null, 2) + '\n');
-  return { id, label, pins };
+  // id includes the label so two DISTINCT named pins of the same brain state are
+  // distinguishable (don't silently overwrite); re-minting the same label+state
+  // is still idempotent (same id).
+  const id = sha(`${root}|${label ?? ''}`).slice(0, 12);
+  const mintedAt = new Date().toISOString();
+  writeFileSync(join(cpDir(home), `${id}.json`), JSON.stringify({ id, label, mintedAt, pins, root }, null, 2) + '\n');
+  return { id, label, mintedAt, pins };
 }
 
 /** Roll the whole brain back to a checkpoint — every pinned module flips. */

@@ -144,3 +144,12 @@ test('round-trip: numbers, booleans, null, and empty collections keep their type
   assert.deepEqual(back.meta, {});          // empty object stays an object
   assert.equal(back.looksNum, '42');        // a numeric-looking string stays a string
 });
+
+test('round-trip: parse and serialize are symmetric — a multiline value never throws', () => {
+  // a value with an embedded newline parses (inline JSON) and must re-serialize
+  const text = '---\ntype: knowledge\nnote: ["line1\\nline2"]\n---\nbody\n';
+  const item = parse(text, { id: 'x' }).item;
+  assert.deepEqual(item.note, ['line1\nline2']);
+  assert.doesNotThrow(() => serialize(item)); // used to throw — froze the note against edits
+  assert.deepEqual(parse(serialize(item), { id: 'x' }).item.note, ['line1\nline2']);
+});

@@ -30,7 +30,9 @@ const SCALARISH = /^(-?\d+(\.\d+)?|true|false|null)$/; // a string that would re
 const quoteScalar = (s) => {
   if (typeof s === 'number' || typeof s === 'boolean' || s === null) return String(s); // emit numbers/booleans/null bare so they round-trip as types
   const t = String(s);
-  if (t.includes('\n')) throw new Error('frontmatter values must be single-line');
+  // a multiline value JSON-escapes onto one line (so `parse` and `serialize` are
+  // symmetric — a note that parsed can always re-serialize, never throws)
+  if (t.includes('\n')) return JSON.stringify(t);
   if (SCALARISH.test(t)) return JSON.stringify(t); // quote a string that LOOKS scalar, so it stays a string
   return /[:#'"\\[\]{}]|^-\s|^[\s]|[\s]$|^$/.test(t) ? JSON.stringify(t) : t;
 };

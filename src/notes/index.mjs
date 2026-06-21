@@ -50,7 +50,11 @@ function corpusSig(home) {
     if (!existsSync(dir)) continue;
     for (const f of readdirSync(dir)) {
       if (!f.endsWith('.md')) continue;
-      parts.push(`${module}/${f}:${statSync(join(dir, f)).mtimeMs}`);
+      const st = statSync(join(dir, f));
+      // size as well as mtime: a content change that keeps the mtime (rollback
+      // restoring blob bytes, fast successive writes within mtime resolution)
+      // changes the size, so the stale index rebuilds.
+      parts.push(`${module}/${f}:${st.mtimeMs}:${st.size}`);
     }
   }
   return createHash('sha256').update(parts.sort().join('\n')).digest('hex');

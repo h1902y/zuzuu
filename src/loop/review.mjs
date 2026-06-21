@@ -16,6 +16,18 @@ import { logMutation } from './log.mjs';
 import { mint } from './snapshot.mjs';
 import { readProposal, archiveProposal } from './propose.mjs';
 
+const isPlainObject = (x) => x != null && typeof x === 'object' && !Array.isArray(x);
+// Merge an update's `change` onto the current note. An object-valued field merges
+// ONE level (so `change:{relations:{about:'z'}}` keeps `relations.uses`), instead
+// of a shallow `{...cur,...change}` that would silently drop the field's siblings.
+function mergeEdit(cur, change) {
+  const out = { ...cur };
+  for (const [k, v] of Object.entries(change)) {
+    out[k] = isPlainObject(cur[k]) && isPlainObject(v) ? { ...cur[k], ...v } : v;
+  }
+  return out;
+}
+
 /**
  * Apply an approved proposal: mutate the notes, log it, mint a generation.
  * @returns {{ ok, op, item?, error? }}
@@ -32,7 +44,7 @@ export function approve(home, module, id, { edit = null } = {}) {
       let item = change;
       if (p.op === 'update' && existsSync(itemPath(home, module, target))) {
         const cur = parse(readFileSync(itemPath(home, module, target), 'utf8'), { id: target }).item ?? {};
-        item = { ...cur, ...change }; // merge the edit onto current
+        item = mergeEdit(cur, change); // merge onto current — object fields merge one level, not replace wholesale
       }
       writeFileSync(itemPath(home, module, target), serialize(item));
       logMutation(home, module, p.op, target, { proposal: id });
@@ -50,7 +62,8 @@ export function approve(home, module, id, { edit = null } = {}) {
     } else if (p.op === 'delete' || p.op === 'deprecate') {
       const target = p.target;
       const path = itemPath(home, module, target);
-      if (p.op === 'delete') { if (existsSync(path)) rmSync(path); }
+      if (!existsSync(path)) return { ok: false, error: `no note '${module}:${target}'` }; // no phantom log/mint
+      if (p.op === 'delete') { rmSync(path); }
       else { // deprecate = flip status, keep the file
         const item = parse(readFileSync(path, 'utf8'), { id: target }).item;
         item.status = 'deprecated';
