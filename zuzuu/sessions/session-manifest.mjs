@@ -16,7 +16,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { readIndex } from '../core/store.mjs';
+import { readIndex } from '../kernel/session.mjs'; // 8b: re-pointed off v1 core onto the kernel
 import { readSessionLabels } from './labels.mjs';
 import { mainBranch, sessionBranchName, defaultTitle } from './session-git.mjs';
 import { branchExists, git } from './git.mjs';

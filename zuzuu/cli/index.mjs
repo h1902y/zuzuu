@@ -12,6 +12,7 @@
 
 import { open } from '../api.mjs';
 import { initHome } from './init.mjs';
+import { sessionCommand } from './session.mjs';
 import { observe } from '../pipelines/observe.mjs';
 import { toon } from '../kernel/toon.mjs';
 
@@ -44,6 +45,7 @@ const HELP = `zz — your project's brain (envelopes, queried/run/grown, human-g
   zz review approve <m> <id>    apply a proposal  (the human gate)
   zz review reject  <m> <id>    archive a proposal
   zz module [list | <m> generations | <m> rollback <n>]
+  zz session [status|merge|continue|discard --yes|worktree …|manifest|restore|label]
   zz digest                     the session-start brief`;
 
 export async function run(argv, io = {}) {
@@ -178,6 +180,9 @@ export async function run(argv, io = {}) {
         }
         return fail(log, 'usage: zz module [list | <m> generations | <m> rollback <n>]');
       }
+
+      case 'session':
+        return sessionCommand(args, cwd, log);
 
       case 'digest': {
         const zz = open(cwd);

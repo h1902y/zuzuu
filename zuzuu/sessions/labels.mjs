@@ -9,9 +9,9 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { paths } from '../core/store.mjs';
+import { paths } from '../kernel/store.mjs'; // 8b: re-pointed off v1 core onto the kernel
 
-const labelsFile = (cwd) => join(paths(cwd).dir, 'session-labels.json');
+const labelsFile = (cwd) => join(paths(cwd).home, 'session-labels.json');
 
 /** { id: label } for this home, or {} (fail-soft on missing/corrupt). */
 export function readSessionLabels(cwd = process.cwd()) {
