@@ -13,7 +13,10 @@
 import { open } from '../api.mjs';
 import { initHome } from './init.mjs';
 import { sessionCommand } from './session.mjs';
+import { enable, disable } from './enable.mjs';
+import { runHook } from '../hosts/hook.mjs';
 import { observe } from '../pipelines/observe.mjs';
+import { digestText } from '../pipelines/digest.mjs';
 import { toon } from '../kernel/toon.mjs';
 
 const MODULES = ['knowledge', 'memory', 'actions', 'instructions', 'guardrails'];
@@ -36,6 +39,7 @@ function parseArgs(rest) {
 const HELP = `zz — your project's brain (envelopes, queried/run/grown, human-gated)
 
   zz init                       scaffold .zuzuu/ into this repo (git-citizen)
+  zz enable / disable           install/remove the lifecycle + guardrails hooks
   zz query <module> [text]      search a module  (--from <addr> · --tag t · --full)
   zz act <module> <id> [--k v]  run a runnable zu
   zz check [module]             integrity — broken links · orphans · stale
@@ -184,17 +188,25 @@ export async function run(argv, io = {}) {
       case 'session':
         return sessionCommand(args, cwd, log);
 
+      case 'enable': {
+        const r = enable(cwd);
+        log(toon('enable', [{ path: r.path, installed: r.installed }], ['path', 'installed']));
+        return 0;
+      }
+      case 'disable': {
+        const r = disable(cwd);
+        log(toon('disable', [{ path: r.path, removed: r.removed }], ['path', 'removed']));
+        return 0;
+      }
+      case 'hook': {
+        // the host lifecycle callback — reads stdin, always exits 0 (own process)
+        runHook(args._[0], { host: args.host || 'claude-code', session: args.session, cwd });
+        return 0; // unreachable (runHook exits), but keeps the switch total
+      }
+
       case 'digest': {
-        const zz = open(cwd);
-        const rows = zz.modules().map((m) => {
-          const q = zz.query(m.id, { dryRun: true });
-          const pending = zz.proposals(m.id).length;
-          return { module: m.id, zus: q.ok ? q.value.total : 0, pending };
-        });
-        log(`# ${cwd.split('/').pop()} — session brief`);
-        log(toon('brain', rows, ['module', 'zus', 'pending']));
-        const totalPending = rows.reduce((a, r) => a + r.pending, 0);
-        if (totalPending) log(`${totalPending} proposal(s) awaiting review: zz review`);
+        const text = digestText(cwd);
+        log(text || '(empty brain — run `zz init`)');
         return 0;
       }
 
