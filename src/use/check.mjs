@@ -34,7 +34,7 @@ function allNotes(home) {
 /**
  * @returns {{ broken: Array, orphans: string[], stale: Array }}
  */
-export function checkData(home) {
+function checkData(home) {
   const broken = (() => { try { return brokenLinks(home); } catch { return []; } })();
   const notes = allNotes(home);
 

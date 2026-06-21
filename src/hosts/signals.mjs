@@ -11,7 +11,7 @@
 export const norm = (cmd) => String(cmd).trim().replace(/\s+/g, ' ').slice(0, 200);
 
 export const SEQ_SEP = ' && '; // joins adjacent shell commands into a 2-gram label
-export const DESTRUCTIVE_SHAPES = [/\brm\s+-[a-z]*r/, /git\s+push\s+.*--force/, /DROP\s+TABLE/i, /chmod\s+-R/];
+const DESTRUCTIVE_SHAPES = [/\brm\s+-[a-z]*r/, /git\s+push\s+.*--force/, /DROP\s+TABLE/i, /chmod\s+-R/];
 export const isDestructive = (cmd) => DESTRUCTIVE_SHAPES.some((re) => re.test(cmd));
 
 /** The empty superset — an unminable / malformed / prompt-only host returns this. */

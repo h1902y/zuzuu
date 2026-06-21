@@ -186,4 +186,3 @@ export function brokenLinks(home) {
   } finally { db.close(); }
 }
 
-export { corpusSig, dbPath };

@@ -27,7 +27,7 @@ function knownItems(home, module) {
  * (The corroboration threshold from Generative Agents — don't propose on first sight.)
  * @returns {Array} the proposals staged
  */
-export function mineCoInvocation(home, module, { threshold = 2 } = {}) {
+function mineCoInvocation(home, module, { threshold = 2 } = {}) {
   const runs = read(home, module, 'runs').filter((e) => e.session && e.note);
   const bySession = new Map();
   for (const e of runs) {

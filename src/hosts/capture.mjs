@@ -14,7 +14,7 @@ import * as registry from './registry.mjs';
  * Resolve transcripts to mine across all detected hosts, newest-first.
  * @returns {Array<{host, ref, sessionId, mtime}>}
  */
-export function transcriptsFor({ cwd = process.cwd(), scope = 'all', session = null } = {}) {
+function transcriptsFor({ cwd = process.cwd(), scope = 'all', session = null } = {}) {
   const pairs = [];
   for (const adapter of registry.detected()) {
     let sessions = [];
@@ -29,7 +29,7 @@ export function transcriptsFor({ cwd = process.cwd(), scope = 'all', session = n
 }
 
 /** Mine one {host, ref} → signals (host-prefixed sessionId for legible provenance). */
-export function mineSession({ host, ref, sessionId }) {
+function mineSession({ host, ref, sessionId }) {
   try {
     const adapter = registry.byName(host);
     if (!adapter || typeof adapter.mineSignals !== 'function') return null;

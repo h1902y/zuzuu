@@ -62,7 +62,7 @@ export function writeDigest(cwd = process.cwd()) {
 }
 
 /** Claude Code's SessionStart additionalContext (inline grounding), or null. */
-export function sessionStartContext(cwd = process.cwd()) {
+function sessionStartContext(cwd = process.cwd()) {
   try {
     const text = digestText(cwd);
     return text && text.trim() ? { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: text } } : null;
