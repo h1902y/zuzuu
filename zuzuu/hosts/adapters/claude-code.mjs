@@ -15,17 +15,14 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { existsSync, readdirSync, statSync, readFileSync } from 'node:fs';
+import { norm, SEQ_SEP, isDestructive } from '../signals.mjs';
 
 const PROJECTS_DIR = join(homedir(), '.claude', 'projects');
 // Claude encodes the project cwd into the dir name: non-alphanumerics → '-'.
 const encodeCwd = (cwd) => cwd.replace(/[^A-Za-z0-9]/g, '-');
 
-const norm = (cmd) => String(cmd).trim().replace(/\s+/g, ' ').slice(0, 200);
-const SEQ_SEP = ' && ';
 const CORRECTION_LEXICON = ["no, don't", "don't ", 'actually use', 'always ', 'never ', 'stop ', 'instead'];
-const DESTRUCTIVE_SHAPES = [/\brm\s+-[a-z]*r/, /git\s+push\s+.*--force/, /DROP\s+TABLE/i, /chmod\s+-R/];
 const isCorrection = (text) => { const t = String(text).toLowerCase(); return CORRECTION_LEXICON.some((p) => t.includes(p)); };
-const isDestructive = (cmd) => DESTRUCTIVE_SHAPES.some((re) => re.test(cmd));
 const safeParse = (s) => { try { return JSON.parse(s); } catch { return {}; } };
 
 const FILE_TOOLS = new Set(['Read', 'Write', 'Edit', 'NotebookEdit']);

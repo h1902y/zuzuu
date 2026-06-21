@@ -73,7 +73,13 @@ Three things make it safe and sticky:
 
 ## Host coverage
 
-zuzuu is host-agnostic by construction (the capture core iterates detected adapters, never a host name). **Claude Code is built and verified** end-to-end — transcript mining, the lifecycle hook, and the `PreToolUse` guardrails gate (it hard-blocks `rm -rf /` and friends, fails open on anything it can't evaluate). Re-adding the other hosts (Codex / Gemini CLI / OpenCode / pi) is **one adapter file + one registry line each** — the next step after the v2 rebuild.
+zuzuu is host-agnostic by construction (the capture core iterates detected adapters, never a host name). **Five hosts ship, each built against that host's own real on-disk format** — Claude Code (transcript JSONL), Codex (rollout JSONL), Gemini CLI (logs.json), OpenCode (SQLite), pi (session JSONL). `zz observe` mines them all; the lifecycle hook + the `PreToolUse` guardrails gate (it hard-blocks `rm -rf /` and friends, fails open on anything it can't evaluate) are wired for Claude Code, with the same hook path mapping the other hosts' lifecycle events.
+
+| | Claude Code | Codex | Gemini CLI | OpenCode | pi |
+|---|---|---|---|---|---|
+| observe (mine sessions) | ✅ rich | ✅ rich | ✅ thin¹ | ✅ rich | ✅ rich |
+
+¹ Gemini's on-disk `logs.json` is prompt-only (tool calls live in checkpoint files), so its shell-signal mining is empty — an honest capture gap, not a core difference.
 
 **Prerequisites:** Node ≥ 22. Hacking on zuzuu itself? `git clone https://github.com/h1902y/zuzuu && cd zuzuu && npm link`.
 

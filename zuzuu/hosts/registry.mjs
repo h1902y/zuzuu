@@ -7,10 +7,14 @@
 // how:  a flat list; `detected()` filters by each adapter's own `detect()`.
 
 import { claudeCode } from './adapters/claude-code.mjs';
+import { codex } from './adapters/codex.mjs';
+import { geminiCli } from './adapters/gemini-cli.mjs';
+import { opencode } from './adapters/opencode.mjs';
+import { pi } from './adapters/pi.mjs';
 
-// Claude Code is the richest + first host. OpenCode / Codex / Gemini / pi
-// adapters drop in here as they are harvested (each against its own real wire data).
-export const ADAPTERS = [claudeCode];
+// Host-agnostic by construction: the core iterates `detected()`, never a host
+// name. Each adapter is built against that host's OWN real wire data.
+export const ADAPTERS = [claudeCode, codex, geminiCli, opencode, pi];
 
 export const all = () => ADAPTERS.slice();
 export const byName = (name) => ADAPTERS.find((a) => a.name === name) ?? null;
