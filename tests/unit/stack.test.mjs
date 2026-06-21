@@ -1,0 +1,100 @@
+// rung 5+ — the whole v2 stack, end to end, through the ONE registry.
+// Builds a real home (module.md manifests + zus), then drives every verb the
+// way a host would: registerAll() → invoke(home, module, verb, …).
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { serialize } from '../../zuzuu/kernel/item.mjs';
+import { invoke } from '../../zuzuu/kernel/capability.mjs';
+import { registerAll, resetCapabilities } from '../../zuzuu/capabilities/index.mjs';
+import { createProposal } from '../../zuzuu/capabilities/propose.mjs';
+import { approve } from '../../zuzuu/capabilities/review.mjs';
+import { generations } from '../../zuzuu/kernel/snapshot.mjs';
+
+function withStack(fn) {
+  const root = mkdtempSync(join(tmpdir(), 'zuzuu-stack-'));
+  const home = join(root, '.zuzuu');
+  const manifest = (m, caps, extra = {}) => {
+    mkdirSync(join(home, m, 'items'), { recursive: true });
+    writeFileSync(join(home, m, 'module.md'), serialize({ id: m, type: 'module', title: m, capabilities: caps, ...extra }));
+  };
+  const zu = (m, id, item) => {
+    mkdirSync(join(home, m, 'items'), { recursive: true });
+    writeFileSync(join(home, m, 'items', `${id}.md`), serialize({ id, ...item }));
+  };
+  // a small but representative brain
+  manifest('knowledge', ['query', 'check', 'enhance'], { zu_type: 'knowledge' });
+  manifest('actions', ['query', 'check', 'act', 'enhance'], { zu_type: 'action' });
+  manifest('guardrails', ['gate', 'check'], { zu_type: 'rule' });
+  zu('knowledge', 'acme-blue', { type: 'knowledge', title: 'Acme prefers blue decks', tags: ['acme', 'design'], body: 'They reject warm palettes.' });
+  zu('actions', 'greet', { type: 'action', title: 'greet', run: 'echo hello', policy: { tier: 'advisory' } });
+  zu('guardrails', 'no-rm-root', { type: 'rule', title: 'block rm -rf /', tool: 'Bash', action: 'deny', pattern: 'rm -rf /(?![\\w/])', reason: 'never wipe root' });
+
+  resetCapabilities();
+  registerAll();
+  try { return fn({ home, zu }); } finally { rmSync(root, { recursive: true, force: true }); resetCapabilities(); }
+}
+
+test('stack: query finds a zu through the registry (universal verb)', () => {
+  withStack(({ home }) => {
+    const r = invoke(home, 'knowledge', 'query', { text: 'blue' });
+    assert.equal(r.ok, true);
+    assert.equal(r.value.kind, 'search');
+    assert.ok(r.value.rows.some((x) => x.addr === 'knowledge:acme-blue'), 'found the zu by FTS');
+  });
+});
+
+test('stack: a module that does not expose a verb is denied (manifest-gated)', () => {
+  withStack(({ home }) => {
+    const r = invoke(home, 'knowledge', 'act', 'acme-blue'); // knowledge has no `act`
+    assert.equal(r.ok, false);
+    assert.equal(r.denied, true);
+  });
+});
+
+test('stack: act runs a zu and reports success', () => {
+  withStack(({ home }) => {
+    const r = invoke(home, 'actions', 'act', 'greet');
+    assert.equal(r.ok, true);
+    assert.equal(r.value.ran, true);
+    assert.equal(r.value.success, true);
+    assert.match(r.value.stdout, /hello/);
+  });
+});
+
+test('stack: gate blocks a denied tool call; allows an innocuous one', () => {
+  withStack(({ home }) => {
+    const blocked = invoke(home, 'guardrails', 'gate', { tool: 'Bash', input: { command: 'rm -rf /' } });
+    assert.equal(blocked.ok, true);
+    assert.equal(blocked.value.action, 'deny');
+    const fine = invoke(home, 'guardrails', 'gate', { tool: 'Bash', input: { command: 'ls -la' } });
+    assert.equal(fine.value, null, 'innocuous call defers to the host (no verdict)');
+  });
+});
+
+test('stack: check surfaces a broken link', () => {
+  withStack(({ home, zu }) => {
+    zu('knowledge', 'dangling', { type: 'knowledge', title: 'points nowhere', relations: { 'related-to': 'knowledge:ghost' } });
+    const r = invoke(home, 'knowledge', 'check');
+    assert.equal(r.ok, true);
+    assert.ok(r.value.broken.length >= 1, 'the dangling relation is reported');
+  });
+});
+
+test('stack: enhance → propose → review writes the brain and mints a generation', () => {
+  withStack(({ home }) => {
+    // a human-staged proposal flows through the gate end to end
+    const p = createProposal(home, 'knowledge', {
+      op: 'create', target: 'acme-warm-ban',
+      change: { type: 'knowledge', title: 'Never pitch Acme warm palettes', body: 'Hard no.' },
+    });
+    const r = approve(home, 'knowledge', p.id);
+    assert.equal(r.ok, true);
+    assert.equal(generations(home, 'knowledge').active, 1);
+    // and it is now queryable
+    const q = invoke(home, 'knowledge', 'query', { text: 'warm' });
+    assert.ok(q.value.rows.some((x) => x.addr === 'knowledge:acme-warm-ban'), 'the approved zu is indexed + queryable');
+  });
+});
