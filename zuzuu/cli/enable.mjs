@@ -15,7 +15,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { repoRoot } from '../kernel/store.mjs';
 
-const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'bin', 'zz-next.mjs');
+const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'bin', 'zuzuu.mjs');
 const SIGNATURE = '#zz-hook'; // a stable tag in the command, independent of the bin path
 const commandFor = (event) => `node "${BIN}" hook ${event} || true ${SIGNATURE}`;
 

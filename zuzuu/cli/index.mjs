@@ -17,6 +17,7 @@ import { enable, disable } from './enable.mjs';
 import { doctor, status, explain } from './doctor.mjs';
 import { code } from './code.mjs';
 import { web } from './web.mjs';
+import { migrateHome } from './migrate.mjs';
 import { runHook } from '../hosts/hook.mjs';
 import { observe } from '../pipelines/observe.mjs';
 import { digestText } from '../pipelines/digest.mjs';
@@ -193,6 +194,12 @@ export async function run(argv, io = {}) {
       case 'session':
         return sessionCommand(args, cwd, log);
 
+      case 'migrate': {
+        const r = migrateHome(cwd);
+        log(toon('migrate', [{ migrated: r.migrated, modules: r.modules ?? 0, items: r.items ?? 0 }], ['migrated', 'modules', 'items']));
+        if (r.alreadyV2) log('already on v2 — nothing to migrate');
+        return 0;
+      }
       case 'doctor':
         return doctor(cwd, log);
       case 'status':
