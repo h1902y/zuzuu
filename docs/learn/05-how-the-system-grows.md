@@ -46,7 +46,7 @@ zz module knowledge generations      # the lineage (● = active)
 zz module knowledge rollback 3       # restore that pinned moment
 ```
 
-And because each module pins independently, a **whole-brain checkpoint** composes every module's active generation into one pin — so you can roll the *entire* brain back to a coherent moment, not just one module. (The same Merkle-of-pins idea, one scope up.)
+Each module pins **independently** — to roll the whole brain back, you roll each module's pointer. (A single whole-brain *checkpoint* composing every module into one pin was built, but it was never wired to any surface, so it was cut in the 2026-06-22 simplification pass rather than carried as dead code.)
 
 The discipline is the same one running through the whole system: **immutable definitions, append-only history, growth by adding objects and moving pointers — never mutating in place.** A note is immutable until CRUD'd through the gate; the log is append-only; a generation is a frozen snapshot. Nothing is ever quietly overwritten, so nothing is ever quietly lost.
 

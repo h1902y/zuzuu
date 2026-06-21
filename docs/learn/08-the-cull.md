@@ -10,7 +10,7 @@ So the rule was: **reabsorb first, cull last.** Rebuild every surface that v1 st
 
 ## Reabsorb, in dependency order (rungs 8a–8d)
 
-- **8a — the session record** moved into `sessions/record.mjs`: the lifecycle state machine + the `sessions.json` index — minus the OTLP trace fields, which die with the trace layer.
+- **8a — the session record** moved into `sessions/record.mjs`: the lifecycle state machine + the `sessions.json` index — minus the OTLP trace fields, which die with the trace layer. *(Postscript: a 2026-06-22 YAGNI pass found nothing in v2 ever wrote that index — the git branch already **is** the session record — so `record.mjs` and `sessions.json` were cut. The branch is the truth.)*
 - **8b — session management** was the pleasant surprise. The safety-critical `sessions/` engine (the session-as-git-branch machinery) had *exactly one* import from the v1 core. Re-point those two lines at the kernel and it's v2-native. **All 87 of its characterization tests passed unchanged** — the strongest possible evidence that the re-point changed nothing it shouldn't.
 - **8c — live hooks + enable**: a v2 hook that maps every host's lifecycle onto open/turn/end and routes `PreToolUse` through the v2 gate. Its end-of-session step is the payoff of the whole rebuild — it calls `observe`, mining the just-finished session into proposals.
 - **8d — doctor/status/explain + the launchers**: the porcelain, re-pointed.
@@ -27,7 +27,7 @@ With every surface green on v2, the delete was mechanical and safe:
 
 - `bin/zuzuu.mjs` repointed to the v2 router.
 - `~12.6k lines` removed: a dozen v1 directories, the old command surface, 85 v1 test files, the OTLP playgrounds.
-- A `migrate` command, written and tested *first*, upgrades any existing v1 home (`module.json` → `module.md`) so installs survive the cut.
+- A `migrate` command, written and tested *first*, upgrades any existing v1 home (`module.json` → `module.md`) so installs survive the cut. *(It served its purpose during the transition and was itself removed in the 2026-06-22 pass — v1 is long gone.)*
 
 ```
 ~13,000 lines  →  3,765 lines of product code
