@@ -124,6 +124,31 @@ test('seeded force-push rule catches the real exp-8 bypass (git -C … --force-w
   });
 });
 
+test('seeded no-root-wipe blocks the BARE `rm -rf /` over JSON-wrapped input (regression)', () => {
+  // The gate matches over JSON.stringify(tool_input), so the bare root `/` is
+  // followed by `"` — not whitespace/end. The old `(\s|$)` anchor therefore
+  // MISSED the exact `rm -rf /`; only `rm -rf / ` (trailing space) matched,
+  // which is what the other tests happened to use — masking the bug. Found by
+  // dogfooding on a real project; the negative-lookahead anchor fixes it.
+  const seeds = { 'no-root-wipe.md': LAYOUT.files['.zuzuu/guardrails/items/no-root-wipe.md'] };
+  withRuleItems(seeds, (gd) => {
+    const { rules } = loadRules(gd);
+    const bare = evaluate(rules, { tool: 'Bash', input: { command: 'rm -rf /' } });
+    assert.equal(bare?.action, 'deny', 'bare `rm -rf /` (no trailing space) must be blocked');
+    assert.equal(bare?.rule, 'no-root-wipe');
+    // chained root-wipe is caught too
+    assert.equal(
+      evaluate(rules, { tool: 'Bash', input: { command: 'rm -rf /; echo hi' } })?.action,
+      'deny', 'chained root wipe is blocked',
+    );
+    // but a scoped delete under a path stays allowed (rule is root-only)
+    assert.equal(
+      evaluate(rules, { tool: 'Bash', input: { command: 'rm -rf /tmp/build' } }),
+      null, 'deletes under a path are not root wipes',
+    );
+  });
+});
+
 test('toGeminiDecision: deny → {decision:deny,reason}; ask/allow → null (defer)', () => {
   assert.deepEqual(
     toGeminiDecision({ action: 'deny', rule: 'no-secret-reads', reason: 'secrets' }),

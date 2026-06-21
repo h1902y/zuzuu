@@ -155,8 +155,13 @@ const ruleSeed = ({ id, title, action, tool, pattern, reason, body }) =>
 const RULE_SEEDS = {
   'no-root-wipe': ruleSeed({
     id: 'no-root-wipe', title: 'No destructive delete at filesystem root', action: 'deny', tool: 'Bash',
-    pattern: 'rm\\s+-[a-z]*r[a-z]*\\s+/(\\s|$)', reason: 'destructive delete at filesystem root',
-    body: 'Blocks `rm -rf /` and flag-order variants targeting the filesystem root.',
+    // The gate matches over JSON.stringify(tool_input), so the bare root `/` is
+    // followed by `"` (the JSON quote), not whitespace/end. A `(\s|$)` anchor
+    // therefore MISSES the exact `rm -rf /`. Use a negative lookahead — "/ not
+    // followed by a path char" — which catches the bare root whether raw,
+    // JSON-wrapped, or chained (`rm -rf /;`), while still allowing `rm -rf /tmp/x`.
+    pattern: 'rm\\s+-[a-z]*r[a-z]*\\s+/(?![\\w/])', reason: 'destructive delete at filesystem root',
+    body: 'Blocks `rm -rf /` (bare root) and flag-order/chained variants; allows deletes under a path like `/tmp/x`.',
   }),
   'no-secret-reads': ruleSeed({
     id: 'no-secret-reads', title: 'No reading secret material', action: 'deny', tool: '*',
