@@ -26,7 +26,7 @@ Each page builds on the last. **✅ written · 🚧 planned** (a page is written
 | 05 | ✅ [How the system grows](05-how-the-system-grows.md) | The enhance loop: mine → propose → review → snapshot, the human gate, generations |
 | 06 | ✅ [Observing a host](06-observing-a-host.md) | Design B · the adapter (transcript→signals) · capture-core · observe routes corroborated candidates to modules |
 | 07 | ✅ [The CLI veneer](07-the-cli-veneer.md) | The thin router over api · AXI/TOON output · git-citizen idempotent init · the loop from the command line |
-| 08 | 🚧 Walk capabilities & pipelines | How verbs and processes compose over the kernel |
+| 08 | ✅ [The cull](08-the-cull.md) | Reabsorb the surviving v1 surfaces onto the kernel, drop the OTLP layer, delete v1 — ~13k → 3.8k |
 | 09 | 🚧 Extending zuzuu | Add a module, a zu type, a host — by hand |
 | 10 | 🚧 The decisions & why | The forks we faced and how we resolved them (links to the design specs) |
 
