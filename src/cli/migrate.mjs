@@ -1,4 +1,4 @@
-// zuzuu/cli/migrate.mjs — upgrade a v1 home to the v2 envelope model.
+// src/cli/migrate.mjs — upgrade a v1 home to the v2 envelope model.
 //
 // what: `zz migrate` converts an existing `.zuzuu/` from the v1 layout
 //       (per-module `module.json` + items whose frontmatter carries kind/module/
@@ -6,7 +6,7 @@
 //       filename). Idempotent — a home already on v2 is left alone.
 // why:  so installed homes survive the cull (the v1 substrate that read them is
 //       gone). One-time, local, reversible via git.
-// how:  read module.json (tolerant JSON), emit module.md with the kernel
+// how:  read module.json (tolerant JSON), emit module.md with the note
 //       serializer; for each item, fold kind→type and drop the now-redundant
 //       id/module frontmatter keys. Zero-dep, fail-soft per file.
 
@@ -15,13 +15,13 @@ import { join } from 'node:path';
 import { serialize, parse } from '../notes/note.mjs';
 import { homeDir, repoRoot } from '../notes/store.mjs';
 
-// default capabilities/goal per known module (mirrors `init`)
+// default capability set + goal per known module (mirrors `init`)
 const DEFAULTS = {
-  knowledge: { caps: ['query', 'check', 'enhance'], zu: 'knowledge', goal: 'Capture durable, reusable facts about this project and its domain.' },
-  memory: { caps: ['query', 'check', 'enhance'], zu: 'episode', goal: 'Remember what happened — episodes, decisions, and their outcomes.' },
-  actions: { caps: ['query', 'check', 'act', 'enhance'], zu: 'action', goal: 'Capture every repeated multi-step procedure as a runnable zu.' },
-  instructions: { caps: ['query', 'check'], zu: 'instruction', goal: "Keep the agent's standing guidance current and minimal." },
-  guardrails: { caps: ['gate', 'check'], zu: 'rule', goal: 'Protect against repeated mistakes — as enforced tool gates.' },
+  knowledge: { caps: ['query', 'check', 'enhance'], note: 'knowledge', goal: 'Capture durable, reusable facts about this project and its domain.' },
+  memory: { caps: ['query', 'check', 'enhance'], note: 'episode', goal: 'Remember what happened — episodes, decisions, and their outcomes.' },
+  actions: { caps: ['query', 'check', 'act', 'enhance'], note: 'action', goal: 'Capture every repeated multi-step procedure as a runnable note.' },
+  instructions: { caps: ['query', 'check'], note: 'instruction', goal: "Keep the agent's standing guidance current and minimal." },
+  guardrails: { caps: ['gate', 'check'], note: 'rule', goal: 'Protect against repeated mistakes — as enforced tool gates.' },
 };
 
 const readJson = (p) => { try { return JSON.parse(readFileSync(p, 'utf8')); } catch { return null; } };
@@ -51,7 +51,7 @@ export function migrateHome(cwd = process.cwd()) {
   for (const entry of readdirSync(home)) {
     const moduleDir = join(home, entry);
     if (entry.startsWith('.') || !statSync(moduleDir).isDirectory()) continue;
-    const def = DEFAULTS[entry] ?? { caps: ['query', 'check'], zu: null, goal: `Curate ${entry}.` };
+    const def = DEFAULTS[entry] ?? { caps: ['query', 'check'], note: null, goal: `Curate ${entry}.` };
 
     // 1. module.json → module.md
     const jsonPath = join(moduleDir, 'module.json');
@@ -60,7 +60,7 @@ export function migrateHome(cwd = process.cwd()) {
       const j = readJson(jsonPath) ?? {};
       writeFileSync(join(moduleDir, 'module.md'), serialize({
         id: entry, type: 'module', title: j.title ?? entry,
-        zu_type: j.zu_type ?? def.zu,
+        note_type: j.note_type ?? def.note,
         capabilities: Array.isArray(j.capabilities) && j.capabilities.length ? j.capabilities : def.caps,
         enhance: { goal: j.enhance?.goal ?? def.goal },
       }));
@@ -74,7 +74,7 @@ export function migrateHome(cwd = process.cwd()) {
       if (!existsSync(dir)) continue;
       for (const f of readdirSync(dir)) {
         if (!f.endsWith('.md')) continue;
-        if (migrateItem(join(dir, f), f.slice(0, -3), def.zu ?? 'knowledge')) items++;
+        if (migrateItem(join(dir, f), f.slice(0, -3), def.note ?? 'knowledge')) items++;
       }
     }
   }

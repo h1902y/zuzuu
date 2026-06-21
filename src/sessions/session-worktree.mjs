@@ -1,4 +1,4 @@
-// zuzuu/sessions/session-worktree.mjs — per-session git WORKTREES (Wave B).
+// src/sessions/session-worktree.mjs — per-session git WORKTREES (Wave B).
 //
 // The in-place model (session-git.mjs) checks a `zz/session-*` branch out in the
 // ONE working tree, so only one session can run at a time (the single-working-

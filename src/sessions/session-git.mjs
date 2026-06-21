@@ -1,4 +1,4 @@
-// zuzuu/sessions/session-git.mjs — invisible session-git: one agent session = one branch.
+// src/sessions/session-git.mjs — invisible session-git: one agent session = one branch.
 //
 //   OPEN  → create `zz/session-<shortid>` (a branch, never a worktree)
 //   TURN  → checkpoint commit ON the session branch

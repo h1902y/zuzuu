@@ -1,4 +1,4 @@
-// zuzuu/hosts/adapters/codex.mjs — observe a Codex CLI session.
+// src/hosts/adapters/codex.mjs — observe a Codex CLI session.
 //
 // what: read ~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl → mining signals.
 // why:  host-agnostic observe; Codex is the second-richest host (real tool calls).

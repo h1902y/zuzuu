@@ -1,4 +1,4 @@
-// zuzuu/hosts/hook.mjs — the host lifecycle callback (Design B).
+// src/hosts/hook.mjs — the host lifecycle callback (Design B).
 //
 // what: the command a host invokes on lifecycle/tool events. It maps every
 //       host's events onto one open/turn/end path + the PreToolUse gate. It

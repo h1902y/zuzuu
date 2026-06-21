@@ -1,4 +1,4 @@
-// zuzuu/sessions/git.mjs — git PLUMBING for session-git (no session policy here).
+// src/sessions/git.mjs — git PLUMBING for session-git (no session policy here).
 //
 // Every helper is safe-by-construction: argv arrays only (no shell strings),
 // never throws, returns plain data. Session POLICY (open/checkpoint/close/

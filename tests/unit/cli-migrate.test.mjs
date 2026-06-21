@@ -27,7 +27,7 @@ test('migrate: module.json → module.md (v2 envelope); json removed', () => {
     assert.match(md, /type: module/);
     assert.match(md, /capabilities:/);
     const { item } = parse(md, { id: 'knowledge' });
-    assert.equal(item.zu_type, 'knowledge');
+    assert.equal(item.note_type, 'knowledge');
     assert.deepEqual(item.capabilities, ['query', 'check', 'enhance']);
   });
 });

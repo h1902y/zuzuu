@@ -1,11 +1,11 @@
-// zuzuu/capabilities/query.mjs — read the brain, on demand.
+// src/use/query.mjs — read the brain, on demand.
 //
-// what: the `query` verb — search/filter zus and walk relations, returning
+// what: the `query` verb — search/filter notes and walk relations, returning
 //       token-dense TOON. Brief by default; --full for bodies; --depth to walk;
 //       --dry-run for a count before materializing.
 // why:  context-frugal retrieval — the agent queries instead of ingesting, and
 //       the answer is token-dense too. The Knowledge (read) capability.
-// how:  composes kernel/index primitives + kernel/toon. Pure data fn + a thin
+// how:  composes notes/index primitives + notes/toon. Pure data fn + a thin
 //       CLI handler (AXI: content-first, contextual help, no prompts).
 
 import { paths } from '../notes/store.mjs';
@@ -40,13 +40,13 @@ export function query(args = {}, log = console.log) {
   const d = queryData(home, opts);
 
   if (args.json) { log(JSON.stringify(d)); return; }
-  if (d.kind === 'count') { log(`zus[~${d.total}] (dry-run — drop --dry-run to list)`); return; }
+  if (d.kind === 'count') { log(`notes[~${d.total}] (dry-run — drop --dry-run to list)`); return; }
   if (d.kind === 'related') {
     log(toon('related', d.rows, ['addr', 'hop', 'type', 'title'],
       [`query ${d.addr} --full`, 'check --broken-links']));
     return;
   }
   const fields = opts.full ? ['addr', 'type', 'title', 'status', 'body'] : ['addr', 'type', 'title', 'status'];
-  log(toon('zus', d.rows, fields,
+  log(toon('notes', d.rows, fields,
     d.rows.length ? ['query <text> --full', 'query --from <addr> --depth 2'] : ['remember a fact', 'zz enhance']));
 }

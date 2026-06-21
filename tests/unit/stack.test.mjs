@@ -1,5 +1,5 @@
 // rung 5+ — the whole v2 stack, end to end, through the ONE registry.
-// Builds a real home (module.md manifests + zus), then drives every verb the
+// Builds a real home (module.md manifests + notes), then drives every verb the
 // way a host would: registerAll() → invoke(home, module, verb, …).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -20,29 +20,29 @@ function withStack(fn) {
     mkdirSync(join(home, m, 'items'), { recursive: true });
     writeFileSync(join(home, m, 'module.md'), serialize({ id: m, type: 'module', title: m, capabilities: caps, ...extra }));
   };
-  const zu = (m, id, item) => {
+  const note = (m, id, item) => {
     mkdirSync(join(home, m, 'items'), { recursive: true });
     writeFileSync(join(home, m, 'items', `${id}.md`), serialize({ id, ...item }));
   };
   // a small but representative brain
-  manifest('knowledge', ['query', 'check', 'enhance'], { zu_type: 'knowledge' });
-  manifest('actions', ['query', 'check', 'act', 'enhance'], { zu_type: 'action' });
-  manifest('guardrails', ['gate', 'check'], { zu_type: 'rule' });
-  zu('knowledge', 'acme-blue', { type: 'knowledge', title: 'Acme prefers blue decks', tags: ['acme', 'design'], body: 'They reject warm palettes.' });
-  zu('actions', 'greet', { type: 'action', title: 'greet', run: 'echo hello', policy: { tier: 'advisory' } });
-  zu('guardrails', 'no-rm-root', { type: 'rule', title: 'block rm -rf /', tool: 'Bash', action: 'deny', pattern: 'rm -rf /(?![\\w/])', reason: 'never wipe root' });
+  manifest('knowledge', ['query', 'check', 'enhance'], { note_type: 'knowledge' });
+  manifest('actions', ['query', 'check', 'act', 'enhance'], { note_type: 'action' });
+  manifest('guardrails', ['gate', 'check'], { note_type: 'rule' });
+  note('knowledge', 'acme-blue', { type: 'knowledge', title: 'Acme prefers blue decks', tags: ['acme', 'design'], body: 'They reject warm palettes.' });
+  note('actions', 'greet', { type: 'action', title: 'greet', run: 'echo hello', policy: { tier: 'advisory' } });
+  note('guardrails', 'no-rm-root', { type: 'rule', title: 'block rm -rf /', tool: 'Bash', action: 'deny', pattern: 'rm -rf /(?![\\w/])', reason: 'never wipe root' });
 
   resetCapabilities();
   registerAll();
-  try { return fn({ home, zu }); } finally { rmSync(root, { recursive: true, force: true }); resetCapabilities(); }
+  try { return fn({ home, note }); } finally { rmSync(root, { recursive: true, force: true }); resetCapabilities(); }
 }
 
-test('stack: query finds a zu through the registry (universal verb)', () => {
+test('stack: query finds a note through the registry (universal verb)', () => {
   withStack(({ home }) => {
     const r = invoke(home, 'knowledge', 'query', { text: 'blue' });
     assert.equal(r.ok, true);
     assert.equal(r.value.kind, 'search');
-    assert.ok(r.value.rows.some((x) => x.addr === 'knowledge:acme-blue'), 'found the zu by FTS');
+    assert.ok(r.value.rows.some((x) => x.addr === 'knowledge:acme-blue'), 'found the note by FTS');
   });
 });
 
@@ -54,7 +54,7 @@ test('stack: a module that does not expose a verb is denied (manifest-gated)', (
   });
 });
 
-test('stack: act runs a zu and reports success', () => {
+test('stack: act runs a note and reports success', () => {
   withStack(({ home }) => {
     const r = invoke(home, 'actions', 'act', 'greet');
     assert.equal(r.ok, true);
@@ -75,8 +75,8 @@ test('stack: gate blocks a denied tool call; allows an innocuous one', () => {
 });
 
 test('stack: check surfaces a broken link', () => {
-  withStack(({ home, zu }) => {
-    zu('knowledge', 'dangling', { type: 'knowledge', title: 'points nowhere', relations: { 'related-to': 'knowledge:ghost' } });
+  withStack(({ home, note }) => {
+    note('knowledge', 'dangling', { type: 'knowledge', title: 'points nowhere', relations: { 'related-to': 'knowledge:ghost' } });
     const r = invoke(home, 'knowledge', 'check');
     assert.equal(r.ok, true);
     assert.ok(r.value.broken.length >= 1, 'the dangling relation is reported');
@@ -95,6 +95,6 @@ test('stack: enhance → propose → review writes the brain and mints a generat
     assert.equal(generations(home, 'knowledge').active, 1);
     // and it is now queryable
     const q = invoke(home, 'knowledge', 'query', { text: 'warm' });
-    assert.ok(q.value.rows.some((x) => x.addr === 'knowledge:acme-warm-ban'), 'the approved zu is indexed + queryable');
+    assert.ok(q.value.rows.some((x) => x.addr === 'knowledge:acme-warm-ban'), 'the approved note is indexed + queryable');
   });
 });

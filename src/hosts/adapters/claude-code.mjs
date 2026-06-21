@@ -1,4 +1,4 @@
-// zuzuu/hosts/adapters/claude-code.mjs — observe a Claude Code session.
+// src/hosts/adapters/claude-code.mjs — observe a Claude Code session.
 //
 // what: read a real Claude transcript (~/.claude/projects/<encoded-cwd>/<id>.jsonl)
 //       and extract deterministic mining SIGNALS — recurring commands, hot files,

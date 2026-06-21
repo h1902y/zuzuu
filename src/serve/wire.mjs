@@ -1,6 +1,6 @@
-// zuzuu/capabilities/index.mjs — wire every capability into the one registry.
+// src/serve/wire.mjs — wire every capability into the one registry.
 //
-// what: registerAll() binds the built verbs to kernel/capability's registry so
+// what: registerAll() binds the built verbs to serve/registry's registry so
 //       `invoke(home, module, verb, …)` dispatches them. The single import a
 //       host (CLI, daemon, plugin) needs to light up the capability surface.
 // why:  the registry is the one dispatch table (R: one registry, no per-module

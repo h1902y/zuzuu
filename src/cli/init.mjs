@@ -1,10 +1,10 @@
-// zuzuu/cli/init.mjs — scaffold a brain into any repo (git-citizen).
+// src/cli/init.mjs — scaffold a brain into any repo (git-citizen).
 //
 // what: `zz init` — create the `.zuzuu/` home: the five standard modules (each a
 //       module.md envelope + items/ + proposals/), seed guardrail rules, a README,
 //       and the gitignore lines for the ephemeral/derived paths.
 // why:  the one onboarding step. Everything else (query/act/enhance/review) reads
-//       a home; this makes one. It writes envelopes with the kernel's own
+//       a home; this makes one. It writes envelopes with the note's own
 //       serializer — the home is dogfood from byte one.
 // how:  git-citizen — resolves the host repo root and plants `.zuzuu/` there;
 //       NEVER `git init`s. Idempotent + brownfield-safe: never clobbers an
@@ -17,15 +17,15 @@ import { homeDir, repoRoot } from '../notes/store.mjs';
 
 // The five us-owned modules: id → manifest envelope (type: module).
 const MODULES = [
-  { id: 'knowledge', title: 'Knowledge', zu_type: 'knowledge', capabilities: ['query', 'check', 'enhance'],
+  { id: 'knowledge', title: 'Knowledge', note_type: 'knowledge', capabilities: ['query', 'check', 'enhance'],
     goal: 'Capture durable, reusable facts about this project and its domain.' },
-  { id: 'memory', title: 'Memory', zu_type: 'episode', capabilities: ['query', 'check', 'enhance'],
+  { id: 'memory', title: 'Memory', note_type: 'episode', capabilities: ['query', 'check', 'enhance'],
     goal: 'Remember what happened — episodes, decisions, and their outcomes.' },
-  { id: 'actions', title: 'Actions', zu_type: 'action', capabilities: ['query', 'check', 'act', 'enhance'],
-    goal: 'Capture every repeated multi-step procedure as a runnable zu.' },
-  { id: 'instructions', title: 'Instructions', zu_type: 'instruction', capabilities: ['query', 'check'],
+  { id: 'actions', title: 'Actions', note_type: 'action', capabilities: ['query', 'check', 'act', 'enhance'],
+    goal: 'Capture every repeated multi-step procedure as a runnable note.' },
+  { id: 'instructions', title: 'Instructions', note_type: 'instruction', capabilities: ['query', 'check'],
     goal: "Keep the agent's standing guidance current and minimal." },
-  { id: 'guardrails', title: 'Guardrails', zu_type: 'rule', capabilities: ['gate', 'check'],
+  { id: 'guardrails', title: 'Guardrails', note_type: 'rule', capabilities: ['gate', 'check'],
     goal: 'Protect against repeated mistakes — as enforced tool gates.' },
 ];
 
@@ -48,9 +48,9 @@ const HOME_README = `# .zuzuu — this project's brain
 
 A directory of **envelopes** (markdown + frontmatter), grown from how you work and
 **human-gated**. Each subdirectory is a *module* (its \`module.md\` is the manifest);
-each \`items/<id>.md\` is a *zu* — one fact, optionally runnable.
+each \`items/<id>.md\` is a *note* — one fact, optionally runnable.
 
-- **query** what's known · **act** on a runnable zu · **check** integrity
+- **query** what's known · **act** on a runnable note · **check** integrity
 - zuzuu **observes** your sessions and **enhances** — proposing changes you **review**
 
 Tracked files are the durable brain (plain text, versioned). \`.live/\` and
@@ -84,7 +84,7 @@ export function initHome(cwd = process.cwd()) {
     ensureDir(join(home, m.id, 'items'));
     ensureDir(join(home, m.id, 'proposals'));
     const manifest = serialize({
-      id: m.id, type: 'module', title: m.title, zu_type: m.zu_type,
+      id: m.id, type: 'module', title: m.title, note_type: m.note_type,
       capabilities: m.capabilities, enhance: { goal: m.goal },
     });
     writeOnce(join(home, m.id, 'module.md'), manifest, `${m.id}/module.md`);

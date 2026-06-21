@@ -1,8 +1,8 @@
-// zuzuu/cli/index.mjs — the `zz` veneer: a thin router over the one api.
+// src/cli/index.mjs — the `zz` veneer: a thin router over the one api.
 //
 // what: parse argv → call `api` (or init/observe) → render brief TOON. The CLI
 //       is the host; it owns NO logic — every verb is a one-liner onto the
-//       façade. `kernel ← capabilities ← pipelines ← hosts/cli`: this is the
+//       façade. `notes ← use · loop ← serve ← hosts · cli`: this is the
 //       outermost layer, importing inward only.
 // why:  AXI — brief-by-default, content-first, TOON output (~40% fewer tokens),
 //       no blocking prompts (review is explicit subcommands, not a wizard),
@@ -45,7 +45,7 @@ const HELP = `zz — your project's brain (envelopes, queried/run/grown, human-g
   zz init                       scaffold .zuzuu/ into this repo (git-citizen)
   zz enable / disable           install/remove the lifecycle + guardrails hooks
   zz query <module> [text]      search a module  (--from <addr> · --tag t · --full)
-  zz act <module> <id> [--k v]  run a runnable zu
+  zz act <module> <id> [--k v]  run a runnable note
   zz check [module]             integrity — broken links · orphans · stale
   zz observe                    mine real sessions → proposals (the cold-start)
   zz enhance [module]           propose growth from the event log + sessions
@@ -89,7 +89,7 @@ export async function run(argv, io = {}) {
         const v = r.value;
         if (v.kind === 'count') { log(toon('count', [{ total: v.total }], ['total'])); return 0; }
         const rows = v.rows ?? [];
-        log(toon('zus', rows, ['addr', 'type', 'title', 'status'], rows.length ? ['zz act <m> <id>', 'zz query <m> --from <addr>'] : []));
+        log(toon('notes', rows, ['addr', 'type', 'title', 'status'], rows.length ? ['zz act <m> <id>', 'zz query <m> --from <addr>'] : []));
         return 0;
       }
 
@@ -174,7 +174,7 @@ export async function run(argv, io = {}) {
         const zz = open(cwd);
         const [m, action, n] = args._;
         if (!m || m === 'list') {
-          log(toon('modules', zz.modules().map((x) => ({ id: x.id, type: x.zu_type ?? '', capabilities: (x.capabilities || []).join('|') })), ['id', 'type', 'capabilities']));
+          log(toon('modules', zz.modules().map((x) => ({ id: x.id, type: x.note_type ?? '', capabilities: (x.capabilities || []).join('|') })), ['id', 'type', 'capabilities']));
           return 0;
         }
         if (action === 'generations') {

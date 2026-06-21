@@ -1,4 +1,4 @@
-// zuzuu/cli/doctor.mjs — health, inventory, and crash reconciliation.
+// src/cli/doctor.mjs — health, inventory, and crash reconciliation.
 //
 // what: `zz doctor` (is everything wired? any leftover/crashed session?),
 //       `zz status` (detected hosts + recorded sessions), `zz explain` (porcelain
@@ -7,7 +7,7 @@
 //       are the porcelain — they let a human (or agent) see the machine's state
 //       without reading internals. doctor surfaces a crashed session's leftover
 //       branch (the recovery path), never auto-merging it.
-// how:  compose kernel/store + hosts/registry + sessions/ + the check verb.
+// how:  compose notes/store + hosts/registry + sessions/ + the check verb.
 //       Zero-dep, fail-soft (a broken probe degrades to a warning).
 
 import { existsSync } from 'node:fs';
@@ -76,7 +76,7 @@ export function status(cwd, log) {
 }
 
 const TOPICS = {
-  home: 'The `.zuzuu/` home is a directory of envelopes (markdown + frontmatter). Each subdir is a module; each items/<id>.md is a zu. Tracked = the durable brain; .live/ + .generations/.store/ = local/derived.',
+  home: 'The `.zuzuu/` home is a directory of envelopes (markdown + frontmatter). Each subdir is a module; each items/<id>.md is a note. Tracked = the durable brain; .live/ + .generations/.store/ = local/derived.',
   loop: 'observe → enhance → propose → review → write + snapshot. zuzuu watches your sessions, suggests changes, you approve them, the brain grows — every write human-gated.',
   modules: 'knowledge (facts) · memory (episodes) · actions (runnable procedures) · instructions (steering) · guardrails (enforced tool gates). Generic — no per-module code.',
   verbs: 'query · act · enhance · review · check, plus init · enable · digest · session · module · doctor.',

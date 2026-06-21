@@ -1,4 +1,4 @@
-// zuzuu/kernel/session.mjs — the session record + its lifecycle, in the kernel.
+// src/sessions/record.mjs — the session record + its lifecycle.
 //
 // what: the session index (`.zuzuu/sessions.json`, tracked) and the lifecycle
 //       state machine (opening→active→completed|abandoned|crashed; captured =

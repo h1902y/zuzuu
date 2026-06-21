@@ -1,6 +1,6 @@
-// zuzuu/kernel/snapshot.mjs — content-addressed snapshots (generations + checkpoints).
+// src/loop/snapshot.mjs — content-addressed snapshots (generations + checkpoints).
 //
-// what: pin a module's current zus as an immutable generation, and roll back by
+// what: pin a module's current notes as an immutable generation, and roll back by
 //       restoring it. Compose all modules' actives into a whole-brain checkpoint.
 // why:  one mechanism, two scopes (a module / the whole project). Rollback is a
 //       pointer-flip + content restore — never a `git revert`. Immutable history;
@@ -44,7 +44,7 @@ export function generations(home, module) {
 }
 
 /**
- * Mint a generation: snapshot every zu file in the module into the content
+ * Mint a generation: snapshot every note file in the module into the content
  * store and record {id → hash}. Advances the active pointer. Returns the entry.
  */
 export function mint(home, module, { mintedFrom = [] } = {}) {

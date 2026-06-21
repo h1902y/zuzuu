@@ -1,11 +1,11 @@
-// zuzuu/capabilities/review.mjs — the human gate.
+// src/loop/review.mjs — the human gate.
 //
 // what: apply or reject a proposal. Approving performs the mechanical CRUD on
-//       the module's zus, logs the mutation, and mints a generation. Rejecting
+//       the module's notes, logs the mutation, and mints a generation. Rejecting
 //       archives it. This is the ONLY door to the brain.
 // why:  the moat — the one defense against knowledge-poisoning that every
 //       automated competitor lacks. No write happens without passing here.
-// how:  approve = write/update/delete the zu (kernel/item) + log + snapshot;
+// how:  approve = write/update/delete the note (notes/note) + log + snapshot;
 //       reject = archive. The interactive ceremony is a thin CLI wrapper over
 //       these pure data operations. Zero-dep, fail-soft.
 
@@ -17,7 +17,7 @@ import { mint } from './snapshot.mjs';
 import { readProposal, archiveProposal } from './propose.mjs';
 
 /**
- * Apply an approved proposal: mutate the zus, log it, mint a generation.
+ * Apply an approved proposal: mutate the notes, log it, mint a generation.
  * @returns {{ ok, op, item?, error? }}
  */
 export function approve(home, module, id, { edit = null } = {}) {
@@ -37,10 +37,10 @@ export function approve(home, module, id, { edit = null } = {}) {
       writeFileSync(itemPath(home, module, target), serialize(item));
       logMutation(home, module, p.op, target, { proposal: id });
     } else if (p.op === 'relate') {
-      // change = { from, type, to } — add a typed relation to the `from` zu
+      // change = { from, type, to } — add a typed relation to the `from` note
       const { from, type, to } = change;
       const path = itemPath(home, module, from);
-      if (!existsSync(path)) return { ok: false, error: `relate: no zu '${from}'` };
+      if (!existsSync(path)) return { ok: false, error: `relate: no note '${from}'` };
       const item = parse(readFileSync(path, 'utf8'), { id: from }).item;
       item.relations = item.relations ?? {};
       const cur = item.relations[type];

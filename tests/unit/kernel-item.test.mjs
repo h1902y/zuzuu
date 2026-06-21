@@ -5,7 +5,7 @@ import { parse, serialize, validate, idFromPath, slugify, deriveTitle } from '..
 
 // ── parse: scalars, the required `type`, fail-soft ──────────────────────────
 
-test('parse: minimal zu — only type required', () => {
+test('parse: minimal note — only type required', () => {
   const r = parse('---\ntype: knowledge\n---\nA fact.');
   assert.equal(r.ok, true);
   assert.equal(r.item.type, 'knowledge');
@@ -64,7 +64,7 @@ test('parse: inline JSON array (tags one line)', () => {
 
 const rt = (item) => parse(serialize({ ...item, type: item.type ?? 'knowledge' })).item;
 
-test('round-trip: a rich zu survives parse∘serialize', () => {
+test('round-trip: a rich note survives parse∘serialize', () => {
   const src = {
     type: 'action', title: 'Build the report', status: 'active',
     tags: ['reporting', 'decks'],

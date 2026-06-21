@@ -1,4 +1,4 @@
-// zuzuu/hosts/signals.mjs — shared cross-host signal primitives.
+// src/hosts/signals.mjs — shared cross-host signal primitives.
 //
 // what: the one `norm`, destructive-shape set, and shell-call assembler every
 //       adapter shares, so each host's mineSignals emits the SAME superset

@@ -20,11 +20,11 @@ function withHome(manifests, fn) {
 
 // ── module manifest ─────────────────────────────────────────────────────────
 
-test('readManifest: parses module.md (the same envelope as a zu)', () => {
-  withHome({ actions: { title: 'Actions', zu_type: 'action', enhance: { goal: 'capture procedures' }, policy: { tier: 'contained' } } }, (home) => {
+test('readManifest: parses module.md (the same envelope as a note)', () => {
+  withHome({ actions: { title: 'Actions', note_type: 'action', enhance: { goal: 'capture procedures' }, policy: { tier: 'contained' } } }, (home) => {
     const m = readManifest(home, 'actions');
     assert.equal(m.id, 'actions');
-    assert.equal(m.zu_type, 'action');
+    assert.equal(m.note_type, 'action');
     assert.equal(m.enhance.goal, 'capture procedures');
     assert.equal(m.policy.tier, 'contained');
   });
@@ -76,8 +76,8 @@ test('register / get / has / list', () => {
 
 test('invoke: dispatches with module context, one declaration + one dispatch', () => {
   clear();
-  register('query', (ctx) => `queried ${ctx.module} (${ctx.manifest.zu_type})`);
-  withHome({ knowledge: { zu_type: 'knowledge' } }, (home) => {
+  register('query', (ctx) => `queried ${ctx.module} (${ctx.manifest.note_type})`);
+  withHome({ knowledge: { note_type: 'knowledge' } }, (home) => {
     const r = invoke(home, 'knowledge', 'query');
     assert.equal(r.ok, true);
     assert.equal(r.value, 'queried knowledge (knowledge)');
@@ -88,7 +88,7 @@ test('invoke: dispatches with module context, one declaration + one dispatch', (
 test('invoke: fail-soft — missing capability, not-exposed, broken handler', () => {
   clear();
   register('gate', () => { throw new Error('boom'); });
-  withHome({ knowledge: { zu_type: 'knowledge' } }, (home) => {
+  withHome({ knowledge: { note_type: 'knowledge' } }, (home) => {
     assert.equal(invoke(home, 'knowledge', 'enhance').missing, true);   // not registered
     assert.equal(invoke(home, 'knowledge', 'gate').denied, true);       // not exposed by the module
     // expose gate, then the handler throws → caught

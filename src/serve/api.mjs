@@ -1,11 +1,11 @@
-// zuzuu/api.mjs — the one programmatic surface over a brain.
+// src/serve/api.mjs — the one programmatic surface over a brain.
 //
-// what: a single import that composes the kernel + capabilities into the clean
+// what: a single import that composes the notes substrate + the verbs & loop into the clean
 //       façade every host (CLI veneer, web daemon, plugin) consumes. `open(cwd)`
 //       resolves the home once; the returned handle exposes the five verbs plus
 //       the gate, snapshots, and proposals — all bound to that home.
-// why:  hosts should depend on ONE stable surface, not reach into kernel/ and
-//       capabilities/ internals. This is the seam the CLI thins down to and the
+// why:  hosts should depend on ONE stable surface, not reach into notes/ and
+//       the verbs/loop internals. This is the seam the CLI thins down to and the
 //       daemon calls — so the verb set stays legible and swappable underneath.
 // how:  thin binding over the registry + the human-gate (review) + snapshot
 //       primitives. registerAll() is idempotent, so opening is cheap and safe to

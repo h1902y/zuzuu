@@ -1,4 +1,4 @@
-// zuzuu/capabilities/enhance.mjs — propose growth from what happened.
+// src/loop/enhance.mjs — propose growth from what happened.
 //
 // what: the `enhance` verb — mine a module's event log (and, when wired, the
 //       session conversation) for evidence-backed, typed proposals toward the
@@ -15,7 +15,7 @@ import { itemsDir } from '../notes/store.mjs';
 import { existsSync, readdirSync } from 'node:fs';
 import { createProposal } from './propose.mjs';
 
-/** Known zu ids in a module (so proposals reference real items). */
+/** Known note ids in a module (so proposals reference real items). */
 function knownItems(home, module) {
   const dir = itemsDir(home, module);
   return existsSync(dir) ? new Set(readdirSync(dir).filter((f) => f.endsWith('.md')).map((f) => f.slice(0, -3))) : new Set();

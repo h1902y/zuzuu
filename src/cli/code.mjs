@@ -1,4 +1,4 @@
-// zuzuu/cli/code.mjs — launch OpenCode as the bundled default host.
+// src/cli/code.mjs — launch OpenCode as the bundled default host.
 //
 // what: `zz code [dir]` — ensure the module home + the zuzuu hooks, then launch
 //       the real `opencode` binary (configure + launch, never fork, never drive
@@ -6,7 +6,7 @@
 // why:  stage 2 of the product sequence: a one-command, module-equipped host for
 //       newcomers. OpenCode is a runtime PEER (detected, installed on demand),
 //       never an npm dependency (the zero-dep guarantee).
-// how:  re-pointed from v1 onto the kernel + the v2 init/enable. The `deps` seam
+// how:  re-pointed from v1 onto the substrate + the v2 init/enable. The `deps` seam
 //       keeps it hermetically testable (no real binary in tests). Zero-dep.
 
 import { existsSync, readSync } from 'node:fs';

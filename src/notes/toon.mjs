@@ -1,4 +1,4 @@
-// zuzuu/kernel/toon.mjs — token-dense list output for agents (AXI principle).
+// src/notes/toon.mjs — token-dense list output for agents (AXI principle).
 //
 // what: serialize a list of rows to TOON — `name[count]{fields}:` + comma rows.
 // why:  ~40% fewer tokens than JSON (no braces/quotes/commas-per-row). The agent
@@ -12,7 +12,7 @@ const cell = (v) => {
 };
 
 /**
- * @param {string} name   the collection name (e.g. "zus")
+ * @param {string} name   the collection name (e.g. "notes")
  * @param {object[]} rows
  * @param {string[]} fields  columns, in order
  * @param {string[]} [help]  optional next-step command templates

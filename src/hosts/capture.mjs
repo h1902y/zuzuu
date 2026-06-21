@@ -1,4 +1,4 @@
-// zuzuu/hosts/capture.mjs — host-agnostic capture-core.
+// src/hosts/capture.mjs — host-agnostic capture-core.
 //
 // what: find the transcripts worth mining (across every detected host) and turn
 //       them into per-session signals. The one seam between "a host wrote a log"

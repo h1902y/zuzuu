@@ -80,7 +80,7 @@ test('propose: stage, rank by score, dedup re-proposals', () => {
   });
 });
 
-test('review: approve a create → writes the zu + logs + mints a generation', () => {
+test('review: approve a create → writes the note + logs + mints a generation', () => {
   withHome((home) => {
     const p = createProposal(home, 'knowledge', { op: 'create', target: 'blue-decks', change: { type: 'knowledge', title: 'Acme likes blue', body: 'blue' } });
     const r = approve(home, 'knowledge', p.id);

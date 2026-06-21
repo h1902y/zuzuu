@@ -99,7 +99,7 @@ test('observe: routes a command to actions (runnable) and a file to knowledge', 
   const knowledge = listProposals(home, 'knowledge');
   assert.equal(actions.length, 1);
   assert.equal(actions[0].change.type, 'action');
-  assert.equal(actions[0].change.run, 'npm run build', 'the command became a runnable action zu');
+  assert.equal(actions[0].change.run, 'npm run build', 'the command became a runnable action note');
   assert.equal(knowledge.length, 1);
   assert.equal(knowledge[0].change.type, 'knowledge');
 

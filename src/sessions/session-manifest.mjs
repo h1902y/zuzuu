@@ -1,4 +1,4 @@
-// zuzuu/sessions/session-manifest.mjs — the portable SESSION MANIFEST (Wave C, L4).
+// src/sessions/session-manifest.mjs — the portable SESSION MANIFEST (Wave C, L4).
 //
 // A manifest is the durable, content-addressed DEFINITION of a session: enough
 // to identify, understand, and (Wave C restore) reconstitute it — host, state,
@@ -16,7 +16,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { readIndex } from './record.mjs'; // 8b: re-pointed off v1 core onto the kernel
+import { readIndex } from './record.mjs'; // 8b: re-pointed off v1 core onto the substrate
 import { readSessionLabels } from './labels.mjs';
 import { mainBranch, sessionBranchName, defaultTitle } from './session-git.mjs';
 import { branchExists, git } from './git.mjs';

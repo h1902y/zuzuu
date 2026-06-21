@@ -1,12 +1,12 @@
-// zuzuu/kernel/index.mjs — the derived query cache.
+// src/notes/index.mjs — the derived query cache.
 //
-// what: a node:sqlite index over every zu in the project — built FROM the files,
+// what: a node:sqlite index over every note in the project — built FROM the files,
 //       never authoritative. Powers query-on-demand: search, filter, and walk
 //       relations without loading the corpus into anyone's context.
 // why:  the files are the brain; this is a regenerable cache. The agent QUERIES
 //       instead of ingesting — context-frugal. (The #1 novel bet: portable,
 //       zero-dep, CLI-native graph+relational query over markdown.)
-// how:  zus + prop(KV) + link(graph) tables + an FTS5 body index + recursive
+// how:  notes + prop(KV) + link(graph) tables + an FTS5 body index + recursive
 //       CTE traversal. node:sqlite is lazy-loaded (createRequire) so importing
 //       this never hard-requires sqlite. Rebuilt when any source file changes.
 
@@ -25,7 +25,7 @@ const dbPath = (home) => join(home, '.index.db');
 const str = (v) => (v == null ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v));
 
 const SCHEMA = `
-CREATE TABLE zus (addr TEXT PRIMARY KEY, module TEXT, id TEXT, type TEXT, title TEXT, status TEXT, body TEXT);
+CREATE TABLE notes (addr TEXT PRIMARY KEY, module TEXT, id TEXT, type TEXT, title TEXT, status TEXT, body TEXT);
 CREATE TABLE prop (addr TEXT, key TEXT, value TEXT);
 CREATE TABLE link (src TEXT, type TEXT, dst TEXT);
 CREATE VIRTUAL TABLE fts USING fts5(addr UNINDEXED, title, body);
@@ -60,7 +60,7 @@ function corpusSig(home) {
 function build(home, db) {
   db.exec(SCHEMA);
   db.exec('BEGIN'); // one transaction → one fsync, not one per insert (≈100× faster)
-  const insZu = db.prepare('INSERT OR REPLACE INTO zus VALUES (?,?,?,?,?,?,?)');
+  const insZu = db.prepare('INSERT OR REPLACE INTO notes VALUES (?,?,?,?,?,?,?)');
   const insProp = db.prepare('INSERT INTO prop VALUES (?,?,?)');
   const insLink = db.prepare('INSERT INTO link VALUES (?,?,?)');
   const insFts = db.prepare('INSERT INTO fts VALUES (?,?,?)');
@@ -128,12 +128,12 @@ export function search(home, { text = '', module = '', type = '', tag = '', limi
     const cols = full ? fullCols : briefCols;
     const where = [];
     const args = [];
-    let from = 'zus';
-    if (text) { from = 'zus JOIN fts ON fts.addr = zus.addr'; where.push('fts MATCH ?'); args.push(text); }
-    if (module) { where.push('zus.module = ?'); args.push(module); }
-    if (type) { where.push('zus.type = ?'); args.push(type); }
-    if (tag) { where.push('zus.addr IN (SELECT addr FROM prop WHERE key=? AND value=?)'); args.push('tag', tag); }
-    const sql = `SELECT ${cols.replace(/\b(addr|type|title|status|body)\b/g, 'zus.$1')} FROM ${from}`
+    let from = 'notes';
+    if (text) { from = 'notes JOIN fts ON fts.addr = notes.addr'; where.push('fts MATCH ?'); args.push(text); }
+    if (module) { where.push('notes.module = ?'); args.push(module); }
+    if (type) { where.push('notes.type = ?'); args.push(type); }
+    if (tag) { where.push('notes.addr IN (SELECT addr FROM prop WHERE key=? AND value=?)'); args.push('tag', tag); }
+    const sql = `SELECT ${cols.replace(/\b(addr|type|title|status|body)\b/g, 'notes.$1')} FROM ${from}`
       + (where.length ? ` WHERE ${where.join(' AND ')}` : '')
       + ` LIMIT ${Number(limit) || 50}`;
     return db.prepare(sql).all(...args);
@@ -153,7 +153,7 @@ export function related(home, addr, { depth = 1, type = '' } = {}) {
         WHERE walk.hop < ? ${typeFilter}
       )
       SELECT z.addr, z.type, z.title, z.status, walk.hop
-      FROM walk JOIN zus z ON z.addr = walk.addr
+      FROM walk JOIN notes z ON z.addr = walk.addr
       WHERE walk.hop > 0 ORDER BY walk.hop, z.addr`;
     const args = type ? [addr, Number(depth) || 1, type] : [addr, Number(depth) || 1];
     return db.prepare(sql).all(...args);
@@ -165,7 +165,7 @@ export function count(home, opts = {}) {
   return search(home, { ...opts, limit: 100000 }).length;
 }
 
-/** Integrity: relations whose target isn't a known zu (broken links). */
+/** Integrity: relations whose target isn't a known note (broken links). */
 export function brokenLinks(home) {
   const db = open(home);
   try {
@@ -173,8 +173,8 @@ export function brokenLinks(home) {
     return db.prepare(`
       SELECT l.src, l.type, l.dst FROM link l
       WHERE l.dst != ''
-        AND l.dst NOT IN (SELECT addr FROM zus)
-        AND l.dst NOT IN (SELECT id FROM zus)
+        AND l.dst NOT IN (SELECT addr FROM notes)
+        AND l.dst NOT IN (SELECT id FROM notes)
       ORDER BY l.src`).all();
   } finally { db.close(); }
 }

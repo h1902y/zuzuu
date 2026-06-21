@@ -1,11 +1,11 @@
-// zuzuu/cli/session.mjs — `zz session …`, the session-as-git-branch surface.
+// src/cli/session.mjs — `zz session …`, the session-as-git-branch surface.
 //
 // what: inspect and steer the invisible per-session git substrate — status,
 //       squash-merge, continue, discard; the worktree concurrency layer; the
 //       portable manifest + restore; and human labels.
 // why:  a session ≡ a conversation ≡ a git branch. This is the porcelain over
 //       the safety-critical sessions/ engine (single-working-branch, secret-
-//       excluded checkpoints, fail-soft-never-throw) — now v2-native (kernel,
+//       excluded checkpoints, fail-soft-never-throw) — now v2-native (notes-backed,
 //       no v1 core). The OTLP inspect/trace/tree/content subcommands are GONE
 //       with the trace layer (v2 mines transcripts directly).
 // how:  a thin sub-dispatch onto sessions/*; brief output. Zero-dep.

@@ -1,6 +1,6 @@
-// zuzuu/capabilities/act.mjs — run a runnable zu, contained.
+// src/use/act.mjs — run a runnable note, contained.
 //
-// what: the `act` verb — execute a zu's `run` under its `policy`, capture the
+// what: the `act` verb — execute a note's `run` under its `policy`, capture the
 //       normalized result, and log a run event. One call = run + capture + log
 //       (AXI: combine operations).
 // why:  the actions layer. A curated, reusable procedure the agent can invoke
@@ -30,18 +30,18 @@ function tokenize(run) {
 }
 
 /**
- * Run a zu. Fail-soft return — never throws.
+ * Run a note. Fail-soft return — never throws.
  * @returns {{ ok, ran, contained, exitCode?, success?, stdout?, stderr?, error?, denied? }}
  */
 export function act(ctx, id, inputs = {}) {
   const { home, module, manifest } = ctx;
   const path = itemPath(home, module, id);
-  if (!existsSync(path)) return { ok: false, ran: false, error: `no zu '${module}:${id}'` };
+  if (!existsSync(path)) return { ok: false, ran: false, error: `no note '${module}:${id}'` };
   const { ok, item } = parse(readFileSync(path, 'utf8'), { id });
-  if (!ok || !item) return { ok: false, ran: false, error: `unparseable zu '${id}'` };
-  if (!item.run) return { ok: false, ran: false, error: `zu '${id}' is not runnable (no run)` };
+  if (!ok || !item) return { ok: false, ran: false, error: `unparseable note '${id}'` };
+  if (!item.run) return { ok: false, ran: false, error: `note '${id}' is not runnable (no run)` };
 
-  // policy: the zu's own policy narrows the module default (never widens)
+  // policy: the note's own policy narrows the module default (never widens)
   const policy = { ...(manifest.policy ?? {}), ...(item.policy ?? {}) };
   const tier = policy.tier ?? 'advisory';
   const allow = policy.run?.allow ?? null;

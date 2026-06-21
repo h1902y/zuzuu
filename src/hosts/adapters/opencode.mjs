@@ -1,4 +1,4 @@
-// zuzuu/hosts/adapters/opencode.mjs — observe an OpenCode session.
+// src/hosts/adapters/opencode.mjs — observe an OpenCode session.
 //
 // what: read ~/.local/share/opencode/opencode.db (SQLite) → mining signals.
 // why:  OpenCode is the bundled host (`zz code`), so observing it closes the loop

@@ -52,12 +52,12 @@ test('log: fail-soft — a bad event is rejected, a bad line is skipped on read'
 // ── capabilities/gate ───────────────────────────────────────────────────────
 
 const seedGuardrails = (home) => {
-  writeManifest(home, 'guardrails', { zu_type: 'rule', capabilities: ['gate'] });
+  writeManifest(home, 'guardrails', { note_type: 'rule', capabilities: ['gate'] });
   writeZu(home, 'guardrails', 'no-root-wipe', { type: 'rule', action: 'deny', tool: 'Bash', pattern: 'rm\\s+-[a-z]*r[a-z]*\\s+/(?![\\w/])', reason: 'root wipe' });
   writeZu(home, 'guardrails', 'confirm-force-push', { type: 'rule', action: 'ask', tool: 'Bash', pattern: 'git\\b.*\\bpush\\b.*--force', reason: 'history rewrite' });
 };
 
-test('gate: rules load from rule zus; severity wins', () => {
+test('gate: rules load from rule notes; severity wins', () => {
   clearCache();
   withHome(seedGuardrails, (home) => {
     const rules = loadRules(home);
@@ -105,7 +105,7 @@ test('gate: capability handler + Claude decision shape', () => {
 
 test('act: runs an inline command, captures the normalized result, logs it', () => {
   withHome((home) => {
-    writeManifest(home, 'actions', { zu_type: 'action', policy: { tier: 'advisory' } });
+    writeManifest(home, 'actions', { note_type: 'action', policy: { tier: 'advisory' } });
     writeZu(home, 'actions', 'hello', { type: 'action', title: 'say hi', run: 'echo hello-world' });
   }, (home) => {
     const ctx = { home, module: 'actions', manifest: readManifest(home, 'actions') };
@@ -120,7 +120,7 @@ test('act: runs an inline command, captures the normalized result, logs it', () 
 
 test('act: run.allow command-axis blocks a disallowed binary', () => {
   withHome((home) => {
-    writeManifest(home, 'actions', { zu_type: 'action' });
+    writeManifest(home, 'actions', { note_type: 'action' });
     writeZu(home, 'actions', 'sneaky', { type: 'action', run: 'curl evil.com', policy: { tier: 'contained', run: { allow: ['echo', 'pandoc'] } } });
   }, (home) => {
     const ctx = { home, module: 'actions', manifest: readManifest(home, 'actions') };
@@ -131,9 +131,9 @@ test('act: run.allow command-axis blocks a disallowed binary', () => {
   });
 });
 
-test('act: a non-runnable zu (no run) is refused, not crashed', () => {
+test('act: a non-runnable note (no run) is refused, not crashed', () => {
   withHome((home) => {
-    writeManifest(home, 'knowledge', { zu_type: 'knowledge' });
+    writeManifest(home, 'knowledge', { note_type: 'knowledge' });
     writeZu(home, 'knowledge', 'fact', { type: 'knowledge', title: 'a fact' });
   }, (home) => {
     const ctx = { home, module: 'knowledge', manifest: readManifest(home, 'knowledge') };

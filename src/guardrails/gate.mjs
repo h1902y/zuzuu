@@ -1,10 +1,10 @@
-// zuzuu/capabilities/gate.mjs — the enforced guardrails gate.
+// src/guardrails/gate.mjs — the enforced guardrails gate.
 //
-// what: evaluate a tool call against the guardrails module's rule zus; return a
+// what: evaluate a tool call against the guardrails module's rule notes; return a
 //       deny/ask decision (or null = defer to the host's normal flow).
 // why:  the protective layer — enforced on every tool call by the host's
 //       PreToolUse hook. A refusal here is policy, not preference.
-// how:  rules are zus (`type: rule`, frontmatter action/tool/pattern/reason).
+// how:  rules are notes (`type: rule`, frontmatter action/tool/pattern/reason).
 //       severity wins (deny > ask > allow). FAIL-OPEN: a malformed rule is
 //       skipped, an engine error emits no decision — never a wrong block.
 //       (evaluate logic harvested from guardrails/engine.mjs, incl. the
@@ -18,7 +18,7 @@ const SEVERITY = { deny: 3, ask: 2, allow: 1 };
 const ACTIONS = new Set(Object.keys(SEVERITY));
 const cache = new Map(); // dir → { sig, rules }
 
-/** Compile a rule zu → a runtime rule, or null if malformed (skip, never block). */
+/** Compile a rule note → a runtime rule, or null if malformed (skip, never block). */
 function compile(item) {
   if (!item || !ACTIONS.has(item.action) || typeof item.pattern !== 'string' || !item.pattern) return null;
   try {
@@ -28,7 +28,7 @@ function compile(item) {
   }
 }
 
-/** Load + compile the guardrails module's rule zus, cached on the dir signature. */
+/** Load + compile the guardrails module's rule notes, cached on the dir signature. */
 export function loadRules(home, module = 'guardrails') {
   const dir = itemsDir(home, module);
   if (!existsSync(dir)) return [];

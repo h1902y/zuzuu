@@ -1,4 +1,4 @@
-// zuzuu/pipelines/observe.mjs — watched work → review-queued proposals.
+// src/loop/observe.mjs — watched work → review-queued proposals.
 //
 // what: the observe half of the loop. Aggregate per-session signals (from
 //       hosts/capture) across sessions with a corroboration threshold, then route
@@ -9,7 +9,7 @@
 //       deterministic (zero-LLM). It mines what RECURRED, corroborated across
 //       sessions (Generative-Agents: don't act on a single sighting).
 // how:  aggregate harvested from v1's proven distill.aggregate; routing maps a
-//       candidate kind → {module, zu}. Zero-dep, fail-soft.
+//       candidate kind → {module, note}. Zero-dep, fail-soft.
 
 import { slugify } from '../notes/note.mjs';
 import { captureSignals } from '../hosts/capture.mjs';
@@ -78,7 +78,7 @@ export function aggregate(sessions, { minCmdCount = 3, minCmdSessions = 2, minFi
   return out;
 }
 
-// candidate kind → the module it belongs in + the zu it becomes
+// candidate kind → the module it belongs in + the note it becomes
 const ROUTE = {
   command: (c) => ({ module: 'actions', change: { type: 'action', title: c.title, run: c.attributes.command, body: c.body } }),
   entity: (c) => ({ module: 'knowledge', change: { type: 'knowledge', title: c.title, path: c.attributes.path, body: c.body } }),

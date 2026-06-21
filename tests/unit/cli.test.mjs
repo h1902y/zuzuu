@@ -20,7 +20,7 @@ async function withRepo(fn) {
   try { return await fn({ cwd, io, out, text: () => out.join('\n') }); }
   finally { rmSync(cwd, { recursive: true, force: true }); resetCapabilities(); }
 }
-const zu = (cwd, module, id, item) => {
+const note = (cwd, module, id, item) => {
   mkdirSync(join(cwd, '.zuzuu', module, 'items'), { recursive: true });
   writeFileSync(join(cwd, '.zuzuu', module, 'items', `${id}.md`), serialize({ id, ...item }));
 };
@@ -35,7 +35,7 @@ test('init: scaffolds the five modules + seed rules; idempotent', async () => {
       assert.ok(existsSync(join(cwd, '.zuzuu', m, 'module.md')), `${m}/module.md exists`);
     }
     assert.ok(existsSync(join(cwd, '.zuzuu', 'guardrails', 'items', 'no-root-wipe.md')), 'seed rule planted');
-    // the rule round-trips as a real rule zu
+    // the rule round-trips as a real rule note
     const rule = readFileSync(join(cwd, '.zuzuu', 'guardrails', 'items', 'no-root-wipe.md'), 'utf8');
     assert.match(rule, /type: rule/);
     assert.match(rule, /action: deny/);
@@ -64,11 +64,11 @@ test('run: init then module list shows the five modules', async () => {
   });
 });
 
-test('run: query renders TOON rows; a runnable zu acts', async () => {
+test('run: query renders TOON rows; a runnable note acts', async () => {
   await withRepo(async ({ cwd, io, out }) => {
     await run(['init'], io);
-    zu(cwd, 'knowledge', 'acme', { type: 'knowledge', title: 'Acme likes blue', body: 'blue decks' });
-    zu(cwd, 'actions', 'hi', { type: 'action', title: 'say hi', run: 'echo hi-there' });
+    note(cwd, 'knowledge', 'acme', { type: 'knowledge', title: 'Acme likes blue', body: 'blue decks' });
+    note(cwd, 'actions', 'hi', { type: 'action', title: 'say hi', run: 'echo hi-there' });
     out.length = 0;
     assert.equal(await run(['query', 'knowledge', 'blue'], io), 0);
     assert.match(out.join('\n'), /knowledge:acme/);
@@ -100,14 +100,14 @@ test('run: review approve applies a proposal by its human handle', async () => {
     assert.equal(await run(['review', 'approve', 'knowledge', 'learned-fact'], io), 0);
     out.length = 0;
     await run(['query', 'knowledge', 'learned'], io);
-    assert.match(out.join('\n'), /knowledge:learned-fact/, 'approved zu is now queryable');
+    assert.match(out.join('\n'), /knowledge:learned-fact/, 'approved note is now queryable');
   });
 });
 
 test('run: check reports integrity per module; digest summarizes the brain', async () => {
   await withRepo(async ({ cwd, io, out }) => {
     await run(['init'], io);
-    zu(cwd, 'knowledge', 'dangling', { type: 'knowledge', title: 'x', relations: { 'related-to': 'knowledge:ghost' } });
+    note(cwd, 'knowledge', 'dangling', { type: 'knowledge', title: 'x', relations: { 'related-to': 'knowledge:ghost' } });
     out.length = 0;
     assert.equal(await run(['check'], io), 0);
     assert.match(out.join('\n'), /integrity/);

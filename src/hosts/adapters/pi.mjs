@@ -1,4 +1,4 @@
-// zuzuu/hosts/adapters/pi.mjs — observe a pi CLI session.
+// src/hosts/adapters/pi.mjs — observe a pi CLI session.
 //
 // what: read ~/.pi/agent/sessions/<slug>/*.jsonl → mining signals.
 // why:  host-agnostic observe; pi is the owned-harness target (stage 3).

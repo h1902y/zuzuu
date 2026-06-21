@@ -9,11 +9,11 @@ import { search, related, count, brokenLinks } from '../../src/notes/index.mjs';
 import { queryData } from '../../src/use/query.mjs';
 import { toon } from '../../src/notes/toon.mjs';
 
-// build a temp .zuzuu home with some zus and hand back the home dir
-function withBrain(zus, fn) {
+// build a temp .zuzuu home with some notes and hand back the home dir
+function withBrain(notes, fn) {
   const root = mkdtempSync(join(tmpdir(), 'zuzuu-index-'));
   const home = join(root, '.zuzuu');
-  for (const [addr, item] of Object.entries(zus)) {
+  for (const [addr, item] of Object.entries(notes)) {
     const [module, id] = addr.split(':');
     const dir = join(home, module, 'items');
     mkdirSync(dir, { recursive: true });
@@ -68,7 +68,7 @@ test('count: the --dry-run lever (no materialize)', () => {
   });
 });
 
-test('brokenLinks: a relation to a missing zu is surfaced', () => {
+test('brokenLinks: a relation to a missing note is surfaced', () => {
   const broken = { ...CORPUS, 'actions:orphan': { type: 'action', title: 'x', relations: { uses: 'knowledge:gone' }, body: 'y' } };
   withBrain(broken, (home) => {
     const bl = brokenLinks(home);
@@ -79,7 +79,7 @@ test('brokenLinks: a relation to a missing zu is surfaced', () => {
 test('index rebuilds when a file changes (staleness)', () => {
   withBrain(CORPUS, (home) => {
     assert.equal(search(home, { text: 'blue' }).length, 1);
-    // add a new zu after the first build
+    // add a new note after the first build
     const dir = join(home, 'knowledge', 'items');
     writeFileSync(join(dir, 'new.md'), serialize({ type: 'knowledge', title: 'new blue thing', body: 'more blue' }));
     assert.equal(search(home, { text: 'blue' }).length, 2, 'rebuild picked up the new file');
@@ -95,13 +95,13 @@ test('queryData: dry-run, related, search shapes', () => {
 });
 
 test('toon: token-dense list + empty zero-state', () => {
-  const out = toon('zus', [{ addr: 'k:a', type: 'knowledge', title: 'A' }], ['addr', 'type', 'title']);
-  assert.match(out, /^zus\[1\]\{addr,type,title\}:/);
+  const out = toon('notes', [{ addr: 'k:a', type: 'knowledge', title: 'A' }], ['addr', 'type', 'title']);
+  assert.match(out, /^notes\[1\]\{addr,type,title\}:/);
   assert.match(out, /\n {2}k:a,knowledge,A/);
-  assert.match(toon('zus', [], ['addr']), /^zus\[0\]: \(none\)/);
+  assert.match(toon('notes', [], ['addr']), /^notes\[0\]: \(none\)/);
 });
 
 test('toon: values with commas are quoted', () => {
-  const out = toon('zus', [{ title: 'a, b, c' }], ['title']);
+  const out = toon('notes', [{ title: 'a, b, c' }], ['title']);
   assert.match(out, /"a, b, c"/);
 });

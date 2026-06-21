@@ -1,4 +1,4 @@
-// zuzuu/hosts/registry.mjs — the adapter registry.
+// src/hosts/registry.mjs — the adapter registry.
 //
 // what: the one place host adapters register. Adding a host = one adapter file +
 //       one line here (the v1 invariant: the core has no host conditionals).

@@ -1,8 +1,8 @@
-// zuzuu/kernel/store.mjs — where things live on disk, and how to address them.
+// src/notes/store.mjs — where things live on disk, and how to address them.
 //
-// what: resolve the project home (`.zuzuu/`) and the path of any zu by its
-//       `module:id` address. The single chokepoint for the kernel's filesystem.
-// why:  the kernel is the only layer that touches `.zuzuu/`; everything else
+// what: resolve the project home (`.zuzuu/`) and the path of any note by its
+//       `module:id` address. The single chokepoint for the project's filesystem.
+// why:  store is the one place that knows the layout; everything else
 //       asks store for a path. One place to know the layout.
 // how:  the home is the host repo's git-root + `.zuzuu/` — zuzuu is a git-citizen,
 //       so `git rev-parse --show-toplevel` IS the walk-up (resolves from any
@@ -58,12 +58,12 @@ export function parseAddress(addr) {
   return i === -1 ? { module: null, id: s } : { module: s.slice(0, i), id: s.slice(i + 1) };
 }
 
-/** The directory a module's zus live in: `<home>/<module>/items/`. */
+/** The directory a module's notes live in: `<home>/<module>/items/`. */
 export function itemsDir(home, module) {
   return join(home, module, 'items');
 }
 
-/** The file path of a zu by `module` + `id`: `<home>/<module>/items/<id>.md`. */
+/** The file path of a note by `module` + `id`: `<home>/<module>/items/<id>.md`. */
 export function itemPath(home, module, id) {
   return join(itemsDir(home, module), `${id}.md`);
 }
@@ -81,5 +81,5 @@ export function resolve(home, addr, contextModule = null) {
   return itemPath(home, m, id);
 }
 
-/** id = the filename stem of a zu path. */
+/** id = the filename stem of a note path. */
 export const idFromPath = (p) => basename(String(p), '.md');

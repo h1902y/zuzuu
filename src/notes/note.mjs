@@ -1,8 +1,9 @@
-// zuzuu/kernel/item.mjs — the one envelope.
+// src/notes/note.mjs — the atom: one note (markdown + frontmatter).
 //
 // what: parse / serialize / validate one markdown file with YAML frontmatter
-//       (a "zu"), and resolve its id from the filename. The single file format
-//       the whole kernel reads — a zu, a module manifest, all of it.
+//       (a "note"), and resolve its id from the filename. The single file format
+//       the whole system reads — a note, a module manifest, all of it (the
+//       "everything is an envelope" rule; a note is the runnable kind).
 // why:  one parser, one format. Distinguished by `type` (OKF: only `type` is
 //       required, and unknown keys are always tolerated and preserved, so the
 //       brain learns new vocabulary without migrations).
@@ -51,7 +52,7 @@ const parseValueToken = (raw) => {
 // ── parse ─────────────────────────────────────────────────────────────────
 
 /**
- * Parse a zu file's text into `{ type, body, ...frontmatter }`. Never throws.
+ * Parse a note file's text into `{ type, body, ...frontmatter }`. Never throws.
  * Every key is preserved (known + unknown). `id` is the caller's (filename),
  * not read from frontmatter.
  * @param {string} text
@@ -119,7 +120,7 @@ export function parse(text, { id } = {}) {
 
 // ── serialize ─────────────────────────────────────────────────────────────
 
-/** Serialize a zu item → file text that `parse` round-trips. `id` is omitted
+/** Serialize a note item → file text that `parse` round-trips. `id` is omitted
  *  (it lives in the filename, not the frontmatter). */
 export function serialize(item) {
   const { id: _omit, body, ...fm } = item ?? {};

@@ -1,4 +1,4 @@
-// zuzuu/sessions/labels.mjs — user-given session labels (W1-B).
+// src/sessions/labels.mjs — user-given session labels (W1-B).
 //
 // A label is a human name for a session ("fix auth bug") shown in the workbench
 // instead of just the host. Stored in `.zuzuu/session-labels.json` as { id:
@@ -9,7 +9,7 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { paths } from '../notes/store.mjs'; // 8b: re-pointed off v1 core onto the kernel
+import { paths } from '../notes/store.mjs'; // 8b: re-pointed off v1 core onto the substrate
 
 const labelsFile = (cwd) => join(paths(cwd).home, 'session-labels.json');
 

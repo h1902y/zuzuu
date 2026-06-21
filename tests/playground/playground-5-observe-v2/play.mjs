@@ -30,7 +30,7 @@ await run('observe real sessions → review-queued proposals', async () => {
     // each one that IS produced must be routed to a real module with evidence.
     for (const p of r.proposals) {
       check(['knowledge', 'memory', 'actions', 'instructions', 'guardrails'].includes(p.module), `${p.target} → a real module (${p.module})`);
-      check(p.change && p.change.type, `${p.target} carries a typed zu`);
+      check(p.change && p.change.type, `${p.target} carries a typed note`);
     }
     // idempotency: re-observing the same evidence proposes nothing new (dedup).
     check(observe(home, { cwd, scope: 'all' }).proposed === 0, 'a second observe is idempotent (deduped)');

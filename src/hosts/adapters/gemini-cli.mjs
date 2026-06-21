@@ -1,4 +1,4 @@
-// zuzuu/hosts/adapters/gemini-cli.mjs — observe a Gemini CLI session.
+// src/hosts/adapters/gemini-cli.mjs — observe a Gemini CLI session.
 //
 // what: list sessions from ~/.gemini/tmp/<project>/logs.json (a flat user-prompt
 //       timeline). The HONEST thin host: logs.json carries no tool calls (those

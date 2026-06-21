@@ -1,6 +1,6 @@
-// zuzuu/kernel/capability.mjs — the one capability registry.
+// src/serve/registry.mjs — the one capability registry.
 //
-// what: the single place capabilities (verbs over a module's zus) are
+// what: the single place capabilities (verbs over a module's notes) are
 //       registered and dispatched. A capability is a named handler; a module
 //       declares which it exposes (in its manifest); `invoke` runs the handler
 //       with the module's context.

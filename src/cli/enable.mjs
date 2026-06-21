@@ -1,4 +1,4 @@
-// zuzuu/cli/enable.mjs — install/remove the host's lifecycle + gate hooks.
+// src/cli/enable.mjs — install/remove the host's lifecycle + gate hooks.
 //
 // what: `zz enable` writes the zuzuu hook block into the host's settings
 //       (Claude Code: .claude/settings.json) so the agent's lifecycle events +

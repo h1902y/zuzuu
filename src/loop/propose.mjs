@@ -1,6 +1,6 @@
-// zuzuu/capabilities/propose.mjs — the proposal queue.
+// src/loop/propose.mjs — the proposal queue.
 //
-// what: a proposal is an evidence-backed, typed change to a module's zus
+// what: a proposal is an evidence-backed, typed change to a module's notes
 //       (create · update · delete · relate · deprecate) awaiting human review.
 // why:  the bridge from observation to the brain. NOTHING is written without a
 //       human approving a proposal — the moat. Proposals are staged, not applied.
