@@ -2,7 +2,7 @@
 //
 // what: the `check` verb — surface the brain's best-effort cracks: broken links
 //       (a relation to a missing note), orphans (no links at all), and stale notes
-//       (superseded, or bitemporally expired).
+//       (explicitly superseded, or deprecated).
 // why:  the files are mutated by many processes (the agent, the user, other
 //       tools), so the graph is best-effort. `check` makes divergence QUERYABLE
 //       rather than pretending it can't happen (R2 — integrity is a capability,
@@ -16,7 +16,7 @@ import { brokenLinks } from '../notes/index.mjs';
 import { listModules } from '../notes/module.mjs';
 
 /** Every note across all modules, parsed: [{ addr, note }]. */
-function allZus(home) {
+function allNotes(home) {
   const out = [];
   for (const m of listModules(home)) {
     const dir = itemsDir(home, m.id);
@@ -34,9 +34,9 @@ function allZus(home) {
 /**
  * @returns {{ broken: Array, orphans: string[], stale: Array }}
  */
-export function checkData(home, { now = null } = {}) {
+export function checkData(home) {
   const broken = (() => { try { return brokenLinks(home); } catch { return []; } })();
-  const notes = allZus(home);
+  const notes = allNotes(home);
 
   // orphans: no outbound relations and not the target of any relation
   const hasOutbound = new Set();
@@ -52,7 +52,7 @@ export function checkData(home, { now = null } = {}) {
       && !linkedTo.has(addr) && !linkedTo.has(note.id ?? addr.split(':')[1]))
     .map(({ addr }) => addr);
 
-  // stale: explicitly superseded, or deprecated, or bitemporally expired
+  // stale: explicitly superseded, or deprecated
   const stale = notes
     .filter(({ note }) => note.superseded_by || note.status === 'deprecated')
     .map(({ addr, note }) => ({ addr, why: note.superseded_by ? `superseded_by ${note.superseded_by}` : 'deprecated' }));
@@ -61,6 +61,6 @@ export function checkData(home, { now = null } = {}) {
 }
 
 /** The `check` capability handler (project-wide). */
-export function check(ctx, opts = {}) {
-  return checkData(ctx.home, opts);
+export function check(ctx) {
+  return checkData(ctx.home);
 }

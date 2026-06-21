@@ -50,14 +50,6 @@ export function paths(cwd = process.cwd()) {
 
 // ── addressing ──────────────────────────────────────────────────────────────
 
-/** Split a `module:id` address into `{ module, id }`. A bare `id` (no colon)
- *  yields `{ module: null, id }` — module supplied by context. */
-export function parseAddress(addr) {
-  const s = String(addr);
-  const i = s.indexOf(':');
-  return i === -1 ? { module: null, id: s } : { module: s.slice(0, i), id: s.slice(i + 1) };
-}
-
 // A module or note id is a single filename segment — never a path. Anything with
 // a separator, `..`, or a non-slug char is rejected, so a crafted id/target (e.g.
 // a proposal's `target: '../../guardrails/items/no-rm-rf'`) can't escape the
@@ -79,14 +71,6 @@ export function itemPath(home, module, id) {
 /** A module's manifest path: `<home>/<module>/module.md`. */
 export function manifestPath(home, module) {
   return join(home, seg(module, 'module'), 'module.md');
-}
-
-/** Resolve a full `module:id` (or `{module}` + bare id) to a file path. */
-export function resolve(home, addr, contextModule = null) {
-  const { module, id } = parseAddress(addr);
-  const m = module ?? contextModule;
-  if (!m) throw new Error(`address '${addr}' needs a module (no context)`);
-  return itemPath(home, m, id);
 }
 
 /** id = the filename stem of a note path. */
