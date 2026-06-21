@@ -74,6 +74,18 @@ All five verified against **real sessions** — never fixtures; every host's liv
 
 **Five modules**, each mapping onto a cognitive system — **Knowledge** (semantic: what's true), **Memory** (episodic: what happened), **Actions** (procedural: how to do things), **Instructions** (directive: who the agent is), **Guardrails** (protective: what it must not do — *enforced* on tool calls, fail-open). They improve across **versioned generations**, proposals mined from traces, **always human-approved**. That loop is the product; everything here is a step toward it.
 
+## Where this is heading
+
+The build above is real. The **direction** is a deliberate redesign — captured in `docs/`, **not yet built**. The thesis sharpened to one line:
+
+> Your project directory becomes the agent's memory and toolkit — plain files you **query on demand** instead of stuffing into context, grown by a **human-gated loop** that learns from how you actually work.
+
+Three primitives carry it: a **zu** (the atom — one markdown+frontmatter file; knowledge that can *also run*), a **module** (a goal-shaped, self-curating collection of zus), a **project** (`.zuzuu/`, the standing home). A session is a conversation is a git branch; what it learns flows, at close, into the right module through one human gate. Where it can, it **borrows proven theses rather than inventing** — OKF for the file format, Anthropic's sandbox-runtime for shell containment, git's own object model for sessions and snapshots.
+
+- **Read it as a book** — [`docs/learn/`](docs/learn/): motivation → mental model → a code tour that fills in as each rung ships.
+- **The design specs** — [`docs/specs/`](docs/specs/): [thesis & risks](docs/specs/thesis-and-risks.md) · [from-scratch blueprint](docs/specs/from-scratch-blueprint.md) · [sessions & enhance](docs/specs/enhance-and-sessions.md).
+- **The reasoning** — [`docs/inspiration/`](docs/inspiration/): a [git deep-dive](docs/inspiration/git-from-scratch.md) + [research syntheses](docs/inspiration/research/).
+
 ## Repo map
 
 | Path | What |
@@ -81,7 +93,7 @@ All five verified against **real sessions** — never fixtures; every host's liv
 | [`zuzuu/`](zuzuu/) + `bin/zuzuu.mjs` | the CLI — capture pipeline (`zuzuu/capture/`), live lifecycle, module home (product surface) |
 | [`web/`](web/) | the visual workbench — nested project (daemon + React SPA), ships bundled inside the npm package |
 | [`tests/`](tests/) | hermetic unit + regression (`npm test`) + real-data smoke playgrounds (`npm run playground`) |
-| [`docs/`](docs/) | [`DESIGN.md`](docs/DESIGN.md) (the canon) + [`LOG.md`](docs/LOG.md) (the build journal) + [`inspiration/`](docs/inspiration/) (the research shelf) |
+| [`docs/`](docs/) | [`DESIGN.md`](docs/DESIGN.md) (the canon) + [`LOG.md`](docs/LOG.md) (build journal) + [`learn/`](docs/learn/) (the educative book) + [`specs/`](docs/specs/) (the redesign direction) + [`inspiration/`](docs/inspiration/) (research shelf) |
 
 ## How this is built (the method)
 
