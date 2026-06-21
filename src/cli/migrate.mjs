@@ -10,9 +10,35 @@
 //       serializer; for each item, fold kind→type and drop the now-redundant
 //       id/module frontmatter keys. Zero-dep, fail-soft per file.
 
-import { existsSync, readFileSync, writeFileSync, readdirSync, rmSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, readdirSync, rmSync, statSync, mkdirSync, copyFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { serialize, parse } from '../notes/note.mjs';
+
+const RUNNERS = { mjs: 'node', js: 'node', sh: 'sh', py: 'python3' };
+/** Migrate a v1 per-slug Action dir (ACTION.md + run.mjs) → one v2 runnable note.
+ *  Returns true if it migrated one. Preserves the script (copied into items/). */
+function migrateActionDir(subPath, slug, itemsDir, fallbackType) {
+  const mdName = existsSync(join(subPath, 'ACTION.md')) ? 'ACTION.md' : readdirSync(subPath).find((f) => f.endsWith('.md'));
+  if (!mdName) return false;
+  const { item } = parse(readFileSync(join(subPath, mdName), 'utf8'), { id: slug });
+  if (!item) return false;
+  mkdirSync(itemsDir, { recursive: true });
+  const next = { ...item, type: item.type ?? item.kind ?? fallbackType };
+  // fold v1 payload.exec/args into a v2 `run`, copying the script alongside
+  if (!next.run) {
+    const exec = item.payload?.exec || readdirSync(subPath).find((f) => /\.(mjs|js|sh|py)$/.test(f));
+    if (exec && existsSync(join(subPath, exec))) {
+      const ext = exec.split('.').pop();
+      copyFileSync(join(subPath, exec), join(itemsDir, `${slug}.${ext}`));
+      const args = item.payload?.args ? ' ' + [].concat(item.payload.args).join(' ') : '';
+      next.run = `${RUNNERS[ext] ?? 'sh'} items/${slug}.${ext}${args}`;
+    }
+  }
+  delete next.kind; delete next.module; delete next.id; delete next.payload;
+  writeFileSync(join(itemsDir, `${slug}.md`), serialize(next));
+  rmSync(subPath, { recursive: true, force: true });
+  return true;
+}
 import { homeDir, repoRoot } from '../notes/store.mjs';
 
 // default capability set + goal per known module (mirrors `init`)
@@ -60,7 +86,8 @@ export function migrateHome(cwd = process.cwd()) {
       const j = readJson(jsonPath) ?? {};
       writeFileSync(join(moduleDir, 'module.md'), serialize({
         id: entry, type: 'module', title: j.title ?? entry,
-        note_type: j.note_type ?? def.note,
+        // v1 had no note_type; the kind family lived in `kinds: [...]` — read it.
+        note_type: j.note_type ?? (Array.isArray(j.kinds) ? j.kinds[0] : undefined) ?? def.note,
         capabilities: Array.isArray(j.capabilities) && j.capabilities.length ? j.capabilities : def.caps,
         enhance: { goal: j.enhance?.goal ?? def.goal },
       }));
@@ -76,6 +103,16 @@ export function migrateHome(cwd = process.cwd()) {
         if (!f.endsWith('.md')) continue;
         if (migrateItem(join(dir, f), f.slice(0, -3), def.note ?? 'knowledge')) items++;
       }
+    }
+
+    // 3. v1 Actions: a per-slug subdir (actions/<slug>/ACTION.md [+ run.mjs]) —
+    //    NOT under items/. Without this they were silently dropped on upgrade.
+    const itemsDir = join(moduleDir, 'items');
+    for (const sub of readdirSync(moduleDir)) {
+      if (['items', 'entries', 'proposals'].includes(sub) || sub.startsWith('.')) continue;
+      const subPath = join(moduleDir, sub);
+      if (!statSync(subPath).isDirectory()) continue;
+      if (migrateActionDir(subPath, sub, itemsDir, def.note ?? 'action')) { sawV1 = true; items++; }
     }
   }
 
