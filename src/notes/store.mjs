@@ -58,19 +58,27 @@ export function parseAddress(addr) {
   return i === -1 ? { module: null, id: s } : { module: s.slice(0, i), id: s.slice(i + 1) };
 }
 
+// A module or note id is a single filename segment — never a path. Anything with
+// a separator, `..`, or a non-slug char is rejected, so a crafted id/target (e.g.
+// a proposal's `target: '../../guardrails/items/no-rm-rf'`) can't escape the
+// module's items dir and overwrite — or neuter — another module's notes.
+const SAFE_SEGMENT = /^[A-Za-z0-9._-]+$/;
+export const isSafeSegment = (s) => typeof s === 'string' && s !== '.' && s !== '..' && !s.includes('..') && SAFE_SEGMENT.test(s);
+const seg = (s, kind) => { if (!isSafeSegment(s)) throw new Error(`unsafe ${kind}: ${JSON.stringify(s)}`); return s; };
+
 /** The directory a module's notes live in: `<home>/<module>/items/`. */
 export function itemsDir(home, module) {
-  return join(home, module, 'items');
+  return join(home, seg(module, 'module'), 'items');
 }
 
 /** The file path of a note by `module` + `id`: `<home>/<module>/items/<id>.md`. */
 export function itemPath(home, module, id) {
-  return join(itemsDir(home, module), `${id}.md`);
+  return join(itemsDir(home, module), `${seg(id, 'id')}.md`);
 }
 
 /** A module's manifest path: `<home>/<module>/module.md`. */
 export function manifestPath(home, module) {
-  return join(home, module, 'module.md');
+  return join(home, seg(module, 'module'), 'module.md');
 }
 
 /** Resolve a full `module:id` (or `{module}` + bare id) to a file path. */

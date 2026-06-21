@@ -17,7 +17,7 @@ Both lean on the same principle: **a regex gate is not containment.** A pattern-
 
 A note's `policy.tier` says how contained the run is:
 
-- **`advisory`** — runs directly; the guardrails gate is the only check. Honest framing: *not contained.* For trusted, local work.
+- **`advisory`** — runs directly: *not contained.* But it is **not unchecked** — every `act` run is evaluated by the guardrails gate (a deny rule blocks it) and must clear the `run.allow` allowlist. Honest framing: a regex gate is a policy check, not a sandbox. For trusted, local work.
 - **`contained`** — kernel-enforced: filesystem and network restricted by the OS sandbox (Anthropic's `sandbox-runtime` — Seatbelt on macOS, bubblewrap+Landlock on Linux). This is real containment.
 - **`sandboxed`** — a microVM, for untrusted code. Not built yet; reserved.
 
@@ -66,7 +66,7 @@ That third step is the quiet link to the rest of the system: every run is record
 
 The non-negotiable property is **fail-open**: a malformed rule is skipped (the others still apply), and an engine error emits *no* decision rather than a wrong block. A guardrail bug must never break your agent — at worst it stops protecting, it never starts blocking by accident.
 
-And a real bug this caught: the gate matches over `JSON.stringify(input)`, so the bare `rm -rf /` is followed by a `"`, not whitespace — a naive `/(\s|$)` anchor *misses it*. The seed rule uses a negative-lookahead anchor (`/(?![\w/])`) that catches the bare root whether raw, JSON-wrapped, or chained, while still allowing `rm -rf /tmp/x`. (Found, fittingly, by dogfooding — see `docs/LOG.md`.)
+And a real lesson in why a regex gate is *best-effort*: matching matters more than it looks. The gate matches each pattern over the **raw string values** of the tool input (the actual command), *not* `JSON.stringify(input)` — because JSON-escaping turns a real tab/newline into `\t`/`\n`, so `\s` stops matching and `rm⇥-rf⇥/` would slip past a deny rule (a bypass a multi-agent review caught; see `docs/LOG.md`). The seed root-wipe rule requires a whitespace-delimited, optionally-quoted bare `/` after `rm` + any flags, so it catches `rm -rf /`, `rm --recursive --force /`, `rm -rf "/"`, and chained/tab variants — while still allowing `rm -rf /tmp/x` and `rm dir/`. Two hardening rules ride along: tool names are canonicalized across hosts (a `tool: Bash` rule fires on every host's shell tool, not just Claude's), and patterns with a catastrophic-backtracking shape are rejected at compile so a rule can't ReDoS-hang the synchronous gate.
 
 ---
 

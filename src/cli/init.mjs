@@ -34,10 +34,14 @@ const MODULES = [
 // so `/` is followed by `"`, not whitespace).
 const RULES = [
   { id: 'no-root-wipe', type: 'rule', title: 'No destructive delete at filesystem root', action: 'deny', tool: 'Bash',
-    pattern: 'rm\\s+-[a-z]*r[a-z]*\\s+/(?![\\w/])', reason: 'destructive delete at filesystem root',
-    body: 'Blocks `rm -rf /` (bare root) and flag-order/chained variants; allows deletes under a path like `/tmp/x`.' },
+    // The gate matches over the RAW command, so real whitespace works. Requires a
+    // whitespace-delimited, optionally-quoted bare `/` after rm + any flags —
+    // catches `rm -rf /`, `rm --recursive --force /`, `rm -rf "/"`, tab/chained
+    // variants; allows `rm dir/` and `rm -rf /tmp/x`.
+    pattern: 'rm\\s[-\\w\\s]*\\s[\'"]?/[\'"]?(?=\\s|$|[;&|\'"])', reason: 'destructive delete at filesystem root',
+    body: 'Blocks `rm -rf /` (bare root) plus long-flag (`--recursive --force`), quoted (`"/"`), tab-separated, and chained variants; allows deletes under a path like `/tmp/x`.' },
   { id: 'no-secret-reads', type: 'rule', title: 'No reading secret material', action: 'deny', tool: '*',
-    pattern: '\\.env(\\.|\\b)|id_rsa|\\.pem\\b', reason: 'secret material should not enter the context',
+    pattern: '\\.env(\\.|\\b)|id_rsa|id_dsa|id_ecdsa|id_ed25519|\\.pem\\b|\\.p12\\b|\\.pfx\\b|\\bcredentials\\b', reason: 'secret material should not enter the context',
     body: 'Keys and env files must not enter the model context — across every tool, not just Bash.' },
   { id: 'confirm-force-push', type: 'rule', title: 'Confirm before force-push', action: 'ask', tool: 'Bash',
     pattern: 'git\\b.*\\bpush\\b.*--force', reason: 'force-push rewrites shared history',

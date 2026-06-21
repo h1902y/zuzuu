@@ -6,17 +6,29 @@
 // why:  the actions layer. A curated, reusable procedure the agent can invoke
 //       safely — distinct from the agent's ad-hoc session shell (gated
 //       separately).
-// how:  TIERS — advisory (run directly; the regex gate is the only check) ·
+// how:  EVERY run is first evaluated by the guardrails gate (a deny rule blocks
+//       it — so a poisoned action note can't `rm -rf /`). Then TIERS — advisory ·
 //       contained (kernel-enforced via srt, when present) · sandboxed (microVM,
-//       not built). The run.allow command-axis is OUR novel layer, enforced
-//       here regardless. Captures {stdout, stderr, exitCode, success}. Zero-dep
-//       (srt is an optional accelerator, detect-and-degrade).
+//       not built). The run.allow command-axis is OUR layer: an explicit
+//       allowlist, plus repo-local scripts (`./x`, or an absolute path UNDER the
+//       repo root) — an absolute path OUTSIDE the repo is denied. Captures
+//       {stdout, stderr, exitCode, success}. Zero-dep (srt is an optional
+//       accelerator, detect-and-degrade).
 
 import { existsSync, readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { resolve as resolvePath, sep } from 'node:path';
 import { parse } from '../notes/note.mjs';
 import { itemPath, repoRoot } from '../notes/store.mjs';
 import { logRun } from '../loop/log.mjs';
+import { gate } from '../guardrails/gate.mjs';
+
+/** A repo-local script: a path that resolves to within the repo root. */
+function underRepo(cmd, root) {
+  if (!cmd.includes('/')) return false; // a bare command name must be on the allowlist
+  const abs = resolvePath(root, cmd);
+  return abs === root || abs.startsWith(root + sep);
+}
 
 /** Is Anthropic's sandbox-runtime available as the contained-tier backend? */
 function srtAvailable() {
@@ -46,15 +58,22 @@ export function act(ctx, id, inputs = {}) {
   const tier = policy.tier ?? 'advisory';
   const allow = policy.run?.allow ?? null;
 
+  // the guardrails gate applies to curated runs too — a deny rule blocks them
+  const verdict = gate({ home, module: 'guardrails' }, { tool: 'Bash', input: { command: item.run } });
+  if (verdict && verdict.action === 'deny') {
+    return { ok: false, ran: false, denied: true, error: `blocked by guardrail ${verdict.rule}: ${verdict.reason}` };
+  }
+
+  const cwd = repoRoot();
   const [cmd, ...args] = tokenize(item.run);
-  // the run.allow command-axis — OUR layer, enforced regardless of srt
-  if (allow && !allow.includes(cmd) && !cmd.startsWith('./') && !cmd.startsWith('/')) {
+  // the run.allow command-axis — OUR layer: allowlisted, or a repo-local script.
+  // An absolute path OUTSIDE the repo (e.g. /bin/sh) does NOT bypass the allowlist.
+  if (allow && !allow.includes(cmd) && !underRepo(cmd, cwd)) {
     return { ok: false, ran: false, denied: true, error: `command '${cmd}' not in run.allow` };
   }
 
   const env = { ...process.env };
   for (const [k, v] of Object.entries(inputs)) env[`ZZ_${k}`] = String(v);
-  const cwd = repoRoot();
 
   // containment: srt when present + tier!==advisory; else run advisory (honest flag)
   const contained = tier !== 'advisory' && srtAvailable();
