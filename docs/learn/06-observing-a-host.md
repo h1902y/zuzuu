@@ -2,7 +2,7 @@
 
 > Lesson `05` left one arrow unexplained: *observe → enhance*. Where do the signals come from? They come from **watching the host work** — re-reading the transcript the agent already wrote, and turning what recurred into proposals. This is what solves the cold-start: the loop has nothing to enhance from until it has watched real sessions.
 
-The code is `hosts/adapters/claude-code.mjs` (read one host), `hosts/capture.mjs` (host-agnostic core), and `pipelines/observe.mjs` (signals → proposals).
+The code is `hosts/adapters/claude-code.mjs` (read one host), `hosts/capture.mjs` (host-agnostic core), and `loop/observe.mjs` (signals → proposals).
 
 ## Design B: we never drive the host
 
@@ -27,7 +27,7 @@ It is tolerant by construction: a malformed line is skipped, a missing file retu
 
 ## observe: signals → proposals, routed to the right module
 
-`pipelines/observe.mjs` is where watching becomes growth. Two steps:
+`loop/observe.mjs` is where watching becomes growth. Two steps:
 
 **1. aggregate, with a corroboration threshold.** A signal from one session is a coincidence; a signal corroborated across *several* sessions is a pattern (the Generative-Agents lesson again). So a command must recur **≥3× across ≥2 sessions** before it's a candidate; a file must be touched **≥5×**. One sighting proposes nothing.
 
@@ -35,7 +35,7 @@ It is tolerant by construction: a malformed line is skipped, a missing file retu
 
 | signal | becomes | in module |
 |---|---|---|
-| a recurring command | a **runnable action** zu (`type: action`, `run: <cmd>`) | `actions` |
+| a recurring command | a **runnable action** note (`type: action`, `run: <cmd>`) | `actions` |
 | a hot file | a project **entity** (`type: knowledge`) | `knowledge` |
 | a frequently-failing tool | a **fact** worth knowing | `knowledge` |
 

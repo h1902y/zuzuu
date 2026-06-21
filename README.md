@@ -22,8 +22,8 @@ tags: [build, cards]
 Regenerates `dist/index.json` from `src/cards/`. Safe to run anytime.
 ```
 
-- A **zu** is one such file: one fact, optionally runnable (*knowledge that can also run*). Its id is the filename.
-- A **module** is a goal-shaped folder of zus; its `module.md` manifest is the same envelope.
+- A **note** is one such file: one fact, optionally runnable (*knowledge that can also run*). Its id is the filename.
+- A **module** is a goal-shaped folder of notes; its `module.md` manifest is the same envelope.
 - A **project** is the `.zuzuu/` home — a git-citizen that lives *inside* your repo and never `git init`s its own.
 
 You **query** what's true, **act** on what's runnable, **check** integrity; zuzuu **observes** and **enhances**; you **review**. Five verbs over plain files.
@@ -40,7 +40,7 @@ zz enable                    # wire the lifecycle hooks + the enforced guardrail
 
 zz observe                   # mine your real sessions → evidence-backed proposals
 zz review                    # see what it learned, ranked
-zz review approve actions <id>   # the human gate — writes the zu + pins a generation
+zz review approve actions <id>   # the human gate — writes the note + pins a generation
 zz act actions <id>          # run the procedure it just learned
 ```
 
@@ -51,7 +51,7 @@ Other verbs: `zz query <module> [text]` (FTS + graph), `zz check` (broken links 
 ```
    observe            enhance           review            write
    ────────  ──────►  ───────  ──────►  ──────  ──────►  ──────────────
-   re-read your       mine what          you approve       the zu lands +
+   re-read your       mine what          you approve       the note lands +
    real sessions      recurred →         or reject         a generation is
    (never drive)      typed proposals    (the moat)        pinned (rollback-able)
 ```
@@ -60,7 +60,7 @@ Three things make it safe and sticky:
 
 - **The human gate is the moat.** Every write to the brain passes through `zz review`. Automated memory systems poison themselves with confident-but-wrong reflections; the gate is the one defense, and the design keeps it cheap (proposals are batched, ranked, deduped).
 - **Observe, don't drive (Design B).** zuzuu re-parses the transcript your host already wrote — it never wraps, intercepts, or steers the agent. That's why it can't corrupt a session, and why adding a host is one adapter file.
-- **Immutable, append-only, rollback-able.** A zu is immutable until CRUD'd through the gate; the event log is append-only; a generation is a content-addressed snapshot. Roll a module — or the whole brain — back to any pinned moment with a pointer flip, never a `git revert`.
+- **Immutable, append-only, rollback-able.** A note is immutable until CRUD'd through the gate; the event log is append-only; a generation is a content-addressed snapshot. Roll a module — or the whole brain — back to any pinned moment with a pointer flip, never a `git revert`.
 
 ## Borrowed, not invented
 
@@ -87,7 +87,7 @@ zuzuu is host-agnostic by construction (the capture core iterates detected adapt
 
 | Path | What |
 |---|---|
-| [`zuzuu/`](zuzuu/) + `bin/zuzuu.mjs` | the CLI — `kernel · capabilities · pipelines · hosts · cli · sessions` + `api.mjs` (~3.8k lines, zero-dep) |
+| [`src/`](src/) + `bin/zuzuu.mjs` | the CLI — `notes · use · loop · guardrails · hosts · sessions · cli · serve` (~3.8k lines, zero-dep, filed by concept) |
 | [`web/`](web/) | the visual workbench — a nested project (daemon + React SPA), staged into the npm package at publish |
 | [`tests/`](tests/) | hermetic units (`npm test`) + a real-data observe playground (`node tests/playground/run.mjs 5`) |
 | [`docs/`](docs/) | [`learn/`](docs/learn/) (the educative book, read in order) · [`LOG.md`](docs/LOG.md) (build journal) · [`DESIGN.md`](docs/DESIGN.md) (strategy/rationale) · [`inspiration/`](docs/inspiration/) (research shelf) |

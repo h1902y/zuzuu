@@ -52,7 +52,7 @@ Nothing is saved without your yes. That one rule — the human approves every ch
 
 > zuzuu turns your project directory into an agent's memory and toolkit: one kind of file — knowledge that can also run — queried on demand, run safely, and grown by a human-gated loop.
 
-We call that file a **zu**. The next page builds the whole model out of it.
+We call that file a **note**. The next page builds the whole model out of it.
 
 ---
 

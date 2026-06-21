@@ -10,7 +10,7 @@ So the rule was: **reabsorb first, cull last.** Rebuild every surface that v1 st
 
 ## Reabsorb, in dependency order (rungs 8a–8d)
 
-- **8a — the session record** moved into `kernel/session.mjs`: the lifecycle state machine + the `sessions.json` index — minus the OTLP trace fields, which die with the trace layer.
+- **8a — the session record** moved into `sessions/record.mjs`: the lifecycle state machine + the `sessions.json` index — minus the OTLP trace fields, which die with the trace layer.
 - **8b — session management** was the pleasant surprise. The safety-critical `sessions/` engine (the session-as-git-branch machinery) had *exactly one* import from the v1 core. Re-point those two lines at the kernel and it's v2-native. **All 87 of its characterization tests passed unchanged** — the strongest possible evidence that the re-point changed nothing it shouldn't.
 - **8c — live hooks + enable**: a v2 hook that maps every host's lifecycle onto open/turn/end and routes `PreToolUse` through the v2 gate. Its end-of-session step is the payoff of the whole rebuild — it calls `observe`, mining the just-finished session into proposals.
 - **8d — doctor/status/explain + the launchers**: the porcelain, re-pointed.
@@ -33,7 +33,7 @@ With every surface green on v2, the delete was mechanical and safe:
 ~13,000 lines  →  3,765 lines of product code
 ```
 
-What's left is one coherent stack — `kernel · capabilities · pipelines · hosts · cli · sessions` + `api.mjs`. One parser (the envelope), one CLI (the veneer over `api`), one capture path (observe). The published binary does the whole loop end to end: `init → enable →` the gate denies `rm -rf /` `→ observe` mines real sessions `→ review → act`.
+What's left is one coherent stack — `notes · use · loop · guardrails · hosts · sessions · cli · serve`. One parser (the envelope), one CLI (the veneer over `api`), one capture path (observe). The published binary does the whole loop end to end: `init → enable →` the gate denies `rm -rf /` `→ observe` mines real sessions `→ review → act`.
 
 ## What made it safe (the transferable part)
 
