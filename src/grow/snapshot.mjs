@@ -1,19 +1,18 @@
-// src/grow/snapshot.mjs — content-addressed snapshots (generations + checkpoints).
+// src/grow/snapshot.mjs — content-addressed per-module generations.
 //
 // what: pin a module's current notes as an immutable generation, and roll back by
-//       restoring it. Compose all modules' actives into a whole-brain checkpoint.
-// why:  one mechanism, two scopes (a module / the whole project). Rollback is a
-//       pointer-flip + content restore — never a `git revert`. Immutable history;
-//       growth is adding objects and moving pointers, never mutating in place.
+//       restoring it.
+// why:  rollback is a pointer-flip + content restore — never a `git revert`.
+//       Immutable history; growth is adding objects and moving pointers, never
+//       mutating in place.
 // how:  a content store of SHA256-named blobs (deduped across modules and
 //       generations) + per-module generation chains (integer counter = the
-//       identity) + a whole-home checkpoint = a Merkle of (module, active-hash).
-//       Zero-dep (node:crypto + node:fs).
+//       identity). Zero-dep (node:crypto + node:fs).
 
 import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { paths, itemsDir } from '../notes/store.mjs';
+import { itemsDir } from '../notes/store.mjs';
 
 const sha = (buf) => createHash('sha256').update(buf).digest('hex');
 const storeDir = (home) => join(paths_(home).generations, '.store');
@@ -90,42 +89,4 @@ export function rollback(home, module, n) {
   }
   writeFileSync(join(genDir(home, module), 'active'), String(n));
   return { ok: true, module, n, restored, pruned };
-}
-
-// ── whole-brain checkpoints ─────────────────────────────────────────────────
-
-const cpDir = (home) => join(paths_(home).generations, '.checkpoints');
-
-/** Compose every module's active generation into one whole-brain pin. */
-export function mintCheckpoint(home, modules, { label = null } = {}) {
-  mkdirSync(cpDir(home), { recursive: true });
-  const pins = {};
-  for (const module of modules) {
-    const { active } = generations(home, module);
-    if (active != null) pins[module] = active;
-  }
-  const root = sha(Object.entries(pins).sort().map(([m, n]) => `${m}:${n}`).join('\n'));
-  // id includes the label so two DISTINCT named pins of the same brain state are
-  // distinguishable (don't silently overwrite); re-minting the same label+state
-  // is still idempotent (same id).
-  const id = sha(`${root}|${label ?? ''}`).slice(0, 12);
-  const mintedAt = new Date().toISOString();
-  writeFileSync(join(cpDir(home), `${id}.json`), JSON.stringify({ id, label, mintedAt, pins, root }, null, 2) + '\n');
-  return { id, label, mintedAt, pins };
-}
-
-/** Roll the whole brain back to a checkpoint — every pinned module flips. */
-export function rollbackCheckpoint(home, id) {
-  const file = join(cpDir(home), `${id}.json`);
-  if (!existsSync(file)) return { ok: false, error: `no checkpoint ${id}` };
-  const cp = JSON.parse(readFileSync(file, 'utf8'));
-  const restored = {};
-  for (const [module, n] of Object.entries(cp.pins)) restored[module] = rollback(home, module, n);
-  return { ok: true, id, restored };
-}
-
-export function listCheckpoints(home) {
-  const dir = cpDir(home);
-  if (!existsSync(dir)) return [];
-  return readdirSync(dir).filter((f) => f.endsWith('.json')).map((f) => JSON.parse(readFileSync(join(dir, f), 'utf8')));
 }

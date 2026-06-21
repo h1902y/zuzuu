@@ -17,7 +17,7 @@ import { listModules, readManifest } from '../notes/module.mjs';
 import { registerAll } from './wire.mjs';
 import { createProposal, listProposals, readProposal } from '../grow/propose.mjs';
 import { approve, reject } from '../grow/review.mjs';
-import { generations, rollback, mintCheckpoint, rollbackCheckpoint, listCheckpoints } from '../grow/snapshot.mjs';
+import { generations, rollback } from '../grow/snapshot.mjs';
 
 /**
  * Open the brain rooted at `cwd` (git-citizen: the `.zuzuu/` at the repo root).
@@ -49,11 +49,8 @@ export function open(cwd = process.cwd()) {
     approve: (module, id, opts) => approve(home, module, id, opts),
     reject: (module, id, reason) => reject(home, module, id, reason),
 
-    // ── snapshots (per-module generations + whole-brain checkpoints) ────────
+    // ── snapshots (per-module generations) ─────────────────────────────────
     generations: (module) => generations(home, module),
     rollback: (module, n) => rollback(home, module, n),
-    checkpoint: (modules, opts) => mintCheckpoint(home, modules ?? listModules(home).map((m) => m.id), opts),
-    checkpoints: () => listCheckpoints(home),
-    rollbackCheckpoint: (id) => rollbackCheckpoint(home, id),
   };
 }
