@@ -24,7 +24,7 @@ Each page builds on the last. **✅ written · 🚧 planned** (a page is written
 | 03 | ✅ [How a zu becomes queryable](03-how-a-zu-becomes-queryable.md) | The index, query-on-demand, why it's context-frugal |
 | 04 | ✅ [How an act runs safely](04-how-an-act-runs-safely.md) | The tiered containment model and the policy block |
 | 05 | ✅ [How the system grows](05-how-the-system-grows.md) | The enhance loop: mine → propose → review → snapshot, the human gate, generations |
-| 06 | 🚧 Observing a host | The capture plugin and why it solves the loop's cold-start |
+| 06 | ✅ [Observing a host](06-observing-a-host.md) | Design B · the adapter (transcript→signals) · capture-core · observe routes corroborated candidates to modules |
 | 07 | 🚧 Walk the kernel | A guided, file-by-file tour of the host-neutral core |
 | 08 | 🚧 Walk capabilities & pipelines | How verbs and processes compose over the kernel |
 | 09 | 🚧 Extending zuzuu | Add a module, a zu type, a host — by hand |
