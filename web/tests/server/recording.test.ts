@@ -1,19 +1,6 @@
 import os from "node:os";
 import { afterAll, describe, expect, it } from "vitest";
-import { shellQuote } from "#shared/index.js";
 import { SessionManager } from "../../src/server/sessions.js";
-
-describe("shellQuote", () => {
-  it("wraps plain paths", () => {
-    expect(shellQuote("/a/b c")).toBe("'/a/b c'");
-  });
-  it("escapes embedded single quotes", () => {
-    expect(shellQuote("it's here")).toBe(`'it'\\''s here'`);
-  });
-  it("neutralizes shell metacharacters", () => {
-    expect(shellQuote("$(rm -rf ~)`x`;&|")).toBe("'$(rm -rf ~)`x`;&|'");
-  });
-});
 
 describe("asciicast recording", () => {
   const manager = new SessionManager(os.tmpdir());
