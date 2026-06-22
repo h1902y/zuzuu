@@ -202,6 +202,30 @@ package the daemon imports runtime values from (forcing the `vendor-protocol` ha
 3-step build, confirmed `scripts/build-web.mjs:27`). Collapse it into `src/shared/` imported
 relatively and that seam, the vendor script, and the `@zuzuu-web/*` indirection all vanish.
 
+### Governing principle: cut the bloat, make it educative (the real motive — decided 2026-06-22)
+
+The rewrite's true purpose mirrors the **core rebuild** (`src/` ~13k → 3.7k, the
+`docs/learn/` walk): the workbench has accumulated **~90% bloat that must go**, and the
+result must be **educative** — tight files, comment density matching `src/`, a teachable
+structure, and a `docs/learn/`-style walk for the workbench. Candidate 1 is adopted *as the
+risk-managed way to reach that*, not as "preserve the daemon as-is." It refines the
+"PORT verbatim" line into a **three-tier discipline**:
+
+- **The SPA (`client/`, ~18.6k LOC — where most bloat lives): full fresh, lean rebuild.**
+  Aggressively cut; rebuild educative from the protocol up. This is the bulk of the win.
+- **The safe daemon surface (server wiring, `fs-api`, `git`, `search`, routes, `zuzuu-cli`):
+  port the *behavior*, but de-bloat + clarify** as you go (test-guarded by the 174 specs).
+- **The timing-sensitive hot core (`sessions.ts` flow control, `ws-term.ts`, `safe-path.ts`):
+  touch logic minimally.** The research's "DO NOT TOUCH" stands *for behavior* — make it
+  educative through **comments + the learn doc**, never by re-deriving the flow-control
+  loop. The 174 tests pin behavior; timing bugs can still hide, so clarity here is annotation,
+  not rewrite.
+- **Deliverable:** a `docs/learn/` workbench walk (mirroring lessons 02–08) lands as part of
+  the rungs, so the rebuilt code teaches itself.
+
+Net: Candidate 1's low risk profile (proven behavior preserved) **plus** the rewrite's real
+payoff (a lean, teachable codebase with the bloat gone).
+
 ### The three platform bets — explicit verdicts
 
 - **Next.js / Vercel — disqualified for the workbench; ideal for `zuzuu.codes` as a
