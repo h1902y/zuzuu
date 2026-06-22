@@ -17,15 +17,15 @@ import { homeDir, repoRoot } from '../notes/store.mjs';
 
 // The five us-owned modules: id → manifest envelope (type: module).
 const MODULES = [
-  { id: 'knowledge', title: 'Knowledge', note_type: 'knowledge', capabilities: ['query', 'check', 'enhance'],
+  { id: 'knowledge', title: 'Knowledge', note_type: 'knowledge', capabilities: ['query', 'check'],
     goal: 'Capture durable, reusable facts about this project and its domain.' },
-  { id: 'memory', title: 'Memory', note_type: 'episode', capabilities: ['query', 'check', 'enhance'],
+  { id: 'memory', title: 'Memory', note_type: 'episode', capabilities: ['query', 'check'],
     goal: 'Remember what happened — episodes, decisions, and their outcomes.' },
-  { id: 'actions', title: 'Actions', note_type: 'action', capabilities: ['query', 'check', 'act', 'enhance'],
+  { id: 'actions', title: 'Actions', note_type: 'action', capabilities: ['query', 'check', 'act'],
     goal: 'Capture every repeated multi-step procedure as a runnable note.' },
   { id: 'instructions', title: 'Instructions', note_type: 'instruction', capabilities: ['query', 'check'],
     goal: "Keep the agent's standing guidance current and minimal." },
-  { id: 'guardrails', title: 'Guardrails', note_type: 'rule', capabilities: ['gate', 'check'],
+  { id: 'guardrails', title: 'Guardrails', note_type: 'rule', capabilities: ['check'],
     goal: 'Protect against repeated mistakes — as enforced tool gates.' },
 ];
 
@@ -61,7 +61,7 @@ Tracked files are the durable brain (plain text, versioned). \`.live/\` and
 \`.generations/.store/\` are local/derived. Inspect everything with \`zz\`.
 `;
 
-const IGNORE_LINES = ['.zuzuu/.live/', '.zuzuu/.traces/', '.zuzuu/**/.index.db'];
+const IGNORE_LINES = ['.zuzuu/.live/', '.zuzuu/**/.index.db'];
 
 /**
  * Scaffold the home. Idempotent + brownfield-safe (never clobbers).

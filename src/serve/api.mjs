@@ -13,9 +13,9 @@
 
 import { homeDir, repoRoot } from '../notes/store.mjs';
 import { invoke } from './dispatch.mjs';
-import { listModules, readManifest } from '../notes/module.mjs';
+import { listModules } from '../notes/module.mjs';
 import { registerAll } from './wire.mjs';
-import { createProposal, listProposals, readProposal } from '../grow/propose.mjs';
+import { createProposal, listProposals } from '../grow/propose.mjs';
 import { approve, reject } from '../grow/review.mjs';
 import { generations, rollback } from '../grow/snapshot.mjs';
 
@@ -33,19 +33,15 @@ export function open(cwd = process.cwd()) {
 
     // ── inspection ──────────────────────────────────────────────────────────
     modules: () => listModules(home),
-    manifest: (module) => readManifest(home, module),
 
-    // ── the five verbs (dispatched through the one registry) ────────────────
+    // ── the read/run verbs (dispatched through the one registry) ────────────
     query: (module, opts = {}) => invoke(home, module, 'query', opts),
     check: (module, opts = {}) => invoke(home, module, 'check', opts),
     act: (module, id, inputs = {}) => invoke(home, module, 'act', id, inputs),
-    enhance: (module, opts = {}) => invoke(home, module, 'enhance', opts),
-    gate: (module, call) => invoke(home, module, 'gate', call),
 
     // ── the human gate (review is interactive — not a registry verb) ────────
     propose: (module, p) => createProposal(home, module, p),
     proposals: (module) => listProposals(home, module),
-    proposal: (module, id) => readProposal(home, module, id),
     approve: (module, id, opts) => approve(home, module, id, opts),
     reject: (module, id, reason) => reject(home, module, id, reason),
 

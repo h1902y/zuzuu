@@ -23,7 +23,6 @@ import { observe } from '../grow/observe.mjs';
 import { digestText } from '../serve/digest.mjs';
 import { toon } from '../notes/toon.mjs';
 
-const MODULES = ['knowledge', 'memory', 'actions', 'instructions', 'guardrails'];
 
 /** Minimal flag parse: --k v / --flag → { _: positional[], k: v|true }. */
 function parseArgs(rest) {
@@ -48,7 +47,6 @@ const HELP = `zz — your project's brain (envelopes, queried/run/grown, human-g
   zz act <module> <id> [--k v]  run a runnable note
   zz check [module]             integrity — broken links · orphans · stale
   zz observe                    mine real sessions → proposals (the cold-start)
-  zz enhance [module]           propose growth from the event log + sessions
   zz review [module]            list pending proposals
   zz review approve <m> <id>    apply a proposal  (the human gate)
   zz review reject  <m> <id>    archive a proposal
@@ -131,23 +129,6 @@ export async function run(argv, io = {}) {
         return 0;
       }
 
-      case 'enhance': {
-        const zz = open(cwd);
-        const mods = args._[0] ? [args._[0]] : MODULES;
-        // observe (transcript miner) + each module's enhance (event-log miner)
-        const obs = observe(zz.home, { cwd, sessions: captureSignals({ cwd }) });
-        let total = obs.proposed;
-        const rows = [{ source: 'observe', proposed: obs.proposed }];
-        for (const m of mods) {
-          const r = zz.enhance(m);
-          const n = r.ok ? r.value.proposed : 0;
-          if (n) rows.push({ source: m, proposed: n });
-          total += n;
-        }
-        log(toon('enhance', rows, ['source', 'proposed']));
-        log(`${total} proposal(s) queued — review with: zz review`);
-        return 0;
-      }
 
       case 'review': {
         const zz = open(cwd);

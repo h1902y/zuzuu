@@ -1,4 +1,4 @@
-// rung 5 — the enhance loop: snapshot · propose · review · enhance.
+// rung 5 — the loop: snapshot · propose · review.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
@@ -8,8 +8,7 @@ import { serialize, parse } from '../../src/notes/note.mjs';
 import { mint, generations, rollback } from '../../src/grow/snapshot.mjs';
 import { createProposal, listProposals, readProposal } from '../../src/grow/propose.mjs';
 import { approve, reject } from '../../src/grow/review.mjs';
-import { enhance } from '../../src/grow/enhance.mjs';
-import { logRun, read } from '../../src/grow/log.mjs';
+import { read } from '../../src/grow/log.mjs';
 
 function withHome(fn) {
   const root = mkdtempSync(join(tmpdir(), 'zuzuu-r5-'));
@@ -101,33 +100,6 @@ test('review: reject archives, writes nothing', () => {
   });
 });
 
-// ── enhance (the mining) ────────────────────────────────────────────────────
-
-test('enhance: co-invocation across sessions → a relation proposal', () => {
-  withHome((home) => {
-    writeZu(home, 'actions', 'pull', { type: 'action', title: 'pull data', run: 'echo a' });
-    writeZu(home, 'actions', 'render', { type: 'action', title: 'render', run: 'echo b' });
-    // run them together in 2 distinct sessions
-    for (const ses of ['s1', 's2']) {
-      logRun(home, 'actions', 'pull', { session: ses, exitCode: 0, success: true });
-      logRun(home, 'actions', 'render', { session: ses, exitCode: 0, success: true });
-    }
-    const r = enhance({ home, module: 'actions' }, { threshold: 2 });
-    assert.equal(r.proposed, 1);
-    assert.equal(r.proposals[0].op, 'relate');
-    assert.deepEqual(r.proposals[0].change, { from: 'pull', type: 'related-to', to: 'render' });
-  });
-});
-
-test('enhance: below the corroboration threshold proposes nothing', () => {
-  withHome((home) => {
-    writeZu(home, 'actions', 'a', { type: 'action', run: 'echo a' });
-    writeZu(home, 'actions', 'b', { type: 'action', run: 'echo b' });
-    logRun(home, 'actions', 'a', { session: 's1', success: true });
-    logRun(home, 'actions', 'b', { session: 's1', success: true }); // only 1 session
-    assert.equal(enhance({ home, module: 'actions' }, { threshold: 2 }).proposed, 0);
-  });
-});
 
 test('snapshot: rollback prunes notes added after the target generation (no orphan)', () => {
   withHome((home) => {
