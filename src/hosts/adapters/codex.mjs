@@ -10,26 +10,14 @@
 
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { existsSync, readdirSync, statSync, readFileSync } from 'node:fs';
-import { assembleSignals, emptySignals } from '../signals.mjs';
+import { existsSync, readdirSync, statSync } from 'node:fs';
+import { assembleSignals, emptySignals, readJsonl, argCommand } from '../signals.mjs';
 
 const SESSIONS_DIR = join(homedir(), '.codex', 'sessions');
 const CODEX_SHELL = new Set(['exec_command', 'shell', 'local_shell', 'bash']);
 
-function codexCmdText(args) {
-  const a = typeof args === 'string' ? (() => { try { return JSON.parse(args); } catch { return {}; } })() : args ?? {};
-  if (typeof a.cmd === 'string') return a.cmd;
-  if (typeof a.command === 'string') return a.command;
-  if (Array.isArray(a.command)) return a.command.join(' ');
-  return '';
-}
+const codexCmdText = (args) => argCommand(args, ['cmd', 'command']);
 const codexFailed = (output) => /Process exited with code\s+([0-9]+)/i.test(String(output || '')) && !/Process exited with code\s+0\b/i.test(String(output || ''));
-
-function readJsonl(file) {
-  try {
-    return readFileSync(file, 'utf8').split('\n').filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
-  } catch { return []; }
-}
 
 export const codex = {
   name: 'codex',

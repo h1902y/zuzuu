@@ -1,7 +1,7 @@
 // Playground 5 — v2 observe, demonstrated on real transcripts.
 //
 // Mines the host sessions Claude/OpenCode/… ACTUALLY wrote on this machine
-// through the v2 observe stack (hosts/capture → loop/observe) and checks it
+// through the v2 observe stack (hosts/capture → grow/observe) and checks it
 // produces evidence-backed, module-routed proposals — the loop's cold-start.
 // Skips if no host has data here (not a failure).
 
@@ -9,7 +9,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { captureSignals } from '../../../src/hosts/capture.mjs';
-import { observe } from '../../../src/loop/observe.mjs';
+import { observe } from '../../../src/grow/observe.mjs';
 import { run, check, note, skip } from '../_harness.mjs';
 
 await run('observe real sessions → review-queued proposals', async () => {

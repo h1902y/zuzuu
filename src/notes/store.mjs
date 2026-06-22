@@ -9,8 +9,25 @@
 //       subdir); falls back to cwd outside a git repo. Zero-dep (node:* only).
 //       (Path resolution harvested from core/store.mjs.)
 
-import { join, basename } from 'node:path';
+import { join, basename, dirname } from 'node:path';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
+
+// ── JSON files (the one convention) ───────────────────────────────────────────
+// Every dir read/wrote JSON by hand with a slightly different fallback; these are
+// the single definition. read returns `fallback` on missing/corrupt; write is
+// pretty + trailing-newline (the convention the whole tree had copied) + mkdir -p.
+
+/** Read + parse a JSON file; `fallback` (default null) on missing/unreadable/corrupt. */
+export function readJson(path, fallback = null) {
+  try { return JSON.parse(readFileSync(path, 'utf8')); } catch { return fallback; }
+}
+
+/** Write `obj` as pretty JSON + trailing newline, creating parent dirs. */
+export function writeJson(path, obj) {
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, JSON.stringify(obj, null, 2) + '\n');
+}
 
 const git = (args, cwd) => {
   const r = spawnSync('git', args, { cwd, encoding: 'utf8' });
@@ -50,14 +67,6 @@ export function paths(cwd = process.cwd()) {
 
 // ── addressing ──────────────────────────────────────────────────────────────
 
-/** Split a `module:id` address into `{ module, id }`. A bare `id` (no colon)
- *  yields `{ module: null, id }` — module supplied by context. */
-export function parseAddress(addr) {
-  const s = String(addr);
-  const i = s.indexOf(':');
-  return i === -1 ? { module: null, id: s } : { module: s.slice(0, i), id: s.slice(i + 1) };
-}
-
 // A module or note id is a single filename segment — never a path. Anything with
 // a separator, `..`, or a non-slug char is rejected, so a crafted id/target (e.g.
 // a proposal's `target: '../../guardrails/items/no-rm-rf'`) can't escape the
@@ -79,14 +88,6 @@ export function itemPath(home, module, id) {
 /** A module's manifest path: `<home>/<module>/module.md`. */
 export function manifestPath(home, module) {
   return join(home, seg(module, 'module'), 'module.md');
-}
-
-/** Resolve a full `module:id` (or `{module}` + bare id) to a file path. */
-export function resolve(home, addr, contextModule = null) {
-  const { module, id } = parseAddress(addr);
-  const m = module ?? contextModule;
-  if (!m) throw new Error(`address '${addr}' needs a module (no context)`);
-  return itemPath(home, m, id);
 }
 
 /** id = the filename stem of a note path. */

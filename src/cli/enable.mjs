@@ -10,10 +10,10 @@
 //       string (survives the bin rename at cull). The command ends `|| true` so
 //       a missing/broken zuzuu can never block the host. v2-native (no v1 deps).
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { repoRoot } from '../notes/store.mjs';
+import { repoRoot, readJson, writeJson } from '../notes/store.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'bin', 'zuzuu.mjs');
 const SIGNATURE = '#zz-hook'; // a stable tag in the command, independent of the bin path
@@ -27,8 +27,8 @@ const ALL = [...LIFECYCLE, ...GATE];
 const DENY_RULES = ['Read(./.zuzuu/.live/**)'];
 
 const settingsPath = (cwd) => join(repoRoot(cwd), '.claude', 'settings.json');
-const readSettings = (p) => { try { return existsSync(p) ? JSON.parse(readFileSync(p, 'utf8')) : {}; } catch { return {}; } };
-const writeSettings = (p, obj) => { mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, JSON.stringify(obj, null, 2) + '\n'); };
+const readSettings = (p) => readJson(p, {});
+const writeSettings = (p, obj) => writeJson(p, obj);
 const clone = (o) => JSON.parse(JSON.stringify(o ?? {}));
 const tagged = (cmd) => String(cmd).includes(SIGNATURE);
 const hasOurs = (matchers) => (matchers || []).some((m) => (m.hooks || []).some((h) => tagged(h.command)));

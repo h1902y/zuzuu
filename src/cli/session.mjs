@@ -1,8 +1,8 @@
 // src/cli/session.mjs — `zz session …`, the session-as-git-branch surface.
 //
 // what: inspect and steer the invisible per-session git substrate — status,
-//       squash-merge, continue, discard; the worktree concurrency layer; the
-//       portable manifest + restore; and human labels.
+//       squash-merge, continue, discard; the worktree concurrency layer; and
+//       human labels.
 // why:  a session ≡ a conversation ≡ a git branch. This is the porcelain over
 //       the safety-critical sessions/ engine (single-working-branch, secret-
 //       excluded checkpoints, fail-soft-never-throw) — now v2-native (notes-backed,
@@ -12,7 +12,6 @@
 
 import { sessionStatus, closeSession, continueSession, discardSession } from '../sessions/session-git.mjs';
 import { openSessionWorktree, closeSessionWorktree, listSessionWorktrees, discardSessionWorktree } from '../sessions/session-worktree.mjs';
-import { writeSessionManifest, buildSessionManifest, listSessionManifests, restoreSession } from '../sessions/session-manifest.mjs';
 import { readSessionLabels, setSessionLabel } from '../sessions/labels.mjs';
 import { toon } from '../notes/toon.mjs';
 
@@ -52,21 +51,6 @@ export function sessionCommand(args, cwd, log) {
       return fail(r.reason ?? 'cannot discard');
     }
     case 'worktree': return worktree({ ...args, _: args._.slice(1) }, cwd, log, fail);
-    case 'manifest': {
-      const id = args._[1];
-      if (!id) { log(toon('manifests', listSessionManifests(cwd).map((m) => ({ id: m.id, host: m.host ?? '', hash: (m.hash ?? '').slice(0, 8) })), ['id', 'host', 'hash'])); return 0; }
-      const r = args.write ? writeSessionManifest(cwd, id) : buildSessionManifest(cwd, id);
-      if (!r) return fail(`no session '${id}'`);
-      log(toon('manifest', [{ id: r.id, host: r.host ?? '', branch: r.git?.branch ?? '', hash: (r.hash ?? '').slice(0, 8), written: !!args.write }], ['id', 'host', 'branch', 'hash', 'written']));
-      return 0;
-    }
-    case 'restore': {
-      const id = args._[1];
-      if (!id) return fail('usage: zz session restore <id>');
-      const r = restoreSession(cwd, id);
-      if (r.ok) { log(`✓ restored ${id}${r.worktree ? ` at ${r.worktree}` : ''}${r.recreatedBranch ? ' (branch recreated)' : ''}`); return 0; }
-      return fail(r.reason ?? 'cannot restore');
-    }
     case 'label': {
       const id = args._[1];
       if (!id) { log(toon('labels', Object.entries(readSessionLabels(cwd)).map(([k, v]) => ({ id: k, label: v })), ['id', 'label'])); return 0; }
@@ -75,7 +59,7 @@ export function sessionCommand(args, cwd, log) {
       return 0;
     }
     default:
-      return fail(`unknown: zz session ${sub} — try: status|merge|continue|discard|worktree|manifest|restore|label`);
+      return fail(`unknown: zz session ${sub} — try: status|merge|continue|discard|worktree|label`);
   }
 }
 

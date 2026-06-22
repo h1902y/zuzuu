@@ -1,7 +1,7 @@
-// notes/note.mjs — the one envelope: parse · serialize · validate · id.
+// notes/note.mjs — the one envelope: parse · serialize · id.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parse, serialize, validate, idFromPath, slugify, deriveTitle } from '../../src/notes/note.mjs';
+import { parse, serialize, idFromPath, slugify, deriveTitle } from '../../src/notes/note.mjs';
 
 // ── parse: scalars, the required `type`, fail-soft ──────────────────────────
 
@@ -98,20 +98,6 @@ test('serialize: id is never written to frontmatter (it is the filename)', () =>
   const text = serialize({ id: 'should-not-appear', type: 'knowledge', body: 'x' });
   assert.ok(!text.includes('should-not-appear'));
   assert.ok(text.includes('type: knowledge'));
-});
-
-// ── validate: OKF + optional module schema ─────────────────────────────────
-
-test('validate: only type required; unknown keys tolerated', () => {
-  assert.equal(validate({ type: 'knowledge', whatever: 1 }).ok, true);
-  assert.equal(validate({ title: 'no type' }).ok, false);
-});
-
-test('validate: optional schema adds required fields + kind enum', () => {
-  const schema = { required: ['title'], kinds: ['action'] };
-  assert.equal(validate({ type: 'action', title: 't' }, schema).ok, true);
-  assert.equal(validate({ type: 'action' }, schema).ok, false); // missing title
-  assert.equal(validate({ type: 'knowledge', title: 't' }, schema).ok, false); // wrong kind
 });
 
 // ── id + helpers ────────────────────────────────────────────────────────────

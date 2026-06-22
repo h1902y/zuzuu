@@ -52,7 +52,7 @@ test('explain: a known topic prints it; no topic lists all', () => {
   assert.match(out.join('\n'), /guardrails/);
   out.length = 0;
   explain(undefined, (s) => out.push(s));
-  assert.match(out.join('\n'), /## loop/);
+  assert.match(out.join('\n'), /## grow/);
 });
 
 test('code: ensures home, installs on consent, launches (all via injected deps)', () => {

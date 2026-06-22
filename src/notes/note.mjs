@@ -158,27 +158,6 @@ export function serialize(note) {
 
 // ── validate ──────────────────────────────────────────────────────────────
 
-/**
- * OKF rule: only `type` is required; unknown keys are tolerated. An optional
- * per-module `schema` ({ required?: string[], kinds?: string[] }) adds the
- * module's own requirements — it never rejects unknown keys.
- * @returns {{ok: boolean, errors: string[]}}
- */
-export function validate(note, schema = null) {
-  const errors = [];
-  if (!note || typeof note !== 'object') return { ok: false, errors: ['not a note'] };
-  if (!note.type) errors.push('missing required field: type');
-  if (schema) {
-    for (const r of schema.required ?? []) {
-      if (note[r] == null || note[r] === '') errors.push(`missing required field: ${r}`);
-    }
-    if (Array.isArray(schema.kinds) && schema.kinds.length && note.type && !schema.kinds.includes(note.type)) {
-      errors.push(`type must be one of ${schema.kinds.join('|')} (got '${note.type}')`);
-    }
-  }
-  return { ok: errors.length === 0, errors };
-}
-
 // ── id + title helpers ──────────────────────────────────────────────────────
 
 /** id = the filename stem. `…/client-acme-style.md` → `client-acme-style`. */

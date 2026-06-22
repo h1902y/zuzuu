@@ -33,7 +33,8 @@
 //   3. a standalone `zuzuu-web` on PATH (legacy/manual installs)
 //   4. none → repair hint (reinstall, or `npm run build:web` in a checkout)
 
-import { existsSync, readFileSync, realpathSync, unlinkSync } from 'node:fs';
+import { existsSync, realpathSync, unlinkSync } from 'node:fs';
+import { readJson } from '../notes/store.mjs';
 import { resolve, dirname, join } from 'node:path';
 import { homedir } from 'node:os';
 import { createHash } from 'node:crypto';
@@ -77,9 +78,7 @@ const realInstancePathFor = (dir) => {
   const id = createHash('sha256').update(real).digest('hex').slice(0, 16);
   return join(homedir(), '.webcode', 'instances', `${id}.json`);
 };
-const realReadInstance = (file) => {
-  try { return JSON.parse(readFileSync(file, 'utf8')); } catch { return null; }
-};
+const realReadInstance = (file) => readJson(file);
 const realRemoveFile = (file) => { try { unlinkSync(file); } catch { /* gone already */ } };
 const realPidAlive = (pid) => {
   try { process.kill(pid, 0); return true; }

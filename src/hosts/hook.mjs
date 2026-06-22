@@ -17,7 +17,7 @@ import { homeDir, repoRoot, liveDir } from '../notes/store.mjs';
 import { gate, toPreToolUseDecision } from '../guardrails/gate.mjs';
 import { sessionGitEnabled, openSession, checkpoint, closeSession } from '../sessions/session-git.mjs';
 import { inSessionWorktree } from '../sessions/session-worktree.mjs';
-import { observe } from '../loop/observe.mjs';
+import { observe } from '../grow/observe.mjs';
 import { captureSignals } from './capture.mjs';
 import { digestText } from '../serve/digest.mjs';
 
@@ -62,7 +62,7 @@ export function writeDigest(cwd = process.cwd()) {
 }
 
 /** Claude Code's SessionStart additionalContext (inline grounding), or null. */
-export function sessionStartContext(cwd = process.cwd()) {
+function sessionStartContext(cwd = process.cwd()) {
   try {
     const text = digestText(cwd);
     return text && text.trim() ? { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: text } } : null;

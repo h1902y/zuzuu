@@ -4,47 +4,36 @@
 
 The code is `src/use/act.mjs` (the runner) and `src/guardrails/gate.mjs` (the guardrails gate).
 
-## Two execution surfaces, one containment idea
+## Two execution surfaces, one honest idea
 
 There are two different ways commands run, and it's worth keeping them straight:
 
 1. **A stored action** — `zz act build-report`. A *curated, reusable* note the agent invokes. Each carries its own `policy`. This is `act.mjs`.
 2. **The agent's ad-hoc shell** — the raw commands the agent runs mid-session. Those pass through the **guardrails gate** (a hook on every tool call).
 
-Both lean on the same principle: **a regex gate is not containment.** A pattern-matcher can be evaded (base64, `eval`, write-then-run). So zuzuu never pretends a regex check is a security boundary. It uses tiers, and it's honest about which tier you're in.
+Both lean on the same principle: **a regex gate is not containment.** A pattern-matcher can be evaded (base64, `eval`, write-then-run). So zuzuu never pretends a check is a security boundary — it's honest about exactly what protects a run, and what doesn't.
 
-## The three tiers
+## What actually guards a run
 
-A note's `policy.tier` says how contained the run is:
+Every `act` run passes **two checks**, and zuzuu is explicit that neither is an OS sandbox:
 
-- **`advisory`** — runs directly: *not contained.* But it is **not unchecked** — every `act` run is evaluated by the guardrails gate (a deny rule blocks it) and must clear the `run.allow` allowlist. Honest framing: a regex gate is a policy check, not a sandbox. For trusted, local work.
-- **`contained`** — kernel-enforced: filesystem and network restricted by the OS sandbox (Anthropic's `sandbox-runtime` — Seatbelt on macOS, bubblewrap+Landlock on Linux). This is real containment.
-- **`sandboxed`** — a microVM, for untrusted code. Not built yet; reserved.
+1. **The guardrails gate** — before anything executes, the command is evaluated by the same `PreToolUse` gate that guards the agent's own shell; a `deny` rule blocks it. So a poisoned action note can't `rm -rf /`.
+2. **The `run.allow` allowlist** (the command-axis, below) — the command's binary must be on the note's allowlist, or be a repo-local script.
 
-The key honesty rule, visible in the code: `act` reports `contained: true|false` truthfully. If a note asks for `contained` but the sandbox backend isn't installed, it does **not** silently run uncontained pretending otherwise — it runs and flags `contained: false`. You always know the real tier.
+That's the whole boundary. There is **no OS sandbox**. An earlier design reserved `contained` (Anthropic's `sandbox-runtime` — Seatbelt / bubblewrap+Landlock) and `sandboxed` (microVM) tiers, but srt was never wired, so the stub was **removed (2026-06-22)** rather than ship a `contained` flag that didn't contain. Honest framing: **an `act` run is gated + allowlisted, not isolated** — trust it the way you'd trust running the command yourself.
 
-> The sandbox is an *optional accelerator* — detect it, use it if present. The CLI core stays zero-dependency; containment is opt-in infrastructure. (We borrow the proven stack — Codex, Claude Code, and Cursor all converged on it — rather than invent one.)
+> Why cut it instead of keeping the seam? A flag that reports `contained` while running uncontained is worse than no flag — it invites false trust. Real containment can return as opt-in infrastructure (the proven Seatbelt/bubblewrap stack Codex, Claude Code, and Cursor converged on) the day it's actually wired; until then the code says only what's true.
 
-## The `policy` block
+## The `policy` block — the command-axis
 
 ```yaml
 policy:
-  tier: contained
-  filesystem: { allowWrite: ["./reports/"], denyRead: ["~/.ssh", "./.zuzuu/"] }
-  network:    { allowedDomains: [] }
-  run:        { allow: [pandoc, git] }
+  run: { allow: [pandoc, git] }
 ```
 
-Two layers enforce different rows:
+`run.allow` is the one piece with no prior art (no other agent tool does command-level allowlisting). `act` checks the command's binary against `run.allow` *before* executing, and refuses if it's not listed — try to make a `pandoc`-only action run `curl` and it's denied, no execution. A repo-local script (`./x`, or an absolute path under the repo root) is allowed; an absolute path *outside* the repo is not.
 
-| Field | Enforced by | How |
-|---|---|---|
-| `filesystem`, `network` | the **OS sandbox** (srt) | kernel-level — can't be evaded |
-| `run.allow` (the command toolkit) | **zuzuu**, in `act.mjs` | the novel layer — "this action may only run these binaries" |
-
-That last row — **the command-axis** — is the one piece with no prior art (no other agent tool does command-level allowlisting). `act` checks the command's binary against `run.allow` *before* executing, and refuses if it's not listed. Try to make a `pandoc`-only action run `curl` and it's denied, no execution. Note the carve-out: `./.zuzuu/` is `denyRead` — an action can't read the brain it's part of (the self-modification defense, copied from how Codex protects `.git`).
-
-One safety invariant: a note's own `policy` can only **narrow** the module's default policy, never widen it. The module sets the ceiling; a runnable note can tighten it.
+One safety invariant: a note's own `policy` can only **narrow** the module's default, never widen it. The module sets the ceiling; a runnable note can tighten it.
 
 ## What `act` actually does — one call, three jobs
 
@@ -54,8 +43,8 @@ zz act build-report --in client=acme
 
 `act.mjs` does the whole thing in one call (the AXI "combine operations" idea):
 
-1. **Run** — execute the note's `run` (with inputs passed as `ZZ_*` env vars), under the tier's containment.
-2. **Capture** — the normalized result every agent tool agrees on: `{ stdout, stderr, exitCode, success }`. (Standardizing this shape *now* is what lets the real sandbox backend drop in later without changing callers.)
+1. **Run** — execute the note's `run` (with inputs passed as `ZZ_*` env vars), after the gate + allowlist clear it.
+2. **Capture** — the normalized result every agent tool agrees on: `{ stdout, stderr, exitCode, success }`.
 3. **Log** — append a `run` event to the module's `runs.jsonl`. The note itself doesn't record the outcome (it stays pure definition); the module's log does.
 
 That third step is the quiet link to the rest of the system: every run is recorded, so `enhance` can later mine *what actually ran and worked* — not just what was discussed.

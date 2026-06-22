@@ -9,14 +9,16 @@
 
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { emptySignals } from '../signals.mjs';
+import { readJson } from '../../notes/store.mjs';
 
 const TMP_DIR = join(homedir(), '.gemini', 'tmp');
 const ms = (iso) => (iso ? Date.parse(iso) : NaN);
 
 function readLog(file) {
-  try { const data = JSON.parse(readFileSync(file, 'utf8')); return Array.isArray(data) ? data : []; } catch { return []; }
+  const data = readJson(file, []);
+  return Array.isArray(data) ? data : [];
 }
 
 export const geminiCli = {

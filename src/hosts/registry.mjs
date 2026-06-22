@@ -14,7 +14,7 @@ import { pi } from './adapters/pi.mjs';
 
 // Host-agnostic by construction: the core iterates `detected()`, never a host
 // name. Each adapter is built against that host's OWN real wire data.
-export const ADAPTERS = [claudeCode, codex, geminiCli, opencode, pi];
+const ADAPTERS = [claudeCode, codex, geminiCli, opencode, pi];
 
 export const all = () => ADAPTERS.slice();
 export const byName = (name) => ADAPTERS.find((a) => a.name === name) ?? null;

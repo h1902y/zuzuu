@@ -5,11 +5,11 @@ import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, existsSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { serialize, parse } from '../../src/notes/note.mjs';
-import { mint, generations, rollback, mintCheckpoint, rollbackCheckpoint } from '../../src/loop/snapshot.mjs';
-import { createProposal, listProposals, readProposal } from '../../src/loop/propose.mjs';
-import { approve, reject } from '../../src/loop/review.mjs';
-import { enhance } from '../../src/loop/enhance.mjs';
-import { logRun, read } from '../../src/loop/log.mjs';
+import { mint, generations, rollback } from '../../src/grow/snapshot.mjs';
+import { createProposal, listProposals, readProposal } from '../../src/grow/propose.mjs';
+import { approve, reject } from '../../src/grow/review.mjs';
+import { enhance } from '../../src/grow/enhance.mjs';
+import { logRun, read } from '../../src/grow/log.mjs';
 
 function withHome(fn) {
   const root = mkdtempSync(join(tmpdir(), 'zuzuu-r5-'));
@@ -48,22 +48,6 @@ test('snapshot: content store dedups identical bytes', () => {
     writeZu(home, 'knowledge', 'b', { type: 'knowledge', title: 'same' });
     const g = mint(home, 'knowledge');
     assert.equal(g.items.a, g.items.b, 'identical content → one blob hash');
-  });
-});
-
-test('snapshot: whole-brain checkpoint pins + rolls back every module', () => {
-  withHome((home) => {
-    writeZu(home, 'knowledge', 'k', { type: 'knowledge', title: 'k1' });
-    writeZu(home, 'actions', 'a', { type: 'action', title: 'a1' });
-    mint(home, 'knowledge'); mint(home, 'actions');
-    const cp = mintCheckpoint(home, ['knowledge', 'actions'], { label: 'before' });
-    // change both, mint, then roll the whole brain back
-    writeZu(home, 'knowledge', 'k', { type: 'knowledge', title: 'k2' });
-    writeZu(home, 'actions', 'a', { type: 'action', title: 'a2' });
-    mint(home, 'knowledge'); mint(home, 'actions');
-    rollbackCheckpoint(home, cp.id);
-    assert.equal(readZu(home, 'knowledge', 'k').title, 'k1');
-    assert.equal(readZu(home, 'actions', 'a').title, 'a1');
   });
 });
 

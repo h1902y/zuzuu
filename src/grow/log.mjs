@@ -1,4 +1,4 @@
-// src/loop/log.mjs — the module event log.
+// src/grow/log.mjs — the module event log.
 //
 // what: append-only, schema-bound JSONL recording what happened in a module —
 //       mutations (create/update/delete) and runs (each execution).

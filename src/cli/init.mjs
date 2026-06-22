@@ -103,7 +103,7 @@ export function initHome(cwd = process.cwd()) {
 }
 
 /** Add the home's ignore lines to the repo's .gitignore (idempotent). */
-export function ensureGitignore(root, home) {
+function ensureGitignore(root, home) {
   const gi = join(root, '.gitignore');
   const existing = existsSync(gi) ? readFileSync(gi, 'utf8') : '';
   const missing = IGNORE_LINES.filter((l) => !existing.split('\n').some((line) => line.trim() === l));

@@ -17,7 +17,7 @@
 import { register, clear, list } from './dispatch.mjs';
 import { queryData } from '../use/query.mjs';
 import { act } from '../use/act.mjs';
-import { enhance } from '../loop/enhance.mjs';
+import { enhance } from '../grow/enhance.mjs';
 import { check } from '../use/check.mjs';
 import { gate } from '../guardrails/gate.mjs';
 
