@@ -66,7 +66,7 @@ This log is also what makes `enhance` smart. It reads not just what you *said* (
 ## The loop
 
 ```
-observe (session + log) → enhance → propose → approval → write → snapshot
+observe (session + log) → propose → approval → write → snapshot
 ```
 
 A module grows itself from how you work, and every change passes through you. The unit of "how you work" is a **session** — one conversation, which is one git branch. During a session you steer a small stack of objectives; what the session learns flows, at close, into the right module via `enhance`. A snapshot pins the module after each approved change, so any moment rolls back. *(How a session, its git, and its objectives fit together is lesson `05`.)*
@@ -81,7 +81,7 @@ project (.zuzuu/)            a standing domain — a set of modules
      └── event log            log.jsonl (tracked) · runs.jsonl (local)
 
    acting across it:
-     query · enhance · create/update/delete   ← module operations
+     query · check · create/update/delete     ← module operations
      act                                       ← kernel service (runs a note's act)
      approval                                  ← you, on every write
 ```
