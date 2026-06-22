@@ -1,0 +1,13 @@
+{
+  "//": "Server build only: emit src/{server,shared} → dist/{server,shared}. The client is Vite's job (→ dist/web). The #shared specifier is preserved verbatim in the output; the STAGED web-app/package.json points it at the built ./dist/shared (the source package.json points it at src for dev/test).",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "declaration": false,
+    "sourceMap": false
+  },
+  "include": ["src/server", "src/shared"],
+  "exclude": ["src/client", "tests"]
+}

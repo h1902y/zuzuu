@@ -28,7 +28,7 @@ node bin/zuzuu.mjs <cmd>                   # the CLI (or `zz`/`zuzuu` after npm 
 
 No build step, **zero runtime dependencies** for the CLI core (a deliberate policy — `node:test`, `node:sqlite`, hand-rolled OTLP); the bundled workbench's deps ride as `optionalDependencies` (never imported by CLI code). Node ≥ 22 (OpenCode adapter needs `node:sqlite`; tests need ≥ 21's glob).
 
-The **workbench** lives at `web/` — a self-contained nested project (own package.json/lockfile, vitest, React/Vite/Hono): `cd web && npm ci && npm test` (174 daemon + 417 web-ui vitest) · `npm run dev` (daemon :7770 + Vite :5173) · root `npm run build:web` stages it into `web-app/` for publishing. Its conventions live in `web/CLAUDE.md` (the daemon package is `@zuzuucodes/web`).
+The **workbench** lives at `web/` — **one folded package** `@zuzuucodes/web` (rebuilt greenfield 2026-06-22; the old 3-package workspace was culled). Three source domains, `src/{shared,server,client}`: `shared/` is the wire protocol (imported via `#shared/*`), `server/` is the local daemon (Hono + `ws` + `node-pty`, the proven engine ported), `client/` is a fresh lean Vite/React SPA (**18.1k → 1.7k LOC** — the bloat cut). `cd web && npm test` (173, vitest: server + client + e2e) · `npm run dev` (daemon :7770 + Vite :5173) · `npm run build` → staged into `web-app/` for publishing (the deferred SaaS skin is `web/cloud/`). Its conventions live in `web/CLAUDE.md`; the rebuild record is `docs/specs/2026-06-22-workbench-greenfield-rebuild.md`.
 
 ## Architecture (the big picture)
 

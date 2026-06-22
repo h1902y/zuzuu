@@ -29,3 +29,6 @@ docs/design-research/shots/
 *.tgz
 
 web-app/
+
+# folded workbench build output (Rung 6 stages it to web-app/)
+web/v2/dist/

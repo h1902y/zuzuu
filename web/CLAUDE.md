@@ -1,58 +1,111 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code when working in `web/` — the zuzuu visual workbench.
 
 ## What this is
 
-zuzuu-web (the zuzuu visual workbench): a browser-based terminal + file explorer + editor for your local machine. A daemon runs locally; the browser connects to localhost and gets a real PTY shell (xterm.js + WebGL over a binary WebSocket), a file tree, a Monaco editor, and git integration. Sessions survive page reloads. See `docs/specs/2026-06-09-zuzuu-web-design.md` for design rationale.
+The **workbench**: a browser-based terminal + file explorer + Monaco editor + the
+modules dashboard for your local machine. A **local daemon** runs on `127.0.0.1`;
+the browser connects and gets a real PTY shell (xterm.js + WebGL over a binary
+WebSocket), a file tree, an editor, git, and the zuzuu brain surface. Sessions
+survive page reloads. `zz web` (the root CLI) launches it.
+
+**One folded package** (`@zuzuucodes/web`), rebuilt greenfield 2026-06-22 — it
+replaced a 3-package npm workspace (`protocol`/`daemon`/`web-ui`). The SPA was
+rebuilt from scratch (**18.1k → 1.7k LOC**, the bloat cut); the proven daemon
+engine was ported, not rewritten (the tests are its proof). Rationale + the rung
+sequence: [`../docs/specs/2026-06-22-workbench-greenfield-rebuild.md`](../docs/specs/2026-06-22-workbench-greenfield-rebuild.md).
 
 ## Commands
 
 ```bash
 npm install
-npm run build                        # protocol + web UI + daemon
-npm run typecheck                    # all workspaces
-
-# Dev (two processes; Vite on :5173 proxies /api, /auth, /ws to daemon on :7770)
-npm run build -w @zuzuu-web/protocol   # once, before first dev run
-npm run dev                          # daemon + web in parallel
-# or separately: npm run dev:daemon (add -- --dev --token dev) and npm run dev:web
-# then open http://localhost:5173/auth?token=dev
-
-# Tests (vitest, daemon package only)
-npm run test -w @zuzuucodes/web
-npm run test -w @zuzuucodes/web -- safe-path           # single file by name filter
-npm run test -w @zuzuucodes/web -- -t "symlink"        # single test by title
-
-# Run the built app against a workspace
-npm run -w @zuzuucodes/web start -- ~/code/my-project  # prints http://127.0.0.1:7770/?token=…
+npm run typecheck            # tsc --noEmit
+npm test                     # vitest run — server + client + e2e (173)
+npm test -- pty-roundtrip    # one file by name filter
+npm run dev                  # dev:daemon (tsx, :7770) + dev:client (Vite, :5173 → proxies /api,/ws,/auth)
+npm run build                # tsc(server+shared) + vite(client) → dist/{server,web} → staged into ../web-app/
+node dist/server/cli.js ~/some/repo --no-open --port 7771 --token dev   # run the built daemon directly
 ```
 
-## Architecture
+There is **no build step for tests** (vitest runs the TS sources). The daemon's
+runtime deps are the **root CLI's `optionalDependencies`** (so a failed `node-pty`
+native build degrades the workbench, never the CLI); the client deps are
+`devDependencies` (the SPA ships as pre-built static assets).
 
-npm-workspaces monorepo, all TypeScript (strict, `noUncheckedIndexedAccess`), extending `tsconfig.base.json`.
+## Architecture — one package, three source domains
 
-- **`packages/protocol`** (`@zuzuu-web/protocol`) — shared wire types: binary WS opcodes (`ClientOp`/`ServerOp`), flow-control watermarks, REST schemas for fs/git/sessions/workflows. Both other packages import it; build it first.
-- **`packages/daemon`** (`@zuzuucodes/web`) — Hono + `@hono/node-server` + `ws`. CLI entry `src/index.ts`, HTTP/WS wiring and security gates in `src/server.ts`. Subsystems: PTY sessions (`src/sessions.ts`, `@lydell/node-pty` + headless xterm mirror), terminal WS (`src/ws-term.ts`), fs REST API (`src/fs-api.ts`), fs-events WS (`src/ws-fs.ts`), git via subprocess (`src/git.ts`), ripgrep search (`src/search.ts`), asciicast assembly (`src/cast.ts`), the zuzuu-CLI spawn layer (`src/zuzuu-cli.ts`), workflows, shell history, shell-integration injection (`src/shell-integration/`). Serves the built web SPA from `web/dist`.
-- **`packages/web`** (`@zuzuu-web/web`) — Vite + React 19 + Tailwind v4. Zustand stores in `src/state/`, TanStack Query for REST data, Monaco in `src/editor/`, terminal connection + command-block model in `src/term/`, file tree/search in `src/explorer/`, cmdk palette in `src/palette/`, REST client in `src/lib/api.ts`. Layout is `sidebar | session center | right panel`: the left sidebar (`src/app/Sidebar.tsx`) is the file workspace (one consolidated workspace dropdown + the tree); the right panel (`src/panel/`) is ONE surface with two modes — files (the EditorPane renders in it) and modules (a dashboard of five ModuleTiles — the cards ARE the navigation, no tabs — with per-module drill-ins; kit components in `src/panel/kit/`); mode rules live in `src/state/right-panel.ts` (open file → files, last tab closed → modules at the dashboard root). The term "faculty" is fully retired in product code (it survives only in `zuzuu/commands/migrations/*` for brownfield homes).
-- **`hosted/`** — cloud mode. `hosted/broker` is a control plane that provisions per-user sandboxes (`BROKER_BACKEND=local` spawns a child daemon; `fly` uses the Fly Machines API). `hosted/sandbox` is the Docker image + `fly.toml` that runs the daemon with `WEBCODE_HOSTED=1`.
+A plain DAG: `shared/` is the only thing both halves import (`shared → server`,
+`shared → client`, no edge back). TypeScript strict + `noUncheckedIndexedAccess`.
+
+- **`src/shared/`** — the wire contract, imported via the `#shared/*` subpath.
+  `opcodes` (1-byte binary terminal frames: `ClientOp` Input/Resize/Ack ·
+  `ServerOp` Output/Exit/Replay/Title/Cwd), `flow` (the flow-control watermarks),
+  `rest` (the JSON REST DTOs), `zuzuu` (the modules-dashboard contract). Was the
+  published `@zuzuu-web/protocol` package — now a plain internal module, so there
+  is no vendor step and no client/server version skew.
+
+- **`src/server/`** — the long-lived daemon (Hono + `@hono/node-server` + `ws`).
+  Entry: `createDaemon()` (`index.ts`) is the testable factory; `cli.ts` is the
+  bootstrap (port scan, token, singleton instance file, browser open, the
+  `WEBCODE_HOSTED` gate) run by `bin/zz-web.js`. The hot core is **logic-frozen**
+  (port-faithful, the tests pin it): `sessions.ts` (PTY + a headless `@xterm/headless`
+  mirror + 128 KB flow control), `ws-term.ts` (binary frames + the ack loop),
+  `safe-path.ts` (the realpath/lstat symlink jail). Plus `fs-api`, `git`, `search`
+  (ripgrep), `ws-fs` (chokidar), `cast` (asciicast), `shell-integration/` (OSC
+  133/7 injection), and `zuzuu-cli.ts` — the **only** place the daemon shells the
+  `zz` CLI (every brain mutation goes through it; the daemon never imports
+  `src/loop`). `zuzuu-routes.ts` is the modules-dashboard API; the dead v1 routes
+  (whole-brain checkpoints, OTLP session views, eval/inbox) were pruned.
+
+- **`src/client/`** — a fresh, lean Vite + React 19 + Tailwind v4 SPA the daemon
+  serves from `dist/web`. `term/` (xterm + WebGL + `connection.ts`, the binary-WS
+  client reusing the ack/flow-control loop + indefinite reconnect + OSC-133 command
+  blocks), `explorer/` (tree + `/ws/fs` + ripgrep), `editor/` (lazy Monaco),
+  `panel/` (the right panel — files mode = the editor, modules mode = the five-tile
+  brain dashboard with per-module generations + approve/reject), `palette/` (cmdk),
+  `preview/` (asciinema CastView), `state/` (zustand + TanStack Query).
+
+- **`cloud/`** — the deferred SaaS skin (untouched by the rebuild). `cloud/broker`
+  provisions per-user sandboxes (`BROKER_BACKEND=local`|`fly`); `cloud/sandbox` is
+  the Docker image + `fly.toml` running the daemon with `WEBCODE_HOSTED=1`. The
+  `Backend` interface in `cloud/broker/src/backends.ts` is the one seam where a
+  future Cloudflare backend lands (blocked today by containers#147 — see the spec).
+
+### The `#shared` resolution (one seam, three runtimes)
+
+`package.json` `imports` maps `#shared/*` conditionally: `src` for typecheck
+(`types`) and dev (`development`, set by `dev:daemon`), `./dist/shared` at runtime
+(`default`) so the built daemon runs in a checkout. Vitest uses its own alias; Vite
+inlines it into the browser bundle; the staged `web-app/package.json` points it
+straight at `./dist/shared`.
 
 ### Data paths that matter
 
-- **Terminal**: binary WS frames with a 1-byte opcode. End-to-end flow control — the client acks bytes only after xterm actually renders them; past 128 KB unacked the daemon pauses the PTY (constants in protocol). Don't bypass this; it's what keeps `yes`/giant `cat` from freezing the tab.
-- **Session persistence**: PTYs are keyed by session id and decoupled from sockets. A headless xterm mirrors output server-side; reattach replays a serialized snapshot (screen + 10k scrollback) then streams live. Client reconnect is **indefinite** with capped backoff + `online`/`visibilitychange` wake triggers (`src/term/reconnect.ts`) so a laptop sleep / long blip recovers on its own (Wave A / resilience).
-- **Concurrent agent sessions (Wave B)**: each `type:"agent"` session launched at the workspace root spawns its PTY in **its own git worktree** (`.zuzuu/.worktrees/<short-id>`, gitignored), so N agents run at once without fighting over the single working tree. The daemon opens the worktree via the bundled CLI (`session worktree open <id>`) before the synchronous PTY spawn, and squash-merges it back on exit (`session worktree close`, serialized across exits). Falls back to the in-place `session merge` model on a non-git workspace / absent CLI; an explicit subdir `cwd` opts out. The flow-controlled PTY path is untouched — this is additive (injected id + worktree cwd).
-- **Recording markers (Wave D)**: the headless mirror parses OSC 133 "C" (command output begins) into asciicast `m` markers; `recording()` interleaves them via `src/cast.ts` `castBody`, so the saved `.cast` (played by `CastView`/asciinema-player) gets navigable per-command chapters. Mirror-only parse — the byte stream stays verbatim.
-- **Command blocks**: a shell hook auto-injected at PTY spawn (temp `ZDOTDIR` for zsh, `--rcfile` for bash, `vendor_conf.d` for fish) emits OSC 133 (prompt/command/exit marks) and OSC 7 (cwd). The web client builds blocks, quick fixes, and cwd sync from these; `lsof`/procfs polling is the fallback for shells without the hook.
-- **File watching**: chokidar v4, non-recursive, only on directories the user has expanded — keeps fd usage bounded. Fs events push over `/ws/fs` and invalidate React Query caches.
+- **Terminal**: binary WS frames, 1-byte opcode. End-to-end flow control — the
+  client acks bytes only after xterm renders them; past 128 KB unacked the daemon
+  pauses the PTY. The `tests/e2e` flood test fails if this loop breaks. Don't bypass it.
+- **Session persistence**: PTYs keyed by id, decoupled from sockets; the headless
+  mirror replays a serialized snapshot on reattach, then streams live. Reconnect is
+  indefinite (`term/reconnect.ts`, `online`/`visibilitychange` wakes).
+- **Concurrent agent sessions**: each `type:"agent"` session spawns its PTY in its
+  own git worktree via `session worktree open`, squash-merged on exit.
 
 ### Security model
 
-Localhost is not treated as a security boundary. The daemon binds 127.0.0.1 only (unless `WEBCODE_HOSTED=1`), enforces a Host-header allowlist (DNS rebinding) and Origin allowlist (WS hijacking), and uses token-in-URL → HttpOnly cookie auth. **Every filesystem path must go through `resolveSafe`/`safeJoin` in `packages/daemon/src/safe-path.ts`** (lexical resolve + per-segment realpath/lstat to defeat symlink escapes; unit-tested). Never accept a raw client path into `fs` calls.
+Localhost is not a security boundary. The daemon binds `127.0.0.1` only (unless
+`WEBCODE_HOSTED=1`), enforces a Host-header allowlist (DNS rebinding) + an Origin
+allowlist (WS hijacking), and uses token-in-URL → HttpOnly cookie auth (the cookie
+is `sha256(token)`, stateless across restarts). **Every filesystem path goes
+through `resolveSafe`/`safeJoin` in `src/server/safe-path.ts`.** Never accept a raw
+client path into `fs` calls.
 
 ## Conventions
 
-- Design tokens live in the Tailwind v4 `@theme` block in `packages/web/src/index.css` (ink color ramp, type scale: meta 11px / ui 12px / body 13px, `--radius-ui`, `wc-focus` ring). UI primitives (Bar, Button, IconButton, Field, Tabs, Dialog) are in `packages/web/src/components/ui/` — compose these rather than hand-rolling styled divs.
-- Workflows are user data: JSON files in `.zuzuu-web/workflows/*.json` inside the *workspace being served*, with `{{arg}}` placeholders.
-- Daemon env vars for hosted mode: `WEBCODE_HOSTED`, `WEBCODE_ROOT`, `WEBCODE_TOKEN`, `WEBCODE_PUBLIC_HOST`, `PORT`. Broker env vars are documented in `hosted/README.md`.
-- If the default port is busy the daemon scans up to 20 ports upward from it.
+- Design tokens: the Tailwind v4 `@theme` block in `src/client/state/index.css`. UI
+  primitives live in `src/client/` kit components — compose them.
+- Workflows are user data: JSON in `.zuzuu-web/workflows/*.json` inside the served workspace.
+- Hosted-mode env: `WEBCODE_HOSTED`, `WEBCODE_ROOT`, `WEBCODE_TOKEN`, `WEBCODE_PUBLIC_HOST`, `PORT`.
+- The daemon scans up to 20 ports upward from the default if it's busy.
+- The hot core (`sessions`/`ws-term`/`safe-path`) is touched **minimally** — make it
+  clearer through comments, never re-derive the flow-control logic.

@@ -1,0 +1,20 @@
+{
+  "//": "One project for now (Rung 0). Rung 2 splits this into tsconfig.server.json (Node, emits dist/server) and Rung 4 adds the client (Vite owns its build). The #shared/* subpath (package.json imports field) is the single seam both halves cross.",
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx"
+  },
+  "include": ["src", "bin", "tests"]
+}
