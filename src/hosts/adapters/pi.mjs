@@ -9,25 +9,13 @@
 
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { existsSync, readdirSync, statSync, readFileSync } from 'node:fs';
-import { assembleSignals, emptySignals } from '../signals.mjs';
+import { existsSync, readdirSync, statSync } from 'node:fs';
+import { assembleSignals, emptySignals, readJsonl, argCommand } from '../signals.mjs';
 
 const SESSIONS_DIR = join(homedir(), '.pi', 'agent', 'sessions');
 const PI_SHELL = new Set(['bash', 'shell']);
 
-function piCmdText(args) {
-  const a = typeof args === 'string' ? (() => { try { return JSON.parse(args); } catch { return {}; } })() : args ?? {};
-  if (typeof a.command === 'string') return a.command;
-  if (Array.isArray(a.command)) return a.command.join(' ');
-  if (typeof a.cmd === 'string') return a.cmd;
-  return '';
-}
-
-function readJsonl(file) {
-  try {
-    return readFileSync(file, 'utf8').split('\n').filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
-  } catch { return []; }
-}
+const piCmdText = (args) => argCommand(args, ['command', 'cmd']);
 
 export const pi = {
   name: 'pi',
