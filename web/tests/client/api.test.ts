@@ -39,7 +39,7 @@ describe("api client", () => {
 
   it("maps 401 to a clear ApiError", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 401, json: async () => ({}) }) as Response));
-    await expect(api.health()).rejects.toMatchObject({ status: 401 } satisfies Partial<ApiError>);
+    await expect(api.workspace()).rejects.toMatchObject({ status: 401 } satisfies Partial<ApiError>);
   });
 
   it("encodes path query params", async () => {

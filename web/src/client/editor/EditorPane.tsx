@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Editor, type OnMount } from "@monaco-editor/react";
 import { api } from "../lib/api.js";
+import { PanelHeader, IconButton } from "../panel/kit.js";
 import { ensureTheme, monacoLanguage } from "./monaco-setup.js";
 
 export default function EditorPane({ path, onClose }: { path: string; onClose: () => void }) {
@@ -44,21 +45,25 @@ export default function EditorPane({ path, onClose }: { path: string; onClose: (
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-[var(--height-bar)] shrink-0 items-center gap-2 border-b border-border px-3">
-        <span className="truncate font-mono text-ui text-subtle" title={path}>
-          {name}{dirty ? " ●" : ""}
-        </span>
-        <div className="ml-auto flex items-center gap-3">
-          <button
-            onClick={() => void save()}
-            disabled={!dirty || saving}
-            className="text-meta text-muted hover:text-subtle disabled:opacity-40"
-          >
-            {saving ? "saving…" : "save ⌘S"}
-          </button>
-          <button onClick={onClose} className="text-muted hover:text-subtle" title="close">✕</button>
-        </div>
-      </div>
+      <PanelHeader
+        title={
+          <span className="truncate font-mono text-ui text-subtle" title={path}>
+            {name}{dirty ? " ●" : ""}
+          </span>
+        }
+        right={
+          <>
+            <button
+              onClick={() => void save()}
+              disabled={!dirty || saving}
+              className="text-meta text-muted hover:text-subtle disabled:opacity-40"
+            >
+              {saving ? "saving…" : "save ⌘S"}
+            </button>
+            <IconButton label="close" onClick={onClose}>✕</IconButton>
+          </>
+        }
+      />
       <div className="min-h-0 flex-1">
         {loaded === null ? (
           <div className="grid h-full place-items-center text-meta text-muted">loading…</div>

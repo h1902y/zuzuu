@@ -17,7 +17,7 @@
   --color-ink-800: #22262c; /* hover/active row fill */
   --color-ink-700: #2a2e35; /* hairline border */
   --color-ink-600: #565c66; /* strong border */
-  --color-ink-500: #6b6862; /* faint text */
+  --color-ink-500: #857f78; /* muted text — WCAG AA (4.8:1) on the app field */
   --color-ink-300: #9a9690; /* muted text */
   --color-ink-100: #e8e6e3; /* primary text */
   --color-accent: #5be6c4;

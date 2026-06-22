@@ -17,6 +17,9 @@ export default defineConfig({
   build: {
     outDir: fileURLToPath(new URL("./dist/web", import.meta.url)),
     emptyOutDir: true,
+    // The only chunks over 500 KB are the LAZY Monaco core + its workers (deferred
+    // to file-open, never on first paint), so the default warning is noise.
+    chunkSizeWarningLimit: 4000,
   },
   server: {
     proxy: {

@@ -47,6 +47,14 @@ export function tokenPath(root: string, dir: string = instancesDir()): string {
   return path.join(dir, `${instanceId(root)}.token`);
 }
 
+/** Write a 0600 file under `dir`, creating the dir; re-chmods because the mode
+ *  option only applies on create, not when overwriting an existing file. */
+function writeSecret(dir: string, file: string, content: string): void {
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(file, content, { mode: 0o600 });
+  fs.chmodSync(file, 0o600);
+}
+
 /** Read the persisted token, or null if absent/empty. */
 export function readPersistentToken(root: string, dir: string = instancesDir()): string | null {
   try {
@@ -67,11 +75,8 @@ export function ensurePersistentToken(root: string, dir: string = instancesDir()
   const existing = readPersistentToken(root, dir);
   if (existing) return existing;
   const tok = crypto.randomBytes(24).toString("base64url");
-  const file = tokenPath(root, dir);
   try {
-    fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(file, tok + "\n", { mode: 0o600 });
-    fs.chmodSync(file, 0o600); // mode option only applies on create; enforce on overwrite too
+    writeSecret(dir, tokenPath(root, dir), tok + "\n");
   } catch (err) {
     console.warn(`zuzuu-web: could not persist auth token (${String(err)}) — using a per-run token`);
   }
@@ -82,9 +87,7 @@ export function ensurePersistentToken(root: string, dir: string = instancesDir()
 export function writeInstanceFile(info: InstanceInfo, dir: string = instancesDir()): string | null {
   const file = instancePath(info.root, dir);
   try {
-    fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(file, JSON.stringify(info, null, 2) + "\n", { mode: 0o600 });
-    fs.chmodSync(file, 0o600); // mode option only applies on create; enforce on overwrite too
+    writeSecret(dir, file, JSON.stringify(info, null, 2) + "\n");
     return file;
   } catch (err) {
     console.warn(`zuzuu-web: could not write instance state (${String(err)}) — continuing without it`);

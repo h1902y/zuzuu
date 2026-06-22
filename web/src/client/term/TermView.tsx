@@ -8,7 +8,6 @@
 import { useEffect, useRef } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
-import { WebglAddon } from "@xterm/addon-webgl";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { ClipboardAddon } from "@xterm/addon-clipboard";
@@ -52,12 +51,18 @@ export function TermView({ sessionId }: { sessionId: string }) {
     term.loadAddon(unicode);
     term.unicode.activeVersion = "11";
     term.open(host);
-    try {
-      term.loadAddon(new WebglAddon()); // hardware renderer; falls back to canvas if unavailable
-    } catch {
-      /* no WebGL (headless / old GPU) — xterm uses its DOM renderer */
-    }
     fit.fit();
+
+    // WebGL is a progressive enhancement (hardware renderer) — dynamic-import it
+    // after first paint so its ~127 KB stays out of the main bundle. The terminal
+    // renders via the DOM renderer until it attaches; absent WebGL falls back silently.
+    let webglDisposed = false;
+    void import("@xterm/addon-webgl")
+      .then(({ WebglAddon }) => {
+        if (webglDisposed) return;
+        try { term.loadAddon(new WebglAddon()); } catch { /* no WebGL — DOM renderer */ }
+      })
+      .catch(() => {});
 
     const conn = new TermConnection(sessionId, term, {
       onStatus: setStatus,
@@ -81,6 +86,7 @@ export function TermView({ sessionId }: { sessionId: string }) {
     term.focus();
 
     return () => {
+      webglDisposed = true;
       ro.disconnect();
       inputSub.dispose();
       conn.dispose();
