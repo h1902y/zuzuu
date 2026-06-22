@@ -18,7 +18,7 @@ describe("api client", () => {
     const fetchMock = vi.fn(async () => ok({ id: "x" }));
     vi.stubGlobal("fetch", fetchMock);
     await api.createSession({ type: "shell" });
-    const [, init] = fetchMock.mock.calls[0]!;
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(init?.method).toBe("POST");
     expect(JSON.parse(init!.body as string)).toEqual({ type: "shell" });
   });
@@ -32,7 +32,7 @@ describe("api client", () => {
     const fetchMock = vi.fn(async () => ok({ path: "a b", entries: [] }));
     vi.stubGlobal("fetch", fetchMock);
     await api.listDir("a b/c");
-    expect(fetchMock.mock.calls[0]![0]).toBe("/api/fs/list?path=a%20b%2Fc");
+    expect((fetchMock.mock.calls[0] as unknown as [string])[0]).toBe("/api/fs/list?path=a%20b%2Fc");
   });
 });
 

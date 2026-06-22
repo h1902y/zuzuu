@@ -1,20 +1,24 @@
 // src/client/app/App.tsx — the workbench shell: sidebar | session center | right.
 //
 // Three panes. The left is the file workspace (Sidebar); the center is the live
-// terminal with a session tab strip; the right panel is a stub seam Rung 5 fills
-// with the editor (files mode) and the modules dashboard. On boot we list
-// sessions and open a shell if there are none, so the terminal is always live.
+// terminal with a session tab strip; the right panel (RightPanel) is one surface
+// with two modes — the editor (files) and the modules dashboard. A global ⌘P/⌘K
+// palette floats over it. On boot we open a shell if there are none.
 
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { TermView } from "../term/TermView.js";
 import { Sidebar } from "./Sidebar.js";
 import { Footer } from "./Footer.js";
+import { RightPanel } from "../panel/RightPanel.js";
+import { Palette } from "../palette/Palette.js";
 import { api } from "../lib/api.js";
 import { useWorkbench } from "../state/store.js";
+import { usePanel } from "../state/panel.js";
 
 export function App() {
   const { sessions, activeId, refresh, open, setActive, close } = useWorkbench();
+  const openFile = usePanel((s) => s.openFile);
   const workspace = useQuery({ queryKey: ["workspace"], queryFn: api.workspace });
 
   // boot: load sessions, open a shell if there are none
@@ -29,7 +33,7 @@ export function App() {
     <div className="flex h-full flex-col">
       <div className="flex min-h-0 flex-1">
         <aside className="w-[240px] shrink-0 border-r border-border">
-          <Sidebar />
+          <Sidebar onOpenFile={openFile} />
         </aside>
 
         <main className="flex min-w-0 flex-1 flex-col">
@@ -43,14 +47,13 @@ export function App() {
           </div>
         </main>
 
-        {/* Rung 5 seam: editor (files mode) + the five-ModuleTile dashboard */}
-        <aside className="hidden w-[320px] shrink-0 border-l border-border bg-surface xl:block">
-          <div className="grid h-full place-items-center px-4 text-center text-meta text-muted">
-            right panel — editor + modules dashboard (Rung 5)
-          </div>
+        {/* the one right-hand surface: editor (files mode) ⇆ modules dashboard */}
+        <aside className="hidden w-[340px] shrink-0 border-l border-border bg-surface xl:block">
+          <RightPanel />
         </aside>
       </div>
       <Footer workspace={workspace.data?.root} />
+      <Palette />
     </div>
   );
 }

@@ -1,22 +1,33 @@
 // src/client/lib/api.ts — the typed REST client over the daemon.
 //
 // One thin `request` wrapper + a flat `api` object; every shape comes from
-// #shared so the client and server can't drift. Rung 4 ships the CORE surface
-// (sessions · fs · search · git · history · health · workspace); the modules
-// dashboard (/api/zuzuu) lands in Rung 5.
+// #shared so the client and server can't drift. Core surface (sessions · fs ·
+// search · git · history) + Rung 5's modules dashboard (`zuzuu.*`) + workflows.
 
 import type {
+  ApproveResult,
   BrowseResponse,
   CreateSessionRequest,
+  DigestResponse,
   FileListResponse,
   GitDiffResponse,
   GitStatusResponse,
   HealthResponse,
   HistoryResponse,
   ListResponse,
+  ModuleDetail,
+  ModuleGenerationDiff,
+  ModuleGenerationList,
+  ModuleOverviewResponse,
+  RejectResult,
+  RollbackResult,
   SearchResponse,
   SessionDetail,
+  SessionDiffResponse,
+  SessionGitStatus,
   SessionInfo,
+  SessionMergeResult,
+  WorkflowListResponse,
   WorkspaceConfig,
   WorkspaceInfo,
 } from "#shared/index.js";
@@ -93,6 +104,30 @@ export const api = {
   // shell quick-fixes
   history: () => request<HistoryResponse>("/api/history"),
   killPort: (port: number) => request<{ ok: true }>("/api/fix/kill-port", json({ port })),
+
+  // workflows (user-defined command templates)
+  workflows: () => request<WorkflowListResponse>("/api/workflows"),
+
+  // the brain — the modules dashboard surface (/api/zuzuu/*). Mutations are
+  // CLI-shelled by the daemon; the client only ever reads + posts intents.
+  zuzuu: {
+    overview: () => request<ModuleOverviewResponse>("/api/zuzuu/overview"),
+    module: (key: string) => request<ModuleDetail>(`/api/zuzuu/module/${key}`),
+    generations: (key: string) => request<ModuleGenerationList>(`/api/zuzuu/module/${key}/generations`),
+    generationDiff: (key: string, id: string) =>
+      request<ModuleGenerationDiff>(`/api/zuzuu/module/${key}/generation/${id}`),
+    approve: (id: string) => request<ApproveResult>(`/api/zuzuu/proposals/${id}/approve`, { method: "POST" }),
+    reject: (id: string) => request<RejectResult>(`/api/zuzuu/proposals/${id}/reject`, { method: "POST" }),
+    rollback: (key: string, id: string) =>
+      request<RollbackResult>(`/api/zuzuu/module/${key}/generation/${id}/rollback`, { method: "POST" }),
+    digest: () => request<DigestResponse>("/api/zuzuu/digest"),
+    // session-git (the invisible per-agent-session branch)
+    session: () => request<SessionGitStatus>("/api/zuzuu/session"),
+    sessionMerge: () => request<SessionMergeResult>("/api/zuzuu/session/merge", { method: "POST" }),
+    sessionContinue: () => request<SessionMergeResult>("/api/zuzuu/session/continue", { method: "POST" }),
+    sessionDiscard: () => request<{ ok: boolean }>("/api/zuzuu/session/discard", { method: "POST" }),
+    sessionDiff: (id: string) => request<SessionDiffResponse>(`/api/zuzuu/session-diff/${id}`),
+  },
 };
 
 /** ws://host or wss://host for a daemon WS path (same origin as the page). */
