@@ -60,6 +60,10 @@ A plain DAG: `shared/` is the only thing both halves import (`shared → server`
   (checkpoints, OTLP session views, eval/inbox), the 2026-06-22 squeeze pruned the
   ported-but-unused features too: git, workflows, shell-history, vault-browse,
   recording-capture, and the session-git/digest/diff read surface (~30 routes).
+  `server.ts`'s route registration was then decomposed: the `/api/sessions` surface
+  (argv validation + the Wave-B worktree orchestration) lives in `sessions-routes.ts`,
+  the SPA static handler in `static.ts`, the shared ripgrep probe in `rg.ts`, and the
+  WS-upgrade auth in `AuthGate.upgradeAllowed()` — `server.ts` is now a table of mounts.
 
 - **`src/client/`** — a fresh, lean Vite + React 19 + Tailwind v4 SPA the daemon
   serves from `dist/web`. `term/` (xterm + WebGL + `connection.ts`, the binary-WS
