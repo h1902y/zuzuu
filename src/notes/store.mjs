@@ -9,8 +9,25 @@
 //       subdir); falls back to cwd outside a git repo. Zero-dep (node:* only).
 //       (Path resolution harvested from core/store.mjs.)
 
-import { join, basename } from 'node:path';
+import { join, basename, dirname } from 'node:path';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
+
+// ── JSON files (the one convention) ───────────────────────────────────────────
+// Every dir read/wrote JSON by hand with a slightly different fallback; these are
+// the single definition. read returns `fallback` on missing/corrupt; write is
+// pretty + trailing-newline (the convention the whole tree had copied) + mkdir -p.
+
+/** Read + parse a JSON file; `fallback` (default null) on missing/unreadable/corrupt. */
+export function readJson(path, fallback = null) {
+  try { return JSON.parse(readFileSync(path, 'utf8')); } catch { return fallback; }
+}
+
+/** Write `obj` as pretty JSON + trailing newline, creating parent dirs. */
+export function writeJson(path, obj) {
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, JSON.stringify(obj, null, 2) + '\n');
+}
 
 const git = (args, cwd) => {
   const r = spawnSync('git', args, { cwd, encoding: 'utf8' });
