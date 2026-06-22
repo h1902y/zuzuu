@@ -15,7 +15,6 @@
 // git-derived view, reimplemented via git.ts in a later rung.)
 
 import fsp from "node:fs/promises";
-import { existsSync } from "node:fs";
 import path from "node:path";
 import { Hono } from "hono";
 import type { Context } from "hono";

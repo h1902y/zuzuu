@@ -70,6 +70,20 @@ export class AuthGate {
     return !!match && timingSafeEqualStr(match[1]!, this.cookieValue);
   }
 
+  /**
+   * The WS-upgrade gate: Host + Origin + cookie checks in order, returning the
+   * first failure. The socket-path mirror of gate()+requireAuth() — keeping all
+   * auth decisions in this one file rather than hand-wired at the upgrade site.
+   */
+  upgradeAllowed(headers: { host?: string; origin?: string; cookie?: string }):
+    | { ok: true }
+    | { ok: false; status: number; msg: string } {
+    if (!this.hostAllowed(headers.host)) return { ok: false, status: 403, msg: "Forbidden" };
+    if (!this.originAllowed(headers.origin)) return { ok: false, status: 403, msg: "Forbidden" };
+    if (!this.cookieAuthed(headers.cookie)) return { ok: false, status: 401, msg: "Unauthorized" };
+    return { ok: true };
+  }
+
   /** App-wide gate: Host/Origin allowlists + the ?token= → cookie exchange. */
   gate(): MiddlewareHandler {
     return async (c, next) => {

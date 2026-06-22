@@ -1,32 +1,25 @@
-import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
-import { Readable } from "node:stream";
 import type { IncomingMessage } from "node:http";
 import type { Duplex } from "node:stream";
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
 import type { ServerType } from "@hono/node-server";
 import { WebSocketServer } from "ws";
-import type {
-  CreateSessionRequest,
-  SessionCloseResult,
-  SessionDetail,
-  SessionMergeResult,
-  WorkspaceInfo,
-} from "#shared/index.js";
+import type { SessionCloseResult, SessionMergeResult, WorkspaceInfo } from "#shared/index.js";
 import { SessionManager, type Session } from "./sessions.js";
 import { AuthGate } from "./auth.js";
 import { createFsApi } from "./fs-api.js";
 import { createZuzuuApi } from "./zuzuu-routes.js";
+import { createSessionsApi } from "./sessions-routes.js";
+import { serveStatic } from "./static.js";
 import { runZuzuuMut, type ZuzuuMutResult } from "./zuzuu-cli.js";
-import crypto from "node:crypto";
 import { search } from "./search.js";
 import { listFiles } from "./file-list.js";
 import * as config from "./config.js";
 import { handleTermSocket } from "./ws-term.js";
 import { handleFsSocket } from "./ws-fs.js";
-import { PathError, resolveSafe, safeJoin } from "./safe-path.js";
+import { PathError, resolveSafe } from "./safe-path.js";
 
 export interface ServerConfig {
   /** realpath'd absolute workspace root */
@@ -54,18 +47,6 @@ export interface ServerConfig {
 
 /** Host CLIs an agent/command session may run. Argv-spawned, never a shell. */
 const DEFAULT_COMMAND_ALLOWLIST = ["claude", "gemini", "codex", "pi", "opencode", "zuzuu"];
-
-const STATIC_MIME: Record<string, string> = {
-  ".html": "text/html; charset=utf-8",
-  ".js": "text/javascript",
-  ".css": "text/css",
-  ".svg": "image/svg+xml",
-  ".png": "image/png",
-  ".ico": "image/x-icon",
-  ".woff2": "font/woff2",
-  ".json": "application/json",
-  ".webmanifest": "application/manifest+json",
-};
 
 export class WebcodeServer {
   readonly app: Hono;
@@ -158,90 +139,13 @@ export class WebcodeServer {
       return c.json(body);
     });
 
-    app.get("/api/sessions", (c) => c.json(this.sessions.list()));
-
-    app.post("/api/sessions", async (c) => {
-      let body: CreateSessionRequest = {};
-      try {
-        body = await c.req.json<CreateSessionRequest>();
-      } catch {
-        // empty body is fine
-      }
-      // Direct command sessions: the allowlist keeps the spawn surface honest
-      // (authenticated localhost daemon or not). Argv only — never a shell.
-      if (body.command !== undefined) {
-        if (typeof body.command !== "string" || !this.commandAllowlist.has(body.command)) {
-          return c.json({ error: "command not allowed" }, 400);
-        }
-        if (
-          body.args !== undefined &&
-          (!Array.isArray(body.args) || !body.args.every((a) => typeof a === "string"))
-        ) {
-          return c.json({ error: "args must be an array of strings" }, 400);
-        }
-      } else if (body.args !== undefined) {
-        return c.json({ error: "args require command" }, 400);
-      }
-      if (body.type !== undefined && body.type !== "shell" && body.type !== "agent") {
-        return c.json({ error: "bad type" }, 400);
-      }
-      if (body.host !== undefined && (typeof body.host !== "string" || body.host.length > 64)) {
-        return c.json({ error: "bad host" }, 400);
-      }
-      let cwd = body.cwd ? safeJoin(this.root, body.cwd) : this.root;
-      const type = body.type ?? "shell";
-
-      // Wave B concurrency: an agent launched at the workspace root gets its OWN
-      // git worktree (own checked-out dir + branch, shared .git) so multiple
-      // agents run at once without fighting over the single working tree.
-      // Pre-generate the id, open the worktree with it, then spawn the PTY there.
-      // Any failure (non-git workspace, absent CLI) → fall back to the in-place
-      // model. An explicit subdir cwd opts out (the agent runs in place there).
-      let agentId: string | undefined;
-      let sessionWorktree = false;
-      if (type === "agent" && !body.cwd) {
-        agentId = crypto.randomBytes(8).toString("hex");
-        const wt = await runZuzuuMut(this.root, ["session", "worktree", "open", agentId], {
-          binary: this.cfg.zuzuuBinary,
-        });
-        const data = wt.ok ? (wt.data as { ok?: boolean; worktree?: string }) : null;
-        if (data?.ok && typeof data.worktree === "string") {
-          cwd = data.worktree;
-          sessionWorktree = true;
-        }
-      }
-
-      const session = this.sessions.create(cwd, body.cols, body.rows, {
-        ...(body.command !== undefined ? { command: body.command, args: body.args ?? [] } : {}),
-        type,
-        ...(body.host !== undefined ? { host: body.host } : {}),
-        ...(agentId ? { id: agentId } : {}),
-        ...(sessionWorktree ? { sessionWorktree: true } : {}),
-        ...(type === "agent" ? { onClose: (s: Session) => this.closeAgentSession(s) } : {}),
-      });
-      return c.json(session.info(), 201);
-    });
-
-    // Single-session read: the SPA polls this once after the Exit frame to
-    // pick up closeResult (the agent-exit auto-merge outcome). Awaiting
-    // whenClosed() means a poll that races the merge still gets the result.
-    app.get("/api/sessions/:id", async (c) => {
-      const session = this.sessions.get(c.req.param("id"));
-      if (!session) return c.json({ error: "no such session" }, 404);
-      await session.whenClosed();
-      const body: SessionDetail = {
-        ...session.info(),
-        ...(session.closeResult !== undefined
-          ? { closeResult: session.closeResult as SessionCloseResult }
-          : {}),
-      };
-      return c.json(body);
-    });
-
-    app.delete("/api/sessions/:id", (c) => {
-      const ok = this.sessions.close(c.req.param("id"));
-      return ok ? c.json({ ok: true }) : c.json({ error: "no such session" }, 404);
-    });
+    app.route("/api/sessions", createSessionsApi({
+      sessions: () => this.sessions,
+      root: () => this.root,
+      commandAllowlist: this.commandAllowlist,
+      ...(cfg.zuzuuBinary !== undefined ? { zuzuuBinary: cfg.zuzuuBinary } : {}),
+      closeAgentSession: (s) => this.closeAgentSession(s),
+    }));
 
     app.get("/api/search", async (c) => {
       const query = c.req.query("q") ?? "";
@@ -294,30 +198,8 @@ export class WebcodeServer {
     app.route("/api/fs", createFsApi(() => this.root));
     app.route("/api/zuzuu", createZuzuuApi(() => this.root, { binary: cfg.zuzuuBinary }));
 
-    // Static SPA with index.html fallback
-    app.get("*", async (c) => {
-      let rel = decodeURIComponent(new URL(c.req.url).pathname);
-      let abs: string;
-      try {
-        abs = safeJoin(cfg.webDist, rel);
-      } catch {
-        return c.text("not found", 404);
-      }
-      let st = await fsp.stat(abs).catch(() => null);
-      if (!st?.isFile()) {
-        abs = path.join(cfg.webDist, "index.html");
-        st = await fsp.stat(abs).catch(() => null);
-        if (!st) return c.text("web UI not built — run: cd web && npm run build (or `npm run build:web` from the repo root)", 404);
-      }
-      const ext = path.extname(abs).toLowerCase();
-      const immutable = rel.startsWith("/assets/");
-      return new Response(Readable.toWeb(fs.createReadStream(abs)) as ReadableStream, {
-        headers: {
-          "Content-Type": STATIC_MIME[ext] ?? "application/octet-stream",
-          "Cache-Control": immutable ? "public, max-age=31536000, immutable" : "no-cache",
-        },
-      });
-    });
+    // Static SPA (index.html fallback for client-side routes)
+    app.get("*", serveStatic(cfg.webDist));
 
     return app;
   }
@@ -338,9 +220,8 @@ export class WebcodeServer {
         socket.write(`HTTP/1.1 ${status} ${msg}\r\nConnection: close\r\n\r\n`);
         socket.destroy();
       };
-      if (!this.auth.hostAllowed(req.headers.host)) return reject(403, "Forbidden");
-      if (!this.auth.originAllowed(req.headers.origin)) return reject(403, "Forbidden");
-      if (!this.auth.cookieAuthed(req.headers.cookie)) return reject(401, "Unauthorized");
+      const allowed = this.auth.upgradeAllowed(req.headers);
+      if (!allowed.ok) return reject(allowed.status, allowed.msg);
 
       const url = new URL(req.url ?? "/", "http://localhost");
       const termMatch = /^\/ws\/term\/([0-9a-f]+)$/.exec(url.pathname);

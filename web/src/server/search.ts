@@ -1,24 +1,11 @@
-import { execFile, spawn } from "node:child_process";
-import { promisify } from "node:util";
+import { spawn } from "node:child_process";
 import path from "node:path";
 import type { SearchFileResult, SearchMatch, SearchResponse } from "#shared/index.js";
 import { toRel } from "./safe-path.js";
-
-const execFileAsync = promisify(execFile);
+import { hasRg } from "./rg.js";
 
 const MAX_MATCHES = 500;
 const MAX_LINE_LEN = 500;
-
-let rgAvailable: boolean | null = null;
-
-async function hasRg(): Promise<boolean> {
-  if (rgAvailable === null) {
-    rgAvailable = await execFileAsync("rg", ["--version"], { timeout: 2000 })
-      .then(() => true)
-      .catch(() => false);
-  }
-  return rgAvailable;
-}
 
 export interface SearchOptions {
   query: string;

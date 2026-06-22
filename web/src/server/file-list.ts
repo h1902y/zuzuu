@@ -1,23 +1,11 @@
-import { execFile, spawn } from "node:child_process";
-import { promisify } from "node:util";
+import { spawn } from "node:child_process";
 import fsp from "node:fs/promises";
 import path from "node:path";
 import type { FileListResponse } from "#shared/index.js";
 import { toRel } from "./safe-path.js";
-
-const execFileAsync = promisify(execFile);
+import { hasRg } from "./rg.js";
 
 const IGNORE = new Set([".git", "node_modules", "dist", ".next", ".cache"]);
-
-let rgAvailable: boolean | null = null;
-async function hasRg(): Promise<boolean> {
-  if (rgAvailable === null) {
-    rgAvailable = await execFileAsync("rg", ["--version"], { timeout: 2000 })
-      .then(() => true)
-      .catch(() => false);
-  }
-  return rgAvailable;
-}
 
 /**
  * Flat list of workspace files for the ⌘K palette. Prefers `rg --files`

@@ -1,4 +1,3 @@
-import fs from "node:fs";
 import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -37,13 +36,4 @@ export async function addRecent(root: string): Promise<WebcodeConfig> {
   cfg.recent = [root, ...cfg.recent.filter((p) => p !== root)].slice(0, RECENT_MAX);
   await save(cfg);
   return cfg;
-}
-
-/** Synchronous best-effort load for startup paths that can't await. */
-export function loadSync(): WebcodeConfig {
-  try {
-    return { ...DEFAULT, ...(JSON.parse(fs.readFileSync(FILE, "utf8")) as WebcodeConfig) };
-  } catch {
-    return { ...DEFAULT };
-  }
 }
