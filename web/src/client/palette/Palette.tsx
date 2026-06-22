@@ -12,7 +12,12 @@ import { api } from "../lib/api.js";
 import { fuzzyScore } from "./palette-logic.js";
 
 export function Palette() {
-  const { paletteOpen, setPalette, openFile, showModules } = usePanel();
+  // selector form (not whole-store destructure) so the palette doesn't re-run on
+  // unrelated panel changes (file open, module drill-in) while it's closed.
+  const paletteOpen = usePanel((s) => s.paletteOpen);
+  const setPalette = usePanel((s) => s.setPalette);
+  const openFile = usePanel((s) => s.openFile);
+  const showModules = usePanel((s) => s.showModules);
   const openSession = useWorkbench((s) => s.open);
   const [files, setFiles] = useState<string[]>([]);
 

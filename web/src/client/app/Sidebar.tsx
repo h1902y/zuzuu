@@ -13,12 +13,14 @@ export function Sidebar({ onOpenFile }: { onOpenFile?: (path: string) => void })
   const [tab, setTab] = useState<Tab>("files");
   return (
     <div className="flex h-full flex-col bg-surface">
-      <div className="flex h-[var(--height-bar)] shrink-0 items-stretch border-b border-border">
+      <div role="tablist" aria-label="workspace" className="flex h-[var(--height-bar)] shrink-0 items-stretch border-b border-border">
         {(["files", "search"] as const).map((t) => (
           <button
             key={t}
+            role="tab"
+            aria-selected={tab === t}
             onClick={() => setTab(t)}
-            className={`px-3 text-meta uppercase tracking-wide ${
+            className={`px-3 text-meta uppercase tracking-wide focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
               tab === t ? "border-b-2 border-accent text-ink-100" : "text-muted hover:text-subtle"
             }`}
           >

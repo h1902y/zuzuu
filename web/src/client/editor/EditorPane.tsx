@@ -7,7 +7,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Editor, type OnMount } from "@monaco-editor/react";
 import { api } from "../lib/api.js";
-import { PanelHeader } from "../panel/kit.js";
+import { PanelHeader, IconButton } from "../panel/kit.js";
 import { ensureTheme, monacoLanguage } from "./monaco-setup.js";
 
 export default function EditorPane({ path, onClose }: { path: string; onClose: () => void }) {
@@ -60,7 +60,7 @@ export default function EditorPane({ path, onClose }: { path: string; onClose: (
             >
               {saving ? "saving…" : "save ⌘S"}
             </button>
-            <button onClick={onClose} className="text-muted hover:text-subtle" title="close">✕</button>
+            <IconButton label="close" onClick={onClose}>✕</IconButton>
           </>
         }
       />
