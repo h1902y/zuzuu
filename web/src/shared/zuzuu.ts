@@ -61,44 +61,14 @@ export interface ModuleItemError {
   error: string;
 }
 
-/** The 5 normalized 0–1 signal components behind a proposal's score (the eval
- *  scorer's weight vector). Present only via the CLI path. */
-export interface RankedProposalSignals {
-  occurrence: number;
-  corroboration: number;
-  recency: number;
-  failureReduction: number;
-  erNovelty: number;
-}
-
-/** The raw evidence behind a proposal's score — the UI renders these to plain
- *  language ("seen 5× across 3 sessions"). Every field best-effort. */
-export interface RankedProposalEvidence {
-  occurrences?: number;
-  sessions?: number;
-  failures?: number;
-  /** entity-resolution verdict: "new" | "enrich" | "duplicate" */
-  erVerdict?: string;
-}
-
 export interface ProposalSummary {
   id: string;
   module: string;
   title: string;
-  /** the envelope kind being proposed (fact|rule|runbook|…) — best-effort */
-  kind?: string;
   /** a short preview of the content being approved — best-effort */
   preview?: string;
-  /** the persisted score float, when the proposal carries one */
-  score?: number | null;
   /** the persisted confidence bucket (high|med|low), when present */
   confidence?: string | null;
-  /** the scorer's one-line rationale, when present */
-  rationale?: string | null;
-  /** the 5 normalized signal components behind the score, when present */
-  signals?: RankedProposalSignals;
-  /** the raw evidence behind the score, when present */
-  evidence?: RankedProposalEvidence;
 }
 
 export interface ModuleDetail {

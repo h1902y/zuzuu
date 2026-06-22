@@ -28,9 +28,6 @@ export interface ConnectionEvents {
   onExit: (exitCode: number) => void;
   onStatus: (status: "connecting" | "open" | "reconnecting" | "closed") => void;
   onCwd: (cwd: CwdPayload) => void;
-  /** Fires once, on the FIRST output byte — a real "the host has started
-   *  rendering" signal (socket-open is too early; the TUI hasn't drawn yet). */
-  onFirstOutput?: () => void;
 }
 
 export class TermConnection {
@@ -39,9 +36,6 @@ export class TermConnection {
   private retries = 0;
   private closedByUser = false;
   private firstReplayDone = false;
-  private everOpened = false;
-  private everOutput = false;
-  private openWaiters: (() => void)[] = [];
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private ackTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -78,13 +72,11 @@ export class TermConnection {
 
     ws.onopen = () => {
       this.retries = 0;
-      this.everOpened = true;
       // The server resets its inflight counter on every (re)attach (sessions.ts
       // resetFlow). Reset ours to match, so the post-reconnect ack stream starts
       // from zero — a stale counter (or acks from the prior socket's late write
       // callbacks) would otherwise weaken backpressure for one window.
       this.resetFlow();
-      for (const resolve of this.openWaiters.splice(0)) resolve();
       this.events.onStatus("open");
       this.sendResize(this.term.cols, this.term.rows);
     };
@@ -103,10 +95,6 @@ export class TermConnection {
           this.term.write(payload);
           break;
         case ServerOp.Output:
-          if (!this.everOutput) {
-            this.everOutput = true;
-            this.events.onFirstOutput?.();
-          }
           // ack only after xterm has actually rendered — true backpressure
           this.term.write(payload, () => this.ack(payload.length));
           break;
@@ -134,12 +122,6 @@ export class TermConnection {
         if (!this.closedByUser) this.connect();
       }, delayMs);
     };
-  }
-
-  /** Resolves once the socket has opened (immediately if it ever has). */
-  whenOpen(): Promise<void> {
-    if (this.everOpened) return Promise.resolve();
-    return new Promise((resolve) => this.openWaiters.push(resolve));
   }
 
   sendInput(data: string): void {

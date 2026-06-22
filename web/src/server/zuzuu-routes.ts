@@ -165,34 +165,17 @@ function proposalPreview(p: Record<string, unknown>): string {
 }
 
 /** Enrich a raw on-disk proposal into the ProposalSummary the panel renders —
- *  carrying the payload preview + the persisted score/signals/evidence so the
- *  module-detail card shows the same WHAT/WHY a review card does. Best-effort:
- *  every enrichment field is optional and omitted when absent. */
+ *  the title, a payload preview (the WHAT block), and the persisted confidence.
+ *  Best-effort: preview/confidence are optional and omitted when absent. */
 function proposalSummary(p: Record<string, unknown>, key: string) {
-  const payload = (p.payload ?? p.candidate) as Record<string, unknown> | undefined;
-  const kind = typeof payload?.type === "string" ? payload.type
-    : typeof p.kind === "string" && p.kind !== "item" ? p.kind
-      : undefined;
   const preview = proposalPreview(p);
-  const score = p.score as { score?: number; confidence?: string; rationale?: string } | undefined;
-  const evidence = p.evidence as Record<string, unknown> | undefined;
-  const erVerdict = (p.analysis as { er?: { verdict?: string } } | undefined)?.er?.verdict
-    ?? (p.er as { verdict?: string } | undefined)?.verdict;
-  const ev: Record<string, unknown> = {};
-  if (typeof evidence?.occurrences === "number") ev.occurrences = evidence.occurrences;
-  if (typeof evidence?.sessions === "number") ev.sessions = evidence.sessions;
-  if (typeof evidence?.failures === "number") ev.failures = evidence.failures;
-  if (typeof erVerdict === "string") ev.erVerdict = erVerdict;
+  const score = p.score as { confidence?: string } | undefined;
   return {
     id: String(p.id ?? "?"),
     module: key,
     title: proposalTitle(p),
-    ...(kind ? { kind } : {}),
     ...(preview ? { preview } : {}),
-    ...(score && typeof score.score === "number" ? { score: score.score } : {}),
     ...(score?.confidence ? { confidence: score.confidence } : {}),
-    ...(score?.rationale ? { rationale: score.rationale } : {}),
-    ...(Object.keys(ev).length ? { evidence: ev } : {}),
   };
 }
 
