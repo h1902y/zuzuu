@@ -176,16 +176,162 @@ This honors "enhance, never reinvent" (the proven realtime core — PTY flow-con
 reconnect, mirror — is ported cleanly, not re-suffered) while giving a clean
 single-package fold and a credible SaaS path.
 
-## Open — pending synthesis (ce ideate → strategy → plan workflow)
+## Synthesis — recommended approach (ce ideate → strategy → plan, 2026-06-22)
 
-A fanned-out design workflow (run 2026-06-22) is pressure-testing five candidate
-stacks through architecture / feasibility / product lenses. When it returns, append:
-- **Recommended stack** (with the explicit verdict on Next.js, Tauri, 100% CF).
-- **The folded single-package directory structure** (server + client + shared).
-- **The rung-by-rung rebuild sequence** (greenfield-beside-old, swap at the end — the
-  proven kernel-rebuild method), incl. what to port cleanly vs rewrite, and where the
-  591 existing tests map.
-- **Top risks + open decisions** the user must make.
+A fanned-out design workflow (13 agents: ideate 5 stacks → ce-web-researcher platform
+deep-dives → architecture/feasibility/product lenses → ce-plan) returned a clear,
+unanimous winner. **It revises the "full greenfield from zero" framing — and revises
+the emerging hybrid above.**
+
+### Recommendation: keep the daemon, rebuild the SPA, fold to one package, defer the platform bets
+
+**Candidate 1 won every lens (9 / 8.5 / 9).** The move is *not* a from-zero rewrite of
+everything — it is: **port the daemon + protocol essentially verbatim, rebuild only the
+client SPA fresh, collapse the three packages into one, and make the cloud/desktop/Vercel
+choices independent, deferrable, reversible adapters decided later.**
+
+Why: the four non-negotiables (real PTY, local fs/git/ripgrep, the long-lived stateful
+process with the headless-xterm mirror + 128 KB flow control + indefinite reconnect, the
+custom 1-byte binary WS, per-session worktrees) are **already met by the daemon that
+exists today** and pinned by **174 tests**. Rewriting that code adds pure risk for zero
+value and violates "enhance, never reinvent." **All the genuine risk is in the SPA — which
+is rebuilt under every option anyway.** You buy a clean structure for the price of the
+rebuild you were already paying, and add zero new platform risk. The fold is mechanical:
+the three packages are held apart only by `@zuzuu-web/protocol` being a published workspace
+package the daemon imports runtime values from (forcing the `vendor-protocol` hack +
+3-step build, confirmed `scripts/build-web.mjs:27`). Collapse it into `src/shared/` imported
+relatively and that seam, the vendor script, and the `@zuzuu-web/*` indirection all vanish.
+
+### The three platform bets — explicit verdicts
+
+- **Next.js / Vercel — disqualified for the workbench; ideal for `zuzuu.codes` as a
+  SEPARATE project.** Vercel Functions can't be a WS server and can't run `node-pty`
+  (unanimous across Vercel docs / Ably / Rivet); Fluid Compute doesn't change it. The
+  workbench panes (xterm/Monaco/zustand) are 100% client-side with zero SSR/RSC need, so
+  Next buys nothing inside a locally-served SPA and costs App-Router/Turbopack friction for
+  the Monaco/xterm web workers. **Keep Vite.** Build the Vercel dashboard whenever, as its
+  own thing — Candidate 1 grants that free (the daemon only serves static files).
+- **Tauri — a later, optional desktop *skin*, not a rebuild prerequisite.** Real upside
+  (native installer, folder picker, deep links, signed auto-update, no port/token friction)
+  but mis-targeted today (users already live in a terminal) and it hits **two confirmed
+  blockers**: the open macOS `externalBin` notarization bug (tauri#11992, Dec 2024) and the
+  fact that **Node SEA/pkg cannot fold a native `.node` addon into one binary** — so "ship
+  the daemon verbatim as a sidecar" is false; it's a per-arch multi-file prebuild. The
+  "clean" Rust `portable-pty` path means rewriting the safety-critical `sessions.ts` flow
+  engine in Rust and discarding the 174 tests. **Validate desktop demand first;** because
+  Candidate 1 makes the daemon a localhost WS server, a Tauri webview drops in later with
+  the UI untouched — deferring costs nothing.
+- **100% Cloudflare — the eventual SaaS substrate, but blocked today; keep Fly interim.**
+  Elegant on paper (Worker = control plane, DO-per-workspace = broker, Container = daemon
+  image, drop Fly; rhymes with the fixed CF-Workflows bet) but a **disqualifying open bug
+  for this exact workload**: cloudflare/containers **#147** — active WebSocket traffic does
+  *not* renew the `sleepAfter` timer, so an idle-but-connected PTY session is **killed
+  mid-session**, no fix/timeline. Plus ephemeral disk wiping worktrees on sleep (needs
+  DO-driven R2 backup/restore — new safety-critical surface), 1–3 s cold starts, and the DO
+  Hibernation API not fitting a binary pass-through socket. **Stay on Fly (`hosted/` already
+  is) until #147 closes; re-evaluate Q3 2026.** The cloud host is a reversible adapter (same
+  daemon binary in Fly or a Container) — do not couple it to this rebuild.
+
+This *refines* the "emerging hybrid" above: the end-state (Vercel = dashboard, Tauri =
+later, CF = eventual) is right, but the **rebuild itself commits to none of them** — it is
+just fold + SPA-rebuild + keep-daemon, on Fly for cloud until CF unblocks.
+
+### The folded single-package structure
+
+One package `@zuzuucodes/web`, **no `workspaces`**. Three source domains — **server /
+client / shared** — plus the unchanged cloud skin; two build outputs (`dist/server`,
+`dist/web`), the daemon serves the latter.
+
+```
+web/
+  package.json            # ONE package; deps merged from the 3 children; NO "workspaces"
+  tsconfig.json           # one project; paths: { "#shared/*": ["./src/shared/*"] }
+  vite.config.ts          # src/client → dist/web
+  bin/zz-web.js           # CLI entry (was daemon/src/index.ts): port scan, token, singleton, WEBCODE_HOSTED gate
+  src/
+    shared/               # ← protocol (786 LOC). PLAIN internal module: opcodes · flow · schemas · index
+                          #     imported by BOTH halves via #shared/* → kills vendor-protocol + 3-step build
+    server/               # ← daemon (3.3k LOC). PORTED ~VERBATIM.
+      server.ts · sessions.ts[DO NOT TOUCH] · ws-term.ts[DO NOT TOUCH] · ws-fs.ts · fs-api.ts
+      safe-path.ts[DO NOT TOUCH] · git.ts · search.ts · cast.ts · worktree.ts · zuzuu-cli.ts
+      shell-integration/ · static.ts (serves ../web) · index.ts (createDaemon(opts) factory)
+    client/               # ← web-ui (18.6k LOC). REBUILT FRESH on Vite/React 19.
+      main.tsx · app/ · term/ · explorer/ · editor/ · panel/ · palette/ · state/
+      lib/{api.ts, connection.ts(WS framing + ack/flow-control, imports #shared)}
+    index.html
+  cloud/                  # ← hosted/ UNCHANGED (the deferred SaaS skin): broker/(Fly) · sandbox/(Dockerfile+fly.toml)
+  tests/
+    server/               # ← the 174 daemon specs, moved, imports rewritten to #shared
+    client/               # ← rebuilt UI specs (the 417 grow back as the SPA grows)
+    e2e/                  # smoke: spawn daemon, WS, PTY round-trip, flow-control
+  scripts/build-web.mjs   # simplified: tsc(server)+vite(client)→dist/{server,web}, stage ../web-app/ (~half its length)
+```
+
+Teachable invariant: **`shared/` is the only thing both halves import; the binary frame
+protocol is the universal seam; nothing in the hot PTY/flow-control path forks** — a plain
+DAG (`shared → server`, `shared → client`, no edge back), mirroring the kernel's discipline.
+
+### Rung-based rebuild sequence (greenfield-beside-old, swap at the end)
+
+On a `rebuild/workbench` branch; the old `packages/*` stay live until Rung 7. Each rung
+ships green.
+
+- **Rung 0 — scaffold the fold** (single `package.json`, `#shared/*` alias, empty
+  `src/{shared,server,client}`). *Test:* install resolves, `tsc --noEmit` passes.
+- **Rung 1 — absorb protocol → `src/shared/`** (PORT clean; delete `@zuzuu-web/protocol` +
+  vendor step). *Test:* `tsc` on shared.
+- **Rung 2 — port the daemon verbatim → `src/server/`** (PORT clean; only edits: imports
+  `@zuzuu-web/protocol`→`#shared`, extract `worktree.ts`/`static.ts`, `createDaemon()`
+  factory). **Move the 174 tests → `tests/server/`; green only when all 174 pass — that's
+  the proof the engine survived.** Golden ids stay pasted-from-real-run.
+- **Rung 3 — daemon serves a placeholder SPA** (wire `static.ts`; one page that echoes a
+  PTY round-trip). *Test:* `node bin/zz-web.js ~/repo` (never the PATH binary), `yes | head`
+  doesn't freeze the tab (flow control lives); E2E smoke added.
+- **Rung 4 — rebuild client core: term + explorer** (REWRITE fresh; `connection.ts` reuses
+  the proven ack/flow loop against the unchanged `#shared` protocol). Tests grow back in
+  `tests/client/`.
+- **Rung 5 — rebuild editor + right panel + palette** (Monaco, the five-ModuleTile
+  dashboard, cmdk, recordings last). *Test:* parity checklist vs old SPA, screenshot-verified.
+- **Rung 6 — simplify `build-web.mjs`** (tsc(server)+vite(client)→dist; no npm-ci-of-3, no
+  protocol vendoring). *Test:* `web-app/` stages + the published-shape CLI launches it.
+- **Rung 7 — cull** `packages/{protocol,daemon,web}` + the root `workspaces` block. *Test:*
+  full suite green; no `@zuzuu-web/*` references remain.
+
+**PORT verbatim:** `shared/` (protocol), the entire `server/` daemon, `cloud/` (Fly
+broker+sandbox), and the **174 server tests**. **REWRITE fresh:** the entire `client/` SPA
+(18.6k LOC) + its tests (the 417 grow back; they don't map 1:1 onto rebuilt components).
+
+### Candidate comparison (all effort L)
+
+| # | Stack | Risk | Verdict |
+|---|---|---|---|
+| **1** | **Keep daemon · rebuild SPA · fold to 1 pkg · defer platform** | **low** | **WINNER (9/8.5/9)** |
+| 2 | Tauri desktop (Node daemon as sidecar) | medium | later optional skin; blockers #11992 + SEA-native-addon |
+| 3 | Next.js on Vercel + local/cloud daemon | medium | Vercel can't host daemon; Next buys nothing for the SPA |
+| 4 | 100% Cloudflare (Worker+DO+Containers) | medium | eventual SaaS; blocked by containers#147 today |
+| 5 | Hybrid (local-first + 100% CF cloud) | medium | the eventual end-state, but don't bundle it into the rebuild |
+
+### Top risks
+
+1. **The SPA rebuild is the whole budget + the only feature-regression risk** — keep the
+   old SPA shippable until Rung 7 for A/B parity.
+2. **Rung-2 import-only edits could perturb the timing-sensitive flow control** — Rung 2 is
+   logic-frozen, gated on all 174 tests + the `yes | head` E2E; verify with `node
+   bin/zz-web.js`, never the PATH binary.
+3. **Don't let "host on Vercel" creep into the workbench** — the Vercel dashboard is a
+   separate project; the client stays Vite.
+4. **Deferred cloud surface is real** — when CF is chosen, ephemeral-disk worktree loss
+   (#147 + wipe) needs R2 backup/restore on a DO alarm; stay on Fly until #147 closes.
+
+### Open decisions for you
+
+- **Client framework:** confirm **Vite** (recommended) vs Next static-export.
+- **Scope:** adopt **Candidate 1** (keep daemon, rebuild SPA) vs the literal full-from-zero
+  daemon rewrite you'd selected — the research argues strongly for Candidate 1.
+- **Desktop:** defer **Tauri** (recommended) vs commit now.
+- **Vercel dashboard timing:** after the local rebuild ships (recommended), as its own repo.
+- **Cloud host:** keep **Fly** interim (recommended); revisit 100% CF in Q3 2026 — and if so,
+  verbatim-daemon Container (variant A, preserves invariants) vs Sandbox SDK (variant B).
 
 ### Key files (for whoever executes)
 - Runtime core: `web/packages/daemon/src/{sessions.ts,server.ts,frames.ts,ws-term.ts,ws-fs.ts,fs-api.ts,safe-path.ts,git.ts,search.ts}`
