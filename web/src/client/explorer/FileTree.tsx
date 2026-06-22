@@ -9,6 +9,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { FsEntry } from "#shared/index.js";
 import { api } from "../lib/api.js";
 import { fsEvents } from "../lib/fs-events.js";
+import { warmFile } from "../lib/warm.js";
 
 const join = (dir: string, name: string) => (dir ? `${dir}/${name}` : name);
 
@@ -58,7 +59,8 @@ export function FileTree({ onOpenFile }: { onOpenFile?: (path: string) => void }
         <button
           key={path}
           onClick={() => (isDir ? toggle(path) : onOpenFile?.(path))}
-          className="flex w-full items-center gap-1 truncate px-2 py-[3px] text-left text-ui hover:bg-hover"
+          onMouseEnter={isDir ? undefined : () => warmFile(path)}
+          className="flex w-full items-center gap-1 truncate px-2 py-1 text-left text-ui hover:bg-hover"
           style={{ paddingLeft: depth * 12 + 8 }}
           title={path}
         >

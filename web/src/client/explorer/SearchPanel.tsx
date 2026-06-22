@@ -7,6 +7,7 @@
 import { useEffect, useState } from "react";
 import type { SearchResponse } from "#shared/index.js";
 import { api } from "../lib/api.js";
+import { warmFile } from "../lib/warm.js";
 import { canSearch, shiftRanges } from "./search-logic.js";
 
 export function SearchPanel({ onOpenFile }: { onOpenFile?: (path: string) => void }) {
@@ -56,7 +57,8 @@ export function SearchPanel({ onOpenFile }: { onOpenFile?: (path: string) => voi
           <div key={file.path} className="mb-1">
             <button
               onClick={() => onOpenFile?.(file.path)}
-              className="block w-full truncate px-2 py-[2px] text-left font-mono text-ui text-subtle hover:bg-hover"
+              onMouseEnter={() => warmFile(file.path)}
+              className="block w-full truncate px-2 py-1 text-left font-mono text-ui text-subtle hover:bg-hover"
               title={file.path}
             >
               {file.path}
@@ -82,7 +84,7 @@ function Hit({ text, ranges, line }: { text: string; ranges: [number, number][];
   }
   parts.push(trimmed.slice(cursor));
   return (
-    <div className="flex gap-2 truncate px-3 py-[1px] font-mono text-meta">
+    <div className="flex gap-2 truncate px-3 py-0.5 font-mono text-meta">
       <span className="w-8 shrink-0 text-right text-muted">{line}</span>
       <span className="truncate">{parts}</span>
     </div>
