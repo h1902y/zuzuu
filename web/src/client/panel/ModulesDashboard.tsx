@@ -12,7 +12,8 @@ import { ModuleView } from "./ModuleView.js";
 import { Centered, PanelHeader } from "./kit.js";
 
 export function ModulesDashboard() {
-  const { module, openModule } = usePanel();
+  const module = usePanel((s) => s.module);
+  const openModule = usePanel((s) => s.openModule);
   const overview = useQuery({ queryKey: ["zuzuu", "overview"], queryFn: api.zuzuu.overview, retry: false });
 
   if (module) return <ModuleView module={module} onBack={() => openModule(null)} />;

@@ -2,14 +2,16 @@
 
 import type { ReactNode } from "react";
 
-/** A panel header bar, optionally with a back button. */
-export function PanelHeader({ title, onBack, right }: { title: string; onBack?: () => void; right?: ReactNode }) {
+/** The panel header bar — the one place the bar height/border lives. `title` as a
+ *  string gets the default label style; pass a node for a custom label (e.g. a
+ *  mono truncated filename). `right` is pinned to the far edge. */
+export function PanelHeader({ title, onBack, right }: { title: ReactNode; onBack?: () => void; right?: ReactNode }) {
   return (
     <div className="flex h-[var(--height-bar)] shrink-0 items-center gap-2 border-b border-border px-3">
       {onBack && (
         <button onClick={onBack} className="text-muted hover:text-subtle" title="back">←</button>
       )}
-      <span className="text-ui text-ink-100">{title}</span>
+      {typeof title === "string" ? <span className="text-ui text-ink-100">{title}</span> : title}
       {right && <div className="ml-auto flex items-center gap-2">{right}</div>}
     </div>
   );

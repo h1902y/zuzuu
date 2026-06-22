@@ -13,7 +13,9 @@ const EditorPane = lazy(() => import("../editor/EditorPane.js"));
 const CastView = lazy(() => import("../preview/CastView.js"));
 
 export function RightPanel() {
-  const { mode, openPath, closeFile } = usePanel();
+  const mode = usePanel((s) => s.mode);
+  const openPath = usePanel((s) => s.openPath);
+  const closeFile = usePanel((s) => s.closeFile);
 
   if (mode === "files" && openPath) {
     // a saved recording plays; everything else opens in the editor

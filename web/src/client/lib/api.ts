@@ -1,14 +1,13 @@
 // src/client/lib/api.ts — the typed REST client over the daemon.
 //
 // One thin `request` wrapper + a flat `api` object; every shape comes from
-// #shared so the client and server can't drift. Core surface (sessions · fs ·
-// search · git · history) + Rung 5's modules dashboard (`zuzuu.*`) + workflows.
+// #shared so the client and server can't drift. Surface: workspace · sessions ·
+// fs · search + the modules dashboard (`zuzuu.*`).
 
 import type {
   ApproveResult,
   CreateSessionRequest,
   FileListResponse,
-  HealthResponse,
   ListResponse,
   ModuleDetail,
   ModuleGenerationList,
@@ -16,7 +15,6 @@ import type {
   RejectResult,
   RollbackResult,
   SearchResponse,
-  SessionDetail,
   SessionInfo,
   WorkspaceInfo,
 } from "#shared/index.js";
@@ -47,26 +45,20 @@ const json = (body: unknown): RequestInit => ({
 
 export const api = {
   workspace: () => request<WorkspaceInfo>("/api/workspace"),
-  health: () => request<HealthResponse>("/api/health"),
 
   // sessions
   listSessions: () => request<SessionInfo[]>("/api/sessions"),
   createSession: (body: CreateSessionRequest = {}) => request<SessionInfo>("/api/sessions", json(body)),
   closeSession: (id: string) => request<{ ok: true }>(`/api/sessions/${id}`, { method: "DELETE" }),
-  sessionDetail: (id: string) => request<SessionDetail>(`/api/sessions/${id}`),
 
   // filesystem
   listDir: (path: string) => request<ListResponse>(`/api/fs/list?path=${encodeURIComponent(path)}`),
-  mkdir: (path: string) => request<{ ok: true }>("/api/fs/mkdir", json({ path })),
-  rename: (from: string, to: string) => request<{ ok: true }>("/api/fs/rename", json({ from, to })),
-  remove: (paths: string[]) => request<{ ok: true }>("/api/fs/delete", json({ paths })),
   readFile: async (path: string) => {
     const res = await fetch(`/api/fs/download?path=${encodeURIComponent(path)}&inline=1`);
     if (!res.ok) throw new ApiError(res.status, `failed to read (${res.status})`);
     return res.text();
   },
   writeFile: (path: string, content: string) => request<{ ok: true }>("/api/fs/write", json({ path, content })),
-  openLocal: (path: string, reveal = false) => request<{ ok: true }>("/api/fs/open", json({ path, reveal })),
   listFiles: () => request<FileListResponse>("/api/files"),
 
   // search

@@ -17,7 +17,14 @@ import { useWorkbench } from "../state/store.js";
 import { usePanel } from "../state/panel.js";
 
 export function App() {
-  const { sessions, activeId, refresh, open, setActive, close } = useWorkbench();
+  // selector form (not whole-store destructure) so the shell doesn't re-render on
+  // terminal `status` blips it never reads — only on the slices it actually uses.
+  const sessions = useWorkbench((s) => s.sessions);
+  const activeId = useWorkbench((s) => s.activeId);
+  const refresh = useWorkbench((s) => s.refresh);
+  const open = useWorkbench((s) => s.open);
+  const setActive = useWorkbench((s) => s.setActive);
+  const close = useWorkbench((s) => s.close);
   const openFile = usePanel((s) => s.openFile);
   const workspace = useQuery({ queryKey: ["workspace"], queryFn: api.workspace });
 

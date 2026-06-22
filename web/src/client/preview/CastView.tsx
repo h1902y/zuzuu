@@ -8,6 +8,7 @@
 import { useEffect, useRef } from "react";
 import * as AsciinemaPlayer from "asciinema-player";
 import "asciinema-player/dist/bundle/asciinema-player.css";
+import { PanelHeader } from "../panel/kit.js";
 
 export default function CastView({ path, onClose }: { path: string; onClose: () => void }) {
   const host = useRef<HTMLDivElement>(null);
@@ -28,10 +29,10 @@ export default function CastView({ path, onClose }: { path: string; onClose: () 
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-[var(--height-bar)] shrink-0 items-center gap-2 border-b border-border px-3">
-        <span className="truncate font-mono text-ui text-subtle" title={path}>▶ {name}</span>
-        <button onClick={onClose} className="ml-auto text-muted hover:text-subtle" title="close">✕</button>
-      </div>
+      <PanelHeader
+        title={<span className="truncate font-mono text-ui text-subtle" title={path}>▶ {name}</span>}
+        right={<button onClick={onClose} className="text-muted hover:text-subtle" title="close">✕</button>}
+      />
       <div ref={host} className="min-h-0 flex-1 overflow-auto p-2" />
     </div>
   );
