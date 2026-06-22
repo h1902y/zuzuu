@@ -1,0 +1,24 @@
+{
+  "id": "prop-15771ec3",
+  "op": "create",
+  "module": "actions",
+  "target": "command-npm-test-2-1-tail-7",
+  "change": {
+    "type": "action",
+    "title": "Run `npm test 2>&1 | tail -7`",
+    "run": "npm test 2>&1 | tail -7",
+    "body": "Recurring project command: `npm test 2>&1 | tail -7` (used 3× across 2 sessions)."
+  },
+  "rationale": "Recurring project command: `npm test 2>&1 | tail -7` (used 3× across 2 sessions).",
+  "evidence": [
+    {
+      "kind": "command",
+      "occurrences": 3,
+      "sessions": 2,
+      "failures": 0
+    }
+  ],
+  "confidence": null,
+  "score": 32,
+  "status": "pending"
+}

@@ -1,0 +1,23 @@
+{
+  "id": "prop-8aa2a667",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-cli-init-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: cli/init.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/src/cli/init.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/src/cli/init.mjs` (touched 6× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/src/cli/init.mjs` (touched 6× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 6,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 6,
+  "status": "pending"
+}

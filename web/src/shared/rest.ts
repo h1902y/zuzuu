@@ -1,9 +1,9 @@
 // src/shared/rest.ts — the daemon's REST contract (the non-terminal HTTP API).
 //
 // The browser talks to the daemon two ways: the binary terminal socket
-// (opcodes.ts) and these JSON REST endpoints — sessions, filesystem, git,
-// search, workflows, health. Types only + two pure helpers; one source of
-// truth so the client and server can never drift on a shape.
+// (opcodes.ts) and these JSON REST endpoints — sessions, filesystem, search,
+// health. Types only; one source of truth so the client and server can never
+// drift on a shape.
 
 // ── Sessions REST (/api/sessions) ─────────────────────────────────────────────
 /** "shell" = the user's login shell with rc injection; "agent" = a host coding
@@ -21,11 +21,6 @@ export interface SessionInfo {
   type: SessionType;
   /** host CLI name for agent sessions (e.g. "claude") */
   host?: string;
-}
-
-export interface SaveRecordingRequest {
-  /** workspace-relative path for the .cast file */
-  path: string;
 }
 
 export interface CreateSessionRequest {
@@ -82,7 +77,7 @@ export interface WorkspaceInfo {
   version: string;
 }
 
-// ── Health / onboarding / workspace picker ────────────────────────────────────
+// ── Health (GET /api/health) ──────────────────────────────────────────────────
 export interface HealthResponse {
   ok: true;
   version: string;
@@ -92,23 +87,6 @@ export interface HealthResponse {
   root: string;
   name: string;
 }
-
-export interface WorkspaceConfig {
-  onboarded: boolean;
-  /** recent workspace roots, most-recent-first */
-  recent: string[];
-}
-
-export interface BrowseEntry { name: string; path: string }
-export interface BrowseResponse {
-  /** the absolute directory being listed */
-  path: string;
-  /** parent directory, or null at the filesystem root */
-  parent: string | null;
-  dirs: BrowseEntry[];
-}
-export interface SwitchRequest { path: string }
-export interface MkdirInRequest { parent: string; name: string }
 
 // ── Filesystem-events WS (/ws/fs) — JSON text frames ──────────────────────────
 export type FsClientMessage =
@@ -144,47 +122,3 @@ export interface FileListResponse {
   truncated: boolean;
 }
 
-// ── Shell history (GET /api/history) ──────────────────────────────────────────
-export interface HistoryResponse {
-  /** most-recent-first, deduped */
-  commands: string[];
-}
-
-// ── Git (GET/POST /api/git/*) ─────────────────────────────────────────────────
-/** XY status codes from `git status --porcelain` (e.g. " M", "A ", "??"). */
-export interface GitStatusEntry {
-  path: string;
-  /** staged (index) status char: M A D R C ? or space */
-  index: string;
-  /** unstaged (worktree) status char */
-  worktree: string;
-}
-export interface GitStatusResponse {
-  repo: boolean;
-  branch: string;
-  entries: GitStatusEntry[];
-}
-export interface GitDiffResponse {
-  /** HEAD/index content for the diff editor's left side ("" for untracked) */
-  original: string;
-}
-export interface KillPortRequest { port: number }
-
-// ── Workflows (GET/POST /api/workflows) ───────────────────────────────────────
-export interface WorkflowArg { name: string; placeholder?: string; default?: string }
-export interface Workflow { name: string; command: string; description?: string; args?: WorkflowArg[] }
-export interface WorkflowListResponse { workflows: Workflow[] }
-
-// ── pure helpers (shared by both halves) ──────────────────────────────────────
-
-/** POSIX single-quote escaping for a path injected into the terminal (e.g. the
- *  tree's "cd here"): wraps in single quotes, embedded quotes as '\'' so the
- *  shell never interprets the content. */
-export function shellQuote(s: string): string {
-  return `'${s.replace(/'/g, `'\\''`)}'`;
-}
-
-/** Substitute {{arg}} placeholders in a workflow command. */
-export function applyWorkflow(command: string, values: Record<string, string>): string {
-  return command.replace(/\{\{\s*(\w+)\s*\}\}/g, (_m, name: string) => values[name] ?? "");
-}

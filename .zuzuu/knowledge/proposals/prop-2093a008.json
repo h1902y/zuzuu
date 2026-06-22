@@ -1,0 +1,23 @@
+{
+  "id": "prop-2093a008",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-state-sessions-ts",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: state/sessions.ts",
+    "path": "/Users/hkc/Documents/zuzuu/web/packages/web/src/state/sessions.ts",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/state/sessions.ts` (touched 10× across 4 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/state/sessions.ts` (touched 10× across 4 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 10,
+      "sessions": 4
+    }
+  ],
+  "confidence": null,
+  "score": 10,
+  "status": "pending"
+}

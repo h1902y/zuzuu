@@ -1,0 +1,23 @@
+{
+  "id": "prop-381273e2",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-faculty-envelope-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: faculty/envelope.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/zuzuu/faculty/envelope.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/faculty/envelope.mjs` (touched 5× across 5 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/faculty/envelope.mjs` (touched 5× across 5 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 5,
+      "sessions": 5
+    }
+  ],
+  "confidence": null,
+  "score": 5,
+  "status": "pending"
+}

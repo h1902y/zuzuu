@@ -1,0 +1,23 @@
+{
+  "id": "prop-1fe2907d",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-src-auth-ts",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: src/auth.ts",
+    "path": "/Users/hkc/Documents/zuzuu/web/packages/daemon/src/auth.ts",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/daemon/src/auth.ts` (touched 8× across 8 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/daemon/src/auth.ts` (touched 8× across 8 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 8,
+      "sessions": 8
+    }
+  ],
+  "confidence": null,
+  "score": 8,
+  "status": "pending"
+}

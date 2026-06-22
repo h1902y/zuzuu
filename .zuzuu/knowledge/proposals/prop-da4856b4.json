@@ -1,0 +1,23 @@
+{
+  "id": "prop-da4856b4",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-src-index-css",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: src/index.css",
+    "path": "/Users/hkc/Documents/zuzuu/web/packages/web/src/index.css",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/index.css` (touched 7× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/index.css` (touched 7× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 7,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 7,
+  "status": "pending"
+}

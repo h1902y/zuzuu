@@ -1,0 +1,23 @@
+{
+  "id": "prop-e549919d",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-src-server-ts",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: src/server.ts",
+    "path": "/Users/hkc/Documents/zuzuu/web/packages/daemon/src/server.ts",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/daemon/src/server.ts` (touched 20× across 13 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/daemon/src/server.ts` (touched 20× across 13 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 20,
+      "sessions": 13
+    }
+  ],
+  "confidence": null,
+  "score": 20,
+  "status": "pending"
+}

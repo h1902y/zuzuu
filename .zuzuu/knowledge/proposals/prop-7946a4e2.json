@@ -1,0 +1,23 @@
+{
+  "id": "prop-7946a4e2",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-module-proposal-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: module/proposal.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/zuzuu/module/proposal.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/module/proposal.mjs` (touched 6× across 6 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/module/proposal.mjs` (touched 6× across 6 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 6,
+      "sessions": 6
+    }
+  ],
+  "confidence": null,
+  "score": 6,
+  "status": "pending"
+}

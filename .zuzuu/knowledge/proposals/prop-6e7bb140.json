@@ -1,0 +1,23 @@
+{
+  "id": "prop-6e7bb140",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-knowledge-distill-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: knowledge/distill.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/zuzuu/knowledge/distill.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/knowledge/distill.mjs` (touched 5× across 5 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/knowledge/distill.mjs` (touched 5× across 5 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 5,
+      "sessions": 5
+    }
+  ],
+  "confidence": null,
+  "score": 5,
+  "status": "pending"
+}

@@ -24,8 +24,6 @@ export function register(name, handler, opts = {}) {
   REGISTRY.set(name, { handler, permission: opts.permission ?? 'read' });
 }
 
-export const get = (name) => REGISTRY.get(name) ?? null;
-export const has = (name) => REGISTRY.has(name);
 export const list = () => [...REGISTRY.keys()].sort();
 export const clear = () => REGISTRY.clear(); // tests
 
@@ -47,10 +45,4 @@ export function invoke(home, module, name, ...args) {
   } catch (e) {
     return { ok: false, error: e?.message ?? String(e) };
   }
-}
-
-/** The schema/introspection of a capability — the agent's discovery surface. */
-export function describe(name) {
-  const cap = REGISTRY.get(name);
-  return cap ? { name, permission: cap.permission } : null;
 }

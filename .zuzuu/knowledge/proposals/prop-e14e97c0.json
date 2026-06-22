@@ -1,0 +1,23 @@
+{
+  "id": "prop-e14e97c0",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-serve-api-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: serve/api.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/src/serve/api.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/src/serve/api.mjs` (touched 6× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/src/serve/api.mjs` (touched 6× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 6,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 6,
+  "status": "pending"
+}

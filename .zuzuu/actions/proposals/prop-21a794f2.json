@@ -1,0 +1,24 @@
+{
+  "id": "prop-21a794f2",
+  "op": "create",
+  "module": "actions",
+  "target": "command-git-status-short",
+  "change": {
+    "type": "action",
+    "title": "Run `git status --short`",
+    "run": "git status --short",
+    "body": "Recurring project command: `git status --short` (used 3× across 3 sessions)."
+  },
+  "rationale": "Recurring project command: `git status --short` (used 3× across 3 sessions).",
+  "evidence": [
+    {
+      "kind": "command",
+      "occurrences": 3,
+      "sessions": 3,
+      "failures": 0
+    }
+  ],
+  "confidence": null,
+  "score": 33,
+  "status": "pending"
+}

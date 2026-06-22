@@ -1,0 +1,23 @@
+{
+  "id": "prop-b4e988cf",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-personal-status-md",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: .personal/STATUS.md",
+    "path": "/Users/hkc/Documents/zuzuu/.personal/STATUS.md",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/.personal/STATUS.md` (touched 14× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/.personal/STATUS.md` (touched 14× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 14,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 14,
+  "status": "pending"
+}

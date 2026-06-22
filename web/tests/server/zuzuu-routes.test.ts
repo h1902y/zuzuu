@@ -15,36 +15,6 @@ beforeEach(() => { root = realpathSync(mkdtempSync(path.join(tmpdir(), "zw-")));
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 describe("createZuzuuApi file routes", () => {
-  it("GET /health reports home + bin presence", async () => {
-    fixtureHome(root);
-    const app = createZuzuuApi(() => root, { binary: "definitely-not-real-zzz" });
-    const res = await app.request("/health");
-    expect(res.status).toBe(200);
-    expect(await res.json()).toMatchObject({ home: true, zuzuuBin: false });
-  });
-  it("missing .zuzuu/ → /health home:false (no throw)", async () => {
-    const app = createZuzuuApi(() => root, { binary: "x" });
-    expect((await (await app.request("/health")).json()).home).toBe(false);
-  });
-  it("GET /modules lists the five with counts (CLI absent → envelope peek)", async () => {
-    fixtureHome(root);
-    const app = createZuzuuApi(() => root, { binary: "definitely-not-a-real-binary-zzz" });
-    const body = await (await app.request("/modules")).json();
-    expect(body.modules).toHaveLength(5);
-    const k = body.modules.find((f: { key: string }) => f.key === "knowledge");
-    expect(k.count).toBe(1);
-    expect(k.pending).toBe(1);
-  });
-  it("GET /modules counts dir-shaped actions (ACTION.md) in the peek", async () => {
-    const agent = fixtureHome(root);
-    mkdirSync(path.join(agent, "actions", "deploy"), { recursive: true });
-    mkdirSync(path.join(agent, "actions", "inbox"), { recursive: true }); // never an item
-    writeFileSync(path.join(agent, "actions", "deploy", "ACTION.md"),
-      envelope({ id: "deploy", module: "actions", kind: "runbook", title: "Deploy it" }));
-    const app = createZuzuuApi(() => root, { binary: "definitely-not-a-real-binary-zzz" });
-    const body = await (await app.request("/modules")).json();
-    expect(body.modules.find((f: { key: string }) => f.key === "actions").count).toBe(1);
-  });
   it("GET /module/:key peek degrades to frontmatter fields; rejects unsafe slugs", async () => {
     fixtureHome(root);
     const app = createZuzuuApi(() => root, { binary: "definitely-not-a-real-binary-zzz" });
@@ -53,12 +23,11 @@ describe("createZuzuuApi file routes", () => {
     expect(body.items[0]).toMatchObject({ id: "k1", module: "knowledge", kind: "fact", title: "fact one", status: "active" });
     expect(body.items[0].payload).toBeUndefined(); // detail degrades, counts survive
     expect(body.proposals[0].title).toMatch(/node:sqlite/);
-    // proposals enrich from disk: kind, payload preview, persisted score + evidence
+    // proposals enrich from disk: payload preview + persisted confidence (the rendered fields)
     expect(body.proposals[0]).toMatchObject({
-      id: "p1", module: "knowledge", kind: "fact",
+      id: "p1", module: "knowledge",
       preview: "use node:sqlite",
-      score: 0.775, confidence: "high", rationale: "recurring + cross-session",
-      evidence: { occurrences: 12, sessions: 3, failures: 0, erVerdict: "new" },
+      confidence: "high",
     });
     // Any valid slug is now accepted (N-module: unknown slugs return empty results, not 404).
     // Unsafe slugs (traversal, shell meta) are still rejected.
@@ -81,13 +50,6 @@ describe("createZuzuuApi file routes", () => {
     expect(body.items[0]).toEqual(item); // THE ENVELOPE, untouched
     expect(body.errors).toEqual([]);
   });
-  it("GET /modules uses the CLI envelope listing when available", async () => {
-    fixtureHome(root);
-    const stub = jsonStub(root, JSON.stringify({ module: "x", count: 2, items: [{ id: "a" }, { id: "b" }], errors: [] }));
-    const app = createZuzuuApi(() => root, { binary: stub });
-    const body = await (await app.request("/modules")).json();
-    for (const f of body.modules) expect(f.count).toBe(2);
-  });
   it("GET /module/:key/schema: CLI → builtin/home schema; absent CLI → seeded file; else null", async () => {
     const agent = fixtureHome(root);
     const schema = { type: "object", required: ["type"] };
@@ -106,11 +68,6 @@ describe("createZuzuuApi file routes", () => {
     expect(await (await absent.request("/module/bogus/schema")).json())
       .toEqual({ key: "bogus", schema: null, source: "absent" });
   });
-  it("GET /sessions returns an empty list (the v1 sessions.json index was cut)", async () => {
-    fixtureHome(root);
-    const app = createZuzuuApi(() => root, { binary: "definitely-not-real-zzz" });
-    expect(await (await app.request("/sessions")).json()).toEqual({ sessions: [] });
-  });
   it("GET /module/:key/generations reads .generations/<module>/ (<n>.json + active)", async () => {
     const agent = fixtureHome(root);
     mkdirSync(path.join(agent, ".generations", "knowledge"), { recursive: true });
@@ -122,11 +79,6 @@ describe("createZuzuuApi file routes", () => {
     expect(body.active).toBe("1");
     expect(body.generations[0].id).toBe("1");
     expect(body.generations[0].mintedFrom).toEqual(["p1"]);
-  });
-  it("GET /digest reads the live digest", async () => {
-    fixtureHome(root);
-    const app = createZuzuuApi(() => root, { binary: "x" });
-    expect((await (await app.request("/digest")).json()).text).toMatch(/module digest/);
   });
   it("path escape is rejected (no traversal)", async () => {
     fixtureHome(root);
@@ -167,17 +119,6 @@ describe("createZuzuuApi overview", () => {
   });
 });
 
-describe("createZuzuuApi computed routes", () => {
-  it("GET /status reads per-module actives + pending from disk", async () => {
-    fixtureHome(root);
-    const app = createZuzuuApi(() => root, { binary: "definitely-not-real-zzz" });
-    const body = await (await app.request("/status")).json();
-    expect(body.home).toBe(true);
-    expect(body.pending.knowledge).toBe(1);  // computed from the proposal file
-    expect(body.checkpoints).toBeUndefined(); // whole-brain checkpoints were cut
-  });
-});
-
 const post = (app: ReturnType<typeof createZuzuuApi>, p: string, body?: unknown) =>
   app.request(p, {
     method: "POST",
@@ -193,9 +134,6 @@ const MUTATIONS: [string, unknown, Record<string, unknown>][] = [
   ["/actions/my-slug/reject", {}, { ok: true, action: "reject", slug: "my-slug" }],
   ["/module/knowledge/generation/mint", { from: ["p1", "p2"] }, { id: "gen_002", module: "knowledge", mintedFrom: ["p1", "p2"], forkedFrom: "gen_001" }],
   ["/module/knowledge/generation/gen_001/rollback", {}, { ok: true, module: "knowledge", restored: 3, active: "gen_001" }],
-  ["/session/merge", {}, { ok: true, mergedAs: "abc12345", mergedTo: "main", commits: 2, branch: "zz/session-ab" }],
-  ["/session/continue", {}, { ok: true, branch: "zz/session-ab" }],
-  ["/session/discard", {}, { ok: true, branch: "zz/session-ab" }],
 ];
 
 describe("createZuzuuApi mutation routes", () => {
@@ -339,45 +277,3 @@ describe("createZuzuuApi POST /module/new (WS-D guided creation)", () => {
   });
 });
 
-describe("createZuzuuApi session-git routes", () => {
-  it("GET /session proxies zuzuu session status --json", async () => {
-    fixtureHome(root);
-    const payload = {
-      enabled: true,
-      mainBranch: "main",
-      active: { branch: "zz/session-ab", checkpoints: 2, dirty: false, noNetChanges: false },
-      onSessionBranch: true,
-    };
-    const app = createZuzuuApi(() => root, { binary: jsonStub(root, JSON.stringify(payload)) });
-    const res = await app.request("/session");
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual(payload);
-  });
-  it("GET /session → {enabled:false, cliAbsent:true} when zuzuu is absent", async () => {
-    fixtureHome(root);
-    const app = createZuzuuApi(() => root, { binary: "definitely-not-a-real-binary-zzz" });
-    expect(await (await app.request("/session")).json()).toEqual({ enabled: false, cliAbsent: true });
-  });
-  it("POST /session/discard always rides --yes (the SPA confirm is the gate)", async () => {
-    fixtureHome(root);
-    const app = createZuzuuApi(() => root, { binary: argvStub(root, "zuzuu-argv2.sh") });
-    const res = await post(app, "/session/discard");
-    expect(res.status).toBe(200);
-    expect((await res.json()).argv).toBe("session|discard|--yes|--json|");
-  });
-});
-
-describe("createZuzuuApi hosts", () => {
-  it("GET /hosts surfaces hosts from zuzuu status", async () => {
-    fixtureHome(root);
-    const app = createZuzuuApi(() => root, { binary: jsonStub(root, '{"home":true,"hosts":[{"name":"claude-code"},{"name":"opencode"}]}') });
-    const body = await (await app.request("/hosts")).json();
-    expect(body).toEqual({ hosts: [{ name: "claude-code" }, { name: "opencode" }], cliAbsent: false });
-  });
-  it("GET /hosts → cliAbsent:true with empty hosts when zuzuu is absent", async () => {
-    fixtureHome(root);
-    const app = createZuzuuApi(() => root, { binary: "definitely-not-real-zzz" });
-    const body = await (await app.request("/hosts")).json();
-    expect(body).toEqual({ hosts: [], cliAbsent: true });
-  });
-});

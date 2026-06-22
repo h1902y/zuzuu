@@ -9,10 +9,9 @@ const RECENT_MAX = 10;
 
 export interface WebcodeConfig {
   recent: string[];
-  onboarded: boolean;
 }
 
-const DEFAULT: WebcodeConfig = { recent: [], onboarded: false };
+const DEFAULT: WebcodeConfig = { recent: [] };
 
 /** Load persisted config, tolerating a missing/corrupt file. */
 export async function load(): Promise<WebcodeConfig> {
@@ -21,7 +20,6 @@ export async function load(): Promise<WebcodeConfig> {
     const parsed = JSON.parse(raw) as Partial<WebcodeConfig>;
     return {
       recent: Array.isArray(parsed.recent) ? parsed.recent.filter((p) => typeof p === "string") : [],
-      onboarded: parsed.onboarded === true,
     };
   } catch {
     return { ...DEFAULT };
@@ -39,18 +37,6 @@ export async function addRecent(root: string): Promise<WebcodeConfig> {
   cfg.recent = [root, ...cfg.recent.filter((p) => p !== root)].slice(0, RECENT_MAX);
   await save(cfg);
   return cfg;
-}
-
-export async function setOnboarded(): Promise<WebcodeConfig> {
-  const cfg = await load();
-  cfg.onboarded = true;
-  await save(cfg);
-  return cfg;
-}
-
-/** Pure helper (exported for tests): compute the next recent list. */
-export function nextRecent(recent: string[], root: string): string[] {
-  return [root, ...recent.filter((p) => p !== root)].slice(0, RECENT_MAX);
 }
 
 /** Synchronous best-effort load for startup paths that can't await. */

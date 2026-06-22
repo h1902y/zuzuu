@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import { serialize } from '../../src/notes/note.mjs';
 import { invoke } from '../../src/serve/dispatch.mjs';
 import { registerAll, resetCapabilities } from '../../src/serve/wire.mjs';
+import { gate } from '../../src/guardrails/gate.mjs';
 import { createProposal } from '../../src/grow/propose.mjs';
 import { approve } from '../../src/grow/review.mjs';
 import { generations } from '../../src/grow/snapshot.mjs';
@@ -25,9 +26,9 @@ function withStack(fn) {
     writeFileSync(join(home, m, 'items', `${id}.md`), serialize({ id, ...note }));
   };
   // a small but representative brain
-  manifest('knowledge', ['query', 'check', 'enhance'], { note_type: 'knowledge' });
-  manifest('actions', ['query', 'check', 'act', 'enhance'], { note_type: 'action' });
-  manifest('guardrails', ['gate', 'check'], { note_type: 'rule' });
+  manifest('knowledge', ['query', 'check'], { note_type: 'knowledge' });
+  manifest('actions', ['query', 'check', 'act'], { note_type: 'action' });
+  manifest('guardrails', ['check'], { note_type: 'rule' });
   note('knowledge', 'acme-blue', { type: 'knowledge', title: 'Acme prefers blue decks', tags: ['acme', 'design'], body: 'They reject warm palettes.' });
   note('actions', 'greet', { type: 'action', title: 'greet', run: 'echo hello', policy: { tier: 'advisory' } });
   note('guardrails', 'no-rm-root', { type: 'rule', title: 'block rm -rf /', tool: 'Bash', action: 'deny', pattern: 'rm -rf /(?![\\w/])', reason: 'never wipe root' });
@@ -64,13 +65,13 @@ test('stack: act runs a note and reports success', () => {
   });
 });
 
-test('stack: gate blocks a denied tool call; allows an innocuous one', () => {
+test('stack: the gate blocks a denied tool call; allows an innocuous one', () => {
   withStack(({ home }) => {
-    const blocked = invoke(home, 'guardrails', 'gate', { tool: 'Bash', input: { command: 'rm -rf /' } });
-    assert.equal(blocked.ok, true);
-    assert.equal(blocked.value.action, 'deny');
-    const fine = invoke(home, 'guardrails', 'gate', { tool: 'Bash', input: { command: 'ls -la' } });
-    assert.equal(fine.value, null, 'innocuous call defers to the host (no verdict)');
+    // the gate is called directly (by act + the hook), not dispatched as a verb
+    const blocked = gate({ home, module: 'guardrails' }, { tool: 'Bash', input: { command: 'rm -rf /' } });
+    assert.equal(blocked?.action, 'deny');
+    const fine = gate({ home, module: 'guardrails' }, { tool: 'Bash', input: { command: 'ls -la' } });
+    assert.ok(!fine, 'innocuous call defers to the host (no verdict)');
   });
 });
 
@@ -83,7 +84,7 @@ test('stack: check surfaces a broken link', () => {
   });
 });
 
-test('stack: enhance → propose → review writes the brain and mints a generation', () => {
+test('stack: propose → review writes the brain and mints a generation', () => {
   withStack(({ home }) => {
     // a human-staged proposal flows through the gate end to end
     const p = createProposal(home, 'knowledge', {

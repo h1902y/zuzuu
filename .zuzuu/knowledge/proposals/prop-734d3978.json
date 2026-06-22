@@ -1,0 +1,23 @@
+{
+  "id": "prop-734d3978",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-zuzuu-store-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: zuzuu/store.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/zuzuu/store.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/store.mjs` (touched 6× across 4 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/store.mjs` (touched 6× across 4 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 6,
+      "sessions": 4
+    }
+  ],
+  "confidence": null,
+  "score": 6,
+  "status": "pending"
+}

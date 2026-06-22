@@ -1,0 +1,23 @@
+{
+  "id": "prop-eb0d21e5",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-lib-zuzuu-api-ts",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: lib/zuzuu-api.ts",
+    "path": "/Users/hkc/Documents/zuzuu/web/packages/web/src/lib/zuzuu-api.ts",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/lib/zuzuu-api.ts` (touched 16× across 11 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/lib/zuzuu-api.ts` (touched 16× across 11 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 16,
+      "sessions": 11
+    }
+  ],
+  "confidence": null,
+  "score": 16,
+  "status": "pending"
+}

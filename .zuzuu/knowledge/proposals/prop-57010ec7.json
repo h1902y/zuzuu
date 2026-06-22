@@ -1,0 +1,23 @@
+{
+  "id": "prop-57010ec7",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-components-sessioncomposer-tsx",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: components/SessionComposer.tsx",
+    "path": "/Users/hkc/Documents/zuzuu/web/packages/web/src/components/SessionComposer.tsx",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/components/SessionComposer.tsx` (touched 34× across 8 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/components/SessionComposer.tsx` (touched 34× across 8 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 34,
+      "sessions": 8
+    }
+  ],
+  "confidence": null,
+  "score": 34,
+  "status": "pending"
+}

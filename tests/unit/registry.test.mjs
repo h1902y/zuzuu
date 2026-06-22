@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { serialize } from '../../src/notes/note.mjs';
 import { readManifest, capabilitiesOf, listModules, moduleHas } from '../../src/notes/module.mjs';
-import { register, get, has, list, clear, invoke, describe } from '../../src/serve/dispatch.mjs';
+import { register, list, clear, invoke } from '../../src/serve/dispatch.mjs';
 
 function withHome(manifests, fn) {
   const root = mkdtempSync(join(tmpdir(), 'zuzuu-cap-'));
@@ -40,9 +40,8 @@ test('readManifest: missing manifest → minimal fallback, never throws', () => 
 
 test('capabilitiesOf: explicit list wins; else derived from nature', () => {
   assert.deepEqual(capabilitiesOf({ capabilities: ['act'] }).sort(), ['act', 'check', 'query']);
-  // derived: a policy → act; an enhance.goal → enhance
-  assert.ok(capabilitiesOf({ policy: { tier: 'contained' } }).includes('act'));
-  assert.ok(capabilitiesOf({ enhance: { goal: 'x' } }).includes('enhance'));
+  // derived: a policy → act
+  assert.ok(capabilitiesOf({ policy: { run: { allow: ['echo'] } } }).includes('act'));
   assert.deepEqual(capabilitiesOf({}).sort(), ['check', 'query']);
 });
 
@@ -63,14 +62,11 @@ test('moduleHas: capability membership', () => {
 
 // ── capability registry ─────────────────────────────────────────────────────
 
-test('register / get / has / list', () => {
+test('register / list', () => {
   clear();
   register('query', () => 'q');
   register('act', () => 'a', { permission: 'run' });
-  assert.equal(has('query'), true);
-  assert.equal(has('nope'), false);
   assert.deepEqual(list(), ['act', 'query']);
-  assert.equal(describe('act').permission, 'run');
   clear();
 });
 

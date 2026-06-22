@@ -1,0 +1,23 @@
+{
+  "id": "prop-fe153413",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-unit-architecture-test-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: unit/architecture.test.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/tests/unit/architecture.test.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/tests/unit/architecture.test.mjs` (touched 6× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/tests/unit/architecture.test.mjs` (touched 6× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 6,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 6,
+  "status": "pending"
+}

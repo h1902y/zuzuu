@@ -1,0 +1,23 @@
+{
+  "id": "prop-0e146000",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-ui-primitives-tsx",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: ui/primitives.tsx",
+    "path": "/Users/hkc/Documents/zuzuu/web/packages/web/src/components/ui/primitives.tsx",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/components/ui/primitives.tsx` (touched 7× across 6 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/components/ui/primitives.tsx` (touched 7× across 6 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 7,
+      "sessions": 6
+    }
+  ],
+  "confidence": null,
+  "score": 7,
+  "status": "pending"
+}

@@ -1,0 +1,23 @@
+{
+  "id": "prop-7744c36d",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-state-explorer-ts",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: state/explorer.ts",
+    "path": "/Users/hkc/Documents/zuzuu/web/packages/web/src/state/explorer.ts",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/state/explorer.ts` (touched 6× across 3 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/state/explorer.ts` (touched 6× across 3 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 6,
+      "sessions": 3
+    }
+  ],
+  "confidence": null,
+  "score": 6,
+  "status": "pending"
+}

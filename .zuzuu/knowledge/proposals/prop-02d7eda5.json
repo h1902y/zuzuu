@@ -1,0 +1,23 @@
+{
+  "id": "prop-02d7eda5",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-unit-session-git-test-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: unit/session-git.test.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/tests/unit/session-git.test.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/tests/unit/session-git.test.mjs` (touched 10× across 6 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/tests/unit/session-git.test.mjs` (touched 10× across 6 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 10,
+      "sessions": 6
+    }
+  ],
+  "confidence": null,
+  "score": 10,
+  "status": "pending"
+}

@@ -1,0 +1,23 @@
+{
+  "id": "prop-8a6f5a3a",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-term-termview-tsx",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: term/TermView.tsx",
+    "path": "/Users/hkc/Documents/webcode/packages/web/src/term/TermView.tsx",
+    "body": "Hot file in this project: `/Users/hkc/Documents/webcode/packages/web/src/term/TermView.tsx` (touched 14× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/webcode/packages/web/src/term/TermView.tsx` (touched 14× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 14,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 14,
+  "status": "pending"
+}

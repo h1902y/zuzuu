@@ -1,0 +1,23 @@
+{
+  "id": "prop-0993d14b",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-workflows-publish-yml",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: workflows/publish.yml",
+    "path": "/Users/hkc/Documents/zuzuu/.github/workflows/publish.yml",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/.github/workflows/publish.yml` (touched 8× across 7 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/.github/workflows/publish.yml` (touched 8× across 7 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 8,
+      "sessions": 7
+    }
+  ],
+  "confidence": null,
+  "score": 8,
+  "status": "pending"
+}

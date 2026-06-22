@@ -1,0 +1,23 @@
+{
+  "id": "prop-bafe35bb",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-zuzuu-readme-md",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: zuzuu/README.md",
+    "path": "/Users/hkc/Documents/zuzuu/README.md",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/README.md` (touched 23× across 4 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/README.md` (touched 23× across 4 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 23,
+      "sessions": 4
+    }
+  ],
+  "confidence": null,
+  "score": 23,
+  "status": "pending"
+}

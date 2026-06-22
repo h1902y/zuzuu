@@ -1,0 +1,23 @@
+{
+  "id": "prop-9fcfe6a5",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-webcode-readme-md",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: webcode/README.md",
+    "path": "/Users/hkc/Documents/webcode/README.md",
+    "body": "Hot file in this project: `/Users/hkc/Documents/webcode/README.md` (touched 12× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/webcode/README.md` (touched 12× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 12,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 12,
+  "status": "pending"
+}

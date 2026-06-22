@@ -1,0 +1,23 @@
+{
+  "id": "prop-e599a74b",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-commands-session-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: commands/session.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/zuzuu/commands/session.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/commands/session.mjs` (touched 22× across 13 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/commands/session.mjs` (touched 22× across 13 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 22,
+      "sessions": 13
+    }
+  ],
+  "confidence": null,
+  "score": 22,
+  "status": "pending"
+}

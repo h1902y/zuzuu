@@ -1,0 +1,23 @@
+{
+  "id": "prop-75724787",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-term-session-tree-ts",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: term/session-tree.ts",
+    "path": "/Users/hkc/Documents/zuzuu/web/packages/web/src/term/session-tree.ts",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/term/session-tree.ts` (touched 6× across 3 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/term/session-tree.ts` (touched 6× across 3 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 6,
+      "sessions": 3
+    }
+  ],
+  "confidence": null,
+  "score": 6,
+  "status": "pending"
+}

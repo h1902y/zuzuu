@@ -1,0 +1,21 @@
+{
+  "id": "prop-1625bd23",
+  "op": "create",
+  "module": "knowledge",
+  "target": "failing-tool-agent",
+  "change": {
+    "type": "knowledge",
+    "title": "Agent fails frequently",
+    "body": "Tool `Agent` fails frequently in this project (4 failures observed) — worth investigating why."
+  },
+  "rationale": "Tool `Agent` fails frequently in this project (4 failures observed) — worth investigating why.",
+  "evidence": [
+    {
+      "kind": "fact",
+      "occurrences": 4
+    }
+  ],
+  "confidence": null,
+  "score": 4,
+  "status": "pending"
+}

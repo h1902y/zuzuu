@@ -23,14 +23,14 @@ export type ClientOp = (typeof ClientOp)[keyof typeof ClientOp];
 export const ServerOp = {
   /** payload: raw PTY output bytes */
   Output: 0x00,
-  /** payload: JSON {@link ExitPayload} — the PTY exited */
+  /** payload: JSON `{ exitCode, signal? }` — the PTY exited */
   Exit: 0x01,
   /**
    * payload: raw bytes — the serialized terminal state replayed on attach.
    * Rendered like Output but EXCLUDED from flow-control accounting.
    */
   Replay: 0x02,
-  /** payload: JSON {@link TitlePayload} */
+  /** payload: JSON `{ title }` */
   Title: 0x03,
   /** payload: JSON {@link CwdPayload} — the shell's working directory changed */
   Cwd: 0x04,
@@ -42,8 +42,6 @@ export interface AckPayload {
   /** bytes the client has finished writing to the terminal since its last ack */
   bytes: number;
 }
-export interface ExitPayload { exitCode: number; signal?: number }
-export interface TitlePayload { title: string }
 export interface CwdPayload {
   /** workspace-relative ("" = root) unless `outside` is true, then absolute */
   cwd: string;

@@ -1,0 +1,23 @@
+{
+  "id": "prop-0fb3c5f3",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-app-footer-tsx",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: app/Footer.tsx",
+    "path": "/Users/hkc/Documents/zuzuu/web/packages/web/src/app/Footer.tsx",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/app/Footer.tsx` (touched 11× across 6 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/app/Footer.tsx` (touched 11× across 6 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 11,
+      "sessions": 6
+    }
+  ],
+  "confidence": null,
+  "score": 11,
+  "status": "pending"
+}

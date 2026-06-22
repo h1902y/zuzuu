@@ -1,0 +1,23 @@
+{
+  "id": "prop-c06ae460",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-unit-cli-migrate-test-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: unit/cli-migrate.test.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/tests/unit/cli-migrate.test.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/tests/unit/cli-migrate.test.mjs` (touched 5× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/tests/unit/cli-migrate.test.mjs` (touched 5× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 5,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 5,
+  "status": "pending"
+}

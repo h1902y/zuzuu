@@ -20,7 +20,7 @@ import path from "node:path";
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { PathError, resolveSafe } from "./safe-path.js";
-import { binAvailable, runZuzuu, runZuzuuMut } from "./zuzuu-cli.js";
+import { runZuzuu, runZuzuuMut } from "./zuzuu-cli.js";
 
 /** The five built-in module slugs — used ONLY for the CLI-absent degraded fallback
  *  (peek enumerates the home dirs for the known built-ins). N-module routing is
@@ -165,34 +165,17 @@ function proposalPreview(p: Record<string, unknown>): string {
 }
 
 /** Enrich a raw on-disk proposal into the ProposalSummary the panel renders —
- *  carrying the payload preview + the persisted score/signals/evidence so the
- *  module-detail card shows the same WHAT/WHY a review card does. Best-effort:
- *  every enrichment field is optional and omitted when absent. */
+ *  the title, a payload preview (the WHAT block), and the persisted confidence.
+ *  Best-effort: preview/confidence are optional and omitted when absent. */
 function proposalSummary(p: Record<string, unknown>, key: string) {
-  const payload = (p.payload ?? p.candidate) as Record<string, unknown> | undefined;
-  const kind = typeof payload?.type === "string" ? payload.type
-    : typeof p.kind === "string" && p.kind !== "item" ? p.kind
-      : undefined;
   const preview = proposalPreview(p);
-  const score = p.score as { score?: number; confidence?: string; rationale?: string } | undefined;
-  const evidence = p.evidence as Record<string, unknown> | undefined;
-  const erVerdict = (p.analysis as { er?: { verdict?: string } } | undefined)?.er?.verdict
-    ?? (p.er as { verdict?: string } | undefined)?.verdict;
-  const ev: Record<string, unknown> = {};
-  if (typeof evidence?.occurrences === "number") ev.occurrences = evidence.occurrences;
-  if (typeof evidence?.sessions === "number") ev.sessions = evidence.sessions;
-  if (typeof evidence?.failures === "number") ev.failures = evidence.failures;
-  if (typeof erVerdict === "string") ev.erVerdict = erVerdict;
+  const score = p.score as { confidence?: string } | undefined;
   return {
     id: String(p.id ?? "?"),
     module: key,
     title: proposalTitle(p),
-    ...(kind ? { kind } : {}),
     ...(preview ? { preview } : {}),
-    ...(score && typeof score.score === "number" ? { score: score.score } : {}),
     ...(score?.confidence ? { confidence: score.confidence } : {}),
-    ...(score?.rationale ? { rationale: score.rationale } : {}),
-    ...(Object.keys(ev).length ? { evidence: ev } : {}),
   };
 }
 
@@ -207,23 +190,6 @@ export function createZuzuuApi(getRoot: () => string, opts: ApiOpts = {}): Hono 
 
   const agentDir = () => resolveSafe(root, ".zuzuu");
   const proposalsOf = async (agent: string, key: string) => readJsonDir(path.join(agent, key, "proposals"));
-
-  app.get("/health", async (c) => {
-    const agent = await agentDir();
-    return c.json({ home: existsSync(agent), zuzuuBin: binAvailable(opts.binary ?? "zuzuu") });
-  });
-
-  app.get("/modules", async (c) => {
-    const agent = await agentDir();
-    const modules = await Promise.all(BUILTIN_MODULES.map(async (key) => {
-      const [{ items }, proposals] = await Promise.all([
-        moduleEnvelopeItems(root, agent, key, opts.binary),
-        proposalsOf(agent, key),
-      ]);
-      return { key, count: items.length, pending: proposals.length };
-    }));
-    return c.json({ modules });
-  });
 
   // The batched module surface: ONE `zuzuu module overview --json` spawn
   // covers all modules (manifest ui descriptors + counts + top titles +
@@ -296,49 +262,6 @@ export function createZuzuuApi(getRoot: () => string, opts: ApiOpts = {}): Hono 
     });
   });
 
-  // Sessions list. The v1 `sessions.json` index was cut (a session IS a git
-  // branch now), and there is no `zz sessions` verb — so this is an honest empty
-  // list until the client rebuild wires the real source (git branches), rather
-  // than shelling a dead verb or reading a dead index.
-  app.get("/sessions", (c) => c.json({ sessions: [] }));
-
-  app.get("/digest", async (c) => {
-    const agent = await agentDir();
-    try { return c.json({ text: await fsp.readFile(path.join(agent, ".live", "digest.md"), "utf8") }); }
-    catch { return c.json({ text: "" }); }
-  });
-
-  // What the session changed (`zuzuu session diff <id> --json`): files + counts,
-  // resolved from the session's git branch (live) or merge commit (past). CLI-first;
-  // absent → 503, unknown → { available:false } 404. Read-only: pure git reads,
-  // never touches the PTY / capture / working tree.
-  app.get("/session-diff/:id", async (c) => {
-    const id = c.req.param("id");
-    if (!SAFE_ID.test(id)) return c.json({ error: "bad id" }, 400);
-    const r = await runZuzuuMut(root, ["session", "diff", id], { binary: opts.binary });
-    if (!r.ok) {
-      if (r.code === "absent") return c.json({ error: "zuzuu CLI required" }, 503);
-      return c.json({ sessionId: id, available: false, totals: { files: 0, additions: 0, deletions: 0 }, files: [] }, 404);
-    }
-    return c.json(r.data as Record<string, unknown>);
-  });
-
-  // One file's unified diff for a session (`zuzuu session diff <id> --file <path>
-  // --json`). The path is an argv element (no shell), bounded by `git diff -- <path>`;
-  // absent → 503, unknown → { diff:"" } 404.
-  app.get("/session-file-diff/:id", async (c) => {
-    const id = c.req.param("id");
-    const path = c.req.query("path");
-    if (!SAFE_ID.test(id)) return c.json({ error: "bad id" }, 400);
-    if (!path) return c.json({ error: "path required" }, 400);
-    const r = await runZuzuuMut(root, ["session", "diff", id, "--file", path], { binary: opts.binary });
-    if (!r.ok) {
-      if (r.code === "absent") return c.json({ error: "zuzuu CLI required" }, 503);
-      return c.json({ sessionId: id, path, diff: "" }, 404);
-    }
-    return c.json(r.data as Record<string, unknown>);
-  });
-
   // Set/clear a session's user label (`zuzuu session label <id> --text <label>`).
   // A blank label clears it. Persisted outside the index (survives re-capture).
   app.post("/session-label/:id", async (c) => {
@@ -348,32 +271,6 @@ export function createZuzuuApi(getRoot: () => string, opts: ApiOpts = {}): Hono 
     const label = typeof body.label === "string" ? body.label : "";
     if (label.length > 200) return c.json({ error: "label too long" }, 400);
     return mutate(c, ["session", "label", id, "--text", label]);
-  });
-
-  // The panel-root status: per-module active generation + pending counts, read
-  // straight from disk (the v2 `zz status` is a different, host-facing view, so
-  // there is no CLI-first here). Generation actives live at
-  // `.zuzuu/.generations/<module>/active` (a bare integer — see snapshot.mjs).
-  app.get("/status", async (c) => {
-    const agent = await agentDir();
-    const pending: Record<string, number> = {};
-    for (const key of BUILTIN_MODULES) pending[key] = (await proposalsOf(agent, key)).length;
-    const generations: Record<string, string | null> = {};
-    for (const key of BUILTIN_MODULES) {
-      try { generations[key] = (await fsp.readFile(path.join(agent, ".generations", key, "active"), "utf8")).trim() || null; } catch { generations[key] = null; }
-    }
-    return c.json({ home: existsSync(agent), generations, pending, drift: { dirty: false, items: [] } });
-  });
-
-  // Per-module generation diff (show). CLI-only (the diff needs the parser).
-  app.get("/module/:key/generation/:id", async (c) => {
-    const key = c.req.param("key");
-    if (!SAFE_SLUG.test(key)) return c.json({ error: "unknown module" }, 404);
-    const id = c.req.param("id");
-    if (!SAFE_ID.test(id)) return c.json({ error: "bad id" }, 400);
-    const viaCli = await runZuzuu(root, ["module", key, "generation", "show", id], { binary: opts.binary });
-    if (viaCli) return c.json(viaCli);
-    return c.json({ error: "generation diff needs the zuzuu CLI" }, 503);
   });
 
   // ── Write side: mutations are CLI-only — every route below shells out to
@@ -481,26 +378,6 @@ export function createZuzuuApi(getRoot: () => string, opts: ApiOpts = {}): Hono 
     const id = c.req.param("id");
     if (!SAFE_ID.test(id)) return c.json({ error: "bad id" }, 400);
     return mutate(c, ["module", key, "generation", "rollback", id]);
-  });
-
-  // ── Session-git (the invisible zz/session-* branch) — CLI-only, no
-  // file-read fallback: branch state lives in git, only the CLI computes it.
-
-  app.get("/session", async (c) => {
-    const viaCli = await runZuzuu(root, ["session", "status"], { binary: opts.binary });
-    if (viaCli) return c.json(viaCli);
-    return c.json({ enabled: false, cliAbsent: true });
-  });
-
-  app.post("/session/merge", (c) => mutate(c, ["session", "merge"]));
-  app.post("/session/continue", (c) => mutate(c, ["session", "continue"]));
-  // --yes rides server-side: the SPA's confirm dialog is the human gate
-  app.post("/session/discard", (c) => mutate(c, ["session", "discard", "--yes"]));
-
-  app.get("/hosts", async (c) => {
-    const data = await runZuzuu(root, ["status"], { binary: opts.binary });
-    const hosts = (data as { hosts?: { name: string }[] } | null)?.hosts ?? [];
-    return c.json({ hosts, cliAbsent: data === null });
   });
 
   return app;

@@ -1,0 +1,23 @@
+{
+  "id": "prop-27ff7c73",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-term-blockgutter-tsx",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: term/BlockGutter.tsx",
+    "path": "/Users/hkc/Documents/webcode/packages/web/src/term/BlockGutter.tsx",
+    "body": "Hot file in this project: `/Users/hkc/Documents/webcode/packages/web/src/term/BlockGutter.tsx` (touched 10× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/webcode/packages/web/src/term/BlockGutter.tsx` (touched 10× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 10,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 10,
+  "status": "pending"
+}

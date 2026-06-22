@@ -1,0 +1,23 @@
+{
+  "id": "prop-e25d3b5e",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-explorer-filetree-tsx",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: explorer/FileTree.tsx",
+    "path": "/Users/hkc/Documents/webcode/packages/web/src/explorer/FileTree.tsx",
+    "body": "Hot file in this project: `/Users/hkc/Documents/webcode/packages/web/src/explorer/FileTree.tsx` (touched 50× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/webcode/packages/web/src/explorer/FileTree.tsx` (touched 50× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 50,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 50,
+  "status": "pending"
+}

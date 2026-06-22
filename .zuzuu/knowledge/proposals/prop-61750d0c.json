@@ -1,0 +1,23 @@
+{
+  "id": "prop-61750d0c",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-loop-review-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: loop/review.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/src/loop/review.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/src/loop/review.mjs` (touched 5× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/src/loop/review.mjs` (touched 5× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 5,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 5,
+  "status": "pending"
+}

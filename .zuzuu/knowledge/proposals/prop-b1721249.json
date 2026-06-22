@@ -1,0 +1,23 @@
+{
+  "id": "prop-b1721249",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-commands-migrate-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: commands/migrate.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/zuzuu/commands/migrate.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/commands/migrate.mjs` (touched 12× across 10 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/commands/migrate.mjs` (touched 12× across 10 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 12,
+      "sessions": 10
+    }
+  ],
+  "confidence": null,
+  "score": 12,
+  "status": "pending"
+}

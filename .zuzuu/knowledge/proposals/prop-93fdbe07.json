@@ -1,0 +1,21 @@
+{
+  "id": "prop-93fdbe07",
+  "op": "create",
+  "module": "knowledge",
+  "target": "failing-tool-write",
+  "change": {
+    "type": "knowledge",
+    "title": "Write fails frequently",
+    "body": "Tool `Write` fails frequently in this project (8 failures observed) — worth investigating why."
+  },
+  "rationale": "Tool `Write` fails frequently in this project (8 failures observed) — worth investigating why.",
+  "evidence": [
+    {
+      "kind": "fact",
+      "occurrences": 8
+    }
+  ],
+  "confidence": null,
+  "score": 8,
+  "status": "pending"
+}

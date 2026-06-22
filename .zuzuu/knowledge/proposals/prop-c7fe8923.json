@@ -1,0 +1,23 @@
+{
+  "id": "prop-c7fe8923",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-knowledge-items-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: knowledge/items.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/zuzuu/knowledge/items.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/knowledge/items.mjs` (touched 8× across 8 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/knowledge/items.mjs` (touched 8× across 8 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 8,
+      "sessions": 8
+    }
+  ],
+  "confidence": null,
+  "score": 8,
+  "status": "pending"
+}

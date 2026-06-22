@@ -1,0 +1,23 @@
+{
+  "id": "prop-90a91e2c",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-inspiration-git-from-scratch-md",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: inspiration/git-from-scratch.md",
+    "path": "/Users/hkc/Documents/zuzuu/docs/inspiration/git-from-scratch.md",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/docs/inspiration/git-from-scratch.md` (touched 10× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/docs/inspiration/git-from-scratch.md` (touched 10× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 10,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 10,
+  "status": "pending"
+}

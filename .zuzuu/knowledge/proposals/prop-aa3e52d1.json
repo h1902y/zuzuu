@@ -1,0 +1,23 @@
+{
+  "id": "prop-aa3e52d1",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-zuzuu-inject-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: zuzuu/inject.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/zuzuu/inject.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/inject.mjs` (touched 6× across 5 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/inject.mjs` (touched 6× across 5 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 6,
+      "sessions": 5
+    }
+  ],
+  "confidence": null,
+  "score": 6,
+  "status": "pending"
+}

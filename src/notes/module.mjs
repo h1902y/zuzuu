@@ -40,8 +40,8 @@ export function readManifest(home, module) {
 
 /**
  * The capability set a module exposes. Explicit `capabilities` in the manifest
- * wins; otherwise derive from the module's nature (a policy → `act`; an
- * enhance.goal → `enhance`), always including the universal read/check.
+ * wins; otherwise derive from the module's nature (a policy → `act`), always
+ * including the universal read/check.
  */
 export function capabilitiesOf(manifest) {
   if (Array.isArray(manifest.capabilities) && manifest.capabilities.length) {
@@ -49,7 +49,6 @@ export function capabilitiesOf(manifest) {
   }
   const caps = new Set(UNIVERSAL);
   if (manifest.policy) caps.add('act');
-  if (manifest.enhance?.goal) caps.add('enhance');
   return [...caps];
 }
 

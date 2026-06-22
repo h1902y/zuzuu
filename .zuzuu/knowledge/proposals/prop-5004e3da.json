@@ -1,0 +1,23 @@
+{
+  "id": "prop-5004e3da",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-app-sessionpane-tsx",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: app/SessionPane.tsx",
+    "path": "/Users/hkc/Documents/zuzuu/web/packages/web/src/app/SessionPane.tsx",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/app/SessionPane.tsx` (touched 49× across 10 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/app/SessionPane.tsx` (touched 49× across 10 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 49,
+      "sessions": 10
+    }
+  ],
+  "confidence": null,
+  "score": 49,
+  "status": "pending"
+}

@@ -1,0 +1,23 @@
+{
+  "id": "prop-0cc0beb1",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-module-registry-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: module/registry.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/zuzuu/module/registry.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/module/registry.mjs` (touched 12× across 7 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/module/registry.mjs` (touched 12× across 7 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 12,
+      "sessions": 7
+    }
+  ],
+  "confidence": null,
+  "score": 12,
+  "status": "pending"
+}

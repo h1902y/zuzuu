@@ -1,0 +1,23 @@
+{
+  "id": "prop-13bed0dc",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-docs-log-md",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: docs/LOG.md",
+    "path": "/Users/hkc/Documents/zuzuu/docs/LOG.md",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/docs/LOG.md` (touched 5× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/docs/LOG.md` (touched 5× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 5,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 5,
+  "status": "pending"
+}

@@ -2,20 +2,17 @@
 //
 // Wires xterm (WebGL renderer + addons) to a TermConnection: keystrokes →
 // sendInput, output → term.write (the connection acks rendered bytes for flow
-// control), resize → fit + sendResize. OSC 133 marks feed the BlockTracker (the
-// command-block model). Reattach replays the server-side snapshot, so a reload
-// or a network blip never loses the session.
+// control), resize → fit + sendResize. Reattach replays the server-side
+// snapshot, so a reload or a network blip never loses the session.
 
 import { useEffect, useRef } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
-import { SearchAddon } from "@xterm/addon-search";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { ClipboardAddon } from "@xterm/addon-clipboard";
 import { TermConnection } from "./connection.js";
-import { BlockTracker } from "./blocks.js";
 import { useWorkbench } from "../state/store.js";
 
 const FONT_FAMILY = '"JetBrains Mono Variable", ui-monospace, Menlo, monospace';
@@ -49,7 +46,6 @@ export function TermView({ sessionId }: { sessionId: string }) {
     });
     const fit = new FitAddon();
     term.loadAddon(fit);
-    term.loadAddon(new SearchAddon());
     term.loadAddon(new WebLinksAddon());
     term.loadAddon(new ClipboardAddon());
     const unicode = new Unicode11Addon();
@@ -62,13 +58,6 @@ export function TermView({ sessionId }: { sessionId: string }) {
       /* no WebGL (headless / old GPU) — xterm uses its DOM renderer */
     }
     fit.fit();
-
-    // the command-block model: OSC 133 A/B/C/D → blocks (gutter UI lands in Rung 5)
-    const blocks = new BlockTracker(term, { onChange: () => {}, onCommand: () => {} });
-    term.parser.registerOscHandler(133, (data) => {
-      blocks.handle(data);
-      return false; // let xterm keep processing
-    });
 
     const conn = new TermConnection(sessionId, term, {
       onStatus: setStatus,
@@ -95,7 +84,6 @@ export function TermView({ sessionId }: { sessionId: string }) {
       ro.disconnect();
       inputSub.dispose();
       conn.dispose();
-      blocks.dispose();
       term.dispose();
     };
   }, [sessionId, setStatus]);

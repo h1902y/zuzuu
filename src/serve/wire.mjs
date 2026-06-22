@@ -10,16 +10,14 @@
 // how:  thin ctx-shaped adapters where a handler's native signature differs
 //       (only `query`, which is project-wide over home). Idempotent.
 //
-// The five verbs: query · act · enhance · check are auto-invokable here; the
-// fifth, `review`, is the HUMAN gate — interactive, never agent-invoked — so it
-// is deliberately NOT registered. gate (the guardrails check) rides along.
+// The dispatched verbs: query · check · act. `review` is the HUMAN gate
+// (interactive, never agent-invoked) and the guardrails `gate` is called
+// directly by act/hook — neither rides the registry.
 
 import { register, clear, list } from './dispatch.mjs';
 import { queryData } from '../use/query.mjs';
 import { act } from '../use/act.mjs';
-import { enhance } from '../grow/enhance.mjs';
 import { check } from '../use/check.mjs';
-import { gate } from '../guardrails/gate.mjs';
 
 let wired = false;
 
@@ -29,8 +27,6 @@ export function registerAll() {
   register('query', (ctx, opts = {}) => queryData(ctx.home, { module: ctx.module, ...opts }), { permission: 'read' });
   register('check', (ctx, opts = {}) => check(ctx, opts), { permission: 'read' });
   register('act', (ctx, id, inputs = {}) => act(ctx, id, inputs), { permission: 'run' });
-  register('enhance', (ctx, opts = {}) => enhance(ctx, opts), { permission: 'write' });
-  register('gate', (ctx, call) => gate(ctx, call), { permission: 'read' });
   wired = true;
   return list();
 }

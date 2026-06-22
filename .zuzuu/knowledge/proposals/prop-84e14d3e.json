@@ -1,0 +1,23 @@
+{
+  "id": "prop-84e14d3e",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-home-scaffold-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: home/scaffold.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/zuzuu/home/scaffold.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/home/scaffold.mjs` (touched 9× across 3 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/home/scaffold.mjs` (touched 9× across 3 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 9,
+      "sessions": 3
+    }
+  ],
+  "confidence": null,
+  "score": 9,
+  "status": "pending"
+}

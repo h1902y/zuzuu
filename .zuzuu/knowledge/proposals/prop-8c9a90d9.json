@@ -1,0 +1,23 @@
+{
+  "id": "prop-8c9a90d9",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-module-gate-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: module/gate.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/zuzuu/module/gate.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/module/gate.mjs` (touched 6× across 4 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/module/gate.mjs` (touched 6× across 4 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 6,
+      "sessions": 4
+    }
+  ],
+  "confidence": null,
+  "score": 6,
+  "status": "pending"
+}

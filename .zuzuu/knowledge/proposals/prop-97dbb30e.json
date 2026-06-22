@@ -1,0 +1,23 @@
+{
+  "id": "prop-97dbb30e",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-editor-editorpane-tsx",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: editor/EditorPane.tsx",
+    "path": "/Users/hkc/Documents/webcode/packages/web/src/editor/EditorPane.tsx",
+    "body": "Hot file in this project: `/Users/hkc/Documents/webcode/packages/web/src/editor/EditorPane.tsx` (touched 21× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/webcode/packages/web/src/editor/EditorPane.tsx` (touched 21× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 21,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 21,
+  "status": "pending"
+}

@@ -1,6 +1,5 @@
 import os from "node:os";
 import { describe, expect, it } from "vitest";
-import { applyWorkflow } from "#shared/index.js";
 import { parseOsc7 } from "../../src/server/sessions.js";
 import { buildInjection } from "../../src/server/shell-integration/inject.js";
 
@@ -13,19 +12,6 @@ describe("parseOsc7", () => {
   it("rejects non-file payloads", () => {
     expect(parseOsc7("7;notafile")).toBeNull();
     expect(parseOsc7("")).toBeNull();
-  });
-});
-
-describe("applyWorkflow", () => {
-  it("substitutes named placeholders", () => {
-    expect(applyWorkflow("git commit -m {{msg}}", { msg: "hi" })).toBe("git commit -m hi");
-    expect(applyWorkflow("deploy {{env}} {{tag}}", { env: "prod", tag: "v1" })).toBe(
-      "deploy prod v1",
-    );
-  });
-  it("tolerates spacing and missing values", () => {
-    expect(applyWorkflow("echo {{ a }}", { a: "x" })).toBe("echo x");
-    expect(applyWorkflow("echo {{missing}}", {})).toBe("echo ");
   });
 });
 

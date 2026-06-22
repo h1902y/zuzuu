@@ -1,0 +1,23 @@
+{
+  "id": "prop-2601a768",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-term-connection-ts",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: term/connection.ts",
+    "path": "/Users/hkc/Documents/zuzuu/web/packages/web/src/term/connection.ts",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/term/connection.ts` (touched 19× across 4 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/term/connection.ts` (touched 19× across 4 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 19,
+      "sessions": 4
+    }
+  ],
+  "confidence": null,
+  "score": 19,
+  "status": "pending"
+}

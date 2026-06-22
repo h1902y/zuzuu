@@ -21,13 +21,3 @@ export function fuzzyScore(query: string, text: string): number | null {
   }
   return qi === q.length ? score : null;
 }
-
-/** Rank `items` by their fuzzy match against `query`, best first. */
-export function rank<T>(query: string, items: T[], key: (x: T) => string, limit = 50): T[] {
-  return items
-    .map((x) => ({ x, s: fuzzyScore(query, key(x)) }))
-    .filter((r): r is { x: T; s: number } => r.s !== null)
-    .sort((a, b) => a.s - b.s)
-    .slice(0, limit)
-    .map((r) => r.x);
-}

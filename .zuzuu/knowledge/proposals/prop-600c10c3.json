@@ -1,0 +1,23 @@
+{
+  "id": "prop-600c10c3",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-src-instance-file-ts",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: src/instance-file.ts",
+    "path": "/Users/hkc/Documents/zuzuu/web/packages/daemon/src/instance-file.ts",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/daemon/src/instance-file.ts` (touched 12× across 12 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/daemon/src/instance-file.ts` (touched 12× across 12 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 12,
+      "sessions": 12
+    }
+  ],
+  "confidence": null,
+  "score": 12,
+  "status": "pending"
+}

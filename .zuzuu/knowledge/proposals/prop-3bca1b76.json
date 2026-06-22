@@ -1,0 +1,21 @@
+{
+  "id": "prop-3bca1b76",
+  "op": "create",
+  "module": "knowledge",
+  "target": "failing-tool-edit",
+  "change": {
+    "type": "knowledge",
+    "title": "Edit fails frequently",
+    "body": "Tool `Edit` fails frequently in this project (38 failures observed) — worth investigating why."
+  },
+  "rationale": "Tool `Edit` fails frequently in this project (38 failures observed) — worth investigating why.",
+  "evidence": [
+    {
+      "kind": "fact",
+      "occurrences": 38
+    }
+  ],
+  "confidence": null,
+  "score": 38,
+  "status": "pending"
+}

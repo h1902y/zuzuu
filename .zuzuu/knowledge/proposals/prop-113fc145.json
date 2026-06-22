@@ -1,0 +1,21 @@
+{
+  "id": "prop-113fc145",
+  "op": "create",
+  "module": "knowledge",
+  "target": "failing-tool-mcp-chrome-devtools-navigate-p",
+  "change": {
+    "type": "knowledge",
+    "title": "mcp__chrome-devtools__navigate_page fails frequently",
+    "body": "Tool `mcp__chrome-devtools__navigate_page` fails frequently in this project (6 failures observed) — worth investigating why."
+  },
+  "rationale": "Tool `mcp__chrome-devtools__navigate_page` fails frequently in this project (6 failures observed) — worth investigating why.",
+  "evidence": [
+    {
+      "kind": "fact",
+      "occurrences": 6
+    }
+  ],
+  "confidence": null,
+  "score": 6,
+  "status": "pending"
+}

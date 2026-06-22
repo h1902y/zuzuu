@@ -1,0 +1,23 @@
+{
+  "id": "prop-7681e08a",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-src-zuzuu-ts",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: src/zuzuu.ts",
+    "path": "/Users/hkc/Documents/zuzuu/web/packages/protocol/src/zuzuu.ts",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/protocol/src/zuzuu.ts` (touched 9× across 5 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/protocol/src/zuzuu.ts` (touched 9× across 5 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 9,
+      "sessions": 5
+    }
+  ],
+  "confidence": null,
+  "score": 9,
+  "status": "pending"
+}

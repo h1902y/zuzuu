@@ -1,0 +1,23 @@
+{
+  "id": "prop-a6518087",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-zuzuu-guardrails-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: zuzuu/guardrails.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/zuzuu/guardrails.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/guardrails.mjs` (touched 11× across 11 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/guardrails.mjs` (touched 11× across 11 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 11,
+      "sessions": 11
+    }
+  ],
+  "confidence": null,
+  "score": 11,
+  "status": "pending"
+}

@@ -1,0 +1,23 @@
+{
+  "id": "prop-d76d657c",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-explorer-searchpanel-tsx",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: explorer/SearchPanel.tsx",
+    "path": "/Users/hkc/Documents/webcode/packages/web/src/explorer/SearchPanel.tsx",
+    "body": "Hot file in this project: `/Users/hkc/Documents/webcode/packages/web/src/explorer/SearchPanel.tsx` (touched 5× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/webcode/packages/web/src/explorer/SearchPanel.tsx` (touched 5× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 5,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 5,
+  "status": "pending"
+}

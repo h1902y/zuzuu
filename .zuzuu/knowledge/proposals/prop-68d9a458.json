@@ -1,0 +1,23 @@
+{
+  "id": "prop-68d9a458",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-src-sessions-ts",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: src/sessions.ts",
+    "path": "/Users/hkc/Documents/webcode/packages/daemon/src/sessions.ts",
+    "body": "Hot file in this project: `/Users/hkc/Documents/webcode/packages/daemon/src/sessions.ts` (touched 18× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/webcode/packages/daemon/src/sessions.ts` (touched 18× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 18,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 18,
+  "status": "pending"
+}

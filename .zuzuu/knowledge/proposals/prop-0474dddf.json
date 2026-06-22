@@ -1,0 +1,23 @@
+{
+  "id": "prop-0474dddf",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-src-readme-md",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: src/README.md",
+    "path": "/Users/hkc/Documents/zuzuu/src/README.md",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/src/README.md` (touched 9× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/src/README.md` (touched 9× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 9,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 9,
+  "status": "pending"
+}

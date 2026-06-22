@@ -1,0 +1,23 @@
+{
+  "id": "prop-5781a674",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-commands-inbox-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: commands/inbox.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/zuzuu/commands/inbox.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/commands/inbox.mjs` (touched 6× across 3 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/commands/inbox.mjs` (touched 6× across 3 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 6,
+      "sessions": 3
+    }
+  ],
+  "confidence": null,
+  "score": 6,
+  "status": "pending"
+}

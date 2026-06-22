@@ -1,0 +1,23 @@
+{
+  "id": "prop-a1fb3a53",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-lib-agent-launch-test-ts",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: lib/agent-launch.test.ts",
+    "path": "/Users/hkc/Documents/zuzuu/web/packages/web/src/lib/agent-launch.test.ts",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/lib/agent-launch.test.ts` (touched 9× across 2 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/lib/agent-launch.test.ts` (touched 9× across 2 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 9,
+      "sessions": 2
+    }
+  ],
+  "confidence": null,
+  "score": 9,
+  "status": "pending"
+}
