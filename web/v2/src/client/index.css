@@ -1,0 +1,70 @@
+@import "tailwindcss";
+@import "@fontsource-variable/jetbrains-mono";
+@import "@fontsource-variable/geist";
+@import "@xterm/xterm/css/xterm.css";
+
+/* The design tokens (reused from the v1 SPA — this is the design system, not
+   bloat). A warm-charcoal ink ramp (no blue cast), a duotype split (Geist sans
+   for chrome/prose, JetBrains Mono for data/terminal), one accent. Rung 5 adds
+   the per-module hues for the dashboard. */
+@theme {
+  --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --color-ink-950: #0e0f12; /* app field — deepest */
+  --color-ink-900: #15171b; /* page panels */
+  --color-ink-850: #1b1e23; /* cards, tiles */
+  --color-ink-800: #22262c; /* hover/active row fill */
+  --color-ink-700: #2a2e35; /* hairline border */
+  --color-ink-600: #565c66; /* strong border */
+  --color-ink-500: #6b6862; /* faint text */
+  --color-ink-300: #9a9690; /* muted text */
+  --color-ink-100: #e8e6e3; /* primary text */
+  --color-accent: #5be6c4;
+  --color-accent-dim: #2f9a80;
+  --color-danger: #f0726a;
+
+  --color-app: var(--color-ink-950);
+  --color-surface: var(--color-ink-900);
+  --color-elevated: var(--color-ink-850);
+  --color-hover: var(--color-ink-800);
+  --color-border: var(--color-ink-700);
+  --color-muted: var(--color-ink-500);
+  --color-subtle: var(--color-ink-300);
+
+  --text-meta: 0.6875rem; /* 11px */
+  --text-ui: 0.75rem; /* 12px */
+  --text-body: 0.8125rem; /* 13px */
+
+  --radius-ui: 6px;
+  --height-bar: 34px;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--color-app);
+  color: var(--color-ink-100);
+  font-family: var(--font-sans);
+  font-size: var(--text-ui);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* a quiet scrollbar that matches the ink ramp */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-ink-700) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--color-ink-700);
+  border-radius: 5px;
+}
