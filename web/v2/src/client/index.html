@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>zuzuu workbench</title>
+    <style>
+      :root { color-scheme: dark; }
+      body { margin: 0; font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; background: #0b0b0c; color: #d8d8d8; }
+      header { padding: 8px 12px; border-bottom: 1px solid #222; color: #888; font-size: 11px; }
+      #screen { white-space: pre-wrap; padding: 12px; height: calc(100vh - 86px); overflow: auto; }
+      #input { width: 100%; box-sizing: border-box; border: 0; border-top: 1px solid #222; background: #111; color: #d8d8d8; padding: 12px; font: inherit; outline: none; }
+    </style>
+  </head>
+  <body>
+    <header>zuzuu workbench — placeholder client (Rung 3). A real PTY shell runs below; the real terminal (xterm) arrives in Rung 4.</header>
+    <div id="screen"></div>
+    <input id="input" autofocus autocomplete="off" spellcheck="false" placeholder="type a command and press Enter…" />
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

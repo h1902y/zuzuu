@@ -13,8 +13,10 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "dev": "echo 'dev is wired in Rung 4 (vite) + Rung 3 (daemon)'",
-    "build": "echo 'build is wired in Rung 6 (build-web.mjs)'"
+    "dev:client": "vite",
+    "dev:daemon": "tsx watch src/server/cli.ts -- --no-open --dev --token dev",
+    "build:client": "vite build",
+    "build": "echo 'full build (server tsc + client vite + stage) is wired in Rung 6'"
   },
   "comment:dependencies": "DAEMON runtime deps only — these become @zuzuucodes/cli optionalDependencies. The client deps are build-time (the SPA ships as pre-built static assets), so they live in devDependencies.",
   "dependencies": {
