@@ -28,8 +28,8 @@
 // already appears in the daemon's stdout — acceptable.)
 //
 // Resolution order:
-//   1. the bundled web-app/dist next to this package (installed OR repo after build:web)
-//   2. the nested dev project's built daemon (web/packages/daemon, repo checkout)
+//   1. the repo checkout's built daemon (web/dist/server/cli.js — deps live in web/node_modules)
+//   2. the bundled web-app/dist next to this package (installed OR repo after build:web)
 //   3. a standalone `zuzuu-web` on PATH (legacy/manual installs)
 //   4. none → repair hint (reinstall, or `npm run build:web` in a checkout)
 
@@ -51,8 +51,8 @@ const realResolveBundled = () => {
   // staged web-app/ resolves deps from the INSTALLED package's node_modules
   // (optionalDependencies), which a checkout doesn't have unless npm-installed.
   for (const p of [
-    join(PKG_ROOT, 'web', 'packages', 'daemon', 'dist', 'index.js'), // repo dev build
-    join(PKG_ROOT, 'web-app', 'dist', 'index.js'),                  // staged (published install)
+    join(PKG_ROOT, 'web', 'dist', 'server', 'cli.js'), // repo checkout build (deps in web/node_modules)
+    join(PKG_ROOT, 'web-app', 'dist', 'index.js'),     // staged (published install)
   ]) if (existsSync(p)) return p;
   return null;
 };
