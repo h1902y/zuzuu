@@ -15,8 +15,9 @@
     "test": "vitest run",
     "dev:client": "vite",
     "dev:daemon": "tsx watch src/server/cli.ts -- --no-open --dev --token dev",
+    "build:server": "tsc -p tsconfig.build.json",
     "build:client": "vite build",
-    "build": "echo 'full build (server tsc + client vite + stage) is wired in Rung 6'"
+    "build": "node scripts/build-web.mjs"
   },
   "comment:dependencies": "DAEMON runtime deps only — these become @zuzuucodes/cli optionalDependencies. The client deps are build-time (the SPA ships as pre-built static assets), so they live in devDependencies.",
   "dependencies": {
