@@ -1,0 +1,23 @@
+{
+  "id": "prop-68a7ee3d",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-cli-index-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: cli/index.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/src/cli/index.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/src/cli/index.mjs` (touched 14× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/src/cli/index.mjs` (touched 14× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 14,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 14,
+  "status": "pending"
+}

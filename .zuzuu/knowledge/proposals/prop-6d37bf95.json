@@ -1,0 +1,23 @@
+{
+  "id": "prop-6d37bf95",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-panel-moduleview-tsx",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: panel/ModuleView.tsx",
+    "path": "/Users/hkc/Documents/zuzuu/web/packages/web/src/panel/ModuleView.tsx",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/panel/ModuleView.tsx` (touched 13× across 10 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/panel/ModuleView.tsx` (touched 13× across 10 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 13,
+      "sessions": 10
+    }
+  ],
+  "confidence": null,
+  "score": 13,
+  "status": "pending"
+}

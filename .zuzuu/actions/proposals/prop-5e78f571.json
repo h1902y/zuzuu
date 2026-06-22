@@ -1,0 +1,24 @@
+{
+  "id": "prop-5e78f571",
+  "op": "create",
+  "module": "actions",
+  "target": "command-ls-la",
+  "change": {
+    "type": "action",
+    "title": "Run `ls -la`",
+    "run": "ls -la",
+    "body": "Recurring project command: `ls -la` (used 6× across 6 sessions)."
+  },
+  "rationale": "Recurring project command: `ls -la` (used 6× across 6 sessions).",
+  "evidence": [
+    {
+      "kind": "command",
+      "occurrences": 6,
+      "sessions": 6,
+      "failures": 0
+    }
+  ],
+  "confidence": null,
+  "score": 66,
+  "status": "pending"
+}

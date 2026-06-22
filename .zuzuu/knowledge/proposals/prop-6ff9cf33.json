@@ -1,0 +1,23 @@
+{
+  "id": "prop-6ff9cf33",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-src-fs-api-ts",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: src/fs-api.ts",
+    "path": "/Users/hkc/Documents/webcode/packages/daemon/src/fs-api.ts",
+    "body": "Hot file in this project: `/Users/hkc/Documents/webcode/packages/daemon/src/fs-api.ts` (touched 13× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/webcode/packages/daemon/src/fs-api.ts` (touched 13× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 13,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 13,
+  "status": "pending"
+}

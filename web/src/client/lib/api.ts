@@ -6,29 +6,18 @@
 
 import type {
   ApproveResult,
-  BrowseResponse,
   CreateSessionRequest,
-  DigestResponse,
   FileListResponse,
-  GitDiffResponse,
-  GitStatusResponse,
   HealthResponse,
-  HistoryResponse,
   ListResponse,
   ModuleDetail,
-  ModuleGenerationDiff,
   ModuleGenerationList,
   ModuleOverviewResponse,
   RejectResult,
   RollbackResult,
   SearchResponse,
   SessionDetail,
-  SessionDiffResponse,
-  SessionGitStatus,
   SessionInfo,
-  SessionMergeResult,
-  WorkflowListResponse,
-  WorkspaceConfig,
   WorkspaceInfo,
 } from "#shared/index.js";
 
@@ -59,17 +48,12 @@ const json = (body: unknown): RequestInit => ({
 export const api = {
   workspace: () => request<WorkspaceInfo>("/api/workspace"),
   health: () => request<HealthResponse>("/api/health"),
-  workspaceConfig: () => request<WorkspaceConfig>("/api/workspace/config"),
-  browse: (path?: string) =>
-    request<BrowseResponse>(`/api/browse${path ? `?path=${encodeURIComponent(path)}` : ""}`),
 
   // sessions
   listSessions: () => request<SessionInfo[]>("/api/sessions"),
   createSession: (body: CreateSessionRequest = {}) => request<SessionInfo>("/api/sessions", json(body)),
   closeSession: (id: string) => request<{ ok: true }>(`/api/sessions/${id}`, { method: "DELETE" }),
   sessionDetail: (id: string) => request<SessionDetail>(`/api/sessions/${id}`),
-  saveRecording: (sessionId: string, path: string) =>
-    request<{ ok: true; path: string; truncated: boolean }>(`/api/sessions/${sessionId}/recording`, json({ path })),
 
   // filesystem
   listDir: (path: string) => request<ListResponse>(`/api/fs/list?path=${encodeURIComponent(path)}`),
@@ -94,28 +78,12 @@ export const api = {
     return request<SearchResponse>(`/api/search?${qs}`);
   },
 
-  // git
-  gitStatus: () => request<GitStatusResponse>("/api/git/status"),
-  gitDiff: (path: string) => request<GitDiffResponse>(`/api/git/diff?path=${encodeURIComponent(path)}`),
-  gitStage: (paths: string[]) => request<{ ok: true }>("/api/git/stage", json({ paths })),
-  gitUnstage: (paths: string[]) => request<{ ok: true }>("/api/git/unstage", json({ paths })),
-  gitCommit: (message: string) => request<{ ok: true }>("/api/git/commit", json({ message })),
-
-  // shell quick-fixes
-  history: () => request<HistoryResponse>("/api/history"),
-  killPort: (port: number) => request<{ ok: true }>("/api/fix/kill-port", json({ port })),
-
-  // workflows (user-defined command templates)
-  workflows: () => request<WorkflowListResponse>("/api/workflows"),
-
   // the brain — the modules dashboard surface (/api/zuzuu/*). Mutations are
   // CLI-shelled by the daemon; the client only ever reads + posts intents.
   zuzuu: {
     overview: () => request<ModuleOverviewResponse>("/api/zuzuu/overview"),
     module: (key: string) => request<ModuleDetail>(`/api/zuzuu/module/${key}`),
     generations: (key: string) => request<ModuleGenerationList>(`/api/zuzuu/module/${key}/generations`),
-    generationDiff: (key: string, id: string) =>
-      request<ModuleGenerationDiff>(`/api/zuzuu/module/${key}/generation/${id}`),
     // the daemon route requires { module } in the body (it 400s without it) — the
     // mutation request body isn't in #shared, so this contract is enforced by hand.
     approve: (id: string, module: string) =>
@@ -124,13 +92,6 @@ export const api = {
       request<RejectResult>(`/api/zuzuu/proposals/${id}/reject`, json({ module, reason })),
     rollback: (key: string, id: string) =>
       request<RollbackResult>(`/api/zuzuu/module/${key}/generation/${id}/rollback`, { method: "POST" }),
-    digest: () => request<DigestResponse>("/api/zuzuu/digest"),
-    // session-git (the invisible per-agent-session branch)
-    session: () => request<SessionGitStatus>("/api/zuzuu/session"),
-    sessionMerge: () => request<SessionMergeResult>("/api/zuzuu/session/merge", { method: "POST" }),
-    sessionContinue: () => request<SessionMergeResult>("/api/zuzuu/session/continue", { method: "POST" }),
-    sessionDiscard: () => request<{ ok: boolean }>("/api/zuzuu/session/discard", { method: "POST" }),
-    sessionDiff: (id: string) => request<SessionDiffResponse>(`/api/zuzuu/session-diff/${id}`),
   },
 };
 

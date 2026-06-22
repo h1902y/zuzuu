@@ -1,0 +1,23 @@
+{
+  "id": "prop-c51f45cb",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-specs-thesis-and-risks-md",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: specs/thesis-and-risks.md",
+    "path": "/Users/hkc/Documents/zuzuu/docs/specs/thesis-and-risks.md",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/docs/specs/thesis-and-risks.md` (touched 12× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/docs/specs/thesis-and-risks.md` (touched 12× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 12,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 12,
+  "status": "pending"
+}

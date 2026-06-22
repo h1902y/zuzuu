@@ -1,0 +1,23 @@
+{
+  "id": "prop-6f9ac29b",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-learn-01-mental-model-md",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: learn/01-mental-model.md",
+    "path": "/Users/hkc/Documents/zuzuu/docs/learn/01-mental-model.md",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/docs/learn/01-mental-model.md` (touched 6× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/docs/learn/01-mental-model.md` (touched 6× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 6,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 6,
+  "status": "pending"
+}

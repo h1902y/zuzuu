@@ -1,0 +1,23 @@
+{
+  "id": "prop-f7e976eb",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-module-capability-builtins-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: module/capability-builtins.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/zuzuu/module/capability-builtins.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/module/capability-builtins.mjs` (touched 8× across 6 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/module/capability-builtins.mjs` (touched 8× across 6 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 8,
+      "sessions": 6
+    }
+  ],
+  "confidence": null,
+  "score": 8,
+  "status": "pending"
+}

@@ -1,0 +1,23 @@
+{
+  "id": "prop-5e0d1db0",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-src-index-ts",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: src/index.ts",
+    "path": "/Users/hkc/Documents/zuzuu/web/packages/daemon/src/index.ts",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/daemon/src/index.ts` (touched 21× across 13 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/daemon/src/index.ts` (touched 21× across 13 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 21,
+      "sessions": 13
+    }
+  ],
+  "confidence": null,
+  "score": 21,
+  "status": "pending"
+}

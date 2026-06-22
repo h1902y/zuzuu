@@ -1,0 +1,23 @@
+{
+  "id": "prop-6c4f297e",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-src-safe-path-ts",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: src/safe-path.ts",
+    "path": "/Users/hkc/Documents/zuzuu/web/packages/daemon/src/safe-path.ts",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/daemon/src/safe-path.ts` (touched 9× across 9 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/daemon/src/safe-path.ts` (touched 9× across 9 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 9,
+      "sessions": 9
+    }
+  ],
+  "confidence": null,
+  "score": 9,
+  "status": "pending"
+}

@@ -1,0 +1,23 @@
+{
+  "id": "prop-5a26e89d",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-kit-moduletile-tsx",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: kit/ModuleTile.tsx",
+    "path": "/Users/hkc/Documents/zuzuu/web/packages/web/src/panel/kit/ModuleTile.tsx",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/panel/kit/ModuleTile.tsx` (touched 7× across 5 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/panel/kit/ModuleTile.tsx` (touched 7× across 5 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 7,
+      "sessions": 5
+    }
+  ],
+  "confidence": null,
+  "score": 7,
+  "status": "pending"
+}

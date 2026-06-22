@@ -1,0 +1,23 @@
+{
+  "id": "prop-8ab2d32c",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-use-act-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: use/act.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/src/use/act.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/src/use/act.mjs` (touched 7× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/src/use/act.mjs` (touched 7× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 7,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 7,
+  "status": "pending"
+}

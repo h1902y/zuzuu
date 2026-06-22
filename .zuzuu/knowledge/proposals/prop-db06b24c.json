@@ -1,0 +1,23 @@
+{
+  "id": "prop-db06b24c",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-zuzuu-wiki-roadmap-md",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: zuzuu-wiki/Roadmap.md",
+    "path": "/tmp/zuzuu-wiki/Roadmap.md",
+    "body": "Hot file in this project: `/tmp/zuzuu-wiki/Roadmap.md` (touched 6× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/tmp/zuzuu-wiki/Roadmap.md` (touched 6× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 6,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 6,
+  "status": "pending"
+}

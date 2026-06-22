@@ -1,0 +1,23 @@
+{
+  "id": "prop-722829b6",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-src-server-ts",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: src/server.ts",
+    "path": "/Users/hkc/Documents/webcode/packages/daemon/src/server.ts",
+    "body": "Hot file in this project: `/Users/hkc/Documents/webcode/packages/daemon/src/server.ts` (touched 19× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/webcode/packages/daemon/src/server.ts` (touched 19× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 19,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 19,
+  "status": "pending"
+}

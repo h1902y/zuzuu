@@ -1,0 +1,23 @@
+{
+  "id": "prop-6f90391a",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-zuzuu-package-json",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: zuzuu/package.json",
+    "path": "/Users/hkc/Documents/zuzuu/package.json",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/package.json` (touched 20× across 16 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/package.json` (touched 20× across 16 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 20,
+      "sessions": 16
+    }
+  ],
+  "confidence": null,
+  "score": 20,
+  "status": "pending"
+}

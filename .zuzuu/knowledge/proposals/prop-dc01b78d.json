@@ -1,0 +1,23 @@
+{
+  "id": "prop-dc01b78d",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-app-sidebar-tsx",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: app/Sidebar.tsx",
+    "path": "/Users/hkc/Documents/zuzuu/web/packages/web/src/app/Sidebar.tsx",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/app/Sidebar.tsx` (touched 10× across 5 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/app/Sidebar.tsx` (touched 10× across 5 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 10,
+      "sessions": 5
+    }
+  ],
+  "confidence": null,
+  "score": 10,
+  "status": "pending"
+}

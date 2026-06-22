@@ -1,0 +1,23 @@
+{
+  "id": "prop-b7fba276",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-notes-note-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: notes/note.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/src/notes/note.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/src/notes/note.mjs` (touched 9× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/src/notes/note.mjs` (touched 9× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 9,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 9,
+  "status": "pending"
+}

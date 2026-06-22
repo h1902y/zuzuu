@@ -1,0 +1,23 @@
+{
+  "id": "prop-2b0457c0",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-onboarding-welcomeoverlay-tsx",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: onboarding/WelcomeOverlay.tsx",
+    "path": "/Users/hkc/Documents/zuzuu/web/packages/web/src/onboarding/WelcomeOverlay.tsx",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/onboarding/WelcomeOverlay.tsx` (touched 8× across 5 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/onboarding/WelcomeOverlay.tsx` (touched 8× across 5 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 8,
+      "sessions": 5
+    }
+  ],
+  "confidence": null,
+  "score": 8,
+  "status": "pending"
+}

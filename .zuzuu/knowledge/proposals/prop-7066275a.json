@@ -1,0 +1,23 @@
+{
+  "id": "prop-7066275a",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-state-explorer-ts",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: state/explorer.ts",
+    "path": "/Users/hkc/Documents/webcode/packages/web/src/state/explorer.ts",
+    "body": "Hot file in this project: `/Users/hkc/Documents/webcode/packages/web/src/state/explorer.ts` (touched 20× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/webcode/packages/web/src/state/explorer.ts` (touched 20× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 20,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 20,
+  "status": "pending"
+}

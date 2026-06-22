@@ -1,0 +1,21 @@
+{
+  "id": "prop-7c53c993",
+  "op": "create",
+  "module": "knowledge",
+  "target": "failing-tool-mcp-chrome-devtools-take-scree",
+  "change": {
+    "type": "knowledge",
+    "title": "mcp__chrome-devtools__take_screenshot fails frequently",
+    "body": "Tool `mcp__chrome-devtools__take_screenshot` fails frequently in this project (4 failures observed) — worth investigating why."
+  },
+  "rationale": "Tool `mcp__chrome-devtools__take_screenshot` fails frequently in this project (4 failures observed) — worth investigating why.",
+  "evidence": [
+    {
+      "kind": "fact",
+      "occurrences": 4
+    }
+  ],
+  "confidence": null,
+  "score": 4,
+  "status": "pending"
+}

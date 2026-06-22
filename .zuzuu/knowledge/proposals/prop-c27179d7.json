@@ -1,0 +1,23 @@
+{
+  "id": "prop-c27179d7",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-panel-sessionssection-tsx",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: panel/SessionsSection.tsx",
+    "path": "/Users/hkc/Documents/zuzuu/web/packages/web/src/panel/SessionsSection.tsx",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/panel/SessionsSection.tsx` (touched 8× across 7 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/panel/SessionsSection.tsx` (touched 8× across 7 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 8,
+      "sessions": 7
+    }
+  ],
+  "confidence": null,
+  "score": 8,
+  "status": "pending"
+}

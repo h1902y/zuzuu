@@ -1,0 +1,23 @@
+{
+  "id": "prop-79bc1755",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-zuzuu-gitignore",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: zuzuu/.gitignore",
+    "path": "/Users/hkc/Documents/zuzuu/.gitignore",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/.gitignore` (touched 8× across 2 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/.gitignore` (touched 8× across 2 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 8,
+      "sessions": 2
+    }
+  ],
+  "confidence": null,
+  "score": 8,
+  "status": "pending"
+}

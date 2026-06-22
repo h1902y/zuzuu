@@ -1,0 +1,21 @@
+{
+  "id": "prop-283a5209",
+  "op": "create",
+  "module": "knowledge",
+  "target": "failing-tool-bash",
+  "change": {
+    "type": "knowledge",
+    "title": "bash fails frequently",
+    "body": "Tool `bash` fails frequently in this project (3 failures observed) — worth investigating why."
+  },
+  "rationale": "Tool `bash` fails frequently in this project (3 failures observed) — worth investigating why.",
+  "evidence": [
+    {
+      "kind": "fact",
+      "occurrences": 3
+    }
+  ],
+  "confidence": null,
+  "score": 3,
+  "status": "pending"
+}

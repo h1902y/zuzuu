@@ -10,15 +10,11 @@ import type { ServerType } from "@hono/node-server";
 import { WebSocketServer } from "ws";
 import type {
   CreateSessionRequest,
-  SaveRecordingRequest,
   SessionCloseResult,
   SessionDetail,
   SessionMergeResult,
   WorkspaceInfo,
 } from "#shared/index.js";
-import type { Workflow } from "#shared/index.js";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import { SessionManager, type Session } from "./sessions.js";
 import { AuthGate } from "./auth.js";
 import { createFsApi } from "./fs-api.js";
@@ -27,13 +23,7 @@ import { runZuzuuMut, type ZuzuuMutResult } from "./zuzuu-cli.js";
 import crypto from "node:crypto";
 import { search } from "./search.js";
 import { listFiles } from "./file-list.js";
-import { listWorkflows, saveWorkflow } from "./workflows.js";
-import * as git from "./git.js";
-import { shellHistory } from "./history.js";
 import * as config from "./config.js";
-import { listDirs, mkdirIn } from "./browse.js";
-
-const execFileAsync = promisify(execFile);
 import { handleTermSocket } from "./ws-term.js";
 import { handleFsSocket } from "./ws-fs.js";
 import { PathError, resolveSafe, safeJoin } from "./safe-path.js";
@@ -253,30 +243,6 @@ export class WebcodeServer {
       return ok ? c.json({ ok: true }) : c.json({ error: "no such session" }, 404);
     });
 
-    // Save the session's output ring buffer as an asciicast v2 file INSIDE
-    // the workspace — it shows up in the tree and replays in the preview.
-    app.post("/api/sessions/:id/recording", async (c) => {
-      const session = this.sessions.get(c.req.param("id"));
-      if (!session) return c.json({ error: "no such session" }, 404);
-      let body: SaveRecordingRequest;
-      try {
-        body = await c.req.json<SaveRecordingRequest>();
-      } catch {
-        return c.json({ error: "path required" }, 400);
-      }
-      if (!body.path?.endsWith(".cast")) return c.json({ error: "path must end in .cast" }, 400);
-      let abs: string;
-      try {
-        abs = await resolveSafe(this.root, body.path);
-      } catch (err) {
-        if (err instanceof PathError) return c.json({ error: err.message }, 403);
-        throw err;
-      }
-      await fsp.mkdir(path.dirname(abs), { recursive: true });
-      await fsp.writeFile(abs, session.recording(), "utf8");
-      return c.json({ ok: true, path: body.path, truncated: session.castTruncated });
-    });
-
     app.get("/api/search", async (c) => {
       const query = c.req.query("q") ?? "";
       if (!query) return c.json({ error: "q required" }, 400);
@@ -302,81 +268,7 @@ export class WebcodeServer {
       return c.json(await listFiles(this.root, limit));
     });
 
-    app.get("/api/workflows", async (c) => {
-      return c.json({ workflows: await listWorkflows(this.root) });
-    });
-
-    app.post("/api/workflows", async (c) => {
-      let wf: Workflow;
-      try {
-        wf = await c.req.json<Workflow>();
-      } catch {
-        return c.json({ error: "invalid body" }, 400);
-      }
-      if (!wf.name?.trim() || !wf.command?.trim()) {
-        return c.json({ error: "name and command required" }, 400);
-      }
-      const path = await saveWorkflow(this.root, wf);
-      return c.json({ ok: true, path });
-    });
-
-    // ── git ──────────────────────────────────────────────────────────
-    app.get("/api/git/status", async (c) => c.json(await git.status(this.root)));
-
-    app.get("/api/git/diff", async (c) => {
-      const p = c.req.query("path") ?? "";
-      if (!p) return c.json({ error: "path required" }, 400);
-      return c.json({ original: await git.diffOriginal(this.root, p) });
-    });
-
-    app.post("/api/git/stage", async (c) => {
-      const { paths } = await c.req.json<{ paths: string[] }>();
-      await git.stage(this.root, Array.isArray(paths) ? paths : []);
-      return c.json({ ok: true });
-    });
-
-    app.post("/api/git/unstage", async (c) => {
-      const { paths } = await c.req.json<{ paths: string[] }>();
-      await git.unstage(this.root, Array.isArray(paths) ? paths : []);
-      return c.json({ ok: true });
-    });
-
-    app.post("/api/git/commit", async (c) => {
-      const { message } = await c.req.json<{ message: string }>();
-      if (!message?.trim()) return c.json({ error: "message required" }, 400);
-      try {
-        await git.commit(this.root, message.trim());
-      } catch (err) {
-        return c.json({ error: (err as Error).message }, 400);
-      }
-      return c.json({ ok: true });
-    });
-
-    // ── shell history + quick-fix actions ──────────────────────────────
-    app.get("/api/history", async (c) => c.json({ commands: await shellHistory() }));
-
-    app.post("/api/fix/kill-port", async (c) => {
-      const { port } = await c.req.json<{ port: number }>();
-      if (!Number.isInteger(port) || port < 1 || port > 65535) {
-        return c.json({ error: "invalid port" }, 400);
-      }
-      try {
-        const { stdout } = await execFileAsync("lsof", ["-ti", `tcp:${port}`]);
-        const pids = stdout.split("\n").map((s) => s.trim()).filter(Boolean);
-        for (const pid of pids) {
-          try {
-            process.kill(Number(pid), "SIGTERM");
-          } catch {
-            // already gone
-          }
-        }
-        return c.json({ ok: true, killed: pids.length });
-      } catch {
-        return c.json({ ok: true, killed: 0 }); // nothing listening
-      }
-    });
-
-    // ── health / onboarding / vault picker ─────────────────────────────
+    // ── health + workspace switch ──────────────────────────────────────
     app.get("/api/health", (c) =>
       c.json({
         ok: true,
@@ -387,34 +279,6 @@ export class WebcodeServer {
         name: path.basename(this.root) || this.root,
       }),
     );
-
-    app.get("/api/workspace/config", async (c) => {
-      const conf = await config.load();
-      return c.json({ onboarded: conf.onboarded, recent: conf.recent });
-    });
-
-    app.post("/api/workspace/onboarded", async (c) => {
-      await config.setOnboarded();
-      return c.json({ ok: true });
-    });
-
-    app.get("/api/browse", async (c) => {
-      try {
-        return c.json(await listDirs(c.req.query("path")));
-      } catch (err) {
-        return c.json({ error: (err as Error).message }, 400);
-      }
-    });
-
-    app.post("/api/browse/mkdir", async (c) => {
-      const { parent, name } = await c.req.json<{ parent: string; name: string }>();
-      try {
-        const dir = await mkdirIn(parent, name);
-        return c.json({ ok: true, path: dir });
-      } catch (err) {
-        return c.json({ error: (err as Error).message }, 400);
-      }
-    });
 
     app.post("/api/workspace/switch", async (c) => {
       const { path: target } = await c.req.json<{ path: string }>();

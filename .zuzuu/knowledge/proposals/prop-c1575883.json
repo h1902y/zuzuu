@@ -1,0 +1,23 @@
+{
+  "id": "prop-c1575883",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-zuzuu-claude-md",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: zuzuu/CLAUDE.md",
+    "path": "/Users/hkc/Documents/zuzuu/CLAUDE.md",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/CLAUDE.md` (touched 88× across 4 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/CLAUDE.md` (touched 88× across 4 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 88,
+      "sessions": 4
+    }
+  ],
+  "confidence": null,
+  "score": 88,
+  "status": "pending"
+}

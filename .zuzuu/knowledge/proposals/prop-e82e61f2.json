@@ -1,0 +1,23 @@
+{
+  "id": "prop-e82e61f2",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-src-app-tsx",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: src/App.tsx",
+    "path": "/Users/hkc/Documents/zuzuu/web/packages/web/src/App.tsx",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/App.tsx` (touched 16× across 9 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/App.tsx` (touched 16× across 9 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 16,
+      "sessions": 9
+    }
+  ],
+  "confidence": null,
+  "score": 16,
+  "status": "pending"
+}

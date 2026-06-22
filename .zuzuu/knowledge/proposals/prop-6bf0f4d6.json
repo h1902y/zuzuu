@@ -1,0 +1,23 @@
+{
+  "id": "prop-6bf0f4d6",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-commands-enable-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: commands/enable.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/zuzuu/commands/enable.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/commands/enable.mjs` (touched 10× across 9 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/commands/enable.mjs` (touched 10× across 9 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 10,
+      "sessions": 9
+    }
+  ],
+  "confidence": null,
+  "score": 10,
+  "status": "pending"
+}

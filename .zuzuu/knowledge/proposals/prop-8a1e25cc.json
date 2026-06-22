@@ -1,0 +1,23 @@
+{
+  "id": "prop-8a1e25cc",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-commands-web-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: commands/web.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/zuzuu/commands/web.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/commands/web.mjs` (touched 18× across 13 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/commands/web.mjs` (touched 18× across 13 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 18,
+      "sessions": 13
+    }
+  ],
+  "confidence": null,
+  "score": 18,
+  "status": "pending"
+}

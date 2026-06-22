@@ -1,0 +1,23 @@
+{
+  "id": "prop-80ea7330",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-guardrails-rules-json",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: guardrails/rules.json",
+    "path": "/Users/hkc/Documents/zuzuu/.zuzuu/generations/snapshots/gen_001/guardrails/rules.json",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/.zuzuu/generations/snapshots/gen_001/guardrails/rules.json` (touched 5× across 5 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/.zuzuu/generations/snapshots/gen_001/guardrails/rules.json` (touched 5× across 5 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 5,
+      "sessions": 5
+    }
+  ],
+  "confidence": null,
+  "score": 5,
+  "status": "pending"
+}

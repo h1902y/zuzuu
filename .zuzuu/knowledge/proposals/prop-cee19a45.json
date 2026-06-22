@@ -1,0 +1,23 @@
+{
+  "id": "prop-cee19a45",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-app-active-tab-ts",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: app/active-tab.ts",
+    "path": "/Users/hkc/Documents/zuzuu/web/packages/web/src/app/active-tab.ts",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/app/active-tab.ts` (touched 9× across 3 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/app/active-tab.ts` (touched 9× across 3 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 9,
+      "sessions": 3
+    }
+  ],
+  "confidence": null,
+  "score": 9,
+  "status": "pending"
+}

@@ -1,0 +1,23 @@
+{
+  "id": "prop-c92c2153",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-guardrails-engine-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: guardrails/engine.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/zuzuu/guardrails/engine.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/guardrails/engine.mjs` (touched 5× across 4 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/guardrails/engine.mjs` (touched 5× across 4 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 5,
+      "sessions": 4
+    }
+  ],
+  "confidence": null,
+  "score": 5,
+  "status": "pending"
+}

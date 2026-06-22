@@ -1,0 +1,21 @@
+{
+  "id": "prop-1e5092cb",
+  "op": "create",
+  "module": "knowledge",
+  "target": "failing-tool-structuredoutput",
+  "change": {
+    "type": "knowledge",
+    "title": "StructuredOutput fails frequently",
+    "body": "Tool `StructuredOutput` fails frequently in this project (4 failures observed) — worth investigating why."
+  },
+  "rationale": "Tool `StructuredOutput` fails frequently in this project (4 failures observed) — worth investigating why.",
+  "evidence": [
+    {
+      "kind": "fact",
+      "occurrences": 4
+    }
+  ],
+  "confidence": null,
+  "score": 4,
+  "status": "pending"
+}

@@ -1,0 +1,23 @@
+{
+  "id": "prop-41ce146f",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-module-contract-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: module/contract.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/zuzuu/module/contract.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/module/contract.mjs` (touched 7× across 7 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/module/contract.mjs` (touched 7× across 7 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 7,
+      "sessions": 7
+    }
+  ],
+  "confidence": null,
+  "score": 7,
+  "status": "pending"
+}

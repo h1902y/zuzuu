@@ -1,0 +1,23 @@
+{
+  "id": "prop-fb3494b0",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-term-transcript-tsx",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: term/Transcript.tsx",
+    "path": "/Users/hkc/Documents/zuzuu/web/packages/web/src/term/Transcript.tsx",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/term/Transcript.tsx` (touched 5× across 3 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/term/Transcript.tsx` (touched 5× across 3 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 5,
+      "sessions": 3
+    }
+  ],
+  "confidence": null,
+  "score": 5,
+  "status": "pending"
+}

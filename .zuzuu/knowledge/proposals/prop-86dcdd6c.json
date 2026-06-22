@@ -1,0 +1,23 @@
+{
+  "id": "prop-86dcdd6c",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-sessions-labels-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: sessions/labels.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/zuzuu/sessions/labels.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/sessions/labels.mjs` (touched 6× across 4 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/sessions/labels.mjs` (touched 6× across 4 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 6,
+      "sessions": 4
+    }
+  ],
+  "confidence": null,
+  "score": 6,
+  "status": "pending"
+}

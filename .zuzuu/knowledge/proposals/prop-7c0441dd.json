@@ -1,0 +1,23 @@
+{
+  "id": "prop-7c0441dd",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-commands-module-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: commands/module.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/zuzuu/commands/module.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/commands/module.mjs` (touched 15× across 13 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/commands/module.mjs` (touched 15× across 13 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 15,
+      "sessions": 13
+    }
+  ],
+  "confidence": null,
+  "score": 15,
+  "status": "pending"
+}

@@ -1,0 +1,23 @@
+{
+  "id": "prop-4380ca6b",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-memory-webcode-project-md",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: memory/webcode-project.md",
+    "path": "/Users/hkc/.claude/projects/-Users-hkc-Documents-zuzuu/memory/webcode-project.md",
+    "body": "Hot file in this project: `/Users/hkc/.claude/projects/-Users-hkc-Documents-zuzuu/memory/webcode-project.md` (touched 8× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/.claude/projects/-Users-hkc-Documents-zuzuu/memory/webcode-project.md` (touched 8× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 8,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 8,
+  "status": "pending"
+}

@@ -1,0 +1,23 @@
+{
+  "id": "prop-c869a5aa",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-sessions-git-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: sessions/git.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/zuzuu/sessions/git.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/sessions/git.mjs` (touched 13× across 13 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/sessions/git.mjs` (touched 13× across 13 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 13,
+      "sessions": 13
+    }
+  ],
+  "confidence": null,
+  "score": 13,
+  "status": "pending"
+}

@@ -1,0 +1,23 @@
+{
+  "id": "prop-d49c339f",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-components-actionmenu-tsx",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: components/ActionMenu.tsx",
+    "path": "/Users/hkc/Documents/webcode/packages/web/src/components/ActionMenu.tsx",
+    "body": "Hot file in this project: `/Users/hkc/Documents/webcode/packages/web/src/components/ActionMenu.tsx` (touched 11× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/webcode/packages/web/src/components/ActionMenu.tsx` (touched 11× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 11,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 11,
+  "status": "pending"
+}

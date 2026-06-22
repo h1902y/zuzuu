@@ -1,0 +1,23 @@
+{
+  "id": "prop-6a2ab5eb",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-panel-moduleslist-tsx",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: panel/ModulesList.tsx",
+    "path": "/Users/hkc/Documents/zuzuu/web/packages/web/src/panel/ModulesList.tsx",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/panel/ModulesList.tsx` (touched 9× across 4 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/panel/ModulesList.tsx` (touched 9× across 4 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 9,
+      "sessions": 4
+    }
+  ],
+  "confidence": null,
+  "score": 9,
+  "status": "pending"
+}

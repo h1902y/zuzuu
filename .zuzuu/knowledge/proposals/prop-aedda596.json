@@ -1,0 +1,23 @@
+{
+  "id": "prop-aedda596",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-docs-design-md",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: docs/DESIGN.md",
+    "path": "/Users/hkc/Documents/zuzuu/docs/DESIGN.md",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/docs/DESIGN.md` (touched 20× across 3 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/docs/DESIGN.md` (touched 20× across 3 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 20,
+      "sessions": 3
+    }
+  ],
+  "confidence": null,
+  "score": 20,
+  "status": "pending"
+}

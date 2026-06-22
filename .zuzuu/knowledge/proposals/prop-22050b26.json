@@ -1,0 +1,23 @@
+{
+  "id": "prop-22050b26",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-unit-stack-test-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: unit/stack.test.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/tests/unit/stack.test.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/tests/unit/stack.test.mjs` (touched 12× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/tests/unit/stack.test.mjs` (touched 12× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 12,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 12,
+  "status": "pending"
+}

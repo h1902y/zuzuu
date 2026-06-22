@@ -1,0 +1,23 @@
+{
+  "id": "prop-f49e1424",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-plans-product-vision-discussion-for-eage",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: plans/product-vision-discussion-for-eager-hummingbird.md",
+    "path": "/Users/hkc/.claude/plans/product-vision-discussion-for-eager-hummingbird.md",
+    "body": "Hot file in this project: `/Users/hkc/.claude/plans/product-vision-discussion-for-eager-hummingbird.md` (touched 31× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/.claude/plans/product-vision-discussion-for-eager-hummingbird.md` (touched 31× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 31,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 31,
+  "status": "pending"
+}

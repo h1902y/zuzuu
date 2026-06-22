@@ -1,0 +1,23 @@
+{
+  "id": "prop-9b7a5348",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-state-sessions-ts",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: state/sessions.ts",
+    "path": "/Users/hkc/Documents/webcode/packages/web/src/state/sessions.ts",
+    "body": "Hot file in this project: `/Users/hkc/Documents/webcode/packages/web/src/state/sessions.ts` (touched 5× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/webcode/packages/web/src/state/sessions.ts` (touched 5× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 5,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 5,
+  "status": "pending"
+}

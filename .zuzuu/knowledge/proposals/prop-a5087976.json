@@ -1,0 +1,23 @@
+{
+  "id": "prop-a5087976",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-commands-hook-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: commands/hook.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/zuzuu/commands/hook.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/commands/hook.mjs` (touched 23× across 17 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/commands/hook.mjs` (touched 23× across 17 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 23,
+      "sessions": 17
+    }
+  ],
+  "confidence": null,
+  "score": 23,
+  "status": "pending"
+}

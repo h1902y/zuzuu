@@ -1,0 +1,23 @@
+{
+  "id": "prop-729bc502",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-term-termview-tsx",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: term/TermView.tsx",
+    "path": "/Users/hkc/Documents/zuzuu/web/packages/web/src/term/TermView.tsx",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/term/TermView.tsx` (touched 11× across 4 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/packages/web/src/term/TermView.tsx` (touched 11× across 4 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 11,
+      "sessions": 4
+    }
+  ],
+  "confidence": null,
+  "score": 11,
+  "status": "pending"
+}

@@ -1,0 +1,23 @@
+{
+  "id": "prop-ebee78bf",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-plans-seems-good-can-you-polished-stream",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: plans/seems-good-can-you-polished-stream.md",
+    "path": "/Users/hkc/.claude/plans/seems-good-can-you-polished-stream.md",
+    "body": "Hot file in this project: `/Users/hkc/.claude/plans/seems-good-can-you-polished-stream.md` (touched 9× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/.claude/plans/seems-good-can-you-polished-stream.md` (touched 9× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 9,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 9,
+  "status": "pending"
+}

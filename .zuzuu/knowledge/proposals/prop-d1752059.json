@@ -1,0 +1,23 @@
+{
+  "id": "prop-d1752059",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-module-module-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: module/module.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/zuzuu/module/module.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/module/module.mjs` (touched 8× across 8 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/module/module.mjs` (touched 8× across 8 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 8,
+      "sessions": 8
+    }
+  ],
+  "confidence": null,
+  "score": 8,
+  "status": "pending"
+}

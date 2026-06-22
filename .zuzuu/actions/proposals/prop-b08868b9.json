@@ -1,0 +1,24 @@
+{
+  "id": "prop-b08868b9",
+  "op": "create",
+  "module": "actions",
+  "target": "command-cat-notes-txt",
+  "change": {
+    "type": "action",
+    "title": "Run `cat notes.txt`",
+    "run": "cat notes.txt",
+    "body": "Recurring project command: `cat notes.txt` (used 3× across 3 sessions, failed 2×)."
+  },
+  "rationale": "Recurring project command: `cat notes.txt` (used 3× across 3 sessions, failed 2×).",
+  "evidence": [
+    {
+      "kind": "command",
+      "occurrences": 3,
+      "sessions": 3,
+      "failures": 2
+    }
+  ],
+  "confidence": null,
+  "score": 33,
+  "status": "pending"
+}

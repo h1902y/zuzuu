@@ -1,0 +1,23 @@
+{
+  "id": "prop-2e7aa0e9",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-bin-zuzuu-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: bin/zuzuu.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/bin/zuzuu.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/bin/zuzuu.mjs` (touched 14× across 14 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/bin/zuzuu.mjs` (touched 14× across 14 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 14,
+      "sessions": 14
+    }
+  ],
+  "confidence": null,
+  "score": 14,
+  "status": "pending"
+}

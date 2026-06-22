@@ -1,0 +1,23 @@
+{
+  "id": "prop-a00542aa",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-zuzuu-scaffold-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: zuzuu/scaffold.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/zuzuu/scaffold.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/scaffold.mjs` (touched 19× across 10 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/zuzuu/scaffold.mjs` (touched 19× across 10 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 19,
+      "sessions": 10
+    }
+  ],
+  "confidence": null,
+  "score": 19,
+  "status": "pending"
+}
