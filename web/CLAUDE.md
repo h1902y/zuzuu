@@ -51,17 +51,20 @@ A plain DAG: `shared/` is the only thing both halves import (`shared → server`
   `WEBCODE_HOSTED` gate) run by `bin/zz-web.js`. The hot core is **logic-frozen**
   (port-faithful, the tests pin it): `sessions.ts` (PTY + a headless `@xterm/headless`
   mirror + 128 KB flow control), `ws-term.ts` (binary frames + the ack loop),
-  `safe-path.ts` (the realpath/lstat symlink jail). Plus `fs-api`, `git`, `search`
+  `safe-path.ts` (the realpath/lstat symlink jail). Plus `fs-api`, `search`
   (ripgrep), `ws-fs` (chokidar), `cast` (asciicast), `shell-integration/` (OSC
   133/7 injection), and `zuzuu-cli.ts` — the **only** place the daemon shells the
   `zz` CLI (every brain mutation goes through it; the daemon never imports
-  `src/loop`). `zuzuu-routes.ts` is the modules-dashboard API; the dead v1 routes
-  (whole-brain checkpoints, OTLP session views, eval/inbox) were pruned.
+  `src/loop`). `zuzuu-routes.ts` is the modules-dashboard API. **The surface is
+  trimmed to what the client actually calls** — beyond the v1 dead routes
+  (checkpoints, OTLP session views, eval/inbox), the 2026-06-22 squeeze pruned the
+  ported-but-unused features too: git, workflows, shell-history, vault-browse,
+  recording-capture, and the session-git/digest/diff read surface (~30 routes).
 
 - **`src/client/`** — a fresh, lean Vite + React 19 + Tailwind v4 SPA the daemon
   serves from `dist/web`. `term/` (xterm + WebGL + `connection.ts`, the binary-WS
-  client reusing the ack/flow-control loop + indefinite reconnect + OSC-133 command
-  blocks), `explorer/` (tree + `/ws/fs` + ripgrep), `editor/` (lazy Monaco),
+  client reusing the ack/flow-control loop + indefinite reconnect), `explorer/`
+  (tree + `/ws/fs` + ripgrep), `editor/` (lazy Monaco),
   `panel/` (the right panel — files mode = the editor, modules mode = the five-tile
   brain dashboard with per-module generations + approve/reject), `palette/` (cmdk),
   `preview/` (asciinema CastView), `state/` (zustand + TanStack Query).
@@ -104,7 +107,6 @@ client path into `fs` calls.
 
 - Design tokens: the Tailwind v4 `@theme` block in `src/client/state/index.css`. UI
   primitives live in `src/client/` kit components — compose them.
-- Workflows are user data: JSON in `.zuzuu-web/workflows/*.json` inside the served workspace.
 - Hosted-mode env: `WEBCODE_HOSTED`, `WEBCODE_ROOT`, `WEBCODE_TOKEN`, `WEBCODE_PUBLIC_HOST`, `PORT`.
 - The daemon scans up to 20 ports upward from the default if it's busy.
 - The hot core (`sessions`/`ws-term`/`safe-path`) is touched **minimally** — make it

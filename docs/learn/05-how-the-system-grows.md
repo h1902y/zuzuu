@@ -2,26 +2,24 @@
 
 > This is the part that makes zuzuu more than "files in a folder." The brain *grows* from how you work — and it grows safely, because **nothing is written without your yes.** This page is the loop that does it.
 
-The code is `grow/enhance.mjs` (mine), `propose.mjs` (the queue), `review.mjs` (the gate), and `grow/snapshot.mjs` (versioned, rollback-able state).
+The code is `grow/observe.mjs` (mine), `propose.mjs` (the queue), `review.mjs` (the gate), and `grow/snapshot.mjs` (versioned, rollback-able state).
 
 ## The loop
 
 ```
-observe (session + event log)  →  enhance  →  propose  →  review  →  write + snapshot
-                                   (mine)     (queue)     (you)      (the brain grows)
+observe (mine real sessions)  →  propose  →  review  →  write + snapshot
+        (the producer)           (queue)     (you)      (the brain grows)
 ```
 
-Read it as a sentence: *zuzuu watches what happened, suggests changes, you approve them, and the brain pins a new version.* Every arrow is one small, testable piece.
+Read it as a sentence: *zuzuu watches what happened, suggests changes, you approve them, and the brain pins a new version.* Every arrow is one small, testable piece. The mining half — how `observe` turns a finished session into routed candidates (a recurring command → a runnable action; a hot file → a knowledge entity) — is lesson `06`; this page is the **propose → review → snapshot** half, where a suggestion becomes a versioned write.
 
 ## The feedback edge: the event log
 
-Recall from lesson `04` that a note never records its own outcomes — the *module's log* does. That log (`runs.jsonl`) is what makes growth smart. `enhance` doesn't mine what you *said*; it mines **what actually ran and worked.**
-
-The deterministic signal built today is **co-invocation**: if two actions get run together across several sessions, they're probably related — so `enhance` proposes a `related-to` edge between them, with the evidence (`run together in N sessions`) attached. It only proposes past a **corroboration threshold** (don't act on a single coincidence — the Generative-Agents lesson). Richer signals — a procedure repeated enough to crystallize into an action, a reverted experiment worth remembering as "avoid X" — come from the session *conversation*, which the observe pipeline (lesson `06`) feeds in. The deterministic core stands on its own; the conversation mining plugs into the same proposal pipeline.
+Recall from lesson `04` that a note never records its own outcomes — the *module's log* does. That append-only log (`runs.jsonl` from every `act`, plus the mutation record `review` writes) is the **feedback edge**: the audit trail of what actually ran and what the human approved. `observe` reads what *happened* (the session the host already wrote — lesson `06`), not what you *said*; the log is the durable record that observation and review leave behind.
 
 ## Proposals: staged, never applied
 
-`enhance` never touches the brain. It produces **proposals** — evidence-backed, typed changes (`create`, `update`, `delete`, `relate`, `deprecate`) that sit in a queue (`<module>/proposals/`). A proposal carries its `rationale`, its `evidence` (the exact log events that justify it), a confidence, and a score. They're **ranked by score**, and **deduped** by content — re-proposing the same change does nothing, so the queue doesn't fill with noise.
+`observe` never touches the brain. It produces **proposals** — evidence-backed, typed changes (`create`, `update`, `delete`, `relate`, `deprecate`) that sit in a queue (`<module>/proposals/`). A proposal carries its `rationale`, its `evidence` (what justifies it — a command recurring across sessions, a hot file, corroborated past a **threshold** so a single coincidence never acts), a confidence, and a score. They're **ranked by score**, and **deduped** by content — re-proposing the same change does nothing, so the queue doesn't fill with noise.
 
 This staging is the whole safety story: observation produces *suggestions*, and a suggestion is inert until a human acts on it.
 

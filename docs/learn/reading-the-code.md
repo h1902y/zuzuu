@@ -14,18 +14,18 @@ The bar: a first-time reader can read the whole repo. Not skim — read. That wo
 
 **4. Public surface at the top, helpers below.** Exports first, in the order a caller meets them; private helpers underneath. Interface before machinery.
 
-**5. Names mirror the vocabulary.** The code uses the book's words: `note`, `module`, `project`, `query`, `act`, `enhance`, `review`, `session`. The directories *are* the mental model — `notes/`, `use/`, `grow/`, `guardrails/`, `hosts/`, `sessions/`, `cli/`, `serve/`. If a lesson names a concept, the code spells it the same. No synonyms, no drift.
+**5. Names mirror the vocabulary.** The code uses the book's words: `note`, `module`, `project`, `query`, `act`, `check`, `review`, `session`. The directories *are* the mental model — `notes/`, `use/`, `grow/`, `guardrails/`, `hosts/`, `sessions/`, `cli/`, `serve/`. If a lesson names a concept, the code spells it the same. No synonyms, no drift.
 
 **6. The brain is written in exactly one place.** The tree is filed by concept (not by a strict dependency layer), so it's a plain DAG — no import cycles. The invariant that matters more than any layer diagram:
 
 ```
    use/        grow/                         the rule:
-   query        observe → enhance → propose   only grow/ writes the brain,
+   query        observe → propose             only grow/ writes the brain,
    act          → review → snapshot           and only through review (the gate).
    check        + log (the feedback edge)      use/ only reads and runs.
 ```
 
-`use/` and the rest never mutate your notes; every change to the brain flows through `grow/review.mjs`. (`act` does append a *run* to the git-ignored `runs.jsonl` via `grow/log` — telemetry the loop later mines — but that's not the brain.) Read a verb in `use/` and you know it can't rewrite your notes. An import cycle, or a note-write that skips the gate, is a bug — not a shortcut. (`tests/unit/architecture.test.mjs` pins both.)
+`use/` and the rest never mutate your notes; every change to the brain flows through `grow/review.mjs`. (`act` does append a *run* to the git-ignored `runs.jsonl` via `grow/log` — the append-only feedback record — but that's not the brain.) Read a verb in `use/` and you know it can't rewrite your notes. An import cycle, or a note-write that skips the gate, is a bug — not a shortcut. (`tests/unit/architecture.test.mjs` pins both.)
 
 **7. Tests read as behavior.** A test is named for the behavior it pins, not the function it calls. The suite is executable documentation. When prose and a test disagree, the test wins. Golden values are pasted from real runs, never hand-computed.
 
@@ -35,7 +35,7 @@ Read by concept, in the order the system works:
 
 1. **`notes/`** — the substrate. Start with `note.mjs` (the atom — the envelope), then `store.mjs`, `index.mjs`. Everything builds on these.
 2. **`use/`** — one file per thing you *do* to the brain: `query` (read), `act` (run), `check` (inspect).
-3. **`grow/`** — how the brain *grows*, all in one place: `observe → enhance → propose → review → snapshot`, with `log` as the feedback edge.
+3. **`grow/`** — how the brain *grows*, all in one place: `observe → propose → review → snapshot`, with `log` as the feedback edge.
 4. **`guardrails/` · `hosts/` · `sessions/`** — what's enforced, how a host is observed, and the session-as-git-branch engine.
 5. **`cli/` and `serve/`** — the edges: the `zz` veneer and the `api` façade that ties it together.
 

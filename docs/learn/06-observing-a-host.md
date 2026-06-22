@@ -1,6 +1,6 @@
 # 06 · Observing a host
 
-> Lesson `05` left one arrow unexplained: *observe → enhance*. Where do the signals come from? They come from **watching the host work** — re-reading the transcript the agent already wrote, and turning what recurred into proposals. This is what solves the cold-start: the loop has nothing to enhance from until it has watched real sessions.
+> Lesson `05` showed the loop but left its producer — *observe* — unexplained. Where do the proposals come from? They come from **watching the host work** — re-reading the transcript the agent already wrote, and turning what recurred into proposals. This is what solves the cold-start: the loop has nothing to propose until it has watched real sessions.
 
 The code is `hosts/adapters/claude-code.mjs` (read one host), `hosts/capture.mjs` (host-agnostic core), and `grow/observe.mjs` (signals → proposals).
 
