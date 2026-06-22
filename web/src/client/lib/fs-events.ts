@@ -15,16 +15,32 @@ class FsEvents {
   private listener: ChangeListener | null = null;
   private retries = 0;
   private started = false;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
   start(listener: ChangeListener): void {
     this.listener = listener;
     if (this.started) return;
     this.started = true;
     this.watched.add(""); // root is always visible
+    // Recover like the terminal: indefinite reconnect + wake on network-return /
+    // tab-refocus, so the tree never silently stops updating after a sleep/blip.
+    if (typeof window !== "undefined") window.addEventListener("online", this.wake);
+    if (typeof document !== "undefined") document.addEventListener("visibilitychange", this.wake);
     this.connect();
   }
 
+  private readonly wake = (): void => {
+    if (this.ws && (this.ws.readyState === WebSocket.CONNECTING || this.ws.readyState === WebSocket.OPEN)) return;
+    this.retries = 0; // a wake is a fresh start
+    this.connect();
+  };
+
   private connect(): void {
+    if (this.ws && (this.ws.readyState === WebSocket.CONNECTING || this.ws.readyState === WebSocket.OPEN)) return;
+    if (this.reconnectTimer !== null) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     const ws = new WebSocket(wsUrl("/ws/fs"));
     this.ws = ws;
     ws.onopen = () => {
@@ -41,10 +57,14 @@ class FsEvents {
     };
     ws.onclose = () => {
       this.ws = null;
-      if (this.retries >= 6) return;
+      // Reconnect indefinitely (capped backoff) — never give up, or the tree
+      // goes stale for the rest of the session after a long outage.
       const delay = Math.min(500 * 2 ** this.retries, 8000);
       this.retries += 1;
-      setTimeout(() => this.connect(), delay);
+      this.reconnectTimer = setTimeout(() => {
+        this.reconnectTimer = null;
+        this.connect();
+      }, delay);
     };
   }
 

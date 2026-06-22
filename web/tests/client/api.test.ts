@@ -23,6 +23,20 @@ describe("api client", () => {
     expect(JSON.parse(init!.body as string)).toEqual({ type: "shell" });
   });
 
+  it("approve/reject send the module the daemon route requires (else it 400s)", async () => {
+    const fetchMock = vi.fn(async () => ok({ ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
+    await api.zuzuu.approve("prop-1", "knowledge");
+    let [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("/api/zuzuu/proposals/prop-1/approve");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(init!.body as string)).toEqual({ module: "knowledge" });
+    await api.zuzuu.reject("prop-2", "actions", "noisy");
+    [url, init] = fetchMock.mock.calls[1] as unknown as [string, RequestInit];
+    expect(url).toBe("/api/zuzuu/proposals/prop-2/reject");
+    expect(JSON.parse(init!.body as string)).toEqual({ module: "actions", reason: "noisy" });
+  });
+
   it("maps 401 to a clear ApiError", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 401, json: async () => ({}) }) as Response));
     await expect(api.health()).rejects.toMatchObject({ status: 401 } satisfies Partial<ApiError>);

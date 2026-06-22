@@ -79,6 +79,11 @@ export class TermConnection {
     ws.onopen = () => {
       this.retries = 0;
       this.everOpened = true;
+      // The server resets its inflight counter on every (re)attach (sessions.ts
+      // resetFlow). Reset ours to match, so the post-reconnect ack stream starts
+      // from zero — a stale counter (or acks from the prior socket's late write
+      // callbacks) would otherwise weaken backpressure for one window.
+      this.resetFlow();
       for (const resolve of this.openWaiters.splice(0)) resolve();
       this.events.onStatus("open");
       this.sendResize(this.term.cols, this.term.rows);
@@ -119,6 +124,7 @@ export class TermConnection {
 
     ws.onclose = (ev) => {
       this.ws = null;
+      this.resetFlow(); // drop any pending ack timer + stale counter before reconnecting
       const { retry, delayMs } = reconnectDecision({ retries: this.retries, code: ev.code, closedByUser: this.closedByUser });
       if (!retry) return this.events.onStatus("closed");
       this.retries += 1;
@@ -142,6 +148,16 @@ export class TermConnection {
 
   sendResize(cols: number, rows: number): void {
     this.send(frame(ClientOp.Resize, JSON.stringify({ cols, rows })));
+  }
+
+  /** Zero the flow-control counter + drop the pending ack timer (on (re)connect
+   *  and disconnect) so client accounting can't span a server inflight reset. */
+  private resetFlow(): void {
+    this.unacked = 0;
+    if (this.ackTimer !== null) {
+      clearTimeout(this.ackTimer);
+      this.ackTimer = null;
+    }
   }
 
   private ack(bytes: number): void {

@@ -116,8 +116,12 @@ export const api = {
     generations: (key: string) => request<ModuleGenerationList>(`/api/zuzuu/module/${key}/generations`),
     generationDiff: (key: string, id: string) =>
       request<ModuleGenerationDiff>(`/api/zuzuu/module/${key}/generation/${id}`),
-    approve: (id: string) => request<ApproveResult>(`/api/zuzuu/proposals/${id}/approve`, { method: "POST" }),
-    reject: (id: string) => request<RejectResult>(`/api/zuzuu/proposals/${id}/reject`, { method: "POST" }),
+    // the daemon route requires { module } in the body (it 400s without it) — the
+    // mutation request body isn't in #shared, so this contract is enforced by hand.
+    approve: (id: string, module: string) =>
+      request<ApproveResult>(`/api/zuzuu/proposals/${id}/approve`, json({ module })),
+    reject: (id: string, module: string, reason?: string) =>
+      request<RejectResult>(`/api/zuzuu/proposals/${id}/reject`, json({ module, reason })),
     rollback: (key: string, id: string) =>
       request<RollbackResult>(`/api/zuzuu/module/${key}/generation/${id}/rollback`, { method: "POST" }),
     digest: () => request<DigestResponse>("/api/zuzuu/digest"),

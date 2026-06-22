@@ -30,8 +30,8 @@ export function ModuleView({ module, onBack }: { module: string; onBack: () => v
                 <div className="text-ui text-ink-100">{p.title}</div>
                 {p.preview && <div className="mt-0.5 truncate text-meta text-muted">{p.preview}</div>}
                 <div className="mt-1.5 flex items-center gap-3">
-                  <button onClick={() => after(api.zuzuu.approve(p.id))} className="text-meta text-accent hover:underline">approve</button>
-                  <button onClick={() => after(api.zuzuu.reject(p.id))} className="text-meta text-muted hover:text-danger">reject</button>
+                  <button onClick={() => after(api.zuzuu.approve(p.id, p.module))} className="text-meta text-accent hover:underline">approve</button>
+                  <button onClick={() => after(api.zuzuu.reject(p.id, p.module))} className="text-meta text-muted hover:text-danger">reject</button>
                   {p.confidence && <span className="ml-auto text-meta text-muted">{p.confidence}</span>}
                 </div>
               </div>

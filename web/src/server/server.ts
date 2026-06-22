@@ -443,7 +443,7 @@ export class WebcodeServer {
       if (!st?.isFile()) {
         abs = path.join(cfg.webDist, "index.html");
         st = await fsp.stat(abs).catch(() => null);
-        if (!st) return c.text("web UI not built — run: npm run build -w @zuzuu-web/web", 404);
+        if (!st) return c.text("web UI not built — run: cd web && npm run build (or `npm run build:web` from the repo root)", 404);
       }
       const ext = path.extname(abs).toLowerCase();
       const immutable = rel.startsWith("/assets/");
