@@ -16,7 +16,7 @@ When you type `ls` and see colored output, the bytes travel:
 
 ```
 keystroke (browser xterm.js)
-  → WebSocket binary frame → daemon (server/ws-term.ts)
+  → WebSocket binary frame → daemon (server/term-protocol.ts)
   → write into the PTY master → the shell reads it on stdin
   → bash runs ls, writes to stdout → PTY master → daemon reads
   → WebSocket binary frame → xterm.js renders pixels

@@ -5,7 +5,7 @@
 // the bytes lives BELOW it and is swappable. Today the only implementation is
 // WsTermTransport (a `ws` WebSocket). A future WebTransportTermTransport (HTTP/3
 // + QUIC, for the cloud session waves) implements the same five methods and
-// nothing in sessions.ts / ws-term.ts changes — the irreducibly-custom protocol
+// nothing in sessions.ts / term-protocol.ts changes — the irreducibly-custom protocol
 // stays sealed off from the eventually-standardizable transport.
 //
 // See docs/inspiration/2026-06-23-terminal-standards-adoption.md for why the

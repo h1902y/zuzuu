@@ -2,7 +2,7 @@
 //
 // The terminal socket (`/ws/term/:id`) uses ttyd-style BINARY frames: one
 // opcode byte, then the payload — raw bytes for I/O, UTF-8 JSON for control.
-// This is the universal seam: the server (ws-term) and the client (connection)
+// This is the universal seam: the server (term-protocol) and the client (connection)
 // both encode/decode against exactly these opcodes. Nothing else fits here.
 
 // ── client → server ──────────────────────────────────────────────────────────

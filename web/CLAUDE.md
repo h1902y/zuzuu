@@ -21,7 +21,7 @@ sequence: [`../docs/specs/2026-06-22-workbench-greenfield-rebuild.md`](../docs/s
 ```bash
 npm install
 npm run typecheck            # tsc --noEmit
-npm test                     # vitest run — server + client + e2e (173)
+npm test                     # vitest run — server + client + e2e (137)
 npm test -- pty-roundtrip    # one file by name filter
 npm run dev                  # dev:daemon (tsx, :7770) + dev:client (Vite, :5173 → proxies /api,/ws,/auth)
 npm run build                # tsc(server+shared) + vite(client) → dist/{server,web} → staged into ../web-app/
@@ -50,8 +50,10 @@ A plain DAG: `shared/` is the only thing both halves import (`shared → server`
   bootstrap (port scan, token, singleton instance file, browser open, the
   `WEBCODE_HOSTED` gate) run by `bin/zz-web.js`. The hot core is **logic-frozen**
   (port-faithful, the tests pin it): `sessions.ts` (PTY + a headless `@xterm/headless`
-  mirror + 128 KB flow control), `ws-term.ts` (binary frames + the ack loop),
-  `safe-path.ts` (the realpath/lstat symlink jail). Plus `fs-api`, `search`
+  mirror + 128 KB flow control), `term-protocol.ts` (binary frames + the ack loop),
+  `safe-path.ts` (the realpath/lstat symlink jail), and `transport.ts` (the pluggable
+  `TermTransport` seam — the protocol sits above it, so a future WebTransport slots in
+  below without touching `sessions`/`term-protocol`). Plus `fs-api`, `search`
   (ripgrep), `ws-fs` (chokidar), `cast` (asciicast), `shell-integration/` (OSC
   133/7 injection), and `zuzuu-cli.ts` — the **only** place the daemon shells the
   `zz` CLI (every brain mutation goes through it; the daemon never imports
@@ -113,5 +115,5 @@ client path into `fs` calls.
   primitives live in `src/client/` kit components — compose them.
 - Hosted-mode env: `WEBCODE_HOSTED`, `WEBCODE_ROOT`, `WEBCODE_TOKEN`, `WEBCODE_PUBLIC_HOST`, `PORT`.
 - The daemon scans up to 20 ports upward from the default if it's busy.
-- The hot core (`sessions`/`ws-term`/`safe-path`) is touched **minimally** — make it
+- The hot core (`sessions`/`term-protocol`/`safe-path`) is touched **minimally** — make it
   clearer through comments, never re-derive the flow-control logic.

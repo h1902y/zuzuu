@@ -17,7 +17,7 @@ import { runZuzuuMut, type ZuzuuMutResult } from "./zuzuu-cli.js";
 import { search } from "./search.js";
 import { listFiles } from "./file-list.js";
 import * as config from "./config.js";
-import { attachTerm } from "./ws-term.js";
+import { attachTerm } from "./term-protocol.js";
 import { WsTermTransport } from "./transport.js";
 import { handleFsSocket } from "./ws-fs.js";
 import { PathError, resolveSafe } from "./safe-path.js";
