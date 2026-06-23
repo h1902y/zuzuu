@@ -21,7 +21,8 @@ test('doctor: a fresh init reports healthy with the home + hosts', () => {
     initHome(cwd);
     const r = doctorReport(cwd);
     assert.equal(r.ok, true);
-    assert.ok(r.info.some((i) => i.includes('5 modules')));
+    // a fresh init is an empty brain — only the guardrails safety floor
+    assert.ok(r.info.some((i) => i.includes('1 module')));
     assert.ok(r.info.some((i) => i.startsWith('hooks:')));
   });
 });
@@ -36,9 +37,13 @@ test('doctor: no home → a problem, not healthy', () => {
 
 test('doctor: a broken link surfaces as a warning', async () => {
   const { serialize } = await import('../../src/notes/note.mjs');
-  const { writeFileSync } = await import('node:fs');
+  const { writeFileSync, mkdirSync } = await import('node:fs');
+  const { ensureModuleManifest } = await import('../../src/notes/module-templates.mjs');
   withDir((cwd) => {
     initHome(cwd);
+    // grow a knowledge module on demand (init no longer ships it), then plant a dangling link
+    ensureModuleManifest(join(cwd, '.zuzuu'), 'knowledge');
+    mkdirSync(join(cwd, '.zuzuu', 'knowledge', 'items'), { recursive: true });
     writeFileSync(join(cwd, '.zuzuu', 'knowledge', 'items', 'dangling.md'),
       serialize({ id: 'dangling', type: 'knowledge', title: 'x', relations: { 'related-to': 'knowledge:ghost' } }));
     const r = doctorReport(cwd);

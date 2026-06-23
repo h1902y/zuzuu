@@ -1,11 +1,15 @@
 // src/cli/init.mjs — scaffold a brain into any repo (git-citizen).
 //
-// what: `zz init` — create the `.zuzuu/` home: the five standard modules (each a
-//       module.md envelope + items/ + proposals/), seed guardrail rules, a README,
-//       and the gitignore lines for the ephemeral/derived paths.
-// why:  the one onboarding step. Everything else (query/act/enhance/review) reads
-//       a home; this makes one. It writes envelopes with the note's own
-//       serializer — the home is dogfood from byte one.
+// what: `zz init` — create the `.zuzuu/` home: an EMPTY brain plus the protective
+//       guardrails safety floor (its module.md + seed rules), a README, and the
+//       gitignore lines for the ephemeral/derived paths. No prebuilt content
+//       modules — knowledge/memory/actions/instructions materialize on demand as
+//       the loop grows the brain (their manifests are minted on first proposal;
+//       see src/grow/propose.mjs + src/notes/module-templates.mjs).
+// why:  the one onboarding step. Everything else (query/act/observe/review) reads
+//       a home; this makes one. A fresh repo starts empty (the honest onboarding
+//       state) — only guardrails ship, because protection must hold from byte one.
+//       It writes envelopes with the note's own serializer — dogfood from byte one.
 // how:  git-citizen — resolves the host repo root and plants `.zuzuu/` there;
 //       NEVER `git init`s. Idempotent + brownfield-safe: never clobbers an
 //       existing module.md or rule (additive only). Zero-dep.
@@ -13,21 +17,8 @@
 import { existsSync, mkdirSync, writeFileSync, readFileSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { serialize } from '../notes/note.mjs';
+import { manifestFor } from '../notes/module-templates.mjs';
 import { homeDir, repoRoot } from '../notes/store.mjs';
-
-// The five us-owned modules: id → manifest envelope (type: module).
-const MODULES = [
-  { id: 'knowledge', title: 'Knowledge', note_type: 'knowledge', capabilities: ['query', 'check'],
-    goal: 'Capture durable, reusable facts about this project and its domain.' },
-  { id: 'memory', title: 'Memory', note_type: 'episode', capabilities: ['query', 'check'],
-    goal: 'Remember what happened — episodes, decisions, and their outcomes.' },
-  { id: 'actions', title: 'Actions', note_type: 'action', capabilities: ['query', 'check', 'act'],
-    goal: 'Capture every repeated multi-step procedure as a runnable note.' },
-  { id: 'instructions', title: 'Instructions', note_type: 'instruction', capabilities: ['query', 'check'],
-    goal: "Keep the agent's standing guidance current and minimal." },
-  { id: 'guardrails', title: 'Guardrails', note_type: 'rule', capabilities: ['check'],
-    goal: 'Protect against repeated mistakes — as enforced tool gates.' },
-];
 
 // Seed guardrail rules — the hard-won patterns (harvested verbatim, incl. the
 // no-root-wipe negative-lookahead anchor: the gate matches over JSON.stringify,
@@ -84,16 +75,12 @@ export function initHome(cwd = process.cwd()) {
   ensureDir(home);
   writeOnce(join(home, 'README.md'), HOME_README, 'README.md');
 
-  for (const m of MODULES) {
-    ensureDir(join(home, m.id, 'items'));
-    ensureDir(join(home, m.id, 'proposals'));
-    const manifest = serialize({
-      id: m.id, type: 'module', title: m.title, note_type: m.note_type,
-      capabilities: m.capabilities, enhance: { goal: m.goal },
-    });
-    writeOnce(join(home, m.id, 'module.md'), manifest, `${m.id}/module.md`);
-  }
-
+  // Guardrails only — the protective safety floor. The four content modules are
+  // NOT scaffolded: they grow on demand (the loop mints their manifests on first
+  // proposal). Protection is the exception — it must hold before the first turn.
+  ensureDir(join(home, 'guardrails', 'items'));
+  ensureDir(join(home, 'guardrails', 'proposals'));
+  writeOnce(join(home, 'guardrails', 'module.md'), manifestFor('guardrails'), 'guardrails/module.md');
   for (const r of RULES) {
     writeOnce(join(home, 'guardrails', 'items', `${r.id}.md`), serialize(r), `guardrails/${r.id}`);
   }
