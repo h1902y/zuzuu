@@ -1,4 +1,3 @@
-import os from "node:os";
 import crypto from "node:crypto";
 import pty from "@lydell/node-pty";
 import type { IPty } from "@lydell/node-pty";
@@ -325,40 +324,5 @@ export class Session {
       type: this.type,
       ...(this.host !== undefined ? { host: this.host } : {}),
     };
-  }
-}
-
-export class SessionManager {
-  private readonly sessions = new Map<string, Session>();
-
-  constructor(private readonly defaultCwd: string = os.homedir()) {}
-
-  create(cwd?: string, cols?: number, rows?: number, opts?: SessionSpawnOpts): Session {
-    const session = new Session(cwd ?? this.defaultCwd, this.defaultCwd, cols, rows, () => {}, opts);
-    this.sessions.set(session.id, session);
-    return session;
-  }
-
-  get(id: string): Session | undefined {
-    return this.sessions.get(id);
-  }
-
-  list(): SessionInfo[] {
-    return [...this.sessions.values()]
-      .sort((a, b) => a.createdAt - b.createdAt)
-      .map((s) => s.info());
-  }
-
-  close(id: string): boolean {
-    const session = this.sessions.get(id);
-    if (!session) return false;
-    session.kill();
-    this.sessions.delete(id);
-    return true;
-  }
-
-  shutdown(): void {
-    for (const session of this.sessions.values()) session.kill();
-    this.sessions.clear();
   }
 }

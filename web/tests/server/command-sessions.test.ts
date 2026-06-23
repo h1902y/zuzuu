@@ -16,7 +16,8 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { SessionManager, type Session } from "../../src/server/sessions.js";
+import type { Session } from "../../src/server/sessions.js";
+import { SessionManager } from "../../src/server/session-manager.js";
 import { WebcodeServer, type ServerConfig } from "../../src/server/server.js";
 
 let root: string;

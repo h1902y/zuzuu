@@ -1,6 +1,6 @@
 import os from "node:os";
 import { afterAll, describe, expect, it } from "vitest";
-import { SessionManager } from "../../src/server/sessions.js";
+import { SessionManager } from "../../src/server/session-manager.js";
 
 describe("asciicast recording", () => {
   const manager = new SessionManager(os.tmpdir());
