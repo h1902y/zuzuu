@@ -49,23 +49,28 @@ A plain DAG: `shared/` is the only thing both halves import (`shared → server`
   Entry: `createDaemon()` (`index.ts`) is the testable factory; `cli.ts` is the
   bootstrap (port scan, token, singleton instance file, browser open, the
   `WEBCODE_HOSTED` gate) run by `bin/zz-web.js`. The hot core is **logic-frozen**
-  (port-faithful, the tests pin it): `sessions.ts` (PTY + a headless `@xterm/headless`
-  mirror + 128 KB flow control), `term-protocol.ts` (binary frames + the ack loop),
+  (port-faithful, the tests pin it): `session.ts` (the core state machine — PTY + a
+  headless `@xterm/headless` mirror + 128 KB flow control; its side-concerns split out to
+  `session-cwd.ts`, `session-recording.ts`, and the `session-manager.ts` registry),
+  `term-protocol.ts` (binary frames + the ack loop),
   `safe-path.ts` (the realpath/lstat symlink jail), and `transport.ts` (the pluggable
   `TermTransport` seam — the protocol sits above it, so a future WebTransport slots in
   below without touching `sessions`/`term-protocol`). Plus `fs-api`, `search`
   (ripgrep), `ws-fs` (chokidar), `cast` (asciicast), `shell-integration/` (OSC
   133/7 injection), and `zuzuu-cli.ts` — the **only** place the daemon shells the
   `zz` CLI (every brain mutation goes through it; the daemon never imports
-  `src/loop`). `zuzuu-routes.ts` is the modules-dashboard API. **The surface is
+  `src/loop`). `zuzuu-routes.ts` composes the modules-dashboard API from `zuzuu-read.ts` (GET) ·
+  `zuzuu-write.ts` (CLI-only mutations) · `zuzuu-peek.ts` (the CLI-absent fallback +
+  shared id guards). **The surface is
   trimmed to what the client actually calls** — beyond the v1 dead routes
   (checkpoints, OTLP session views, eval/inbox), the 2026-06-22 squeeze pruned the
   ported-but-unused features too: git, workflows, shell-history, vault-browse,
   recording-capture, and the session-git/digest/diff read surface (~30 routes).
   `server.ts`'s route registration was then decomposed: the `/api/sessions` surface
   (argv validation + the Wave-B worktree orchestration) lives in `sessions-routes.ts`,
-  the SPA static handler in `static.ts`, the shared ripgrep probe in `rg.ts`, and the
-  WS-upgrade auth in `AuthGate.upgradeAllowed()` — `server.ts` is now a table of mounts.
+  the SPA static handler in `static.ts`, the shared ripgrep probe in `rg.ts`, the
+  WS-upgrade auth in `AuthGate.upgradeAllowed()`, and the agent-exit squash-merge
+  orchestration in `agent-close.ts` — `server.ts` is now a table of mounts.
 
 - **`src/client/`** — a fresh, lean Vite + React 19 + Tailwind v4 SPA the daemon
   serves from `dist/web`. `term/` (xterm + WebGL + `connection.ts`, the binary-WS

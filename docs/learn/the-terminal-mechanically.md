@@ -4,7 +4,7 @@
 > you *what* the workbench is and *why it was ported, not rewritten*. This page goes
 > one layer down: the OS and networking primitives the whole thing stands on. Read it
 > when you're about to touch `web/src/shared/opcodes.ts`, `shared/flow.ts`,
-> `server/sessions.ts`, or `client/term/connection.ts` — or whenever "PTY" and
+> `server/session.ts`, or `client/term/connection.ts` — or whenever "PTY" and
 > "opcode" feel like words you nod at rather than know.
 
 Everything here exists to answer one deceptively hard question: **how do you put a
@@ -54,7 +54,7 @@ bash writes to stdout come back out the master. The kernel also carries terminal
 and hands the daemon the master as a Node stream. That's why it's a *native build*
 and a runtime dependency: it calls the OS PTY syscalls directly. It's also the reason
 the daemon **can't be a serverless function** — a PTY is a long-lived OS object with a
-live process attached to it. `server/sessions.ts` owns these masters, keyed by id.
+live process attached to it. `server/session.ts` owns these masters, keyed by id.
 
 ## What flows through it: bytes, some of which are commands
 
