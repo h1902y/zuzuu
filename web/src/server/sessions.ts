@@ -28,14 +28,8 @@ const execFileAsync = promisify(execFile);
 
 const SCROLLBACK = 10_000;
 const CWD_POLL_MS = 2_500;
-/** asciicast ring buffer caps */
-const REC_MAX_BYTES = 2 * 1024 * 1024;
-const REC_MAX_EVENTS = 10_000;
 
-import { castBody, type CastEvent, type CastMark } from "./cast.js";
-
-/** Cap on command-boundary marks kept for the recording (ring; newest win). */
-const REC_MAX_MARKS = 1000;
+import { SessionRecording } from "./session-recording.js";
 
 /** Resolve the live working directory of a process, shell-agnostically. */
 async function processCwd(pid: number): Promise<string | null> {
@@ -141,14 +135,12 @@ export class Session {
   /** true once OSC 7 has reported cwd — the poll fallback then stops */
   private oscCwd = false;
   private readonly tempDir: string | undefined;
-  // asciicast v2 ring buffer ("o" + "r" only — input is never recorded)
-  private readonly castEvents: CastEvent[] = [];
-  private castBytes = 0;
-  castTruncated = false;
-  // Wave D: command-boundary markers (from OSC 133 "C") → asciicast `m` events
-  // so the recording's seek bar gets navigable per-command chapters.
-  private readonly marks: CastMark[] = [];
-  private cmdCount = 0;
+  /** asciicast capture (output/resize ring + OSC 133 marks), composed not inlined */
+  private readonly recorder = new SessionRecording(this.createdAt);
+  /** true once the recording ring buffer has dropped events (preserved public surface) */
+  get castTruncated(): boolean {
+    return this.recorder.truncated;
+  }
 
   constructor(
     readonly cwd: string,
@@ -191,10 +183,7 @@ export class Session {
     // untouched. Returns true (handled); the raw bytes are still recorded +
     // streamed verbatim.
     this.mirror.parser.registerOscHandler(133, (payload) => {
-      if (payload === "C" || payload.startsWith("C;")) {
-        this.marks.push({ t: (Date.now() - this.createdAt) / 1000, label: String(++this.cmdCount) });
-        if (this.marks.length > REC_MAX_MARKS) this.marks.shift();
-      }
+      if (payload === "C" || payload.startsWith("C;")) this.recorder.mark();
       return true;
     });
 
@@ -230,7 +219,7 @@ export class Session {
 
     this.pty.onData((data) => {
       this.mirror.write(data);
-      this.recordEvent("o", data);
+      this.recorder.record("o", data);
       const proc = this.pty.process;
       if (proc && proc !== this.title) {
         this.title = proc;
@@ -337,37 +326,16 @@ export class Session {
     }
   }
 
-  // ── asciicast recording ────────────────────────────────────────────
-
-  private recordEvent(code: "o" | "r", data: string): void {
-    this.castEvents.push([(Date.now() - this.createdAt) / 1000, code, data]);
-    this.castBytes += data.length;
-    while (
-      this.castEvents.length > REC_MAX_EVENTS ||
-      (this.castBytes > REC_MAX_BYTES && this.castEvents.length > 1)
-    ) {
-      const dropped = this.castEvents.shift()!;
-      this.castBytes -= dropped[2].length;
-      this.castTruncated = true;
-    }
-  }
-
-  /** Serialize the buffer as asciicast v2 (NDJSON). */
+  /** Serialize the captured session as asciicast v2 (NDJSON). */
   recording(): string {
-    const header = {
+    return this.recorder.toAsciicast({
       version: 2,
       width: this.pty.cols,
       height: this.pty.rows,
       timestamp: Math.floor(this.createdAt / 1000),
       title: `webcode — ${this.title}`,
       env: { SHELL: process.env.SHELL ?? "", TERM: "xterm-256color" },
-    };
-    const lines = [JSON.stringify(header)];
-    // interleave the command-boundary marks as asciicast `m` events (Wave D)
-    for (const line of castBody(this.castEvents, this.marks)) {
-      lines.push(JSON.stringify(line));
-    }
-    return lines.join("\n") + "\n";
+    });
   }
 
   write(data: string): void {
@@ -379,7 +347,7 @@ export class Session {
     if (cols < 2 || rows < 1 || cols > 1000 || rows > 1000) return;
     this.mirror.resize(cols, rows);
     if (this.alive) this.pty.resize(cols, rows);
-    this.recordEvent("r", `${cols}x${rows}`);
+    this.recorder.record("r", `${cols}x${rows}`);
   }
 
   /** Client reports bytes it has finished rendering. */
