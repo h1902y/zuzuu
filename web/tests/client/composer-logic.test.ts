@@ -1,29 +1,36 @@
 import { describe, it, expect } from "vitest";
-import { bracketedPaste, isReady, QUIET_MS } from "../../src/client/composer/composer-logic.js";
+import { inputFrames, isReady, QUIET_MS, SUBMIT_DELAY_MS } from "../../src/client/composer/composer-logic.js";
 
 const START = "\x1b[200~";
 const END = "\x1b[201~";
 
-describe("bracketedPaste", () => {
-  it("wraps text in bracketed-paste delimiters + a trailing CR", () => {
-    expect(bracketedPaste("hello")).toBe(`${START}hello${END}\r`);
+describe("inputFrames", () => {
+  it("single-line: raw keystrokes as the body, CR as a SEPARATE submit", () => {
+    expect(inputFrames("hello")).toEqual({ body: "hello", submit: "\r" });
   });
 
-  it("preserves newlines INSIDE the brackets (one paste, not line-by-line)", () => {
-    const out = bracketedPaste("a\nb");
-    expect(out).toBe(`${START}a\nb${END}\r`);
-    // exactly one trailing CR — the inner newline is content, never a submit
-    expect(out.endsWith(`b${END}\r`)).toBe(true);
-    expect([...out].filter((c) => c === "\r")).toHaveLength(1);
+  it("multi-line: ONE bracketed-paste block, CR still a separate submit", () => {
+    expect(inputFrames("a\nb")).toEqual({ body: `${START}a\nb${END}`, submit: "\r" });
+  });
+
+  it("the body NEVER carries the submit — that's the whole fix", () => {
+    expect(inputFrames("hi").body).not.toContain("\r");
+    expect([...inputFrames("a\nb").body].filter((c) => c === "\r")).toHaveLength(0);
+    expect(inputFrames("a\nb").submit).toBe("\r");
   });
 
   it("passes content through unchanged (no sanitizing of a literal end-marker)", () => {
-    const tricky = `x${END}y`;
-    expect(bracketedPaste(tricky)).toBe(`${START}${tricky}${END}\r`);
+    const tricky = `x${END}y\nz`; // multi-line → paste-framed
+    expect(inputFrames(tricky).body).toBe(`${START}${tricky}${END}`);
   });
 
-  it("empty string still produces an empty bracketed paste + CR", () => {
-    expect(bracketedPaste("")).toBe(`${START}${END}\r`);
+  it("empty string → empty body + a CR submit", () => {
+    expect(inputFrames("")).toEqual({ body: "", submit: "\r" });
+  });
+
+  it("SUBMIT_DELAY_MS is a small positive settle window", () => {
+    expect(SUBMIT_DELAY_MS).toBeGreaterThan(0);
+    expect(SUBMIT_DELAY_MS).toBeLessThan(500);
   });
 });
 
