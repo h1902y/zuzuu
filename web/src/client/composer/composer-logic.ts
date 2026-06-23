@@ -29,15 +29,24 @@ function pasteBlock(text: string): string {
  *  host TUI's paste / line editor finishes ingesting the body before Enter. */
 export const SUBMIT_DELAY_MS = 60;
 
+/** How a host accepts a turn — the submit key + whether multi-line rides in as a
+ *  bracketed paste. Supplied per-host (composer/host-input.ts); defaulted here so
+ *  callers/tests can omit it (the Claude-verified behavior). */
+export interface InputOpts {
+  submit: string;
+  multilinePaste: boolean;
+}
+export const DEFAULT_INPUT_OPTS: InputOpts = { submit: "\r", multilinePaste: true };
+
 /**
  * Split a message into the two writes a TUI line-editor reliably accepts: the
- * body, then a SEPARATE submit (CR). Single-line bodies go as raw keystrokes;
- * multi-line bodies go as one bracketed-paste block. The body NEVER carries the
- * submit — the caller delivers `submit` after SUBMIT_DELAY_MS.
+ * body, then a SEPARATE submit. Single-line bodies go as raw keystrokes; multi-line
+ * bodies go as one bracketed-paste block (when the host supports it). The body
+ * NEVER carries the submit — the caller delivers `submit` after SUBMIT_DELAY_MS.
  */
-export function inputFrames(text: string): { body: string; submit: string } {
-  const body = text.includes("\n") ? pasteBlock(text) : text;
-  return { body, submit: "\r" };
+export function inputFrames(text: string, opts: InputOpts = DEFAULT_INPUT_OPTS): { body: string; submit: string } {
+  const body = opts.multilinePaste && text.includes("\n") ? pasteBlock(text) : text;
+  return { body, submit: opts.submit };
 }
 
 /** The quiet window after the last PTY output before the agent is considered
