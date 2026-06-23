@@ -1,6 +1,6 @@
 import os from "node:os";
 import { describe, expect, it } from "vitest";
-import { parseOsc7 } from "../../src/server/sessions.js";
+import { parseOsc7 } from "../../src/server/session-cwd.js";
 import { buildInjection } from "../../src/server/shell-integration/inject.js";
 
 describe("parseOsc7", () => {

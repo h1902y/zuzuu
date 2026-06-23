@@ -1,7 +1,5 @@
 import os from "node:os";
 import crypto from "node:crypto";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import pty from "@lydell/node-pty";
 import type { IPty } from "@lydell/node-pty";
 import xtermHeadless from "@xterm/headless";
@@ -16,51 +14,15 @@ import {
   ServerOp,
   FLOW_HIGH_WATER,
   FLOW_LOW_WATER,
-  type CwdPayload,
   type SessionInfo,
   type SessionType,
 } from "#shared/index.js";
 import { encodeFrame } from "./frames.js";
-import { toRel } from "./safe-path.js";
 import { buildInjection, cleanupInjection } from "./shell-integration/inject.js";
-
-const execFileAsync = promisify(execFile);
+import { SessionRecording } from "./session-recording.js";
+import { SessionCwd, parseOsc7 } from "./session-cwd.js";
 
 const SCROLLBACK = 10_000;
-const CWD_POLL_MS = 2_500;
-
-import { SessionRecording } from "./session-recording.js";
-
-/** Resolve the live working directory of a process, shell-agnostically. */
-async function processCwd(pid: number): Promise<string | null> {
-  try {
-    if (process.platform === "linux") {
-      const { stdout } = await execFileAsync("readlink", [`/proc/${pid}/cwd`], { timeout: 1000 });
-      return stdout.trim() || null;
-    }
-    // darwin: -Fn prints "p<pid>" then "n<path>" lines
-    const { stdout } = await execFileAsync(
-      "lsof",
-      ["-a", "-p", String(pid), "-d", "cwd", "-Fn"],
-      { timeout: 2000 },
-    );
-    const line = stdout.split("\n").find((l) => l.startsWith("n"));
-    return line ? line.slice(1) : null;
-  } catch {
-    return null;
-  }
-}
-
-/** Parse an OSC 7 payload `file://host/path` into a decoded absolute path. */
-export function parseOsc7(payload: string): string | null {
-  const m = /^file:\/\/[^/]*(\/.*)$/.exec(payload);
-  if (!m) return null;
-  try {
-    return decodeURIComponent(m[1]!);
-  } catch {
-    return m[1]!;
-  }
-}
 
 function pickShell(): string {
   if (process.platform === "win32") return process.env.COMSPEC ?? "cmd.exe";
@@ -121,8 +83,6 @@ export class Session {
   closeResult: unknown;
   private closeRan = false;
   private closeSettled: Promise<void> = Promise.resolve();
-  /** live working directory of the shell (absolute) */
-  cwdAbs: string;
   private readonly pty: IPty;
   private readonly mirror: HeadlessTerminal;
   private readonly serializer = new SerializeAddon();
@@ -130,10 +90,12 @@ export class Session {
   private inflight = 0;
   private paused = false;
   private exitPayload: string | null = null;
-  private cwdTimer: NodeJS.Timeout | null = null;
-  private cwdPolling = false;
-  /** true once OSC 7 has reported cwd — the poll fallback then stops */
-  private oscCwd = false;
+  /** live cwd tracking (OSC 7 + poll fallback), composed not inlined */
+  private cwdTracker!: SessionCwd;
+  /** live working directory of the shell (absolute) — preserved public surface */
+  get cwdAbs(): string {
+    return this.cwdTracker.current();
+  }
   private readonly tempDir: string | undefined;
   /** asciicast capture (output/resize ring + OSC 133 marks), composed not inlined */
   private readonly recorder = new SessionRecording(this.createdAt);
@@ -152,7 +114,6 @@ export class Session {
   ) {
     this.id = opts.id ?? crypto.randomBytes(8).toString("hex");
     this.usesWorktree = opts.sessionWorktree === true;
-    this.cwdAbs = cwd;
     this.type = opts.type ?? "shell";
     this.host = opts.host;
     const file = opts.command ?? pickShell();
@@ -163,16 +124,7 @@ export class Session {
     // OSC 7: the shell reports its real cwd instantly/exactly; this makes
     // the poll loop a fallback for shells where the hook didn't load.
     this.mirror.parser.registerOscHandler(7, (payload) => {
-      const dir = parseOsc7(payload);
-      if (dir) {
-        this.oscCwd = true;
-        this.stopCwdPolling();
-        if (dir !== this.cwdAbs) {
-          this.cwdAbs = dir;
-          this.send(encodeFrame(ServerOp.Cwd, JSON.stringify(this.cwdPayload())));
-          this.onUpdate();
-        }
-      }
+      this.cwdTracker.onOsc7(parseOsc7(payload));
       return true;
     });
 
@@ -214,6 +166,17 @@ export class Session {
         // by an explicit key rather than fragile cwd correlation. Set for all
         // sessions; agent sessions are the ones the hook actually fires for.
         ZUZUU_PTY_ID: this.id,
+      },
+    });
+
+    this.cwdTracker = new SessionCwd({
+      root: this.root,
+      pid: this.pty.pid,
+      initial: cwd,
+      alive: () => this.alive,
+      onChange: (payload) => {
+        this.send(encodeFrame(ServerOp.Cwd, JSON.stringify(payload)));
+        this.onUpdate();
       },
     });
 
@@ -275,54 +238,18 @@ export class Session {
     this.resetFlow();
     const snapshot = this.serializer.serialize({ scrollback: SCROLLBACK });
     transport.send(encodeFrame(ServerOp.Replay, snapshot));
-    transport.send(encodeFrame(ServerOp.Cwd, JSON.stringify(this.cwdPayload())));
+    transport.send(encodeFrame(ServerOp.Cwd, JSON.stringify(this.cwdTracker.payload())));
     if (!this.alive && this.exitPayload) {
       transport.send(encodeFrame(ServerOp.Exit, this.exitPayload));
     }
-    this.startCwdPolling();
+    this.cwdTracker.start();
   }
 
   detach(transport: TermTransport): void {
     if (this.transport === transport) {
       this.transport = null;
       this.resetFlow();
-      this.stopCwdPolling();
-    }
-  }
-
-  // ── cwd tracking ───────────────────────────────────────────────────
-
-  private cwdPayload(): CwdPayload {
-    const inside =
-      this.cwdAbs === this.root || this.cwdAbs.startsWith(this.root + "/");
-    return inside
-      ? { cwd: toRel(this.root, this.cwdAbs) }
-      : { cwd: this.cwdAbs, outside: true };
-  }
-
-  private startCwdPolling(): void {
-    if (this.cwdTimer || !this.alive || this.oscCwd) return;
-    this.cwdTimer = setInterval(() => {
-      if (this.cwdPolling) return;
-      this.cwdPolling = true;
-      void processCwd(this.pty.pid)
-        .then((dir) => {
-          if (dir && dir !== this.cwdAbs) {
-            this.cwdAbs = dir;
-            this.send(encodeFrame(ServerOp.Cwd, JSON.stringify(this.cwdPayload())));
-            this.onUpdate();
-          }
-        })
-        .finally(() => {
-          this.cwdPolling = false;
-        });
-    }, CWD_POLL_MS);
-  }
-
-  private stopCwdPolling(): void {
-    if (this.cwdTimer) {
-      clearInterval(this.cwdTimer);
-      this.cwdTimer = null;
+      this.cwdTracker.stop();
     }
   }
 
@@ -374,7 +301,7 @@ export class Session {
   }
 
   kill(): void {
-    this.stopCwdPolling();
+    this.cwdTracker.stop();
     this.transport?.close(1000, "session closed");
     this.transport = null;
     if (this.alive) {
