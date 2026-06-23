@@ -21,7 +21,7 @@ Three distinct meanings — keep them straight:
 3. The two connect: an **agent** PTY `Session` exiting drives the squash-merge of its **git-branch** session (`server/agent-close.ts`).
 
 ### `module`
-1. **A zuzuu module** — one of the five us-owned, trace-grown, generation-pinned capability sets: **Knowledge · Memory · Actions · Instructions · Guardrails**. The load-bearing product meaning. (Was **faculty** until the `faculty → module` rename; `faculty` now survives only as intentional history.)
+1. **A zuzuu module** — one of the five us-owned, trace-grown, generation-pinned capability *types*: **Knowledge · Memory · Actions · Instructions · Guardrails**. The load-bearing product meaning. **No prebuilt modules (2026-06-23):** `zz init` ships only **Guardrails** (the safety floor) — the four content modules start empty and **materialize on demand** (their `module.md` minted on first proposal) as the loop grows the brain. The five are the standard *kinds*; only shipping them prebuilt went away. (Was **faculty** until the `faculty → module` rename; `faculty` now survives only as intentional history.)
 2. **A JS module** — an ES module / source file (`import … from "./session-cwd.js"`). The ordinary programming meaning.
 
 ### `host`

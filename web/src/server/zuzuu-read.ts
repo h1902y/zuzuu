@@ -9,8 +9,8 @@ import { Hono } from "hono";
 import { resolveSafe } from "./safe-path.js";
 import { runZuzuu } from "./zuzuu-cli.js";
 import {
-  BUILTIN_MODULES,
   SAFE_SLUG,
+  listModuleDirs,
   moduleEnvelopeItems,
   peekModuleItems,
   proposalSummary,
@@ -31,7 +31,8 @@ export function createZuzuuReadApi(getRoot: () => string, binary?: string): Hono
     const viaCli = await runZuzuu(root, ["module", "overview"], { binary }) as { modules?: unknown[] } | null;
     if (viaCli && Array.isArray(viaCli.modules)) return c.json(viaCli);
     const home = await homeDir(root);
-    const modules = await Promise.all(BUILTIN_MODULES.map(async (id) => {
+    const ids = await listModuleDirs(home); // real dirs on disk, not a hardcoded list
+    const modules = await Promise.all(ids.map(async (id) => {
       const [items, proposals] = await Promise.all([peekModuleItems(home, id), proposalsOf(home, id)]);
       return {
         id,

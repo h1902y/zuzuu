@@ -33,7 +33,7 @@ The verbs read as the sentence the whole system is built around: *you **query** 
 - **Git-citizen.** It resolves the *host* repo root (`git --show-toplevel`) and plants `.zuzuu/` there. It **never** `git init`s — zuzuu lives *inside* your project's history, it doesn't start one. (Lesson `01`.)
 - **Idempotent + brownfield-safe.** It writes each file *once* — a second `init`, or an `init` over an existing home, creates nothing and clobbers nothing (it reports what it skipped). Onboarding an existing project is safe.
 
-It scaffolds the five standard modules — each a `module.md` envelope written with the note serializer (the home is dogfood from byte one), declaring its `capabilities` and `enhance.goal` — plus the seed guardrail rules as real `type: rule` notes (the hard-won `no-root-wipe` negative-lookahead among them, lesson `04`).
+It plants an **empty brain** — only the protective **guardrails** module (its `module.md` envelope written with the note serializer, declaring its `capabilities` and `enhance.goal`) plus the seed guardrail rules as real `type: rule` notes (the hard-won `no-root-wipe` negative-lookahead among them, lesson `04`). **No prebuilt modules (2026-06-23):** the four content modules — knowledge, memory, actions, instructions — are *not* scaffolded; they **materialize on demand** as the loop grows the brain, their `module.md` minted from the standard templates (`src/notes/module-templates.mjs`) the first time `observe` routes a proposal to one (`grow/propose.mjs`). The five remain the standard module *types*; only shipping them prebuilt went away — a fresh repo shows the honest empty state, and guardrails ships because protection must hold from byte one.
 
 ## The whole loop, from the command line
 

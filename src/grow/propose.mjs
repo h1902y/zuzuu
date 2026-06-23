@@ -11,6 +11,7 @@ import { existsSync, readdirSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { readJson, writeJson } from '../notes/store.mjs';
+import { ensureModuleManifest } from '../notes/module-templates.mjs';
 
 const OPS = new Set(['create', 'update', 'delete', 'relate', 'deprecate']);
 const propDir = (home, module) => join(home, module, 'proposals');
@@ -33,6 +34,10 @@ export function createProposal(home, module, p) {
   };
   const file = join(propDir(home, module), `${id}.json`);
   if (existsSync(file)) return { ...record, duplicate: true }; // already pending — don't re-stage
+  // No prebuilt modules: a module materializes when the loop first routes to it.
+  // Mint its manifest (structural — the human gate still governs the ITEMS) so the
+  // grown module is well-formed + enumerable (notes/module.listModules needs it).
+  ensureModuleManifest(home, module);
   writeJson(file, record);
   return record;
 }

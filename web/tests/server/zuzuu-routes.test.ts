@@ -117,6 +117,25 @@ describe("createZuzuuApi overview", () => {
     expect(k.enabled).toBe(true);
     for (const m of body.modules) expect(m.enabled).toBe(true);
   });
+
+  it("GET /overview on an empty brain (no module dirs) degrades to zero modules", async () => {
+    // No prebuilt modules: a fresh repo with no module.md-bearing dirs → empty dashboard.
+    mkdirSync(path.join(root, ".zuzuu"), { recursive: true });
+    const app = createZuzuuApi(() => root, { binary: "definitely-not-a-real-binary-zzz" });
+    const body = await (await app.request("/overview")).json();
+    expect(body.degraded).toBe(true);
+    expect(body.modules).toHaveLength(0);
+  });
+
+  it("GET /overview ignores a dir without a module.md (mirrors listModules)", async () => {
+    fixtureHome(root);
+    // a stray dir with no manifest is not a module
+    mkdirSync(path.join(root, ".zuzuu", "scratch", "items"), { recursive: true });
+    const app = createZuzuuApi(() => root, { binary: "definitely-not-a-real-binary-zzz" });
+    const body = await (await app.request("/overview")).json();
+    expect(body.modules.map((m: { id: string }) => m.id)).not.toContain("scratch");
+    expect(body.modules).toHaveLength(5);
+  });
 });
 
 const post = (app: ReturnType<typeof createZuzuuApi>, p: string, body?: unknown) =>

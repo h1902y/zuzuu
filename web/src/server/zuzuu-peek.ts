@@ -8,10 +8,22 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import { runZuzuu } from "./zuzuu-cli.js";
 
-/** The five built-in module slugs — used ONLY for the CLI-absent degraded fallback
- *  (peek enumerates the home dirs for the known built-ins). N-module routing is
- *  slug-validated, not allowlist-gated. */
-export const BUILTIN_MODULES = ["knowledge", "memory", "actions", "instructions", "guardrails"] as const;
+/** Enumerate the ACTUAL module dirs on disk for the CLI-absent degraded fallback:
+ *  non-dot subdirs of `.zuzuu` that hold a `module.md` (mirrors src/notes/module.mjs
+ *  listModules). No prebuilt modules — an empty brain has only guardrails, so a
+ *  fresh repo degrades to an empty/guardrails-only dashboard, not five empty tiles.
+ *  N-module routing is slug-validated, not allowlist-gated. */
+export async function listModuleDirs(home: string): Promise<string[]> {
+  let entries: import("node:fs").Dirent[];
+  try { entries = await fsp.readdir(home, { withFileTypes: true }); } catch { return []; }
+  const dirs: string[] = [];
+  for (const e of entries) {
+    if (!e.isDirectory() || e.name.startsWith(".")) continue;
+    try { await fsp.access(path.join(home, e.name, "module.md")); dirs.push(e.name); }
+    catch { /* a dir without a module.md is not a module */ }
+  }
+  return dirs.sort();
+}
 
 /** Ids/slugs/generation-ids that may ride into a zuzuu argv. Validated BEFORE any spawn. */
 export const SAFE_ID = /^[a-z0-9][a-z0-9._-]{0,127}$/i;

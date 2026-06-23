@@ -11,6 +11,7 @@ import { run } from '../../src/cli/index.mjs';
 import { initHome } from '../../src/cli/init.mjs';
 import { readManifest } from '../../src/notes/module.mjs';
 import { serialize } from '../../src/notes/note.mjs';
+import { ensureModuleManifest } from '../../src/notes/module-templates.mjs';
 import { resetCapabilities } from '../../src/serve/wire.mjs';
 
 async function withRepo(fn) {
@@ -22,28 +23,35 @@ async function withRepo(fn) {
   finally { rmSync(cwd, { recursive: true, force: true }); resetCapabilities(); }
 }
 const note = (cwd, module, id, note) => {
+  // A real module has a manifest — mint one (from the standard template) so the
+  // note's module is well-formed (e.g. `actions` carries the `act` capability),
+  // matching how the loop grows a module on demand. No prebuilt modules.
+  ensureModuleManifest(join(cwd, '.zuzuu'), module);
   mkdirSync(join(cwd, '.zuzuu', module, 'items'), { recursive: true });
   writeFileSync(join(cwd, '.zuzuu', module, 'items', `${id}.md`), serialize({ id, ...note }));
 };
 
 // ── init ─────────────────────────────────────────────────────────────────────
 
-test('init: scaffolds the five modules + seed rules; idempotent', async () => {
+test('init: scaffolds guardrails only (empty brain) + seed rules; idempotent', async () => {
   await withRepo(({ cwd }) => {
     const r = initHome(cwd);
     assert.equal(r.ok, true);
-    for (const m of ['knowledge', 'memory', 'actions', 'instructions', 'guardrails']) {
-      assert.ok(existsSync(join(cwd, '.zuzuu', m, 'module.md')), `${m}/module.md exists`);
+    // the protective safety floor ships
+    assert.ok(existsSync(join(cwd, '.zuzuu', 'guardrails', 'module.md')), 'guardrails/module.md exists');
+    // the four content modules do NOT — they grow on demand
+    for (const m of ['knowledge', 'memory', 'actions', 'instructions']) {
+      assert.ok(!existsSync(join(cwd, '.zuzuu', m)), `${m} is not prebuilt`);
     }
     assert.ok(existsSync(join(cwd, '.zuzuu', 'guardrails', 'items', 'no-root-wipe.md')), 'seed rule planted');
     // the rule round-trips as a real rule note
     const rule = readFileSync(join(cwd, '.zuzuu', 'guardrails', 'items', 'no-root-wipe.md'), 'utf8');
     assert.match(rule, /type: rule/);
     assert.match(rule, /action: deny/);
-    // idempotent — a second init clobbers nothing
+    // idempotent — a second init clobbers nothing (README + guardrails/module.md + 3 rules)
     const r2 = initHome(cwd);
     assert.equal(r2.created.length, 0);
-    assert.ok(r2.skipped.length >= 9);
+    assert.ok(r2.skipped.length >= 5);
   });
 });
 
@@ -57,11 +65,13 @@ test('init: writes gitignore lines and is git-citizen (no .git created)', async 
 
 // ── router ───────────────────────────────────────────────────────────────────
 
-test('run: init then module list shows the five modules', async () => {
+test('run: a fresh init lists only guardrails (the empty brain)', async () => {
   await withRepo(async ({ io, text }) => {
     assert.equal(await run(['init'], io), 0);
     assert.equal(await run(['module', 'list'], io), 0);
-    for (const m of ['knowledge', 'actions', 'guardrails']) assert.match(text(), new RegExp(m));
+    assert.match(text(), /guardrails/);
+    // no prebuilt content modules — they materialize as the brain grows
+    for (const m of ['knowledge', 'memory', 'actions', 'instructions']) assert.doesNotMatch(text(), new RegExp(m));
   });
 });
 
@@ -118,13 +128,10 @@ test('run: check reports integrity per module; digest summarizes the brain', asy
   });
 });
 
-test('init: every scaffolded module.md round-trips its note_type through readManifest', async () => {
+test('init: the guardrails module.md round-trips its note_type through readManifest', async () => {
   await withRepo(({ cwd }) => {
     initHome(cwd);
     const home = join(cwd, '.zuzuu');
-    const expected = { knowledge: 'knowledge', memory: 'episode', actions: 'action', instructions: 'instruction', guardrails: 'rule' };
-    for (const [m, t] of Object.entries(expected)) {
-      assert.equal(readManifest(home, m).note_type, t, `${m}.module.md note_type survived serialize∘parse`);
-    }
+    assert.equal(readManifest(home, 'guardrails').note_type, 'rule', 'guardrails module.md survived serialize∘parse');
   });
 });
