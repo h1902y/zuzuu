@@ -6,15 +6,7 @@
 
 import { useState } from "react";
 import { IconButton } from "../panel/kit.js";
-
-/** Host coding-agent CLIs an agent session can run (must match the daemon allowlist). */
-const HOSTS: { id: string; label: string }[] = [
-  { id: "claude", label: "Claude Code" },
-  { id: "codex", label: "Codex" },
-  { id: "gemini", label: "Gemini CLI" },
-  { id: "opencode", label: "OpenCode" },
-  { id: "pi", label: "pi" },
-];
+import { HOSTS } from "./hosts.js";
 
 export function SessionTabs({
   sessions,

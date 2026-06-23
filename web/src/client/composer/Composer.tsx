@@ -11,6 +11,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { PromptInput } from "./PromptInput.js";
+import { HostPill } from "./HostPill.js";
 import { bracketedPaste, isReady } from "./composer-logic.js";
 import { getTermConn } from "../term/connections.js";
 import { useSendLog } from "../state/sendlog.js";
@@ -70,6 +71,7 @@ export function Composer({ sessionId }: { sessionId: string }) {
         onSubmit={submit}
         footer={
           <>
+            <HostPill sessionId={sessionId} />
             <span className={`text-meta ${ready ? "text-muted" : "text-accent"}`} aria-live="polite">
               {ready ? "ready" : "working…"}
             </span>
