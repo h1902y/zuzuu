@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { inputFrames, pasteBlock, isReady, QUIET_MS, SUBMIT_DELAY_MS } from "../../src/client/composer/composer-logic.js";
+import { inputFrames, isReady, QUIET_MS, SUBMIT_DELAY_MS } from "../../src/client/composer/composer-logic.js";
 
 const START = "\x1b[200~";
 const END = "\x1b[201~";
@@ -31,13 +31,6 @@ describe("inputFrames", () => {
   it("SUBMIT_DELAY_MS is a small positive settle window", () => {
     expect(SUBMIT_DELAY_MS).toBeGreaterThan(0);
     expect(SUBMIT_DELAY_MS).toBeLessThan(500);
-  });
-});
-
-describe("pasteBlock", () => {
-  it("wraps in bracketed-paste delimiters with NO trailing CR (submit is separate)", () => {
-    expect(pasteBlock("x")).toBe(`${START}x${END}`);
-    expect(pasteBlock("x")).not.toContain("\r");
   });
 });
 

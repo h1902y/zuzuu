@@ -19,8 +19,9 @@ const PASTE_START = "\x1b[200~";
 const PASTE_END = "\x1b[201~";
 
 /** Wrap text as a bracketed-paste block — NO trailing submit (the CR is a
- *  separate, delayed write). Inner newlines ride inside as content. */
-export function pasteBlock(text: string): string {
+ *  separate, delayed write). Inner newlines ride inside as content. Internal to the
+ *  multi-line path of inputFrames; the body never carries the submit. */
+function pasteBlock(text: string): string {
   return PASTE_START + text + PASTE_END;
 }
 
