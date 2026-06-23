@@ -6,15 +6,14 @@ import { Hono } from "hono";
 import { serve } from "@hono/node-server";
 import type { ServerType } from "@hono/node-server";
 import { WebSocketServer } from "ws";
-import type { SessionCloseResult, SessionMergeResult, WorkspaceInfo } from "#shared/index.js";
-import type { Session } from "./session.js";
+import type { WorkspaceInfo } from "#shared/index.js";
 import { SessionManager } from "./session-manager.js";
 import { AuthGate } from "./auth.js";
 import { createFsApi } from "./fs-api.js";
 import { createZuzuuApi } from "./zuzuu-routes.js";
 import { createSessionsApi } from "./sessions-routes.js";
+import { createAgentCloser, type AgentCloser } from "./agent-close.js";
 import { serveStatic } from "./static.js";
-import { runZuzuuMut, type ZuzuuMutResult } from "./zuzuu-cli.js";
 import { search } from "./search.js";
 import { listFiles } from "./file-list.js";
 import * as config from "./config.js";
@@ -59,13 +58,13 @@ export class WebcodeServer {
   private readonly auth: AuthGate;
   private readonly commandAllowlist: Set<string>;
   private server: ServerType | null = null;
-  /** serializes worktree squash-merges so two agents exiting at once don't race
-   *  on the shared main working tree (Wave B concurrency) */
-  private worktreeCloses: Promise<unknown> = Promise.resolve();
+  /** the agent-exit squash-merge orchestration (serializes worktree closes) */
+  private readonly agentCloser: AgentCloser;
 
   constructor(private readonly cfg: ServerConfig) {
     this.root = cfg.root;
     this.commandAllowlist = new Set(cfg.commandAllowlist ?? DEFAULT_COMMAND_ALLOWLIST);
+    this.agentCloser = createAgentCloser(() => this.root, cfg.zuzuuBinary);
     this.sessions = new SessionManager(cfg.root);
     this.auth = new AuthGate({
       port: cfg.port,
@@ -89,37 +88,6 @@ export class WebcodeServer {
     this.sessions = new SessionManager(resolved);
     this.root = resolved;
     await config.addRecent(resolved);
-  }
-
-  /**
-   * Agent PTY exited → squash-merge its invisible session branch back to
-   * main via the zuzuu CLI. Runs in the session's cwd (the repo the agent
-   * worked in). CLI-only, like every zuzuu mutation; absent CLI is recorded,
-   * never fatal. Session.runCloseHook guarantees this runs once per session.
-   */
-  private async closeAgentSession(session: Session): Promise<SessionCloseResult> {
-    // Worktree-backed agents (Wave B): squash-merge via `session worktree close`
-    // run from the MAIN tree (this.root) — the merge checks out the base + folds
-    // the branch there, then removes the worktree. Serialize closes so two agents
-    // exiting at once don't race on the shared main working tree. In-place agents
-    // keep the original `session merge` from their own cwd.
-    if (session.usesWorktree) {
-      const run = this.worktreeCloses.then(() =>
-        runZuzuuMut(this.root, ["session", "worktree", "close", session.id], { binary: this.cfg.zuzuuBinary }),
-      );
-      this.worktreeCloses = run.catch(() => undefined); // never let one failure poison the chain
-      return this.mapCloseResult(await run);
-    }
-    return this.mapCloseResult(
-      await runZuzuuMut(session.cwd, ["session", "merge"], { binary: this.cfg.zuzuuBinary }),
-    );
-  }
-
-  /** Map a CLI mutation result onto the SessionCloseResult envelope. */
-  private mapCloseResult(r: ZuzuuMutResult): SessionCloseResult {
-    if (r.ok) return { ok: true, merge: r.data as SessionMergeResult };
-    if (r.code === "absent") return { cliAbsent: true };
-    return { ok: false, ...(r.stderr !== undefined ? { stderr: r.stderr } : {}), ...(r.data !== undefined ? { refusal: r.data as Record<string, unknown> } : {}) };
   }
 
   // ── HTTP app ───────────────────────────────────────────────────────
@@ -146,7 +114,7 @@ export class WebcodeServer {
       root: () => this.root,
       commandAllowlist: this.commandAllowlist,
       ...(cfg.zuzuuBinary !== undefined ? { zuzuuBinary: cfg.zuzuuBinary } : {}),
-      closeAgentSession: (s) => this.closeAgentSession(s),
+      closeAgentSession: (s) => this.agentCloser.close(s),
     }));
 
     app.get("/api/search", async (c) => {
