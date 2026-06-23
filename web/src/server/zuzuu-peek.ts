@@ -58,10 +58,10 @@ export function peekFrontmatter(text: string): Record<string, string> {
 }
 
 /** CLI-less fallback: degraded envelope items (no payload/body) from disk. */
-export async function peekModuleItems(agent: string, key: string): Promise<Record<string, string>[]> {
+export async function peekModuleItems(home: string, key: string): Promise<Record<string, string>[]> {
   const files: { id: string; file: string }[] = [];
   if (key === "actions") {
-    const base = path.join(agent, "actions");
+    const base = path.join(home, "actions");
     let names: string[] = [];
     try { names = (await fsp.readdir(base)).sort(); } catch { return []; }
     for (const n of names) {
@@ -71,7 +71,7 @@ export async function peekModuleItems(agent: string, key: string): Promise<Recor
   } else {
     const rel = ITEM_DIRS[key];
     if (!rel) return [];
-    const dir = path.join(agent, ...rel);
+    const dir = path.join(home, ...rel);
     let names: string[] = [];
     try { names = (await fsp.readdir(dir)).sort(); } catch { return []; }
     for (const n of names) {
@@ -95,12 +95,12 @@ export interface EnvelopeListing {
 }
 
 /** One module's envelope items: CLI first (full envelopes), peek fallback. */
-export async function moduleEnvelopeItems(root: string, agent: string, key: string, binary?: string): Promise<EnvelopeListing> {
+export async function moduleEnvelopeItems(root: string, home: string, key: string, binary?: string): Promise<EnvelopeListing> {
   const viaCli = await runZuzuu(root, ["module", "items", key], { binary }) as
     { items?: unknown[]; errors?: { file: string; error: string }[] } | null;
   if (viaCli && Array.isArray(viaCli.items))
     return { items: viaCli.items, errors: Array.isArray(viaCli.errors) ? viaCli.errors : [], degraded: false };
-  return { items: await peekModuleItems(agent, key), errors: [], degraded: true };
+  return { items: await peekModuleItems(home, key), errors: [], degraded: true };
 }
 
 /** Read every *.json in a dir into objects; missing dir → [], corrupt file → skipped. */

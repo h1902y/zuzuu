@@ -235,7 +235,9 @@ export class Session {
     }
     this.transport = transport;
     this.resetFlow();
-    const snapshot = this.serializer.serialize({ scrollback: SCROLLBACK });
+    // excludeAltBuffer: a reattach snapshot need not carry the alt-screen (vim/htop)
+    // — the next live frame restores it — so the Replay frame stays small.
+    const snapshot = this.serializer.serialize({ scrollback: SCROLLBACK, excludeAltBuffer: true });
     transport.send(encodeFrame(ServerOp.Replay, snapshot));
     transport.send(encodeFrame(ServerOp.Cwd, JSON.stringify(this.cwdTracker.payload())));
     if (!this.alive && this.exitPayload) {

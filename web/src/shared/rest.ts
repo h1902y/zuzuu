@@ -87,8 +87,6 @@ export type FsServerMessage = {
   path: string;
 };
 
-export interface ApiError { error: string }
-
 // ── Content search (GET /api/search) ──────────────────────────────────────────
 export interface SearchMatch {
   line: number;
