@@ -33,6 +33,7 @@ Each page builds on the last. **✅ written · 🚧 planned** (a page is written
 
 Read any time:
 - [Reading the code](reading-the-code.md) — how the repo is organized, and the rules that keep it navigable.
+- [The terminal, mechanically](the-terminal-mechanically.md) — a deep companion to `09`: what a PTY is, why the wire uses 1-byte opcodes, how flow control and the headless mirror actually work.
 
 ## The discipline
 

@@ -16,7 +16,7 @@ Naming: the project is **zuzuu** (current name; a return to the original concept
 
 ```bash
 npm test                                   # full hermetic suite (node:test, zero deps)
-node --test tests/unit/kernel-item.test.mjs   # a single test file
+node --test tests/unit/note.test.mjs       # a single test file (tests/unit/*.test.mjs)
 node tests/playground/run.mjs 5            # the observe playground (mines real transcripts; skips if none)
 node bin/zuzuu.mjs <cmd>                   # the CLI (or `zz`/`zuzuu` after npm link)
 #   the four verbs:  query · act · check · review [approve|reject]

@@ -63,6 +63,10 @@ Backpressure that's *real* — measured against the renderer, not guessed. The
 ack→pause→resume loop ever breaks, that test hangs. It's the canary for the whole
 engine.
 
+> Going deeper on the OS-level mechanics — what a PTY actually *is*, why escape
+> sequences force binary framing, the watermark hysteresis, and the headless-mirror
+> replay — is its own companion page: [The terminal, mechanically](the-terminal-mechanically.md).
+
 A second subtlety: a PTY **outlives its socket**. The daemon keeps a server-side
 *headless mirror* of the terminal (a real xterm running with no display) so when you
 reload the page, it replays the serialized screen + scrollback, then streams live.
