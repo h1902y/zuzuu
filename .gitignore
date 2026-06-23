@@ -32,3 +32,8 @@ web-app/
 
 # folded workbench build output (Rung 6 stages it to web-app/)
 web/v2/dist/
+
+# zuzuu (ephemeral/derived) — the durable brain (incl. .generations/) travels; these don't
+.zuzuu/.live/
+.zuzuu/.worktrees/
+.zuzuu/.index.db
