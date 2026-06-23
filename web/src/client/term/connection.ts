@@ -38,6 +38,8 @@ export class TermConnection {
   private firstReplayDone = false;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private ackTimer: ReturnType<typeof setTimeout> | null = null;
+  /** additive: composer's output-quiescence signal — never affects flow control */
+  private onActivityCb: (() => void) | null = null;
 
   constructor(
     private readonly sessionId: string,
@@ -97,6 +99,7 @@ export class TermConnection {
         case ServerOp.Output:
           // ack only after xterm has actually rendered — true backpressure
           this.term.write(payload, () => this.ack(payload.length));
+          this.onActivityCb?.(); // additive composer signal; outside the ack/flow loop
           break;
         case ServerOp.Exit:
           this.events.onExit((JSON.parse(decoder.decode(payload)) as { exitCode: number }).exitCode);
@@ -130,6 +133,12 @@ export class TermConnection {
 
   sendResize(cols: number, rows: number): void {
     this.send(frame(ClientOp.Resize, JSON.stringify({ cols, rows })));
+  }
+
+  /** Register (or clear with null) a callback fired on each live output frame —
+   *  the composer's output-quiescence signal. Additive; never touches flow control. */
+  onActivity(cb: (() => void) | null): void {
+    this.onActivityCb = cb;
   }
 
   /** Zero the flow-control counter + drop the pending ack timer (on (re)connect

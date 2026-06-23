@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { bracketedPaste } from "../../src/client/composer/composer-logic.js";
+import { bracketedPaste, isReady, QUIET_MS } from "../../src/client/composer/composer-logic.js";
 
 const START = "\x1b[200~";
 const END = "\x1b[201~";
@@ -24,5 +24,18 @@ describe("bracketedPaste", () => {
 
   it("empty string still produces an empty bracketed paste + CR", () => {
     expect(bracketedPaste("")).toBe(`${START}${END}\r`);
+  });
+});
+
+describe("isReady (output quiescence)", () => {
+  it("is busy just after output, ready once the quiet window passes", () => {
+    expect(isReady(1000, 1000 + 100, 600)).toBe(false); // 100ms after output → busy
+    expect(isReady(1000, 1000 + 600, 600)).toBe(true); // exactly the window → ready
+    expect(isReady(1000, 1000 + 900, 600)).toBe(true);
+  });
+
+  it("defaults to QUIET_MS", () => {
+    expect(isReady(0, QUIET_MS)).toBe(true);
+    expect(isReady(0, QUIET_MS - 1)).toBe(false);
   });
 });

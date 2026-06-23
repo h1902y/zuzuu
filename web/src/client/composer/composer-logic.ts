@@ -13,3 +13,14 @@ const PASTE_END = "\x1b[201~";
 export function bracketedPaste(text: string): string {
   return PASTE_START + text + PASTE_END + "\r";
 }
+
+/** The quiet window after the last PTY output before the agent is considered
+ *  ready for the next turn — the output-quiescence heuristic (there is no protocol
+ *  signal; agent sessions carry no shell-integration markers). */
+export const QUIET_MS = 600;
+
+/** Ready = no PTY output for at least quietMs. The composer queues a send while
+ *  busy and flushes on the busy→ready edge, so we never inject mid-turn. */
+export function isReady(lastOutputAt: number, now: number, quietMs: number = QUIET_MS): boolean {
+  return now - lastOutputAt >= quietMs;
+}
