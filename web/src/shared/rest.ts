@@ -77,17 +77,6 @@ export interface WorkspaceInfo {
   version: string;
 }
 
-// ── Health (GET /api/health) ──────────────────────────────────────────────────
-export interface HealthResponse {
-  ok: true;
-  version: string;
-  uptimeMs: number;
-  /** resident set size in bytes */
-  rss: number;
-  root: string;
-  name: string;
-}
-
 // ── Filesystem-events WS (/ws/fs) — JSON text frames ──────────────────────────
 export type FsClientMessage =
   | { type: "watch"; path: string }

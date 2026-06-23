@@ -7,7 +7,7 @@
 //
 //   opcodes  the binary terminal WS frames (1-byte opcode + payload)
 //   flow     the end-to-end flow-control watermarks (the anti-freeze)
-//   rest     the daemon's JSON REST contract (sessions/fs/git/search/workflows)
+//   rest     the daemon's JSON REST contract (sessions/fs/search/health)
 //   zuzuu    the modules-dashboard contract (the brain surface)
 
 export * from "./opcodes.js";
