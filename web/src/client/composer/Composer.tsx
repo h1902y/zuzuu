@@ -20,7 +20,6 @@ import { PromptInput } from "./PromptInput.js";
 import { HostPill } from "./HostPill.js";
 import { inputFrames, isReady, SUBMIT_DELAY_MS } from "./composer-logic.js";
 import { getTermConn } from "../term/connections.js";
-import { useSendLog } from "../state/sendlog.js";
 
 /** Deliver one message to the session's PTY as a remote keyboard: the body now,
  *  then the submit CR after a settle delay (re-looked-up so a dispose mid-delay is
@@ -35,7 +34,6 @@ function deliverTo(sessionId: string, text: string): void {
 
 export function Composer({ sessionId }: { sessionId: string }) {
   const send = (data: string) => getTermConn(sessionId)?.sendInput(data);
-  const turns = useSendLog((s) => s.turns).filter((t) => t.sessionId === sessionId);
 
   const lastOutputAt = useRef(0); // 0 = no output seen yet → treated as ready
   const queue = useRef<string[]>([]);
@@ -67,52 +65,39 @@ export function Composer({ sessionId }: { sessionId: string }) {
   }, [sessionId]);
 
   const submit = (text: string) => {
-    useSendLog.getState().add(sessionId, text); // the turn shows immediately
+    // The terminal IS the transcript — the host TUI echoes the submitted message,
+    // so the composer renders no echo of its own (no duplicate, no pile-up).
     if (readyNow()) deliverTo(sessionId, text);
     else queue.current.push(text); // hold until the agent is quiet
   };
 
   return (
-    <div className="flex flex-col">
-      {turns.length > 0 && (
-        <div className="max-h-40 overflow-y-auto px-3 pt-2">
-          {turns.map((t) => (
-            <div
-              key={t.id}
-              className="mb-1 ml-auto max-w-[80%] rounded-ui bg-elevated px-3 py-1.5 text-ui text-ink-100"
-            >
-              {t.content}
-            </div>
-          ))}
-        </div>
-      )}
-      <PromptInput
-        onSubmit={submit}
-        autoFocus
-        placeholder={tuiActive ? "Message the agent — this drives its prompt…" : "Message the agent…"}
-        footer={
-          <>
-            <HostPill sessionId={sessionId} />
-            <span className={`text-meta ${ready ? "text-muted" : "text-accent"}`} aria-live="polite">
-              {ready ? "ready" : "working…"}
-            </span>
-            <button
-              onClick={() => send("\x03")}
-              title="interrupt the agent (Ctrl-C)"
-              className="rounded-ui px-2 py-1 text-meta text-muted hover:text-danger"
-            >
-              Stop
-            </button>
-            <button
-              onClick={() => send("\x1b")}
-              title="send Escape"
-              className="rounded-ui px-2 py-1 text-meta text-muted hover:text-subtle"
-            >
-              Esc
-            </button>
-          </>
-        }
-      />
-    </div>
+    <PromptInput
+      onSubmit={submit}
+      autoFocus
+      placeholder={tuiActive ? "Message the agent — this drives its prompt…" : "Message the agent…"}
+      footer={
+        <>
+          <HostPill sessionId={sessionId} />
+          <span className={`text-meta ${ready ? "text-muted" : "text-accent"}`} aria-live="polite">
+            {ready ? "ready" : "working…"}
+          </span>
+          <button
+            onClick={() => send("\x03")}
+            title="interrupt the agent (Ctrl-C)"
+            className="rounded-ui px-2 py-1 text-meta text-muted hover:text-danger"
+          >
+            Stop
+          </button>
+          <button
+            onClick={() => send("\x1b")}
+            title="send Escape"
+            className="rounded-ui px-2 py-1 text-meta text-muted hover:text-subtle"
+          >
+            Esc
+          </button>
+        </>
+      }
+    />
   );
 }

@@ -8,7 +8,6 @@
 import { create } from "zustand";
 import type { SessionInfo } from "#shared/index.js";
 import { api } from "../lib/api.js";
-import { useSendLog } from "./sendlog.js";
 
 export type ConnStatus = "connecting" | "open" | "reconnecting" | "closed";
 
@@ -52,7 +51,6 @@ export const useWorkbench = create<WorkbenchState>((set, get) => ({
 
   close: async (id) => {
     await api.closeSession(id).catch(() => {});
-    useSendLog.getState().clear(id); // drop the closed session's send-log
     set((s) => {
       const sessions = s.sessions.filter((x) => x.id !== id);
       return { sessions, activeId: s.activeId === id ? (sessions[0]?.id ?? null) : s.activeId };
