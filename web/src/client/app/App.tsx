@@ -12,6 +12,7 @@ import { Sidebar } from "./Sidebar.js";
 import { SessionTabs } from "./SessionTabs.js";
 import { Footer } from "./Footer.js";
 import { RightPanel } from "../panel/RightPanel.js";
+import { Composer } from "../composer/Composer.js";
 import { Palette } from "../palette/Palette.js";
 import { api } from "../lib/api.js";
 import { useWorkbench } from "../state/store.js";
@@ -45,10 +46,17 @@ export function App() {
         </aside>
 
         <main className="flex min-w-0 flex-1 flex-col">
-          <SessionTabs sessions={sessions} activeId={activeId} onSelect={setActive} onClose={close} onNew={() => open("shell")} />
-          <div className="min-h-0 flex-1">
+          <SessionTabs sessions={sessions} activeId={activeId} onSelect={setActive} onClose={close} onNewSession={(type, host) => open(type, host)} />
+          <div className="flex min-h-0 flex-1 flex-col">
             {activeId ? (
-              <TermView key={activeId} sessionId={activeId} />
+              <>
+                <div className="min-h-0 flex-1">
+                  <TermView key={activeId} sessionId={activeId} />
+                </div>
+                {sessions.find((s) => s.id === activeId)?.type === "agent" && (
+                  <Composer key={activeId} sessionId={activeId} />
+                )}
+              </>
             ) : (
               <div className="grid h-full place-items-center text-muted">no session — press +</div>
             )}

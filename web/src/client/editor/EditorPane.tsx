@@ -1,11 +1,12 @@
 // src/client/editor/EditorPane.tsx — the Monaco file editor (files mode).
 //
-// Open a file → read it (/api/fs/download) → edit → save (⌘S or the button,
+// Open a file → read it (/api/fs/download) → edit → save (the button,
 // /api/fs/write). Lazy-loaded by RightPanel so Monaco + its workers stay out of
-// the main bundle. Default export = the lazy boundary.
+// the main bundle. Default export = the lazy boundary. (The ⌘S keyboard shortcut
+// was removed pending the omnibar + keyboard-support rebuild.)
 
 import { useEffect, useRef, useState } from "react";
-import { Editor, type OnMount } from "@monaco-editor/react";
+import { Editor } from "@monaco-editor/react";
 import { api } from "../lib/api.js";
 import { PanelHeader, IconButton } from "../panel/kit.js";
 import { ensureTheme, monacoLanguage } from "./monaco-setup.js";
@@ -39,10 +40,6 @@ export default function EditorPane({ path, onClose }: { path: string; onClose: (
     finally { setSaving(false); }
   };
 
-  const onMount: OnMount = (editor, monaco) => {
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => void save());
-  };
-
   return (
     <div className="flex h-full flex-col">
       <PanelHeader
@@ -58,7 +55,7 @@ export default function EditorPane({ path, onClose }: { path: string; onClose: (
               disabled={!dirty || saving}
               className="text-meta text-muted hover:text-subtle disabled:opacity-40"
             >
-              {saving ? "saving…" : "save ⌘S"}
+              {saving ? "saving…" : "save"}
             </button>
             <IconButton label="close" onClick={onClose}>✕</IconButton>
           </>
@@ -73,7 +70,6 @@ export default function EditorPane({ path, onClose }: { path: string; onClose: (
             language={monacoLanguage(name)}
             defaultValue={loaded}
             path={path}
-            onMount={onMount}
             onChange={(v) => { draft.current = v ?? ""; setDirty((v ?? "") !== loaded); }}
             options={{
               fontSize: 13, minimap: { enabled: false }, scrollBeyondLastLine: false,

@@ -25,7 +25,10 @@ export default defineConfig({
     proxy: {
       "/api": "http://127.0.0.1:7770",
       "/auth": "http://127.0.0.1:7770",
-      "/ws": { target: "ws://127.0.0.1:7770", ws: true },
+      // changeOrigin so the upgrade reaches the daemon with Host=127.0.0.1:7770
+      // (its Host allowlist rejects localhost:5173) — matching the /api rewrite,
+      // else the terminal WS 403s and the footer shows "reconnecting".
+      "/ws": { target: "ws://127.0.0.1:7770", ws: true, changeOrigin: true },
     },
   },
 });

@@ -8,6 +8,7 @@
 import { create } from "zustand";
 import type { SessionInfo } from "#shared/index.js";
 import { api } from "../lib/api.js";
+import { useSendLog } from "./sendlog.js";
 
 export type ConnStatus = "connecting" | "open" | "reconnecting" | "closed";
 
@@ -17,8 +18,8 @@ interface WorkbenchState {
   status: ConnStatus;
 
   refresh: () => Promise<void>;
-  /** Create a shell (or agent) session and make it active. */
-  open: (type?: "shell" | "agent") => Promise<SessionInfo | null>;
+  /** Create a shell, or an agent session running a host CLI, and make it active. */
+  open: (type?: "shell" | "agent", host?: string) => Promise<SessionInfo | null>;
   setActive: (id: string) => void;
   close: (id: string) => Promise<void>;
   setStatus: (status: ConnStatus) => void;
@@ -38,8 +39,11 @@ export const useWorkbench = create<WorkbenchState>((set, get) => ({
     }));
   },
 
-  open: async (type = "shell") => {
-    const created = await api.createSession({ type }).catch(() => null);
+  open: async (type = "shell", host) => {
+    // an agent session runs the host CLI directly on the PTY (argv, no shell);
+    // the daemon allowlists the command and gives it its own git worktree.
+    const body = type === "agent" && host ? { type, command: host, host } : { type };
+    const created = await api.createSession(body).catch(() => null);
     if (created) set((s) => ({ sessions: [...s.sessions, created], activeId: created.id }));
     return created;
   },
@@ -48,6 +52,7 @@ export const useWorkbench = create<WorkbenchState>((set, get) => ({
 
   close: async (id) => {
     await api.closeSession(id).catch(() => {});
+    useSendLog.getState().clear(id); // drop the closed session's send-log
     set((s) => {
       const sessions = s.sessions.filter((x) => x.id !== id);
       return { sessions, activeId: s.activeId === id ? (sessions[0]?.id ?? null) : s.activeId };
