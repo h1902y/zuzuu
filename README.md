@@ -33,7 +33,7 @@ You **query** what's true, **act** on what's runnable, **check** integrity; zuzu
 ```bash
 npm install -g @zuzuucodes/cli
 
-zz init                      # scaffold .zuzuu/ into this repo (git-style, hidden like .git)
+zz init                      # plant an empty .zuzuu/ brain into this repo (git-style, hidden like .git) — only the guardrails safety floor; modules grow on demand
 zz enable                    # wire the lifecycle hooks + the enforced guardrails gate
 
 # … now use your coding agent normally. zuzuu watches. Then:

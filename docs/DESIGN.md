@@ -69,7 +69,7 @@ The organizing principle: for any primitive, ask whether it is part of what the 
 
 ### ① The Agent — what it *is* (the 5 + 3 anatomy)
 
-> **Revised 2026-06-10** (was "7 faculties, 4 us / 3 host"). Two fixes: **Instructions** promoted to a module (the pinned `system_prompt`/steering artifact always behaved like one — us-owned, evolving, pinned — but had no name), and the host trio stopped being called "faculties" (a process, an engine, and an arena aren't faculties of the agent). Operational definition of a module: **us-owned · contents accumulate from traces · graduate via proposals · pinned in generations · served to the host.** *(These five were called "faculties" until the later faculty→module rename — see the Terminology note up top.)*
+> **Revised 2026-06-10** (was "7 faculties, 4 us / 3 host"). Two fixes: **Instructions** promoted to a module (the pinned `system_prompt`/steering artifact always behaved like one — us-owned, evolving, pinned — but had no name), and the host trio stopped being called "faculties" (a process, an engine, and an arena aren't faculties of the agent). Operational definition of a module: **us-owned · contents accumulate from traces · graduate via proposals · pinned in generations · served to the host.** *(These five were called "faculties" until the later faculty→module rename — see the Terminology note up top.)* **No prebuilt modules (2026-06-23):** the five are the standard module *types*, but `zz init` ships only the **Guardrails** safety floor — the four content modules start empty and materialize on demand (their manifest minted on first proposal) as the loop grows the brain. Shipping-prebuilt went away; the types and their operational definition stand.
 
 **Five modules (ours):**
 
