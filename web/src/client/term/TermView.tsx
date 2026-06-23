@@ -12,6 +12,7 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { ClipboardAddon } from "@xterm/addon-clipboard";
 import { TermConnection } from "./connection.js";
+import { registerTermConn, unregisterTermConn } from "./connections.js";
 import { useWorkbench } from "../state/store.js";
 
 const FONT_FAMILY = '"JetBrains Mono Variable", ui-monospace, Menlo, monospace';
@@ -83,10 +84,12 @@ export function TermView({ sessionId }: { sessionId: string }) {
     ro.observe(host);
 
     conn.connect();
+    registerTermConn(sessionId, conn); // so the composer can send to this session's PTY
     term.focus();
 
     return () => {
       webglDisposed = true;
+      unregisterTermConn(sessionId);
       ro.disconnect();
       inputSub.dispose();
       conn.dispose();
