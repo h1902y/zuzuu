@@ -17,7 +17,8 @@ import { runZuzuuMut, type ZuzuuMutResult } from "./zuzuu-cli.js";
 import { search } from "./search.js";
 import { listFiles } from "./file-list.js";
 import * as config from "./config.js";
-import { handleTermSocket } from "./ws-term.js";
+import { attachTerm } from "./ws-term.js";
+import { WsTermTransport } from "./transport.js";
 import { handleFsSocket } from "./ws-fs.js";
 import { PathError, resolveSafe } from "./safe-path.js";
 
@@ -228,7 +229,7 @@ export class WebcodeServer {
       if (termMatch) {
         const session = this.sessions.get(termMatch[1]!);
         if (!session) return reject(404, "Not Found");
-        wss.handleUpgrade(req, socket, head, (ws) => handleTermSocket(ws, session));
+        wss.handleUpgrade(req, socket, head, (ws) => attachTerm(new WsTermTransport(ws), session));
         return;
       }
       if (url.pathname === "/ws/fs") {

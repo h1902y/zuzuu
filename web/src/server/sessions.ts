@@ -11,7 +11,7 @@ import type { Terminal as HeadlessTerminal } from "@xterm/headless";
 // Both packages are CJS bundles without ESM named exports.
 const { Terminal } = xtermHeadless;
 const { SerializeAddon } = addonSerialize;
-import type { WebSocket } from "ws";
+import type { TermTransport } from "./transport.js";
 import {
   ServerOp,
   FLOW_HIGH_WATER,
@@ -132,7 +132,7 @@ export class Session {
   private readonly pty: IPty;
   private readonly mirror: HeadlessTerminal;
   private readonly serializer = new SerializeAddon();
-  private socket: WebSocket | null = null;
+  private transport: TermTransport | null = null;
   private inflight = 0;
   private paused = false;
   private exitPayload: string | null = null;
@@ -237,7 +237,7 @@ export class Session {
         this.send(encodeFrame(ServerOp.Title, JSON.stringify({ title: this.title })));
         this.onUpdate();
       }
-      if (this.socket) {
+      if (this.transport) {
         const frame = encodeFrame(ServerOp.Output, Buffer.from(data, "utf8"));
         this.inflight += frame.length - 1;
         this.send(frame);
@@ -278,24 +278,24 @@ export class Session {
   }
 
   /** Single-attachment model: a new client takes over the session. */
-  attach(ws: WebSocket): void {
-    if (this.socket && this.socket !== ws) {
-      this.socket.close(4000, "session attached elsewhere");
+  attach(transport: TermTransport): void {
+    if (this.transport && this.transport !== transport) {
+      this.transport.close(4000, "session attached elsewhere");
     }
-    this.socket = ws;
+    this.transport = transport;
     this.resetFlow();
     const snapshot = this.serializer.serialize({ scrollback: SCROLLBACK });
-    ws.send(encodeFrame(ServerOp.Replay, snapshot));
-    ws.send(encodeFrame(ServerOp.Cwd, JSON.stringify(this.cwdPayload())));
+    transport.send(encodeFrame(ServerOp.Replay, snapshot));
+    transport.send(encodeFrame(ServerOp.Cwd, JSON.stringify(this.cwdPayload())));
     if (!this.alive && this.exitPayload) {
-      ws.send(encodeFrame(ServerOp.Exit, this.exitPayload));
+      transport.send(encodeFrame(ServerOp.Exit, this.exitPayload));
     }
     this.startCwdPolling();
   }
 
-  detach(ws: WebSocket): void {
-    if (this.socket === ws) {
-      this.socket = null;
+  detach(transport: TermTransport): void {
+    if (this.transport === transport) {
+      this.transport = null;
       this.resetFlow();
       this.stopCwdPolling();
     }
@@ -402,15 +402,13 @@ export class Session {
   }
 
   private send(frame: Buffer): void {
-    if (this.socket && this.socket.readyState === this.socket.OPEN) {
-      this.socket.send(frame);
-    }
+    if (this.transport?.isOpen) this.transport.send(frame);
   }
 
   kill(): void {
     this.stopCwdPolling();
-    this.socket?.close(1000, "session closed");
-    this.socket = null;
+    this.transport?.close(1000, "session closed");
+    this.transport = null;
     if (this.alive) {
       try {
         this.pty.kill();
