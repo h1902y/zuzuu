@@ -46,13 +46,24 @@ A directory of **envelopes** (markdown + frontmatter), grown from how you work a
 each \`items/<id>.md\` is a *note* — one fact, optionally runnable.
 
 - **query** what's known · **act** on a runnable note · **check** integrity
-- zuzuu **observes** your sessions and **enhances** — proposing changes you **review**
+- zuzuu **observes** your sessions and **proposes** changes you **review**
 
-Tracked files are the durable brain (plain text, versioned). \`.live/\` and
-\`.generations/.store/\` are local/derived. Inspect everything with \`zz\`.
+Tracked files are the durable brain (plain text, versioned) — **including
+\`.generations/\`** (each module's lineage + the \`.store/\` content blobs that
+\`rollback\` restores note bytes from), so the brain round-trips across machines.
+Only \`.live/\`, \`.worktrees/\`, and \`.index.db\` are machine-local/derived
+(gitignored). Inspect everything with \`zz\`.
 `;
 
-const IGNORE_LINES = ['.zuzuu/.live/', '.zuzuu/**/.index.db'];
+// What must NOT travel in git — ephemeral or machine-derived. EVERYTHING else is
+// committed, INCLUDING `.generations/` (per-module lineage + the `.store/` content
+// blobs): `rollback` restores note bytes from those blobs, so they must be present
+// on every machine or rollback breaks after a clone/sync. Keep this list explicit.
+const IGNORE_LINES = [
+  '.zuzuu/.live/',        // runtime digest + live signals — regenerated each session
+  '.zuzuu/.worktrees/',   // per-session git worktrees — machine-local, ephemeral
+  '.zuzuu/.index.db',     // the node:sqlite query cache — rebuilt from the notes on staleness
+];
 
 /**
  * Scaffold the home. Idempotent + brownfield-safe (never clobbers).
