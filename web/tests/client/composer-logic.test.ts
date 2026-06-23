@@ -32,6 +32,14 @@ describe("inputFrames", () => {
     expect(SUBMIT_DELAY_MS).toBeGreaterThan(0);
     expect(SUBMIT_DELAY_MS).toBeLessThan(500);
   });
+
+  it("honors a host profile's submit key", () => {
+    expect(inputFrames("hi", { submit: "\n", multilinePaste: true })).toEqual({ body: "hi", submit: "\n" });
+  });
+
+  it("multilinePaste:false sends a multi-line body raw (no paste framing)", () => {
+    expect(inputFrames("a\nb", { submit: "\r", multilinePaste: false })).toEqual({ body: "a\nb", submit: "\r" });
+  });
 });
 
 describe("isReady (output quiescence)", () => {
