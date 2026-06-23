@@ -51,7 +51,7 @@ confuses a megabyte of `cat` output with a control message.
 The hard part is **flow control**, and it's worth understanding because it's the one
 place a naive terminal falls over. Run `yes` and the PTY emits megabytes a second.
 If the daemon just forwards every byte, the browser's render queue backs up and the
-tab freezes. So (`shared/flow.ts` + `server/sessions.ts` + `client/term/connection.ts`):
+tab freezes. So (`shared/flow.ts` + `server/session.ts` + `client/term/connection.ts`):
 
 1. The daemon counts bytes **sent but not yet acknowledged**.
 2. The browser sends an `Ack` only **after xterm has actually rendered** the bytes.
@@ -62,6 +62,10 @@ Backpressure that's *real* — measured against the renderer, not guessed. The
 `tests/e2e` flood test floods past 128 KB and asserts it all arrives: if the
 ack→pause→resume loop ever breaks, that test hangs. It's the canary for the whole
 engine.
+
+> Going deeper on the OS-level mechanics — what a PTY actually *is*, why escape
+> sequences force binary framing, the watermark hysteresis, and the headless-mirror
+> replay — is its own companion page: [The terminal, mechanically](the-terminal-mechanically.md).
 
 A second subtlety: a PTY **outlives its socket**. The daemon keeps a server-side
 *headless mirror* of the terminal (a real xterm running with no display) so when you
@@ -77,7 +81,7 @@ Here's the lesson in restraint. The rebuild's real goal was the same as the kern
 scratch." For the SPA — 18,100 lines of React — that was exactly right: it was
 rebuilt fresh and came back at **1,693 lines** for the same core. ~91% was bloat.
 
-But the daemon's hot core (`sessions.ts`, `ws-term.ts`, `safe-path.ts`) encodes
+But the daemon's hot core (`session.ts`, `term-protocol.ts`, `safe-path.ts`) encodes
 *hard-won, non-obvious edge cases* — the flow-control watermarks, the mirror replay,
 the symlink jail. Rewriting that from memory re-discovers every one of those bugs the
 hard way. So it was **ported**: the logic frozen, the imports rewritten to `#shared`,

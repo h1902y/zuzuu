@@ -1,7 +1,4 @@
-import os from "node:os";
 import crypto from "node:crypto";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import pty from "@lydell/node-pty";
 import type { IPty } from "@lydell/node-pty";
 import xtermHeadless from "@xterm/headless";
@@ -11,62 +8,20 @@ import type { Terminal as HeadlessTerminal } from "@xterm/headless";
 // Both packages are CJS bundles without ESM named exports.
 const { Terminal } = xtermHeadless;
 const { SerializeAddon } = addonSerialize;
-import type { WebSocket } from "ws";
+import type { TermTransport } from "./transport.js";
 import {
   ServerOp,
   FLOW_HIGH_WATER,
   FLOW_LOW_WATER,
-  type CwdPayload,
   type SessionInfo,
   type SessionType,
 } from "#shared/index.js";
 import { encodeFrame } from "./frames.js";
-import { toRel } from "./safe-path.js";
 import { buildInjection, cleanupInjection } from "./shell-integration/inject.js";
-
-const execFileAsync = promisify(execFile);
+import { SessionRecording } from "./session-recording.js";
+import { SessionCwd, parseOsc7 } from "./session-cwd.js";
 
 const SCROLLBACK = 10_000;
-const CWD_POLL_MS = 2_500;
-/** asciicast ring buffer caps */
-const REC_MAX_BYTES = 2 * 1024 * 1024;
-const REC_MAX_EVENTS = 10_000;
-
-import { castBody, type CastEvent, type CastMark } from "./cast.js";
-
-/** Cap on command-boundary marks kept for the recording (ring; newest win). */
-const REC_MAX_MARKS = 1000;
-
-/** Resolve the live working directory of a process, shell-agnostically. */
-async function processCwd(pid: number): Promise<string | null> {
-  try {
-    if (process.platform === "linux") {
-      const { stdout } = await execFileAsync("readlink", [`/proc/${pid}/cwd`], { timeout: 1000 });
-      return stdout.trim() || null;
-    }
-    // darwin: -Fn prints "p<pid>" then "n<path>" lines
-    const { stdout } = await execFileAsync(
-      "lsof",
-      ["-a", "-p", String(pid), "-d", "cwd", "-Fn"],
-      { timeout: 2000 },
-    );
-    const line = stdout.split("\n").find((l) => l.startsWith("n"));
-    return line ? line.slice(1) : null;
-  } catch {
-    return null;
-  }
-}
-
-/** Parse an OSC 7 payload `file://host/path` into a decoded absolute path. */
-export function parseOsc7(payload: string): string | null {
-  const m = /^file:\/\/[^/]*(\/.*)$/.exec(payload);
-  if (!m) return null;
-  try {
-    return decodeURIComponent(m[1]!);
-  } catch {
-    return m[1]!;
-  }
-}
 
 function pickShell(): string {
   if (process.platform === "win32") return process.env.COMSPEC ?? "cmd.exe";
@@ -127,28 +82,26 @@ export class Session {
   closeResult: unknown;
   private closeRan = false;
   private closeSettled: Promise<void> = Promise.resolve();
-  /** live working directory of the shell (absolute) */
-  cwdAbs: string;
   private readonly pty: IPty;
   private readonly mirror: HeadlessTerminal;
   private readonly serializer = new SerializeAddon();
-  private socket: WebSocket | null = null;
+  private transport: TermTransport | null = null;
   private inflight = 0;
   private paused = false;
   private exitPayload: string | null = null;
-  private cwdTimer: NodeJS.Timeout | null = null;
-  private cwdPolling = false;
-  /** true once OSC 7 has reported cwd — the poll fallback then stops */
-  private oscCwd = false;
+  /** live cwd tracking (OSC 7 + poll fallback), composed not inlined */
+  private cwdTracker!: SessionCwd;
+  /** live working directory of the shell (absolute) — preserved public surface */
+  get cwdAbs(): string {
+    return this.cwdTracker.current();
+  }
   private readonly tempDir: string | undefined;
-  // asciicast v2 ring buffer ("o" + "r" only — input is never recorded)
-  private readonly castEvents: CastEvent[] = [];
-  private castBytes = 0;
-  castTruncated = false;
-  // Wave D: command-boundary markers (from OSC 133 "C") → asciicast `m` events
-  // so the recording's seek bar gets navigable per-command chapters.
-  private readonly marks: CastMark[] = [];
-  private cmdCount = 0;
+  /** asciicast capture (output/resize ring + OSC 133 marks), composed not inlined */
+  private readonly recorder = new SessionRecording(this.createdAt);
+  /** true once the recording ring buffer has dropped events (preserved public surface) */
+  get castTruncated(): boolean {
+    return this.recorder.truncated;
+  }
 
   constructor(
     readonly cwd: string,
@@ -160,7 +113,6 @@ export class Session {
   ) {
     this.id = opts.id ?? crypto.randomBytes(8).toString("hex");
     this.usesWorktree = opts.sessionWorktree === true;
-    this.cwdAbs = cwd;
     this.type = opts.type ?? "shell";
     this.host = opts.host;
     const file = opts.command ?? pickShell();
@@ -171,16 +123,7 @@ export class Session {
     // OSC 7: the shell reports its real cwd instantly/exactly; this makes
     // the poll loop a fallback for shells where the hook didn't load.
     this.mirror.parser.registerOscHandler(7, (payload) => {
-      const dir = parseOsc7(payload);
-      if (dir) {
-        this.oscCwd = true;
-        this.stopCwdPolling();
-        if (dir !== this.cwdAbs) {
-          this.cwdAbs = dir;
-          this.send(encodeFrame(ServerOp.Cwd, JSON.stringify(this.cwdPayload())));
-          this.onUpdate();
-        }
-      }
+      this.cwdTracker.onOsc7(parseOsc7(payload));
       return true;
     });
 
@@ -191,10 +134,7 @@ export class Session {
     // untouched. Returns true (handled); the raw bytes are still recorded +
     // streamed verbatim.
     this.mirror.parser.registerOscHandler(133, (payload) => {
-      if (payload === "C" || payload.startsWith("C;")) {
-        this.marks.push({ t: (Date.now() - this.createdAt) / 1000, label: String(++this.cmdCount) });
-        if (this.marks.length > REC_MAX_MARKS) this.marks.shift();
-      }
+      if (payload === "C" || payload.startsWith("C;")) this.recorder.mark();
       return true;
     });
 
@@ -228,16 +168,27 @@ export class Session {
       },
     });
 
+    this.cwdTracker = new SessionCwd({
+      root: this.root,
+      pid: this.pty.pid,
+      initial: cwd,
+      alive: () => this.alive,
+      onChange: (payload) => {
+        this.send(encodeFrame(ServerOp.Cwd, JSON.stringify(payload)));
+        this.onUpdate();
+      },
+    });
+
     this.pty.onData((data) => {
       this.mirror.write(data);
-      this.recordEvent("o", data);
+      this.recorder.record("o", data);
       const proc = this.pty.process;
       if (proc && proc !== this.title) {
         this.title = proc;
         this.send(encodeFrame(ServerOp.Title, JSON.stringify({ title: this.title })));
         this.onUpdate();
       }
-      if (this.socket) {
+      if (this.transport) {
         const frame = encodeFrame(ServerOp.Output, Buffer.from(data, "utf8"));
         this.inflight += frame.length - 1;
         this.send(frame);
@@ -278,96 +229,39 @@ export class Session {
   }
 
   /** Single-attachment model: a new client takes over the session. */
-  attach(ws: WebSocket): void {
-    if (this.socket && this.socket !== ws) {
-      this.socket.close(4000, "session attached elsewhere");
+  attach(transport: TermTransport): void {
+    if (this.transport && this.transport !== transport) {
+      this.transport.close(4000, "session attached elsewhere");
     }
-    this.socket = ws;
+    this.transport = transport;
     this.resetFlow();
     const snapshot = this.serializer.serialize({ scrollback: SCROLLBACK });
-    ws.send(encodeFrame(ServerOp.Replay, snapshot));
-    ws.send(encodeFrame(ServerOp.Cwd, JSON.stringify(this.cwdPayload())));
+    transport.send(encodeFrame(ServerOp.Replay, snapshot));
+    transport.send(encodeFrame(ServerOp.Cwd, JSON.stringify(this.cwdTracker.payload())));
     if (!this.alive && this.exitPayload) {
-      ws.send(encodeFrame(ServerOp.Exit, this.exitPayload));
+      transport.send(encodeFrame(ServerOp.Exit, this.exitPayload));
     }
-    this.startCwdPolling();
+    this.cwdTracker.start();
   }
 
-  detach(ws: WebSocket): void {
-    if (this.socket === ws) {
-      this.socket = null;
+  detach(transport: TermTransport): void {
+    if (this.transport === transport) {
+      this.transport = null;
       this.resetFlow();
-      this.stopCwdPolling();
+      this.cwdTracker.stop();
     }
   }
 
-  // ── cwd tracking ───────────────────────────────────────────────────
-
-  private cwdPayload(): CwdPayload {
-    const inside =
-      this.cwdAbs === this.root || this.cwdAbs.startsWith(this.root + "/");
-    return inside
-      ? { cwd: toRel(this.root, this.cwdAbs) }
-      : { cwd: this.cwdAbs, outside: true };
-  }
-
-  private startCwdPolling(): void {
-    if (this.cwdTimer || !this.alive || this.oscCwd) return;
-    this.cwdTimer = setInterval(() => {
-      if (this.cwdPolling) return;
-      this.cwdPolling = true;
-      void processCwd(this.pty.pid)
-        .then((dir) => {
-          if (dir && dir !== this.cwdAbs) {
-            this.cwdAbs = dir;
-            this.send(encodeFrame(ServerOp.Cwd, JSON.stringify(this.cwdPayload())));
-            this.onUpdate();
-          }
-        })
-        .finally(() => {
-          this.cwdPolling = false;
-        });
-    }, CWD_POLL_MS);
-  }
-
-  private stopCwdPolling(): void {
-    if (this.cwdTimer) {
-      clearInterval(this.cwdTimer);
-      this.cwdTimer = null;
-    }
-  }
-
-  // ── asciicast recording ────────────────────────────────────────────
-
-  private recordEvent(code: "o" | "r", data: string): void {
-    this.castEvents.push([(Date.now() - this.createdAt) / 1000, code, data]);
-    this.castBytes += data.length;
-    while (
-      this.castEvents.length > REC_MAX_EVENTS ||
-      (this.castBytes > REC_MAX_BYTES && this.castEvents.length > 1)
-    ) {
-      const dropped = this.castEvents.shift()!;
-      this.castBytes -= dropped[2].length;
-      this.castTruncated = true;
-    }
-  }
-
-  /** Serialize the buffer as asciicast v2 (NDJSON). */
+  /** Serialize the captured session as asciicast v2 (NDJSON). */
   recording(): string {
-    const header = {
+    return this.recorder.toAsciicast({
       version: 2,
       width: this.pty.cols,
       height: this.pty.rows,
       timestamp: Math.floor(this.createdAt / 1000),
       title: `webcode — ${this.title}`,
       env: { SHELL: process.env.SHELL ?? "", TERM: "xterm-256color" },
-    };
-    const lines = [JSON.stringify(header)];
-    // interleave the command-boundary marks as asciicast `m` events (Wave D)
-    for (const line of castBody(this.castEvents, this.marks)) {
-      lines.push(JSON.stringify(line));
-    }
-    return lines.join("\n") + "\n";
+    });
   }
 
   write(data: string): void {
@@ -379,7 +273,7 @@ export class Session {
     if (cols < 2 || rows < 1 || cols > 1000 || rows > 1000) return;
     this.mirror.resize(cols, rows);
     if (this.alive) this.pty.resize(cols, rows);
-    this.recordEvent("r", `${cols}x${rows}`);
+    this.recorder.record("r", `${cols}x${rows}`);
   }
 
   /** Client reports bytes it has finished rendering. */
@@ -402,15 +296,13 @@ export class Session {
   }
 
   private send(frame: Buffer): void {
-    if (this.socket && this.socket.readyState === this.socket.OPEN) {
-      this.socket.send(frame);
-    }
+    if (this.transport?.isOpen) this.transport.send(frame);
   }
 
   kill(): void {
-    this.stopCwdPolling();
-    this.socket?.close(1000, "session closed");
-    this.socket = null;
+    this.cwdTracker.stop();
+    this.transport?.close(1000, "session closed");
+    this.transport = null;
     if (this.alive) {
       try {
         this.pty.kill();
@@ -432,40 +324,5 @@ export class Session {
       type: this.type,
       ...(this.host !== undefined ? { host: this.host } : {}),
     };
-  }
-}
-
-export class SessionManager {
-  private readonly sessions = new Map<string, Session>();
-
-  constructor(private readonly defaultCwd: string = os.homedir()) {}
-
-  create(cwd?: string, cols?: number, rows?: number, opts?: SessionSpawnOpts): Session {
-    const session = new Session(cwd ?? this.defaultCwd, this.defaultCwd, cols, rows, () => {}, opts);
-    this.sessions.set(session.id, session);
-    return session;
-  }
-
-  get(id: string): Session | undefined {
-    return this.sessions.get(id);
-  }
-
-  list(): SessionInfo[] {
-    return [...this.sessions.values()]
-      .sort((a, b) => a.createdAt - b.createdAt)
-      .map((s) => s.info());
-  }
-
-  close(id: string): boolean {
-    const session = this.sessions.get(id);
-    if (!session) return false;
-    session.kill();
-    this.sessions.delete(id);
-    return true;
-  }
-
-  shutdown(): void {
-    for (const session of this.sessions.values()) session.kill();
-    this.sessions.clear();
   }
 }

@@ -1,16 +1,21 @@
-import type { WebSocket } from "ws";
 import { ClientOp, type AckPayload, type ResizePayload } from "#shared/index.js";
 import { decodeFrame } from "./frames.js";
-import type { Session } from "./sessions.js";
+import type { TermTransport } from "./transport.js";
+import type { Session } from "./session.js";
 
-export function handleTermSocket(ws: WebSocket, session: Session): void {
-  session.attach(ws);
+/**
+ * Wire a terminal transport to a session: inbound frames decode to
+ * write/resize/ack. This is the protocol layer — transport-blind (the transport
+ * already handed us raw binary frames), so it serves any TermTransport (a
+ * WebSocket today, WebTransport later).
+ */
+export function attachTerm(transport: TermTransport, session: Session): void {
+  session.attach(transport);
 
-  ws.on("message", (raw, isBinary) => {
-    if (!isBinary && !Buffer.isBuffer(raw)) return;
+  transport.onMessage((raw) => {
     let frame: { op: number; payload: Buffer };
     try {
-      frame = decodeFrame(Buffer.isBuffer(raw) ? raw : Buffer.from(raw as ArrayBuffer));
+      frame = decodeFrame(Buffer.isBuffer(raw) ? raw : Buffer.from(raw));
     } catch {
       return;
     }
@@ -39,5 +44,5 @@ export function handleTermSocket(ws: WebSocket, session: Session): void {
     }
   });
 
-  ws.on("close", () => session.detach(ws));
+  transport.onClose(() => session.detach(transport));
 }
