@@ -12,12 +12,15 @@ export function PromptInput({
   onSubmit,
   placeholder = "Message the agent…",
   disabled = false,
+  autoFocus = false,
   footer,
 }: {
   /** called with the trimmed text when the user submits a non-empty message */
   onSubmit: (text: string) => void;
   placeholder?: string;
   disabled?: boolean;
+  /** focus the textarea on mount — so keystrokes land here, not in the raw terminal */
+  autoFocus?: boolean;
   /** extra controls shown to the left of Send (Stop/Esc/host pill) */
   footer?: ReactNode;
 }) {
@@ -44,6 +47,7 @@ export function PromptInput({
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={onKeyDown}
         placeholder={placeholder}
+        autoFocus={autoFocus}
         minRows={1}
         maxRows={10}
         className="w-full resize-none bg-transparent px-1 py-1 font-sans text-body text-ink-100 outline-none placeholder:text-muted"

@@ -141,6 +141,14 @@ export class TermConnection {
     this.onActivityCb = cb;
   }
 
+  /** Is a full-screen TUI (Claude Code et al.) currently in the alternate screen
+   *  buffer? xterm tracks this natively — `buffer.active.type` flips to "alternate"
+   *  on DECSET 1049. The composer uses it to know it's driving a TUI's own line
+   *  editor (vs a cooked-mode shell). Additive read; never touches flow control. */
+  isAltScreen(): boolean {
+    return this.term.buffer.active.type === "alternate";
+  }
+
   /** Zero the flow-control counter + drop the pending ack timer (on (re)connect
    *  and disconnect) so client accounting can't span a server inflight reset. */
   private resetFlow(): void {
