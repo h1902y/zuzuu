@@ -10,12 +10,17 @@ export function envelope(fields: Record<string, string>, body = ""): string {
   return `---\n${fm}\n---\n${body}`;
 }
 
-/** Seed a minimal .zuzuu/ home under `r`: five modules, one knowledge item,
- *  one pending proposal, a sessions index and a live digest. */
+/** Seed a minimal .zuzuu/ home under `r`: five grown modules (each with a
+ *  `module.md` manifest — a module is only enumerable with one), one knowledge
+ *  item, one pending proposal, a sessions index and a live digest. */
 export function fixtureHome(r: string): string {
   const agent = path.join(r, ".zuzuu");
-  for (const f of ["knowledge", "memory", "actions", "instructions", "guardrails"])
+  for (const f of ["knowledge", "memory", "actions", "instructions", "guardrails"]) {
     mkdirSync(path.join(agent, f, "proposals"), { recursive: true });
+    // A real (grown) module carries a manifest; the peek enumerates only dirs that have one.
+    writeFileSync(path.join(agent, f, "module.md"),
+      envelope({ type: "module", id: f, title: f.charAt(0).toUpperCase() + f.slice(1) }));
+  }
   mkdirSync(path.join(agent, "knowledge", "items"), { recursive: true });
   mkdirSync(path.join(agent, "generations"), { recursive: true });
   mkdirSync(path.join(agent, ".live"), { recursive: true });
