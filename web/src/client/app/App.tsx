@@ -45,7 +45,7 @@ export function App() {
         </aside>
 
         <main className="flex min-w-0 flex-1 flex-col">
-          <SessionTabs sessions={sessions} activeId={activeId} onSelect={setActive} onClose={close} onNew={() => open("shell")} />
+          <SessionTabs sessions={sessions} activeId={activeId} onSelect={setActive} onClose={close} onNewSession={(type, host) => open(type, host)} />
           <div className="min-h-0 flex-1">
             {activeId ? (
               <TermView key={activeId} sessionId={activeId} />

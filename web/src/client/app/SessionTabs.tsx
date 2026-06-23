@@ -4,21 +4,33 @@
 // tab (role="tab" + aria-selected, so the active session isn't conveyed by colour
 // alone); the ✕ and + are accessible icon buttons.
 
+import { useState } from "react";
 import { IconButton } from "../panel/kit.js";
+
+/** Host coding-agent CLIs an agent session can run (must match the daemon allowlist). */
+const HOSTS: { id: string; label: string }[] = [
+  { id: "claude", label: "Claude Code" },
+  { id: "codex", label: "Codex" },
+  { id: "gemini", label: "Gemini CLI" },
+  { id: "opencode", label: "OpenCode" },
+  { id: "pi", label: "pi" },
+];
 
 export function SessionTabs({
   sessions,
   activeId,
   onSelect,
   onClose,
-  onNew,
+  onNewSession,
 }: {
   sessions: { id: string; title: string }[];
   activeId: string | null;
   onSelect: (id: string) => void;
   onClose: (id: string) => void;
-  onNew: () => void;
+  onNewSession: (type: "shell" | "agent", host?: string) => void;
 }) {
+  const [menu, setMenu] = useState(false);
+  const pick = (type: "shell" | "agent", host?: string) => { onNewSession(type, host); setMenu(false); };
   return (
     <div className="flex h-[var(--height-bar)] shrink-0 items-stretch border-b border-border bg-surface">
       <div role="tablist" aria-label="terminal sessions" className="flex min-w-0 flex-1 items-stretch overflow-x-auto">
@@ -48,9 +60,28 @@ export function SessionTabs({
           </div>
         ))}
       </div>
-      <IconButton label="new shell" onClick={onNew} className="px-3 text-subtle hover:bg-hover">
-        +
-      </IconButton>
+      <div className="relative flex items-stretch">
+        <IconButton label="new session" onClick={() => setMenu((o) => !o)} className="px-3 text-subtle hover:bg-hover">
+          +
+        </IconButton>
+        {menu && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setMenu(false)} aria-hidden />
+            <div className="absolute right-0 top-full z-50 mt-1 w-44 rounded-ui border border-border bg-elevated py-1 shadow-xl">
+              <button onClick={() => pick("shell")} className="block w-full px-3 py-1.5 text-left text-ui text-subtle hover:bg-hover">
+                New shell
+              </button>
+              <div className="my-1 border-t border-border" />
+              <div className="px-3 py-1 text-meta uppercase tracking-wide text-muted">New agent</div>
+              {HOSTS.map((h) => (
+                <button key={h.id} onClick={() => pick("agent", h.id)} className="block w-full px-3 py-1.5 text-left text-ui text-subtle hover:bg-hover">
+                  {h.label}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
