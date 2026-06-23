@@ -10,7 +10,7 @@
 import crypto from "node:crypto";
 import { Hono } from "hono";
 import type { CreateSessionRequest, SessionCloseResult, SessionDetail } from "#shared/index.js";
-import type { Session } from "./sessions.js";
+import type { Session } from "./session.js";
 import { SessionManager } from "./session-manager.js";
 import { runZuzuuMut } from "./zuzuu-cli.js";
 import { safeJoin } from "./safe-path.js";

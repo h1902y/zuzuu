@@ -7,7 +7,7 @@ import { serve } from "@hono/node-server";
 import type { ServerType } from "@hono/node-server";
 import { WebSocketServer } from "ws";
 import type { SessionCloseResult, SessionMergeResult, WorkspaceInfo } from "#shared/index.js";
-import type { Session } from "./sessions.js";
+import type { Session } from "./session.js";
 import { SessionManager } from "./session-manager.js";
 import { AuthGate } from "./auth.js";
 import { createFsApi } from "./fs-api.js";

@@ -1,7 +1,7 @@
 import { ClientOp, type AckPayload, type ResizePayload } from "#shared/index.js";
 import { decodeFrame } from "./frames.js";
 import type { TermTransport } from "./transport.js";
-import type { Session } from "./sessions.js";
+import type { Session } from "./session.js";
 
 /**
  * Wire a terminal transport to a session: inbound frames decode to

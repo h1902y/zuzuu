@@ -6,7 +6,7 @@
 
 import os from "node:os";
 import type { SessionInfo } from "#shared/index.js";
-import { Session, type SessionSpawnOpts } from "./sessions.js";
+import { Session, type SessionSpawnOpts } from "./session.js";
 
 export class SessionManager {
   private readonly sessions = new Map<string, Session>();

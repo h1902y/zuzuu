@@ -5,7 +5,7 @@
 // mirror parses.
 
 import { describe, it, expect } from "vitest";
-import type { Session } from "../../src/server/sessions.js";
+import type { Session } from "../../src/server/session.js";
 import { SessionManager } from "../../src/server/session-manager.js";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
