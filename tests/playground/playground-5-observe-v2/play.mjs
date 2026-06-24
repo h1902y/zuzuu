@@ -34,7 +34,7 @@ await run('observe real sessions → review-queued proposals', async () => {
     }
     // idempotency: re-observing the same evidence proposes nothing new (dedup).
     check(observe(home, { cwd, sessions }).proposed === 0, 'a second observe is idempotent (deduped)');
-    note('proposals are staged only — the human gate (review) is the one door to the zuzuu');
+    note('proposals are staged only — the human gate (review) is the one door to the Project');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

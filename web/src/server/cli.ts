@@ -68,7 +68,7 @@ function parseArgs(argv: string[]): CliArgs {
         break;
       case "--help":
       case "-h":
-        console.log(`zz-web — the zuzuu visual workbench (terminal + files + the zuzuu)
+        console.log(`zz-web — the zuzuu visual workbench (terminal + files + the Project)
 
 Usage: zz-web [dir] [options]
 

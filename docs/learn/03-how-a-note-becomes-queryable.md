@@ -4,7 +4,7 @@
 
 The code is `src/notes/index.mjs` (the index) and `src/use/query.mjs` (the verb), both zero-dep.
 
-## The idea: the files are the zuzuu, the index is a cache
+## The idea: the files are the Project, the index is a cache
 
 You never query the files directly — you query a small database **built from** them. The rule that keeps this safe:
 
@@ -60,7 +60,7 @@ Two capabilities fall out of this index almost for free, and you'll meet them la
 - **`check`** (integrity) — the `link` table makes broken relations a one-line query: a target that isn't a known note. So "the graph is best-effort" becomes "divergence is *queryable*," not a hidden landmine.
 - **`enhance`** — when zuzuu mines what *worked*, it queries this same index for what's used and how things relate.
 
-The index is the quiet workhorse: one regenerable cache that turns a folder of plain files into a zuzuu you can interrogate in milliseconds, without a database server and without a dependency.
+The index is the quiet workhorse: one regenerable cache that turns a folder of plain files into a Project you can interrogate in milliseconds, without a database server and without a dependency.
 
 ---
 

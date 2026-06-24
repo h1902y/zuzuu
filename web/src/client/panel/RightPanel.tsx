@@ -1,7 +1,7 @@
 // src/client/panel/RightPanel.tsx — the one right-hand surface, two modes.
 //
 // FILES → the Monaco editor over the open file (lazy-loaded so Monaco stays out
-// of the main bundle). MODULES → the modules dashboard (the zuzuu surface). The
+// of the main bundle). MODULES → the modules dashboard (the Project surface). The
 // mode is driven by usePanel (open a file → files; close it → modules).
 
 import { lazy, Suspense } from "react";

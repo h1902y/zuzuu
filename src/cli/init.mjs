@@ -1,13 +1,14 @@
-// src/cli/init.mjs — scaffold a project's zuzuu into any repo (git-citizen).
+// src/cli/init.mjs — plant a Project into any repo (git-citizen).
 //
-// what: `zz init` — create the `.zuzuu/` home (this project's zuzuu): an EMPTY one plus the protective
-//       guardrails safety floor (its module.md + seed rules), a README, and the
-//       gitignore lines for the ephemeral/derived paths. No prebuilt content
-//       modules — knowledge/memory/actions/instructions materialize on demand as
-//       the loop grows the zuzuu (their manifests are minted on first proposal;
-//       see src/grow/propose.mjs + src/notes/module-templates.mjs).
+// what: `zz init` — create the `.zuzuu/` home (the repo's **Project**): the
+//       Project manifest (`project.md`), an EMPTY brain plus the protective
+//       guardrails safety floor (its module.md + seed rules), and the gitignore
+//       lines for the ephemeral/derived paths. No prebuilt content modules —
+//       knowledge/memory/actions/instructions materialize on demand as the loop
+//       grows the Project (their manifests are minted on first proposal; see
+//       src/grow/propose.mjs + src/notes/module-templates.mjs).
 // why:  the one onboarding step. Everything else (query/act/observe/review) reads
-//       a home; this makes one. A fresh repo starts empty (the honest onboarding
+//       a Project; this makes one. A fresh repo starts empty (the honest onboarding
 //       state) — only guardrails ship, because protection must hold from byte one.
 //       It writes envelopes with the note's own serializer — dogfood from byte one.
 // how:  git-citizen — resolves the host repo root and plants `.zuzuu/` there;
@@ -15,7 +16,7 @@
 //       existing module.md or rule (additive only). Zero-dep.
 
 import { existsSync, mkdirSync, writeFileSync, readFileSync, appendFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, basename } from 'node:path';
 import { serialize } from '../notes/note.mjs';
 import { manifestFor } from '../notes/module-templates.mjs';
 import { homeDir, repoRoot } from '../notes/store.mjs';
@@ -39,21 +40,26 @@ const RULES = [
     body: 'Asks (never blocks) on any force-push, including `git -C /path push --force-with-lease`.' },
 ];
 
-const HOME_README = `# .zuzuu — this project's zuzuu
-
-A directory of **envelopes** (markdown + frontmatter), grown from how you work and
-**human-gated**. Each subdirectory is a *module* (its \`module.md\` is the manifest);
-each \`items/<id>.md\` is a *note* — one fact, optionally runnable.
+// The Project body — the explainer that rides in `project.md`'s manifest body.
+const PROJECT_BODY = `A **Project** is this \`.zuzuu/\` directory of **envelopes** (markdown + frontmatter),
+grown from how you work and **human-gated**. This file (\`project.md\`) is the Project's
+own manifest; each subdirectory is a *module* (its \`module.md\` is the manifest); each
+\`items/<id>.md\` is a *note* — one fact, optionally runnable. The hierarchy is
+**note › module › Project**.
 
 - **query** what's known · **act** on a runnable note · **check** integrity
 - zuzuu **observes** your sessions and **proposes** changes you **review**
 
-Tracked files are the durable zuzuu (plain text, versioned) — **including
+Tracked files are the durable Project (plain text, versioned) — **including
 \`.generations/\`** (each module's lineage + the \`.store/\` content blobs that
-\`rollback\` restores note bytes from), so the zuzuu round-trips across machines.
+\`rollback\` restores note bytes from), so the Project round-trips across machines.
 Only \`.live/\`, \`.worktrees/\`, and \`.index.db\` are machine-local/derived
-(gitignored). Inspect everything with \`zz\`.
-`;
+(gitignored). Inspect everything with \`zz\`.`;
+
+/** The Project manifest (`project.md`, type: project) — the top-of-hierarchy envelope
+ *  that declares the Project. Title defaults to the repo's directory name. */
+const projectManifest = (root) =>
+  serialize({ type: 'project', title: basename(root) || 'project', format: 'zuzuu/v2', body: PROJECT_BODY });
 
 // What must NOT travel in git — ephemeral or machine-derived. EVERYTHING else is
 // committed, INCLUDING `.generations/` (per-module lineage + the `.store/` content
@@ -84,7 +90,7 @@ export function initHome(cwd = process.cwd()) {
   };
 
   ensureDir(home);
-  writeOnce(join(home, 'README.md'), HOME_README, 'README.md');
+  writeOnce(join(home, 'project.md'), projectManifest(root), 'project.md');
 
   // Guardrails only — the protective safety floor. The four content modules are
   // NOT scaffolded: they grow on demand (the loop mints their manifests on first

@@ -58,7 +58,7 @@ Other verbs: `zz query <module> [text]` (FTS + graph), `zz check` (broken links 
 
 Three things make it safe and sticky:
 
-- **The human gate is the moat.** Every write to the zuzuu passes through `zz review`. Automated memory systems poison themselves with confident-but-wrong reflections; the gate is the one defense, and the design keeps it cheap (proposals are batched, ranked, deduped).
+- **The human gate is the moat.** Every write to the Project passes through `zz review`. Automated memory systems poison themselves with confident-but-wrong reflections; the gate is the one defense, and the design keeps it cheap (proposals are batched, ranked, deduped).
 - **Observe, don't drive (Design B).** zuzuu re-parses the transcript your host already wrote — it never wraps, intercepts, or steers the agent. That's why it can't corrupt a session, and why adding a host is one adapter file.
 - **Immutable, append-only, rollback-able.** A note is immutable until CRUD'd through the gate; the event log is append-only; a generation is a content-addressed snapshot. Roll a module — or the whole zuzuu — back to any pinned moment with a pointer flip, never a `git revert`.
 

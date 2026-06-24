@@ -39,7 +39,7 @@ function parseArgs(rest) {
   return out;
 }
 
-const HELP = `zz — your project's zuzuu (envelopes, queried/run/grown, human-gated)
+const HELP = `zz — your repo's Project (envelopes, queried/run/grown, human-gated)
 
   zz init                       scaffold .zuzuu/ into this repo (git-citizen)
   zz enable / disable           install/remove the lifecycle + guardrails hooks
@@ -205,7 +205,7 @@ export async function run(argv, io = {}) {
 
       case 'digest': {
         const text = digestText(cwd);
-        log(text || '(empty zuzuu — run `zz init`)');
+        log(text || '(empty Project — run `zz init`)');
         return 0;
       }
 
