@@ -1,10 +1,25 @@
 ---
 title: "Plane 2 — the exhaustive operation vocabulary (rationalized)"
 date: 2026-06-24
-status: design / roadmap — researched, not yet built
+status: Tier 1–2 BUILT 2026-06-24 (feat/plane2-operations); Tier 3 deferred-with-reason
 ---
 
 # Plane 2 — the operation vocabulary
+
+## Build status (2026-06-24)
+
+**Tier 1–2 shipped** on `feat/plane2-operations` (189→220 tests, green per commit):
+diff (note + generation) · the change-set `plan`/`apply` (batch→one generation,
+TOCTOU-guarded) · inbound backlinks + empty-result signal · BM25/snippet/prefix
+search · rename/merge/refactor-field with link-update · scoped `patch`/`append` +
+windowed `view` · `--as-of` time-travel + `zz log` timeline · pre-write `validate` +
+post-write integrity nudge · `type: workflow` runner (gated DAG + compensation).
+
+**Deferred, with reason** (not gaps — deliberate): incremental-FTS5 index rewrite
+(scale-only; full rebuild self-heals + is skipped when unchanged) · generation
+prune/retention + pin (git history *is* retention) · vector/semantic search
+(sqlite-vec is pre-v1 + needs a native `.so` → off the zero-dep core) · UUID note ids
+(breaks id=filename) · workflow per-step idempotency-key/resume (Temporal-grade).
 
 > **What this is.** The complete, prior-art-grounded set of operations an agent (and the
 > human gate) performs on a Project, rationalized into six families over a tiny reused
