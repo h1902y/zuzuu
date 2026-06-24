@@ -15,7 +15,7 @@ src/
   grow/        GROW the Project — the compounding engine, every write human-gated
   guardrails/  what the agent must NOT do — enforced
   hosts/       OBSERVE a host (Design B: re-parse, never drive)
-  sessions/    a session ≡ a conversation ≡ a git branch
+  sessions/    (surface) the session surface's git plumbing — session ≡ git branch
   cli/         the zz veneer + lifecycle
   serve/       compose · expose · ground
 ```
@@ -27,9 +27,11 @@ src/
 | [`grow/`](grow/) | `observe` · `propose` · `review` · `evolve` — the four loop verbs (the durable artifacts `generation`/`log` live in `notes/`) | [05](../docs/learn/05-how-the-system-grows.md) · [06](../docs/learn/06-observing-a-host.md) |
 | [`guardrails/`](guardrails/) | `gate` — the enforced `PreToolUse` check | [04](../docs/learn/04-how-an-act-runs-safely.md) |
 | [`hosts/`](hosts/) | per-host adapters + `capture` · `signals` · `hook` (Design B) | [06](../docs/learn/06-observing-a-host.md) |
-| [`sessions/`](sessions/) | the git-branch engine — `session-git` (lifecycle) · `session-worktree` (concurrency) · `git` (plumbing) · `labels` | [08](../docs/learn/08-the-cull.md) |
+| [`sessions/`](sessions/) | *(a Layer-3 **surface**, not a lifecycle stage)* the git-branch engine — `session-git` (lifecycle) · `session-worktree` (concurrency) · `git` (plumbing) · `labels` | [08](../docs/learn/08-the-cull.md) |
 | [`cli/`](cli/) | the `zz` router + `init` · `enable` · `doctor` · `code` · `web` · `session` | [07](../docs/learn/07-the-cli-veneer.md) |
 | [`serve/`](serve/) | `api` (the façade) · `registry` (capability dispatch) · `wire` (registerAll) · `digest` | — |
+
+> The eight dirs span the ontology's layers — they are **not** all "the lifecycle": `notes/` is **Data**; `use/` · `grow/` · `guardrails/` · `hosts/` are the **loop + reading**; `cli/` · `serve/` · `sessions/` are **surfaces**. See [`docs/ONTOLOGY.md`](../docs/ONTOLOGY.md).
 
 ## The one rule that replaced strict layering
 
