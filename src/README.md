@@ -24,7 +24,7 @@ src/
 |---|---|---|
 | [`notes/`](notes/) | `note` (the atom) · `store` · `index` · `module` · `toon` — the **note › module › project** substrate | [02](../docs/learn/02-the-seed-in-one-file.md) · [03](../docs/learn/03-how-a-note-becomes-queryable.md) |
 | [`use/`](use/) | `query` · `act` · `check` — read / run / inspect | [03](../docs/learn/03-how-a-note-becomes-queryable.md) · [04](../docs/learn/04-how-an-act-runs-safely.md) |
-| [`grow/`](grow/) | `observe` · `propose` · `review` · `snapshot` · `log` — the whole growth loop in one place | [05](../docs/learn/05-how-the-system-grows.md) · [06](../docs/learn/06-observing-a-host.md) |
+| [`grow/`](grow/) | `observe` · `propose` · `review` · `evolve` — the four loop verbs (the durable artifacts `generation`/`log` live in `notes/`) | [05](../docs/learn/05-how-the-system-grows.md) · [06](../docs/learn/06-observing-a-host.md) |
 | [`guardrails/`](guardrails/) | `gate` — the enforced `PreToolUse` check | [04](../docs/learn/04-how-an-act-runs-safely.md) |
 | [`hosts/`](hosts/) | per-host adapters + `capture` · `signals` · `hook` (Design B) | [06](../docs/learn/06-observing-a-host.md) |
 | [`sessions/`](sessions/) | the git-branch engine — `session-git` (lifecycle) · `session-worktree` (concurrency) · `git` (plumbing) · `labels` | [08](../docs/learn/08-the-cull.md) |
@@ -43,7 +43,7 @@ That's the whole safety story in a sentence: every change to your notes passes t
 
 1. **`notes/note.mjs`** — the atom (the envelope). Then `store`, `index`.
 2. **`use/`** — what you *do* with the Project (query/act/check).
-3. **`grow/`** — how it *grows* (observe → propose → review → snapshot).
+3. **`grow/`** — how it *grows* (observe → propose → review → evolve).
 4. **`hosts/` + `cli/`** — the edges where the outside world reaches the core; **`serve/`** is the façade that ties it together.
 
 ## The rules that keep it readable

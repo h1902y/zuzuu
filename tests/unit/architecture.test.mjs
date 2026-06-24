@@ -47,7 +47,7 @@ test('rule 6: use/ never writes the Project (no import of review/propose/evolve/
   // use/ reads and runs; a run may append telemetry to the git-ignored runs.jsonl
   // (the log) — but it must never touch the Project-WRITE path (propose/review/
   // evolve/snapshot). Only grow/ writes notes, and only review→evolve (the gate).
-  const WRITERS = ['review', 'propose', 'evolve', 'snapshot'];
+  const WRITERS = ['review', 'propose', 'evolve', 'generation'];
   for (const f of srcFiles(join(SRC, 'use'))) {
     const bad = [...readFileSync(f, 'utf8').matchAll(/from '(\.\.?\/[^']+)'/g)]
       .map((m) => m[1]).filter((p) => WRITERS.some((w) => p.endsWith(`/${w}.mjs`)));

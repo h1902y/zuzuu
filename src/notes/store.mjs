@@ -59,7 +59,7 @@ export function gitInfo(cwd = process.cwd()) {
 }
 
 /** The per-module generations store: `<home>/.generations/` (the layout chokepoint
- *  for snapshots — grow/snapshot.mjs builds its store under here). */
+ *  for snapshots — notes/generation.mjs builds its store under here). */
 export const generationsDir = (home) => join(home, '.generations');
 
 // ── addressing ──────────────────────────────────────────────────────────────

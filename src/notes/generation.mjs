@@ -1,7 +1,9 @@
-// src/grow/snapshot.mjs — content-addressed per-module generations.
+// src/notes/generation.mjs — content-addressed per-module generations (Data layer).
 //
-// what: pin a module's current notes as an immutable generation, and roll back by
-//       restoring it.
+// what: the GENERATION entity — pin a module's current notes as an immutable
+//       generation (`mint`), read the chain (`generations`), and roll back by
+//       restoring one. A durable Data artifact of a Project (Layer 1), with its
+//       operations — the same shape as notes/index.mjs (data + its operations).
 // why:  rollback is a pointer-flip + content restore — never a `git revert`.
 //       Immutable history; growth is adding objects and moving pointers, never
 //       mutating in place.
@@ -12,7 +14,7 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { itemsDir, generationsDir } from '../notes/store.mjs';
+import { itemsDir, generationsDir } from './store.mjs';
 
 const sha = (buf) => createHash('sha256').update(buf).digest('hex');
 const storeDir = (home) => join(generationsDir(home), '.store');

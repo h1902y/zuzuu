@@ -5,11 +5,11 @@ import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, appendFile
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { serialize, parse } from '../../src/notes/note.mjs';
-import { mint, generations, rollback } from '../../src/grow/snapshot.mjs';
+import { mint, generations, rollback } from '../../src/notes/generation.mjs';
 import { createProposal, listProposals, readProposal } from '../../src/grow/propose.mjs';
 import { approve, reject } from '../../src/grow/review.mjs';
 import { evolve } from '../../src/grow/evolve.mjs';
-import { read } from '../../src/grow/log.mjs';
+import { read } from '../../src/notes/log.mjs';
 
 function withHome(fn) {
   const root = mkdtempSync(join(tmpdir(), 'zuzuu-r5-'));

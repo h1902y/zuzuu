@@ -17,7 +17,7 @@ import { listModules } from '../notes/module.mjs';
 import { registerAll } from './wire.mjs';
 import { createProposal, listProposals } from '../grow/propose.mjs';
 import { approve, reject } from '../grow/review.mjs';
-import { generations, rollback } from '../grow/snapshot.mjs';
+import { generations, rollback } from '../notes/generation.mjs';
 
 /**
  * Open the Project rooted at `cwd` (git-citizen: the `.zuzuu/` at the repo root).

@@ -14,8 +14,8 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { serialize, parse } from '../notes/note.mjs';
 import { itemPath, itemsDir } from '../notes/store.mjs';
-import { logMutation } from './log.mjs';
-import { mint } from './snapshot.mjs';
+import { logMutation } from '../notes/log.mjs';
+import { mint } from '../notes/generation.mjs';
 
 const isPlainObject = (x) => x != null && typeof x === 'object' && !Array.isArray(x);
 
