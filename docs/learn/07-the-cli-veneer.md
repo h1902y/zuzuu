@@ -1,6 +1,6 @@
 # 07 · The CLI veneer
 
-> Six lessons built a brain: an envelope, an index, a registry, a gate, a loop, an observer. This one is the **front door** — how a person (or an agent) actually *uses* it. The surprise: it's the thinnest layer in the whole system, and that's the point.
+> Six lessons built the project's zuzuu: an envelope, an index, a registry, a gate, a loop, an observer. This one is the **front door** — how a person (or an agent) actually *uses* it. The surprise: it's the thinnest layer in the whole system, and that's the point.
 
 The code is `cli/init.mjs` (`zz init`) and `cli/index.mjs` (the router). The entry is `bin/zuzuu.mjs`.
 
@@ -26,21 +26,21 @@ The agent is the primary user of `zz`, so the output obeys the [AXI](https://axi
 
 The verbs read as the sentence the whole system is built around: *you **query** what's true, **act** on it, zuzuu **observes** and **enhances**, you **review*** — plus the lifecycle handful (`init · check · module · digest`).
 
-## `zz init` — a brain into any repo
+## `zz init` — the project's zuzuu into any repo
 
 `init` is the one onboarding step, and it embodies two hard rules:
 
 - **Git-citizen.** It resolves the *host* repo root (`git --show-toplevel`) and plants `.zuzuu/` there. It **never** `git init`s — zuzuu lives *inside* your project's history, it doesn't start one. (Lesson `01`.)
 - **Idempotent + brownfield-safe.** It writes each file *once* — a second `init`, or an `init` over an existing home, creates nothing and clobbers nothing (it reports what it skipped). Onboarding an existing project is safe.
 
-It plants an **empty brain** — only the protective **guardrails** module (its `module.md` envelope written with the note serializer, declaring its `capabilities` and `enhance.goal`) plus the seed guardrail rules as real `type: rule` notes (the hard-won `no-root-wipe` negative-lookahead among them, lesson `04`). **No prebuilt modules (2026-06-23):** the four content modules — knowledge, memory, actions, instructions — are *not* scaffolded; they **materialize on demand** as the loop grows the brain, their `module.md` minted from the standard templates (`src/notes/module-templates.mjs`) the first time `observe` routes a proposal to one (`grow/propose.mjs`). The five remain the standard module *types*; only shipping them prebuilt went away — a fresh repo shows the honest empty state, and guardrails ships because protection must hold from byte one.
+It plants an **empty zuzuu** — only the protective **guardrails** module (its `module.md` envelope written with the note serializer, declaring its `capabilities` and `enhance.goal`) plus the seed guardrail rules as real `type: rule` notes (the hard-won `no-root-wipe` negative-lookahead among them, lesson `04`). **No prebuilt modules (2026-06-23):** the four content modules — knowledge, memory, actions, instructions — are *not* scaffolded; they **materialize on demand** as the loop grows the zuzuu, their `module.md` minted from the standard templates (`src/notes/module-templates.mjs`) the first time `observe` routes a proposal to one (`grow/propose.mjs`). The five remain the standard module *types*; only shipping them prebuilt went away — a fresh repo shows the honest empty state, and guardrails ships because protection must hold from byte one.
 
 ## The whole loop, from the command line
 
 Because every layer underneath is real, the loop you've been reading about runs as a sequence of shell commands — verified end-to-end on a real project:
 
 ```bash
-zz init                                  # scaffold the brain (git-citizen)
+zz init                                  # scaffold the zuzuu (git-citizen)
 zz observe                               # mine real sessions → 2 proposals
 zz review                                # see them, ranked
 zz review approve actions <handle>       # the gate → writes the note + mints a generation
@@ -48,7 +48,7 @@ zz act actions <handle>                  # run the just-learned command
 zz module actions generations            # the snapshot that approval pinned
 ```
 
-`observe` watched real Claude sessions, found a command that recurred, and proposed it as a runnable action. You approved it. Now `zz act` runs it, and a generation pins the moment. The brain grew, from work, through the gate, and you can roll it back. Seven lessons, one working system.
+`observe` watched real Claude sessions, found a command that recurred, and proposed it as a runnable action. You approved it. Now `zz act` runs it, and a generation pins the moment. The zuzuu grew, from work, through the gate, and you can roll it back. Seven lessons, one working system.
 
 ---
 

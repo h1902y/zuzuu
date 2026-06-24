@@ -1,6 +1,6 @@
 # 09 · The workbench — one folded package
 
-> Lessons `02`–`08` were the brain: the envelope, the verbs, the loop, the gate,
+> Lessons `02`–`08` were the project's zuzuu: the envelope, the verbs, the loop, the gate,
 > the CLI. This page is the **visual surface** — the browser workbench at `web/`.
 > It's a different kind of program (a long-lived realtime daemon + a React SPA),
 > and it carries its own lesson: **how to rebuild from scratch without re-suffering
@@ -14,7 +14,7 @@ are in [`docs/specs/2026-06-22-workbench-greenfield-rebuild.md`](../specs/2026-0
 A daemon runs on `127.0.0.1`; your browser connects and gets a **real PTY shell**
 (your actual `$SHELL` or a host agent CLI), a file tree, a Monaco editor, git, and
 the modules dashboard. `zz web` launches it. It is, deliberately, **not** a custom
-chat loop — it's a real terminal with the brain alongside.
+chat loop — it's a real terminal with the zuzuu alongside.
 
 That one requirement — a *real* shell over the network — is the whole architecture.
 A real PTY is a long-lived OS process with stdin/stdout; you cannot serve it from a
@@ -124,7 +124,7 @@ the honest answer (an open Containers bug kills idle-but-connected PTY sessions)
 
 ---
 
-**Where this leaves the project:** the brain (lessons `02`–`08`) and the workbench
+**Where this leaves the project:** the zuzuu (lessons `02`–`08`) and the workbench
 (this page) are one repo, one CLI (`zz`), one folded web package — the visible
-surface over the same envelopes the brain manages, every mutation still flowing
+surface over the same envelopes the zuzuu manages, every mutation still flowing
 through the human gate.

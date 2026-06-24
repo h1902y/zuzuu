@@ -2,7 +2,7 @@
 //
 // what: resolve and start the bundled web-app daemon (a browser UI that prints
 //       its own URL); reuse a live instance, or spawn fresh.
-// why:  the visual surface for the same brain the CLI serves. Unlike `code.mjs`
+// why:  the visual surface for the same zuzuu the CLI serves. Unlike `code.mjs`
 //       it does NO init/enable — the workbench home owns its own onboarding; this
 //       command's only job is resolve + launch.
 // how:  singleton-per-workspace (a recorded instance file), 4-step resolution of

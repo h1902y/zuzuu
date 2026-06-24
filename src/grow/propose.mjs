@@ -2,7 +2,7 @@
 //
 // what: a proposal is an evidence-backed, typed change to a module's notes
 //       (create · update · delete · relate · deprecate) awaiting human review.
-// why:  the bridge from observation to the brain. NOTHING is written without a
+// why:  the bridge from observation to the zuzuu. NOTHING is written without a
 //       human approving a proposal — the moat. Proposals are staged, not applied.
 // how:  one JSON file per proposal under `<module>/proposals/<id>.json`;
 //       archived (not deleted) on decision. Zero-dep, fail-soft.

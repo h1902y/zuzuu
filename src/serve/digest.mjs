@@ -1,6 +1,6 @@
 // src/serve/digest.mjs — the deterministic session-start brief.
 //
-// what: a zero-network snapshot of the brain — per-module note counts + pending
+// what: a zero-network snapshot of the zuzuu — per-module note counts + pending
 //       proposals — rendered as markdown. The ONE grounding channel every host
 //       reads at session start (written to .live/digest.md by the hook).
 // why:  the agent opens a session already knowing what's been learned and what's
@@ -23,7 +23,7 @@ export function digestText(cwd = process.cwd()) {
     });
     const name = cwd.split('/').filter(Boolean).pop() || 'project';
     const pending = rows.reduce((a, r) => a + r.pending, 0);
-    let out = `# ${name} — session brief\n` + toon('brain', rows, ['module', 'notes', 'pending']);
+    let out = `# ${name} — session brief\n` + toon('zuzuu', rows, ['module', 'notes', 'pending']);
     if (pending) out += `\n${pending} proposal(s) awaiting review: zz review`;
     return out;
   } catch { return ''; }

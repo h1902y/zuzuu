@@ -89,7 +89,7 @@ const ROUTE = {
 
 /**
  * Observe real sessions → file evidence-backed proposals into each module's
- * review queue. Never writes the brain; dedup is propose's job (idempotent).
+ * review queue. Never writes the zuzuu; dedup is propose's job (idempotent).
  * @returns {{ sessionsMined, candidates, proposed, proposals }}
  */
 export function observe(home, opts = {}) {

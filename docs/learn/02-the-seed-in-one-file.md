@@ -31,7 +31,7 @@ Read it top to bottom:
 
 One thing is *missing* on purpose: there's no `id` field. **The id is the filename.** This file is `client-acme-style.md`, so its id is `client-acme-style`. One fewer thing to write, one fewer thing to keep in sync.
 
-And one rule does a lot of quiet work: **unknown keys are kept, never rejected.** If a miner later wants to add `confidence: 0.8`, it just writes it — old files don't break, the parser preserves it. That's how the brain learns new vocabulary without a migration.
+And one rule does a lot of quiet work: **unknown keys are kept, never rejected.** If a miner later wants to add `confidence: 0.8`, it just writes it — old files don't break, the parser preserves it. That's how the zuzuu learns new vocabulary without a migration.
 
 ## A runnable note — an action
 

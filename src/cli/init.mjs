@@ -1,10 +1,10 @@
-// src/cli/init.mjs — scaffold a brain into any repo (git-citizen).
+// src/cli/init.mjs — scaffold a project's zuzuu into any repo (git-citizen).
 //
-// what: `zz init` — create the `.zuzuu/` home: an EMPTY brain plus the protective
+// what: `zz init` — create the `.zuzuu/` home (this project's zuzuu): an EMPTY one plus the protective
 //       guardrails safety floor (its module.md + seed rules), a README, and the
 //       gitignore lines for the ephemeral/derived paths. No prebuilt content
 //       modules — knowledge/memory/actions/instructions materialize on demand as
-//       the loop grows the brain (their manifests are minted on first proposal;
+//       the loop grows the zuzuu (their manifests are minted on first proposal;
 //       see src/grow/propose.mjs + src/notes/module-templates.mjs).
 // why:  the one onboarding step. Everything else (query/act/observe/review) reads
 //       a home; this makes one. A fresh repo starts empty (the honest onboarding
@@ -39,7 +39,7 @@ const RULES = [
     body: 'Asks (never blocks) on any force-push, including `git -C /path push --force-with-lease`.' },
 ];
 
-const HOME_README = `# .zuzuu — this project's brain
+const HOME_README = `# .zuzuu — this project's zuzuu
 
 A directory of **envelopes** (markdown + frontmatter), grown from how you work and
 **human-gated**. Each subdirectory is a *module* (its \`module.md\` is the manifest);
@@ -48,9 +48,9 @@ each \`items/<id>.md\` is a *note* — one fact, optionally runnable.
 - **query** what's known · **act** on a runnable note · **check** integrity
 - zuzuu **observes** your sessions and **proposes** changes you **review**
 
-Tracked files are the durable brain (plain text, versioned) — **including
+Tracked files are the durable zuzuu (plain text, versioned) — **including
 \`.generations/\`** (each module's lineage + the \`.store/\` content blobs that
-\`rollback\` restores note bytes from), so the brain round-trips across machines.
+\`rollback\` restores note bytes from), so the zuzuu round-trips across machines.
 Only \`.live/\`, \`.worktrees/\`, and \`.index.db\` are machine-local/derived
 (gitignored). Inspect everything with \`zz\`.
 `;

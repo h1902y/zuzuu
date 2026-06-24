@@ -3,7 +3,7 @@
 // what: a node:sqlite index over every note in the project — built FROM the files,
 //       never authoritative. Powers query-on-demand: search, filter, and walk
 //       relations without loading the corpus into anyone's context.
-// why:  the files are the brain; this is a regenerable cache. The agent QUERIES
+// why:  the files are the zuzuu; this is a regenerable cache. The agent QUERIES
 //       instead of ingesting — context-frugal. (The #1 novel bet: portable,
 //       zero-dep, CLI-native graph+relational query over markdown.)
 // how:  notes + prop(KV) + link(graph) tables + an FTS5 body index + recursive

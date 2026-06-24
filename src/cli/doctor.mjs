@@ -73,8 +73,8 @@ export function status(cwd, log) {
 }
 
 const TOPICS = {
-  home: 'The `.zuzuu/` home is a directory of envelopes (markdown + frontmatter). Each subdir is a module; each items/<id>.md is a note. Tracked = the durable brain; .live/ + .generations/.store/ = local/derived.',
-  grow: 'observe → propose → review → write + snapshot. zuzuu watches your sessions, suggests changes, you approve them, the brain grows — every write human-gated.',
+  home: 'The `.zuzuu/` home is this project\'s zuzuu — a directory of envelopes (markdown + frontmatter). Each subdir is a module; each items/<id>.md is a note. Tracked = the durable zuzuu (incl. `.generations/`, which travels); only `.live/`/`.worktrees/`/`.index.db` are local/derived.',
+  grow: 'observe → propose → review → write + snapshot. zuzuu watches your sessions, suggests changes, you approve them, the zuzuu grows — every write human-gated.',
   modules: 'knowledge (facts) · memory (episodes) · actions (runnable procedures) · instructions (steering) · guardrails (enforced tool gates). Generic — no per-module code.',
   verbs: 'query · act · check · review, plus observe · init · enable · digest · session · module · doctor.',
 };

@@ -10,7 +10,7 @@ import { runZuzuu } from "./zuzuu-cli.js";
 
 /** Enumerate the ACTUAL module dirs on disk for the CLI-absent degraded fallback:
  *  non-dot subdirs of `.zuzuu` that hold a `module.md` (mirrors src/notes/module.mjs
- *  listModules). No prebuilt modules — an empty brain has only guardrails, so a
+ *  listModules). No prebuilt modules — an empty zuzuu has only guardrails, so a
  *  fresh repo degrades to an empty/guardrails-only dashboard, not five empty tiles.
  *  N-module routing is slug-validated, not allowlist-gated. */
 export async function listModuleDirs(home: string): Promise<string[]> {

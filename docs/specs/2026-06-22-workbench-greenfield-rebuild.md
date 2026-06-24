@@ -14,7 +14,7 @@ verbs v2 doesn't have (`checkpoint`, `session inspect|trace|tree|content`, `eval
 `inbox`, `module items|overview|schema`), staying green only because every route
 falls back to reading `.zuzuu/` files — several at now-wrong paths (`sessions.json`
 was cut; generations moved to `.generations/<m>/`). The web-ui carries a fully-dead
-whole-brain-checkpoint surface.
+whole-zuzuu-checkpoint surface.
 
 Rather than patch the drift, the decision is to **rebuild the workbench from scratch
 as ONE folded package with a neat, teachable structure**, and to settle the platform
@@ -117,7 +117,7 @@ degrades the workbench, never the CLI. There is **no** published `@zuzuucodes/we
 **Root-CLI integration (the "mutations always go through the CLI" invariant):**
 `daemon/src/zuzuu-cli.ts` is the only place the daemon shells `zz` — `runZuzuu`
 (reads; failure → `null`, degrade to file reads) and `runZuzuuMut` (mutations + CLI
-reads; distinguishes `absent` 503 vs `failed` 502). Every brain write goes through
+reads; distinguishes `absent` 503 vs `failed` 502). Every zuzuu write goes through
 `runZuzuuMut`; the daemon never imports `src/loop/`. **The daemon can live anywhere
 that can spawn `zz` in the workspace.**
 

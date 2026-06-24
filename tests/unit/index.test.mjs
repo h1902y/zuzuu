@@ -10,7 +10,7 @@ import { queryData } from '../../src/use/query.mjs';
 import { toon } from '../../src/notes/toon.mjs';
 
 // build a temp .zuzuu home with some notes and hand back the home dir
-function withBrain(notes, fn) {
+function withZuzuu(notes, fn) {
   const root = mkdtempSync(join(tmpdir(), 'zuzuu-index-'));
   const home = join(root, '.zuzuu');
   for (const [addr, note] of Object.entries(notes)) {
@@ -29,7 +29,7 @@ const CORPUS = {
 };
 
 test('search: by free text (FTS5)', () => {
-  withBrain(CORPUS, (home) => {
+  withZuzuu(CORPUS, (home) => {
     const r = search(home, { text: 'blue' });
     assert.equal(r.length, 1);
     assert.equal(r[0].addr, 'knowledge:acme-style');
@@ -38,14 +38,14 @@ test('search: by free text (FTS5)', () => {
 });
 
 test('search: --full includes the body', () => {
-  withBrain(CORPUS, (home) => {
+  withZuzuu(CORPUS, (home) => {
     const r = search(home, { text: 'blue', full: true });
     assert.equal(r[0].body, 'blue accent on white');
   });
 });
 
 test('search: filter by type, module, tag', () => {
-  withBrain(CORPUS, (home) => {
+  withZuzuu(CORPUS, (home) => {
     assert.equal(search(home, { type: 'action' }).length, 1);
     assert.equal(search(home, { module: 'knowledge' }).length, 2);
     assert.equal(search(home, { tag: 'client-acme' }).length, 2);
@@ -54,7 +54,7 @@ test('search: filter by type, module, tag', () => {
 });
 
 test('related: walk relations by depth (recursive CTE)', () => {
-  withBrain(CORPUS, (home) => {
+  withZuzuu(CORPUS, (home) => {
     const r = related(home, 'actions:build-report', { depth: 1 });
     assert.equal(r.length, 1);
     assert.equal(r[0].addr, 'knowledge:acme-style');
@@ -63,21 +63,21 @@ test('related: walk relations by depth (recursive CTE)', () => {
 });
 
 test('count: the --dry-run lever (no materialize)', () => {
-  withBrain(CORPUS, (home) => {
+  withZuzuu(CORPUS, (home) => {
     assert.equal(count(home, { module: 'knowledge' }), 2);
   });
 });
 
 test('brokenLinks: a relation to a missing note is surfaced', () => {
   const broken = { ...CORPUS, 'actions:orphan': { type: 'action', title: 'x', relations: { uses: 'knowledge:gone' }, body: 'y' } };
-  withBrain(broken, (home) => {
+  withZuzuu(broken, (home) => {
     const bl = brokenLinks(home);
     assert.ok(bl.some((l) => l.src === 'actions:orphan' && l.dst === 'knowledge:gone'));
   });
 });
 
 test('index rebuilds when a file changes (staleness)', () => {
-  withBrain(CORPUS, (home) => {
+  withZuzuu(CORPUS, (home) => {
     assert.equal(search(home, { text: 'blue' }).length, 1);
     // add a new note after the first build
     const dir = join(home, 'knowledge', 'items');
@@ -87,7 +87,7 @@ test('index rebuilds when a file changes (staleness)', () => {
 });
 
 test('queryData: dry-run, related, search shapes', () => {
-  withBrain(CORPUS, (home) => {
+  withZuzuu(CORPUS, (home) => {
     assert.equal(queryData(home, { dryRun: true, module: 'knowledge' }).kind, 'count');
     assert.equal(queryData(home, { from: 'actions:build-report', depth: 1 }).kind, 'related');
     assert.equal(queryData(home, { text: 'blue' }).rows.length, 1);
@@ -107,7 +107,7 @@ test('toon: values with commas are quoted', () => {
 });
 
 test('related: follows a BARE-id relation target (the shape enhance/relate write)', () => {
-  withBrain({
+  withZuzuu({
     'actions:pull': { type: 'action', relations: { 'related-to': 'render' } }, // bare id, not 'actions:render'
     'actions:render': { type: 'action', title: 'render' },
   }, (home) => {
