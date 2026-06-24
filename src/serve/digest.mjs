@@ -11,6 +11,7 @@
 import { open } from './api.mjs';
 import { toon } from '../notes/toon.mjs';
 import { readProject } from '../notes/project.mjs';
+import { moduleCounts } from '../notes/index.mjs';
 
 /** The brief as markdown text. Empty string if there's nothing to say. */
 export function digestText(cwd = process.cwd()) {
@@ -18,10 +19,10 @@ export function digestText(cwd = process.cwd()) {
     const zz = open(cwd);
     const mods = zz.modules();
     if (!mods.length) return '';
-    const rows = mods.map((m) => {
-      const q = zz.query(m.id, { dryRun: true });
-      return { module: m.id, notes: q.ok ? q.value.total : 0, pending: zz.proposals(m.id).length };
-    });
+    // ONE index open + GROUP BY for all note counts (was M opens, each re-stat-ing
+    // the whole corpus — this fires on every session start via the hook).
+    const counts = moduleCounts(zz.home);
+    const rows = mods.map((m) => ({ module: m.id, notes: counts[m.id] ?? 0, pending: zz.proposals(m.id).length }));
     // the Project's declared title (project.md manifest), falling back to the dir name
     const name = readProject(zz.home).title || cwd.split('/').filter(Boolean).pop() || 'project';
     const pending = rows.reduce((a, r) => a + r.pending, 0);

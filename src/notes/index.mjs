@@ -32,7 +32,20 @@ CREATE VIRTUAL TABLE fts USING fts5(addr UNINDEXED, title, body);
 CREATE TABLE meta (k TEXT PRIMARY KEY, v TEXT);
 CREATE INDEX prop_kv ON prop(key, value);
 CREATE INDEX link_dst ON link(dst);
+CREATE INDEX link_src ON link(src, type);
+CREATE INDEX notes_id ON notes(id);
 `;
+
+// This DB is a fully-regenerable CACHE — it rebuilds from the files on any change,
+// so crash-durability is irrelevant. Trade it for speed: no journal, no fsync.
+const CACHE_PRAGMAS = 'PRAGMA journal_mode=OFF; PRAGMA synchronous=OFF; PRAGMA temp_store=MEMORY; PRAGMA mmap_size=268435456;';
+
+/** Open a connection with the cache pragmas set. */
+function connect(path) {
+  const db = new (sqlite())(path);
+  db.exec(CACHE_PRAGMAS);
+  return db;
+}
 
 /** List module dirs in the home (skip dot-dirs + non-dirs). */
 function moduleDirs(home) {
@@ -85,7 +98,7 @@ function build(home, db) {
         if (key === 'relations' && val && typeof val === 'object' && !Array.isArray(val)) {
           for (const [rtype, dsts] of Object.entries(val)) {
             // normalize a bare-id target ('render') to a full addr ('actions:render')
-            // — enhance/relate write bare ids, and the graph walk joins on the full
+            // — observe/relate write bare ids, and the graph walk joins on the full
             // addr, so without this `related()` returns nothing for them.
             for (const d of [].concat(dsts)) { const dv = str(d); insLink.run(addr, rtype, dv.includes(':') ? dv : `${module}:${dv}`); }
           }
@@ -102,47 +115,62 @@ function build(home, db) {
 
 /** Open the index, rebuilding if missing or stale. Returns a live db handle. */
 export function open(home) {
-  const Db = sqlite();
   const path = dbPath(home);
   const sig = corpusSig(home);
   if (existsSync(path)) {
-    const db = new Db(path);
+    let db = null;
     try {
+      db = connect(path); // connect() runs PRAGMAs — on a corrupt file this throws → caught → rebuild
       const cur = db.prepare('SELECT v FROM meta WHERE k=?').get('sig');
-      if (cur && cur.v === sig) return db;
-    } catch { /* corrupt → rebuild */ }
-    db.close();
+      if (cur && cur.v === sig) return db; // fresh: caller owns + closes it
+    } catch { /* corrupt / unopenable → fall through to rebuild */ }
+    if (db) db.close(); // stale or corrupt → drop it
   }
   // (re)build into the file db
   const { rmSync } = require('node:fs');
   if (existsSync(path)) rmSync(path);
-  const db = new Db(path);
-  return build(home, db);
+  return build(home, connect(path));
 }
 
 // ── query primitives ───────────────────────────────────────────────────────
 
-const briefCols = 'addr, type, title, status';
-const fullCols = `${briefCols}, body`;
+const qualify = (cols) => cols.replace(/\b(addr|type|title|status|body)\b/g, 'notes.$1');
+const BRIEF_SEL = qualify('addr, type, title, status'); // precomputed (not per-call)
+const FULL_SEL = qualify('addr, type, title, status, body');
 
 /**
- * Search the index. Composable filters; brief by default.
+ * Make arbitrary user text a SAFE FTS5 query. The raw value is parsed by FTS5 as a
+ * QUERY EXPRESSION, so a quote/colon/`*`/`AND` crashes or silently mis-matches.
+ * Wrap each whitespace token in a quoted string (quotes doubled to escape) so every
+ * character is literal, then AND them. '' when nothing usable (→ no text filter).
+ */
+function ftsQuery(text) {
+  return (String(text).match(/\S+/g) || []).map((t) => `"${t.replace(/"/g, '""')}"`).join(' ');
+}
+
+/** Build the shared FROM + WHERE + args for a filter set (search and count reuse it). */
+function plan({ text = '', module = '', type = '', tag = '' }) {
+  const where = [];
+  const args = [];
+  let from = 'notes';
+  const fts = text ? ftsQuery(text) : '';
+  if (fts) { from = 'notes JOIN fts ON fts.addr = notes.addr'; where.push('fts MATCH ?'); args.push(fts); }
+  if (module) { where.push('notes.module = ?'); args.push(module); }
+  if (type) { where.push('notes.type = ?'); args.push(type); }
+  if (tag) { where.push('notes.addr IN (SELECT addr FROM prop WHERE key=? AND value=?)'); args.push('tag', tag); }
+  return { from, whereSql: where.length ? ` WHERE ${where.join(' AND ')}` : '', args };
+}
+
+/**
+ * Search the index. Composable filters; brief by default. User `text` is sanitized,
+ * so it never crashes on FTS metacharacters.
  * @returns {Array<{addr,type,title,status,body?}>}
  */
-export function search(home, { text = '', module = '', type = '', tag = '', limit = 50, full = false } = {}) {
+export function search(home, { limit = 50, full = false, ...filters } = {}) {
   const db = open(home);
   try {
-    const cols = full ? fullCols : briefCols;
-    const where = [];
-    const args = [];
-    let from = 'notes';
-    if (text) { from = 'notes JOIN fts ON fts.addr = notes.addr'; where.push('fts MATCH ?'); args.push(text); }
-    if (module) { where.push('notes.module = ?'); args.push(module); }
-    if (type) { where.push('notes.type = ?'); args.push(type); }
-    if (tag) { where.push('notes.addr IN (SELECT addr FROM prop WHERE key=? AND value=?)'); args.push('tag', tag); }
-    const sql = `SELECT ${cols.replace(/\b(addr|type|title|status|body)\b/g, 'notes.$1')} FROM ${from}`
-      + (where.length ? ` WHERE ${where.join(' AND ')}` : '')
-      + ` LIMIT ${Number(limit) || 50}`;
+    const { from, whereSql, args } = plan(filters);
+    const sql = `SELECT ${full ? FULL_SEL : BRIEF_SEL} FROM ${from}${whereSql} LIMIT ${Number(limit) || 50}`;
     return db.prepare(sql).all(...args);
   } finally { db.close(); }
 }
@@ -167,9 +195,22 @@ export function related(home, addr, { depth = 1, type = '' } = {}) {
   } finally { db.close(); }
 }
 
-/** Count without materializing (the --dry-run lever). */
+/** Count matching notes with `SELECT COUNT(*)` — never materializes rows. */
 export function count(home, opts = {}) {
-  return search(home, { ...opts, limit: 100000 }).length;
+  const db = open(home);
+  try {
+    const { from, whereSql, args } = plan(opts);
+    return db.prepare(`SELECT COUNT(*) AS n FROM ${from}${whereSql}`).get(...args).n;
+  } finally { db.close(); }
+}
+
+/** Per-module note counts in ONE query — the digest fast path (was M opens). */
+export function moduleCounts(home) {
+  const db = open(home);
+  try {
+    const rows = db.prepare('SELECT module, COUNT(*) AS n FROM notes GROUP BY module').all();
+    return Object.fromEntries(rows.map((r) => [r.module, r.n]));
+  } finally { db.close(); }
 }
 
 /** Integrity: relations whose target isn't a known note (broken links). */

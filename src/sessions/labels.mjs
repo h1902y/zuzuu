@@ -8,9 +8,9 @@
 // how:  read/write a small JSON side-map; fail-soft (missing/corrupt → {}). Zero-dep.
 
 import { join } from 'node:path';
-import { paths, readJson, writeJson } from '../notes/store.mjs';
+import { homeDir, repoRoot, readJson, writeJson } from '../notes/store.mjs';
 
-const labelsFile = (cwd) => join(paths(cwd).home, 'session-labels.json');
+const labelsFile = (cwd) => join(homeDir(repoRoot(cwd)), 'session-labels.json');
 
 /** { id: label } for this home, or {} (fail-soft on missing/corrupt). */
 export function readSessionLabels(cwd = process.cwd()) {

@@ -9,7 +9,7 @@
 //       subdir); falls back to cwd outside a git repo. Zero-dep (node:* only).
 //       (Path resolution harvested from core/store.mjs.)
 
-import { join, basename, dirname } from 'node:path';
+import { join, dirname } from 'node:path';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 
@@ -34,9 +34,15 @@ const git = (args, cwd) => {
   return r.status === 0 ? r.stdout.trim() : null;
 };
 
+// The repo root never changes within a process, but git is a process spawn (~10ms)
+// and `repoRoot` is called several times per command — memoize by cwd.
+const rootCache = new Map();
+
 /** The host repo root via git, falling back to cwd outside a repo. */
 export function repoRoot(cwd = process.cwd()) {
-  return git(['rev-parse', '--show-toplevel'], cwd) || cwd;
+  let root = rootCache.get(cwd);
+  if (root === undefined) { root = git(['rev-parse', '--show-toplevel'], cwd) || cwd; rootCache.set(cwd, root); }
+  return root;
 }
 
 /** The project home: the hidden `.zuzuu/` at the repo root. */
@@ -52,18 +58,9 @@ export function gitInfo(cwd = process.cwd()) {
   return { commit: git(['rev-parse', 'HEAD'], cwd), branch: git(['rev-parse', '--abbrev-ref', 'HEAD'], cwd) };
 }
 
-/** Canonical paths under the home. */
-export function paths(cwd = process.cwd()) {
-  const root = repoRoot(cwd);
-  const home = homeDir(root);
-  return {
-    root,
-    home,
-    index: join(home, 'sessions.json'),
-    live: liveDir(home),
-    generations: join(home, '.generations'),
-  };
-}
+/** The per-module generations store: `<home>/.generations/` (the layout chokepoint
+ *  for snapshots — grow/snapshot.mjs builds its store under here). */
+export const generationsDir = (home) => join(home, '.generations');
 
 // ── addressing ──────────────────────────────────────────────────────────────
 
@@ -89,6 +86,3 @@ export function itemPath(home, module, id) {
 export function manifestPath(home, module) {
   return join(home, seg(module, 'module'), 'module.md');
 }
-
-/** id = the filename stem of a note path. */
-export const idFromPath = (p) => basename(String(p), '.md');

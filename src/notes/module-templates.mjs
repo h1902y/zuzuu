@@ -36,7 +36,7 @@ export function manifestFor(id) {
   const t = templateFor(id);
   return serialize({
     id: t.id, type: 'module', title: t.title, note_type: t.note_type,
-    capabilities: t.capabilities, enhance: { goal: t.goal },
+    capabilities: t.capabilities, goal: t.goal,
   });
 }
 

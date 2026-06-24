@@ -2,7 +2,7 @@
 //
 // what: find the transcripts worth mining (across every detected host) and turn
 //       them into per-session signals. The one seam between "a host wrote a log"
-//       and "the observe pipeline has something to enhance from."
+//       and "the observe pipeline has something to mine from."
 // why:  the core stays host-blind — it iterates `detected()` adapters and calls
 //       their uniform `listSessions`/`mineSignals`. A flaky host degrades to
 //       skipped, never breaks the sweep.
