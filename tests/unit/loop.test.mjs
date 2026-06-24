@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { serialize, parse } from '../../src/notes/note.mjs';
 import { mint, generations, rollback } from '../../src/notes/generation.mjs';
-import { createProposal, listProposals, readProposal } from '../../src/grow/propose.mjs';
+import { stageChange, listStaged, readStaged } from '../../src/grow/stage.mjs';
 import { approve, reject } from '../../src/grow/review.mjs';
 import { evolve } from '../../src/grow/evolve.mjs';
 import { read } from '../../src/notes/log.mjs';
@@ -32,12 +32,12 @@ const readZu = (home, module, id) => parse(readFileSync(join(home, module, 'item
 
 test('evolve: writes + mints but does NOT archive (archiving is review.approve’s job)', () => {
   withHome((home) => {
-    const p = createProposal(home, 'knowledge', { op: 'create', target: 'fact', change: { type: 'knowledge', title: 'A' } });
-    const r = evolve(home, 'knowledge', readProposal(home, 'knowledge', p.id));
+    const p = stageChange(home, 'knowledge', { op: 'create', target: 'fact', change: { type: 'knowledge', title: 'A' } });
+    const r = evolve(home, 'knowledge', readStaged(home, 'knowledge', p.id));
     assert.equal(r.ok, true);
     assert.equal(readZu(home, 'knowledge', 'fact').title, 'A', 'evolve wrote the note');
     assert.equal(generations(home, 'knowledge').active, 1, 'evolve minted a generation');
-    assert.ok(readProposal(home, 'knowledge', p.id), 'proposal still pending — evolve does not archive');
+    assert.ok(readStaged(home, 'knowledge', p.id), 'proposal still pending — evolve does not archive');
   });
 });
 
@@ -45,13 +45,13 @@ test('evolve: writes + mints but does NOT archive (archiving is review.approve�
 
 test('review: approving twice is idempotent — the second finds no proposal, no double-mint', () => {
   withHome((home) => {
-    const p = createProposal(home, 'knowledge', { op: 'create', target: 'fact', change: { type: 'knowledge', title: 'A' } });
+    const p = stageChange(home, 'knowledge', { op: 'create', target: 'fact', change: { type: 'knowledge', title: 'A' } });
     assert.equal(approve(home, 'knowledge', p.id).ok, true);
     // the atomic post-condition of one approve: note + log + a generation + archived proposal
     assert.equal(readZu(home, 'knowledge', 'fact').title, 'A');
     assert.equal(read(home, 'knowledge', 'mutations')[0].event, 'create');
     assert.equal(generations(home, 'knowledge').active, 1);
-    assert.equal(readProposal(home, 'knowledge', p.id), null, 'proposal archived');
+    assert.equal(readStaged(home, 'knowledge', p.id), null, 'proposal archived');
     // the second approve is a no-op: the proposal is gone → ok:false, generation still 1
     assert.equal(approve(home, 'knowledge', p.id).ok, false);
     assert.equal(generations(home, 'knowledge').active, 1, 'no double-mint');
@@ -60,17 +60,17 @@ test('review: approving twice is idempotent — the second finds no proposal, no
 
 test('propose: a malformed op never reaches the queue (and mints no manifest)', () => {
   withHome((home) => {
-    assert.equal(createProposal(home, 'knowledge', { op: 'frobnicate', change: {} }), null);
-    assert.equal(listProposals(home, 'knowledge').length, 0, 'nothing staged');
+    assert.equal(stageChange(home, 'knowledge', { op: 'frobnicate', change: {} }), null);
+    assert.equal(listStaged(home, 'knowledge').length, 0, 'nothing staged');
     assert.equal(existsSync(join(home, 'knowledge', 'module.md')), false, 'no manifest minted for a bad op');
   });
 });
 
 test('propose: a corrupt proposal file is skipped, not fatal', () => {
   withHome((home) => {
-    const p = createProposal(home, 'knowledge', { op: 'create', target: 'x', change: { type: 'knowledge', title: 'x' } });
-    writeFileSync(join(home, 'knowledge', 'proposals', 'garbage.json'), '{ not json');
-    const list = listProposals(home, 'knowledge');
+    const p = stageChange(home, 'knowledge', { op: 'create', target: 'x', change: { type: 'knowledge', title: 'x' } });
+    writeFileSync(join(home, 'knowledge', 'staged', 'garbage.json'), '{ not json');
+    const list = listStaged(home, 'knowledge');
     assert.equal(list.length, 1, 'the valid proposal survives; the corrupt file is skipped');
     assert.equal(list[0].id, p.id);
   });
@@ -138,24 +138,24 @@ test('snapshot: rollback restores a generation via git, as forward motion', () =
 
 test('propose: stage, rank by score, dedup re-proposals', () => {
   withHome((home) => {
-    const p1 = createProposal(home, 'knowledge', { op: 'create', change: { type: 'knowledge', title: 'A' }, score: 5 });
-    const p2 = createProposal(home, 'knowledge', { op: 'create', change: { type: 'knowledge', title: 'B' }, score: 9 });
-    assert.equal(listProposals(home, 'knowledge')[0].id, p2.id, 'higher score ranks first');
-    const dup = createProposal(home, 'knowledge', { op: 'create', change: { type: 'knowledge', title: 'A' }, score: 5 });
+    const p1 = stageChange(home, 'knowledge', { op: 'create', change: { type: 'knowledge', title: 'A' }, score: 5 });
+    const p2 = stageChange(home, 'knowledge', { op: 'create', change: { type: 'knowledge', title: 'B' }, score: 9 });
+    assert.equal(listStaged(home, 'knowledge')[0].id, p2.id, 'higher score ranks first');
+    const dup = stageChange(home, 'knowledge', { op: 'create', change: { type: 'knowledge', title: 'A' }, score: 5 });
     assert.equal(dup.duplicate, true);
-    assert.equal(listProposals(home, 'knowledge').length, 2);
+    assert.equal(listStaged(home, 'knowledge').length, 2);
   });
 });
 
 test('review: approve a create → writes the note + logs + mints a generation', () => {
   withHome((home) => {
-    const p = createProposal(home, 'knowledge', { op: 'create', target: 'blue-decks', change: { type: 'knowledge', title: 'Acme likes blue', body: 'blue' } });
+    const p = stageChange(home, 'knowledge', { op: 'create', target: 'blue-decks', change: { type: 'knowledge', title: 'Acme likes blue', body: 'blue' } });
     const r = approve(home, 'knowledge', p.id);
     assert.equal(r.ok, true);
     assert.equal(readZu(home, 'knowledge', 'blue-decks').title, 'Acme likes blue');
     assert.equal(read(home, 'knowledge', 'mutations')[0].event, 'create');
     assert.equal(generations(home, 'knowledge').active, 1, 'a generation was minted');
-    assert.equal(readProposal(home, 'knowledge', p.id), null, 'archived (no longer pending)');
+    assert.equal(readStaged(home, 'knowledge', p.id), null, 'archived (no longer pending)');
   });
 });
 
@@ -163,13 +163,13 @@ test('review: approve an update merges the edit; approve a relate adds an edge',
   withHome((home) => {
     writeZu(home, 'knowledge', 'fact', { type: 'knowledge', title: 'old', tags: ['x'] });
     writeZu(home, 'knowledge', 'other', { type: 'knowledge', title: 'other' });
-    const up = createProposal(home, 'knowledge', { op: 'update', target: 'fact', change: { title: 'new' } });
+    const up = stageChange(home, 'knowledge', { op: 'update', target: 'fact', change: { title: 'new' } });
     approve(home, 'knowledge', up.id);
     const f = readZu(home, 'knowledge', 'fact');
     assert.equal(f.title, 'new');
     assert.deepEqual(f.tags, ['x'], 'merge — kept existing fields');
 
-    const rel = createProposal(home, 'knowledge', { op: 'relate', change: { from: 'fact', type: 'related-to', to: 'other' } });
+    const rel = stageChange(home, 'knowledge', { op: 'relate', change: { from: 'fact', type: 'related-to', to: 'other' } });
     approve(home, 'knowledge', rel.id);
     assert.equal(readZu(home, 'knowledge', 'fact').relations['related-to'], 'other');
   });
@@ -177,10 +177,10 @@ test('review: approve an update merges the edit; approve a relate adds an edge',
 
 test('review: reject archives, writes nothing', () => {
   withHome((home) => {
-    const p = createProposal(home, 'knowledge', { op: 'create', target: 'x', change: { type: 'knowledge', title: 'x' } });
+    const p = stageChange(home, 'knowledge', { op: 'create', target: 'x', change: { type: 'knowledge', title: 'x' } });
     reject(home, 'knowledge', p.id, 'not useful');
     assert.equal(existsSync(join(home, 'knowledge', 'items', 'x.md')), false);
-    assert.equal(readProposal(home, 'knowledge', p.id), null);
+    assert.equal(readStaged(home, 'knowledge', p.id), null);
   });
 });
 
@@ -201,7 +201,7 @@ test('snapshot: rollback prunes notes added after the target generation (no orph
 test('review: an update merges nested object fields (keeps siblings, no silent loss)', () => {
   withHome((home) => {
     writeZu(home, 'knowledge', 'fact', { type: 'knowledge', relations: { about: 'x', uses: 'y' } });
-    const p = createProposal(home, 'knowledge', { op: 'update', target: 'fact', change: { relations: { about: 'z' } } });
+    const p = stageChange(home, 'knowledge', { op: 'update', target: 'fact', change: { relations: { about: 'z' } } });
     approve(home, 'knowledge', p.id);
     const f = parse(readFileSync(join(home, 'knowledge', 'items', 'fact.md'), 'utf8'), { id: 'fact' }).note;
     assert.deepEqual(f.relations, { about: 'z', uses: 'y' }, "uses survived the partial update");
@@ -210,7 +210,7 @@ test('review: an update merges nested object fields (keeps siblings, no silent l
 
 test('review: deleting a non-existent note returns ok:false (no phantom log/mint)', () => {
   withHome((home) => {
-    const p = createProposal(home, 'knowledge', { op: 'delete', target: 'ghost' });
+    const p = stageChange(home, 'knowledge', { op: 'delete', target: 'ghost' });
     const r = approve(home, 'knowledge', p.id);
     assert.equal(r.ok, false);
     assert.equal(generations(home, 'knowledge').active, null, 'no generation minted for a no-op');
@@ -220,7 +220,7 @@ test('review: deleting a non-existent note returns ok:false (no phantom log/mint
 test('review: approving a deprecate flips status to deprecated and KEEPS the file', () => {
   withHome((home) => {
     writeZu(home, 'knowledge', 'old', { type: 'knowledge', title: 'stale', status: 'active' });
-    const p = createProposal(home, 'knowledge', { op: 'deprecate', target: 'old' });
+    const p = stageChange(home, 'knowledge', { op: 'deprecate', target: 'old' });
     const r = approve(home, 'knowledge', p.id);
     assert.equal(r.ok, true);
     assert.equal(existsSync(join(home, 'knowledge', 'items', 'old.md')), true, 'deprecate keeps the file');

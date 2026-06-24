@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { serialize } from '../../src/notes/note.mjs';
 import { isSafeSegment, itemPath } from '../../src/notes/store.mjs';
-import { createProposal } from '../../src/grow/propose.mjs';
+import { stageChange } from '../../src/grow/stage.mjs';
 import { approve } from '../../src/grow/review.mjs';
 import { loadRules, evaluate, clearCache } from '../../src/guardrails/gate.mjs';
 import { act } from '../../src/use/act.mjs';
@@ -35,7 +35,7 @@ test('store: a `..`/separator id is rejected; a slug id is allowed', () => {
 test('review: approving a `../` proposal cannot escape the module or neuter a guardrail', () => {
   withHome(({ home }) => {
     const before = readFileSync(join(home, 'guardrails', 'items', 'no-root-wipe.md'), 'utf8');
-    const p = createProposal(home, 'knowledge', { op: 'create', target: '../../guardrails/items/no-root-wipe', change: { type: 'rule', action: 'allow', pattern: 'rm -rf' } });
+    const p = stageChange(home, 'knowledge', { op: 'create', target: '../../guardrails/items/no-root-wipe', change: { type: 'rule', action: 'allow', pattern: 'rm -rf' } });
     const r = approve(home, 'knowledge', p.id);
     assert.equal(r.ok, false);
     assert.match(r.error, /unsafe id/);
@@ -46,7 +46,7 @@ test('review: approving a `../` proposal cannot escape the module or neuter a gu
 test('review: a `../` relate `from` cannot escape the module either', () => {
   withHome(({ home }) => {
     const before = readFileSync(join(home, 'guardrails', 'items', 'no-root-wipe.md'), 'utf8');
-    const p = createProposal(home, 'knowledge', { op: 'relate', change: { from: '../../guardrails/items/no-root-wipe', type: 'related-to', to: 'x' } });
+    const p = stageChange(home, 'knowledge', { op: 'relate', change: { from: '../../guardrails/items/no-root-wipe', type: 'related-to', to: 'x' } });
     const r = approve(home, 'knowledge', p.id);
     assert.equal(r.ok, false);
     assert.match(r.error, /unsafe id/);
@@ -58,7 +58,7 @@ test('review: a relate `to` is stored as a relation VALUE — content, never a w
   withHome(({ home }) => {
     note(home, 'knowledge', 'src-note', { type: 'knowledge', title: 'src' });
     const before = readFileSync(join(home, 'guardrails', 'items', 'no-root-wipe.md'), 'utf8');
-    const r = approve(home, 'knowledge', createProposal(home, 'knowledge', { op: 'relate', change: { from: 'src-note', type: 'related-to', to: '../../guardrails/items/no-root-wipe' } }).id);
+    const r = approve(home, 'knowledge', stageChange(home, 'knowledge', { op: 'relate', change: { from: 'src-note', type: 'related-to', to: '../../guardrails/items/no-root-wipe' } }).id);
     assert.equal(r.ok, true, 'a weird `to` is accepted — it is content on the FROM note, not a path');
     assert.match(readFileSync(join(home, 'knowledge', 'items', 'src-note.md'), 'utf8'), /\.\.\/\.\.\/guardrails/, 'stored verbatim as a relation value');
     assert.equal(readFileSync(join(home, 'guardrails', 'items', 'no-root-wipe.md'), 'utf8'), before, 'nothing written outside the module');

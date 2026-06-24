@@ -33,9 +33,9 @@ test('api: query dispatches through the façade', () => {
   });
 });
 
-test('api: propose → approve grows the Project and mints a generation', () => {
+test('api: stage → approve grows the Project and mints a generation', () => {
   withApi((zz) => {
-    const p = zz.propose('knowledge', { op: 'create', target: 'learned', change: { type: 'knowledge', title: 'a learned fact', body: 'from a run' } });
+    const p = zz.stage('knowledge', { op: 'create', target: 'learned', change: { type: 'knowledge', title: 'a learned fact', body: 'from a run' } });
     assert.equal(zz.approve('knowledge', p.id).ok, true);
     assert.equal(zz.generations('knowledge').active, 1);
     assert.ok(zz.query('knowledge', { text: 'learned' }).value.rows.some((x) => x.addr === 'knowledge:learned'));

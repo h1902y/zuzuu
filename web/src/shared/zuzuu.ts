@@ -1,6 +1,6 @@
 // src/shared/zuzuu.ts — the zuzuu modules-dashboard contract (/api/zuzuu/*).
 //
-// The Project surface the workbench renders: modules, items, proposals, per-module
+// The Project surface the workbench renders: modules, items, staged, per-module
 // generations, the agent-exit session-git auto-merge, and the human-gated
 // mutations (always shelled through the `zz` CLI on the server).
 //
@@ -34,7 +34,7 @@ export interface ModuleItemError {
   error: string;
 }
 
-export interface ProposalSummary {
+export interface StagedSummary {
   id: string;
   module: string;
   title: string;
@@ -47,7 +47,7 @@ export interface ProposalSummary {
 export interface ModuleDetail {
   key: string;
   items: ModuleItem[];
-  proposals: ProposalSummary[];
+  staged: StagedSummary[];
   errors?: ModuleItemError[];
   /** true = zuzuu CLI absent; items are a best-effort frontmatter peek */
   degraded?: boolean;
@@ -94,7 +94,7 @@ export interface ModuleOverviewResponse {
 
 // ── Write side (mutations are CLI-only; the daemon shells out to `zz`) ─────────
 
-/** POST /proposals/:id/approve and /actions/:slug/approve */
+/** POST /staged/:id/approve and /actions/:slug/approve */
 export interface ApproveResult {
   ok: boolean;
   action?: string;
@@ -102,7 +102,7 @@ export interface ApproveResult {
   warnings?: string[];
 }
 
-/** POST /proposals/:id/reject and /actions/:slug/reject */
+/** POST /staged/:id/reject and /actions/:slug/reject */
 export interface RejectResult {
   ok: boolean;
   id?: string;

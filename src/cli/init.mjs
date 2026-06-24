@@ -6,7 +6,7 @@
 //       lines for the ephemeral/derived paths. No prebuilt content modules —
 //       knowledge/memory/actions/instructions materialize on demand as the loop
 //       grows the Project (their manifests are minted on first proposal; see
-//       src/grow/propose.mjs + src/notes/module-templates.mjs).
+//       src/grow/stage.mjs + src/notes/module-templates.mjs).
 // why:  the one onboarding step. Everything else (query/act/observe/review) reads
 //       a Project; this makes one. A fresh repo starts empty (the honest onboarding
 //       state) — only guardrails ship, because protection must hold from byte one.
@@ -94,7 +94,7 @@ export function initHome(cwd = process.cwd()) {
   // NOT scaffolded: they grow on demand (the loop mints their manifests on first
   // proposal). Protection is the exception — it must hold before the first turn.
   ensureDir(join(home, 'guardrails', 'items'));
-  ensureDir(join(home, 'guardrails', 'proposals'));
+  ensureDir(join(home, 'guardrails', 'staged'));
   writeOnce(join(home, 'guardrails', 'module.md'), manifestFor('guardrails'), 'guardrails/module.md');
   for (const r of RULES) {
     writeOnce(join(home, 'guardrails', 'items', `${r.id}.md`), serialize(r), `guardrails/${r.id}`);

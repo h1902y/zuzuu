@@ -46,10 +46,10 @@ const HELP = `zz — your repo's Project (envelopes, queried/run/grown, human-ga
   zz query <module> [text]      search a module  (--from <addr> · --tag t · --full)
   zz act <module> <id> [--k v]  run a runnable note
   zz check [module]             integrity — broken links · orphans · stale
-  zz observe                    mine real sessions → proposals (the cold-start)
-  zz review [module]            list pending proposals
-  zz review approve <m> <id>    apply a proposal  (the human gate)
-  zz review reject  <m> <id>    archive a proposal
+  zz observe                    mine real sessions → staged changes (the cold-start)
+  zz review [module]            list staged changes awaiting the gate
+  zz review approve <m> <id>    apply a staged change  (the human gate)
+  zz review reject  <m> <id>    archive a staged change
   zz module [list | <m> generations | <m> rollback <n>]
   zz session [status|merge|continue|discard --yes|worktree …|label]
   zz doctor / status / explain  health · inventory · porcelain
@@ -125,7 +125,7 @@ export async function run(argv, io = {}) {
         const sessions = captureSignals({ cwd, scope: args.scope || 'all' });
         const r = observe(zz.home, { cwd, sessions });
         log(toon('observe', [{ mined: r.sessionsMined, candidates: r.candidates, proposed: r.proposed }], ['mined', 'candidates', 'proposed']));
-        if (r.proposals.length) log(toon('proposals', r.proposals.map((p) => ({ module: p.module, id: p.target, score: p.score })), ['module', 'id', 'score'], ['zz review <module>']));
+        if (r.staged.length) log(toon('staged', r.staged.map((p) => ({ module: p.module, id: p.target, score: p.score })), ['module', 'id', 'score'], ['zz review <module>']));
         return 0;
       }
 
@@ -135,9 +135,9 @@ export async function run(argv, io = {}) {
         const [sub, m, id] = args._;
         if (sub === 'approve' || sub === 'reject') {
           if (!m || !id) return fail(log, `usage: zz review ${sub} <module> <id>`);
-          // accept the human handle (the proposal's target) OR the raw propId
-          const match = zz.proposals(m).find((p) => (p.target ?? p.id) === id || p.id === id);
-          if (!match) return fail(log, `no pending proposal '${id}' in ${m}`);
+          // accept the human handle (the staged change's target) OR the raw stageId
+          const match = zz.staged(m).find((p) => (p.target ?? p.id) === id || p.id === id);
+          if (!match) return fail(log, `no pending staged change '${id}' in ${m}`);
           const r = sub === 'approve' ? zz.approve(m, match.id) : zz.reject(m, match.id, args.reason || '');
           if (!r.ok) return fail(log, r.error);
           log(toon('review', [{ action: sub, module: m, id }], ['action', 'module', 'id']));
@@ -146,7 +146,7 @@ export async function run(argv, io = {}) {
         // list pending across modules (or one)
         const mods = sub ? [sub] : zz.modules().map((x) => x.id);
         const rows = [];
-        for (const mod of mods) for (const p of zz.proposals(mod)) rows.push({ module: mod, id: p.target ?? p.id, op: p.op, score: p.score ?? 0 });
+        for (const mod of mods) for (const p of zz.staged(mod)) rows.push({ module: mod, id: p.target ?? p.id, op: p.op, score: p.score ?? 0 });
         rows.sort((a, b) => b.score - a.score);
         log(toon('pending', rows, ['module', 'id', 'op', 'score'], rows.length ? ['zz review approve <m> <id>', 'zz review reject <m> <id>'] : []));
         return 0;

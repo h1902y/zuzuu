@@ -15,7 +15,7 @@ import { homeDir, repoRoot } from '../notes/store.mjs';
 import { invoke } from './dispatch.mjs';
 import { listModules } from '../notes/module.mjs';
 import { registerAll } from './wire.mjs';
-import { createProposal, listProposals } from '../grow/propose.mjs';
+import { stageChange, listStaged } from '../grow/stage.mjs';
 import { approve, reject } from '../grow/review.mjs';
 import { generations, rollback } from '../notes/generation.mjs';
 
@@ -41,8 +41,8 @@ export function open(cwd = process.cwd()) {
     act: (module, id, inputs = {}) => invoke(home, module, 'act', id, inputs),
 
     // ── the human gate (review is interactive — not a registry verb) ────────
-    propose: (module, p) => createProposal(home, module, p),
-    proposals: (module) => listProposals(home, module),
+    stage: (module, p) => stageChange(home, module, p),
+    staged: (module) => listStaged(home, module),
     approve: (module, id, opts) => approve(home, module, id, opts),
     reject: (module, id, reason) => reject(home, module, id, reason),
 

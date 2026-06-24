@@ -22,7 +22,7 @@ export function digestText(cwd = process.cwd()) {
     // ONE index open + GROUP BY for all note counts (was M opens, each re-stat-ing
     // the whole corpus — this fires on every session start via the hook).
     const counts = moduleCounts(zz.home);
-    const rows = mods.map((m) => ({ module: m.id, notes: counts[m.id] ?? 0, pending: zz.proposals(m.id).length }));
+    const rows = mods.map((m) => ({ module: m.id, notes: counts[m.id] ?? 0, pending: zz.staged(m.id).length }));
     // the Project's declared title (project.md manifest), falling back to the dir name
     const name = readProject(zz.home).title || cwd.split('/').filter(Boolean).pop() || 'project';
     const pending = rows.reduce((a, r) => a + r.pending, 0);

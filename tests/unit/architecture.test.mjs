@@ -43,11 +43,11 @@ test('rule 6: the concept-directory import graph is acyclic (a DAG)', () => {
   for (const n of edges.keys()) if (color.get(n) === WHITE) dfs(n);
 });
 
-test('rule 6: use/ never writes the Project (no import of review/propose/evolve/snapshot)', () => {
+test('rule 6: use/ never writes the Project (no import of review/stage/evolve/generation)', () => {
   // use/ reads and runs; a run may append telemetry to the git-ignored runs.jsonl
-  // (the log) — but it must never touch the Project-WRITE path (propose/review/
-  // evolve/snapshot). Only grow/ writes notes, and only review→evolve (the gate).
-  const WRITERS = ['review', 'propose', 'evolve', 'generation'];
+  // (the log) — but it must never touch the Project-WRITE path (stage/review/
+  // evolve/generation). Only grow/ writes notes, and only review→evolve (the gate).
+  const WRITERS = ['review', 'stage', 'evolve', 'generation'];
   for (const f of srcFiles(join(SRC, 'use'))) {
     const bad = [...readFileSync(f, 'utf8').matchAll(/from '(\.\.?\/[^']+)'/g)]
       .map((m) => m[1]).filter((p) => WRITERS.some((w) => p.endsWith(`/${w}.mjs`)));

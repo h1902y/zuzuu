@@ -12,7 +12,7 @@
 //       candidate kind → {module, note}. Zero-dep, fail-soft.
 
 import { slugify } from '../notes/note.mjs';
-import { createProposal } from './propose.mjs';
+import { stageChange } from './stage.mjs';
 
 // escape a literal command for a guardrail rule's regex pattern (match exactly it)
 const escapeRe = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -155,25 +155,25 @@ const ROUTE = {
 };
 
 /**
- * Observe real sessions → file evidence-backed proposals into each module's
- * review queue. Never writes the Project; dedup is propose's job (idempotent).
- * @returns {{ sessionsMined, candidates, proposed, proposals }}
+ * Observe real sessions → file evidence-backed staged changes into each module's
+ * review queue. Never writes the Project; dedup is stage's job (idempotent).
+ * @returns {{ sessionsMined, candidates, proposed, staged }}
  */
 export function observe(home, opts = {}) {
   // sessions are injected by the caller (the cli/hook capture via hosts/capture);
   // observe itself never reaches into hosts/, so grow/ → hosts/ is not an edge.
   const sessions = opts.sessions ?? [];
   const candidates = aggregate(sessions, opts);
-  const proposals = [];
+  const staged = [];
   for (const c of candidates) {
     const route = ROUTE[c.kind]?.(c);
     if (!route) continue;
-    const p = createProposal(home, route.module, {
+    const p = stageChange(home, route.module, {
       op: 'create', target: c.id, change: route.change,
       rationale: c.body, evidence: [{ kind: c.kind, ...c.evidence }],
       source: 'observe', score: c.score ?? 1,
     });
-    if (p && !p.duplicate) proposals.push({ module: route.module, ...p });
+    if (p && !p.duplicate) staged.push({ module: route.module, ...p });
   }
-  return { sessionsMined: sessions.length, candidates: candidates.length, proposed: proposals.length, proposals };
+  return { sessionsMined: sessions.length, candidates: candidates.length, proposed: staged.length, staged };
 }
