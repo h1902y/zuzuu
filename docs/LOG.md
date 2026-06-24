@@ -1046,3 +1046,13 @@ Four specialized audits (structure · performance · correctness · architecture
 3. **`sessions/` is a surface (Layer 3) filed as a core stage** — the biggest non-substrate dir, consumed only by cli/ + hook.
 4. **`use/act → grow/log` is the one cross-seam edge** — an artifact of the log's misfiling (resolved by #2).
 5. **A closed routing taxonomy inside an "open set" ontology** — observe's `ROUTE` covers only 2 of 5 module kinds, and the `correctionTurns`/`destructiveFailures`/`sequences` signals every adapter mines are **routed nowhere** (a half-built seam): wire them (corrections→Instructions, destructive→Guardrails) or trim the producers — a decision the reshape should make.
+
+## R5 — wire observe's mined-but-unrouted signals (data-driven routing) (2026-06-24)
+
+The loop audit found observe's only currently-dead surface: every adapter mines `correctionTurns`, `destructiveFailures`, and `sequences`, but `aggregate` consumed only `commands`/`files`/`failures`, so `ROUTE` reached just 2 of the 5 module kinds — a half-built seam. R5 (the spec's option a+c — wire via the declarative table) closes it:
+
+- **destructive failures → an ASK guardrail** (`guardrails` module): a destructive command (`rm -rf`, `--force`, `DROP TABLE`, `chmod -R`) that failed across **≥2 sessions** proposes a `type: rule` note with **`action: 'ask'`** and a literal-escaped pattern — never an auto-deny (the human tightens it at review). Restores the v1 "ask-only, cross-session-gated" guardrails miner that v2 had been mining to a dead end.
+- **a repeated correction → a standing instruction** (`instructions` module): a correction the user repeats across **≥2 sessions** becomes a `type: instruction` amendment.
+- **a recurring two-step sequence → a workflow action** (`actions`): a `cmdA && cmdB` 2-gram past the command threshold becomes a runnable action.
+
+observe now routes **all six** mined signals (4 of 5 module kinds — Memory's episodic distiller is separate), via the one declarative `ROUTE` table — adding a routed signal is one aggregate producer + one table line. +4 tests (each new route end-to-end + the cross-session corroboration floor). Root 190 green. The correction/destructive *extraction* is already real-wire-verified by the adapter tests; the new *routing* is pure, hermetically tested.

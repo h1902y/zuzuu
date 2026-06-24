@@ -134,3 +134,43 @@ test('observe: a recurring tool failure routes a fact to knowledge', () => {
   assert.match(knowledge[0].change.title, /Bash fails frequently/);
   rmSync(root, { recursive: true, force: true });
 });
+
+// ── R5: the previously mined-but-unrouted signals now reach all 4 routable kinds ─
+
+test('observe: a repeated destructive command routes an ASK guardrail (never auto-deny)', () => {
+  const root = mkdtempSync(join(tmpdir(), 'zuzuu-obs-guard-'));
+  const home = join(root, '.zuzuu');
+  const sessions = Array.from({ length: 2 }, (_, i) => ({ sessionId: `s${i}`, commands: [], files: [], failures: [], destructiveFailures: [{ cmd: 'rm -rf /', tool: 'Bash' }] }));
+  observe(home, { sessions });
+  const rules = listProposals(home, 'guardrails');
+  assert.equal(rules.length, 1);
+  assert.equal(rules[0].change.type, 'rule');
+  assert.equal(rules[0].change.action, 'ask', 'a mined guardrail only ASKS — the human tightens it at review');
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('observe: a correction repeated across sessions routes a standing instruction', () => {
+  const root = mkdtempSync(join(tmpdir(), 'zuzuu-obs-corr-'));
+  const home = join(root, '.zuzuu');
+  const sessions = Array.from({ length: 2 }, (_, i) => ({ sessionId: `s${i}`, commands: [], files: [], failures: [], correctionTurns: [{ text: 'always run tests first' }] }));
+  observe(home, { sessions });
+  const instr = listProposals(home, 'instructions');
+  assert.equal(instr.length, 1);
+  assert.equal(instr[0].change.type, 'instruction');
+  assert.match(instr[0].change.body, /always run tests first/);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('observe: a repeated two-step sequence routes a workflow action', () => {
+  const root = mkdtempSync(join(tmpdir(), 'zuzuu-obs-flow-'));
+  const home = join(root, '.zuzuu');
+  const sessions = Array.from({ length: 3 }, (_, i) => ({ sessionId: `s${i}`, commands: [], files: [], failures: [], sequences: ['npm test && npm run build'] }));
+  observe(home, { sessions });
+  assert.ok(listProposals(home, 'actions').some((p) => p.change.type === 'action' && p.change.run === 'npm test && npm run build'));
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('aggregate: a single-session destructive failure is below the cross-session threshold', () => {
+  const sessions = [{ sessionId: 'a', commands: [], files: [], failures: [], destructiveFailures: [{ cmd: 'rm -rf /', tool: 'Bash' }] }];
+  assert.equal(aggregate(sessions).filter((c) => c.kind === 'guardrail').length, 0, 'no guardrail from a single sighting (corroboration)');
+});
