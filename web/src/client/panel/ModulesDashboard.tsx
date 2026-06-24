@@ -1,4 +1,4 @@
-// src/client/panel/ModulesDashboard.tsx — the brain surface (modules mode).
+// src/client/panel/ModulesDashboard.tsx — the zuzuu surface (modules mode).
 //
 // The five-module grid (the cards ARE the navigation — click to drill in via
 // ModuleView). Reads /api/zuzuu/overview in one call. When zuzuu isn't set up
@@ -22,7 +22,7 @@ export function ModulesDashboard() {
     <div className="flex h-full flex-col">
       <PanelHeader title="modules" />
       {overview.isLoading ? (
-        <Centered>reading the brain…</Centered>
+        <Centered>reading the zuzuu…</Centered>
       ) : overview.isError || !overview.data ? (
         <Centered>no <code className="text-subtle">.zuzuu/</code> here yet — run <code className="text-subtle">zz init</code> in the terminal</Centered>
       ) : (

@@ -39,7 +39,7 @@ It is tolerant by construction: a malformed line is skipped, a missing file retu
 | a hot file | a project **entity** (`type: knowledge`) | `knowledge` |
 | a frequently-failing tool | a **fact** worth knowing | `knowledge` |
 
-Then every candidate goes through the exact same door as everything else: `createProposal` (lesson `05`). Observe **never writes the brain** — it stages evidence-backed, deduped proposals into the review queue. A second observe of the same sessions proposes nothing new (idempotent).
+Then every candidate goes through the exact same door as everything else: `createProposal` (lesson `05`). Observe **never writes the zuzuu** — it stages evidence-backed, deduped proposals into the review queue. A second observe of the same sessions proposes nothing new (idempotent).
 
 So the full loop from lesson `05` now has its source:
 
@@ -52,4 +52,4 @@ The agent worked; zuzuu watched; what recurred is now a suggestion waiting for y
 
 ---
 
-**Next:** `07` · The CLI veneer — how `zz <verb>` becomes a thin router over the one `api`, and how `zz init` scaffolds a brain into any repo.
+**Next:** `07` · The CLI veneer — how `zz <verb>` becomes a thin router over the one `api`, and how `zz init` scaffolds the project's zuzuu into any repo.

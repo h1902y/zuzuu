@@ -6,7 +6,7 @@
 //       "everything is an envelope" rule; a note is the runnable kind).
 // why:  one parser, one format. Distinguished by `type` (OKF: only `type` is
 //       required, and unknown keys are always tolerated and preserved, so the
-//       brain learns new vocabulary without migrations).
+//       zuzuu learns new vocabulary without migrations).
 // how:  hand-rolled, zero-dep (no YAML lib). The frontmatter we emit is the
 //       JSON-compatible subset of YAML — scalars + block lists/one-level maps,
 //       with inline JSON for deeper nesting — so a real YAML parser can read

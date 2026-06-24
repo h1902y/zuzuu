@@ -1,6 +1,6 @@
 // src/use/check.mjs — integrity, made queryable.
 //
-// what: the `check` verb — surface the brain's best-effort cracks: broken links
+// what: the `check` verb — surface the zuzuu's best-effort cracks: broken links
 //       (a relation to a missing note), orphans (no links at all), and stale notes
 //       (explicitly superseded, or deprecated).
 // why:  the files are mutated by many processes (the agent, the user, other

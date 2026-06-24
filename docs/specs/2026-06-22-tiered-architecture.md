@@ -12,7 +12,7 @@
 ## The products
 
 1. **Open-source** — the core, free. The local CLI (`zz`) + local daemon workbench +
-   the filesystem-native brain in your repo's `.zuzuu/`. Single user, your machine.
+   the filesystem-native zuzuu in your repo's `.zuzuu/`. Single user, your machine.
 2. **Pro** — **hosting behind payment.** No local machine required: the whole
    experience runs in a cloud **VM**, browser as the full client. (The premise of the
    already-present `web/cloud/` broker + sandbox skin.) **VM is the source of truth;
@@ -38,7 +38,7 @@ The workbench tiers are two orthogonal axes, not one ladder:
 | **Hosted VM**| Pro (paid)      | Enterprise-managed Pro      |
 
 **zuzuu-codes** sits across all of them — it's the harness you run *inside* any of
-these surfaces, metered by model credits, independent of where the brain lives.
+these surfaces, metered by model credits, independent of where the zuzuu lives.
 
 ## Pricing (Q4/Q5 — decided direction)
 
@@ -55,7 +55,7 @@ The admin gets, across **every project** in the org:
 - **Control** — the ability to govern modules (create / edit / enable / disable /
   push down) across projects.
 
-This implies a **cloud roll-up**: the control-plane aggregates project brains (their
+This implies a **cloud roll-up**: the control-plane aggregates project zuzuus (their
 modules + items) into one admin surface, and pushes module changes back down. It also
 naturally carries the **audit log** (who changed which module, when) and the
 **fleet observe roll-up** ("how the team uses terminal coding") — both built on v2's
@@ -68,11 +68,11 @@ existing gate-event log + transcript-mining signals, **not** a resurrected OTLP 
 
 ## Decided: Q1 — 100% git-native, everywhere (incl. enterprise)
 
-The brain stays **filesystem + git-native** at every tier. There is **no live "brain
+The zuzuu stays **filesystem + git-native** at every tier. There is **no live "zuzuu
 API."** The reframe holds end-to-end:
 
 ```
-brain      = file/git-native, runs locally wherever it lives; sync = git push/pull
+zuzuu     = file/git-native, runs locally wherever it lives; sync = git push/pull
 workbench  = daemon (HTTP/WS) over local files (local or VM) — the existing surface
 governance = a GIT workflow (PRs across project repos) + a thin read-only roll-up
 metering   = zuzuu-codes model proxy (OpenRouter) + credits  (the only true network plane)
@@ -104,7 +104,7 @@ main branch**; each owner merges, resolving conflicts. Org modules work the same
 
 This makes the "governance plane" *thin*: a tool that, given the registry + the list of
 project repos, opens fan-out PRs and reads back state. Likely a **GitHub App** (PRs +
-collaborator access + status) + a dashboard — git/GitHub-native, no brain service.
+collaborator access + status) + a dashboard — git/GitHub-native, no zuzuu service.
 
 > **Refinement needed (thinking out loud, per Harshit):** see "Still open" Q1a–c.
 
@@ -116,7 +116,7 @@ collaborator access + status) + a dashboard — git/GitHub-native, no brain serv
 - **Q4** — **Hosting sits behind payment** (OSS local free). **zuzuu-codes** =
   pi-dev + OpenRouter alt-to-Claude-Code with **credits top-up**.
 - **Q5** — **base fee + usage-based**, margin = **% over OpenRouter + Fly.io**.
-- **Q1** — **100% git-native everywhere**, no live brain API; enterprise = a PR-publish
+- **Q1** — **100% git-native everywhere**, no live zuzuu API; enterprise = a PR-publish
   git workflow; daemon↔CLI drift is a local fix; the only true network plane is
   zuzuu-codes metering.
 
@@ -126,10 +126,11 @@ Decisions: **browser-only** (the workbench already *is* "browser VSCode"), **VM 
 of truth, local mirrors via background `git pull`** (not live file-sync), the git host is
 a **pluggable sync hub**.
 
+
 **The hard part is already built** (daemon hot core, test-pinned): `WEBCODE_HOSTED` mode
 (binds `0.0.0.0`, fixed `PORT`/`WEBCODE_ROOT`/`WEBCODE_TOKEN`), Fly-edge-ready auth
 (`publicHost` widening, `sha256(token)` cookie survives restarts), and the terminal
-(real PTY + indefinite reconnect + session survival + flow control). Plus the brain is
+(real PTY + indefinite reconnect + session survival + flow control). Plus the zuzuu is
 git-native + repo-resident, so "sync to local" = `git pull` the same repo.
 
 **Substrate verdict — own the compute (Fly), git host is the sync hub (not the compute):**
@@ -152,7 +153,7 @@ blobs must travel or rollback breaks on the VM; make `init.mjs` `IGNORE_LINES` e
 (1) un-stale `web/cloud/` to the folded layout + a Fly VM serving the daemon via
 devcontainer. (2) the GitHub-App `IProvider` sync layer + a local `zz sync` background
 pull. (3) persistence (Fly volume) + accounts + billing. (4) idle suspend/resume UX.
-(Session survival across VM restart is *not* a goal — resume = fresh shell, files+brain
+(Session survival across VM restart is *not* a goal — resume = fresh shell, files+zuzuu
 intact via git.)
 
 ## Enterprise architecture (deferred build — documented 2026-06-22, from 4 research fan-outs)
@@ -160,7 +161,7 @@ intact via git.)
 **The differentiated thesis (the gap no incumbent owns):** Cursor/Copilot/Cody/Tabnine/
 Devin/Replit all instrument the AI's **I/O** (usage analytics, content-exclusion, spend).
 **None governs *how the agent's brain is shaped*** — which modules are active, proposed
-vs approved, rollback history — because none has a *versioned, human-gated brain*. That
+vs approved, rollback history — because none has a *versioned, human-gated zuzuu*. That
 IS zuzuu. Enterprise sells a **category incumbents structurally lack: governance of the
 agent's evolving brain.** Plus a **privacy posture stronger than air-gapped Tabnine**:
 signal derives from git history in the customer's own repos — no code egress, no
@@ -225,8 +226,8 @@ the *features* are deferred. Noted requirements + open items to pick up:
 
 Everything above (Pro · Enterprise · zuzuu-codes) is **documented strategy, deferred**.
 The current build is the **OSS core**: the local `zz` CLI + the local daemon workbench +
-the git-native `.zuzuu/` brain. The one piece of the Pro/Enterprise design that's also an
+the git-native `.zuzuu/` zuzuu. The one piece of the Pro/Enterprise design that's also an
 OSS concern (and worth doing early, since it's small and local): **Phase 0 brain-sync
 correctness** — ensure `.generations/.store/` blobs travel in git and make
-`src/cli/init.mjs` `IGNORE_LINES` explicit, so the brain round-trips cleanly (a correctness
+`src/cli/init.mjs` `IGNORE_LINES` explicit, so the zuzuu round-trips cleanly (a correctness
 win for OSS users syncing repos across machines today, independent of ever building Pro).

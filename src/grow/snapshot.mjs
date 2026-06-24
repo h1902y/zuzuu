@@ -75,7 +75,7 @@ export function rollback(home, module, n) {
   mkdirSync(idir, { recursive: true });
   // The pinned set is authoritative: PRUNE any note not in the generation before
   // restoring. Without this, a note created AFTER the generation survives a
-  // rollback meant to undo it — the on-disk brain would diverge from the active
+  // rollback meant to undo it — the on-disk zuzuu would diverge from the active
   // generation (and a later mint would silently re-introduce the "deleted" note).
   const pinned = new Set(Object.keys(entry.items));
   let pruned = 0;

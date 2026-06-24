@@ -33,7 +33,7 @@ test('api: query dispatches through the façade', () => {
   });
 });
 
-test('api: propose → approve grows the brain and mints a generation', () => {
+test('api: propose → approve grows the zuzuu and mints a generation', () => {
   withApi((zz) => {
     const p = zz.propose('knowledge', { op: 'create', target: 'learned', change: { type: 'knowledge', title: 'a learned fact', body: 'from a run' } });
     assert.equal(zz.approve('knowledge', p.id).ok, true);

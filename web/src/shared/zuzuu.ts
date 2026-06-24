@@ -1,12 +1,12 @@
 // src/shared/zuzuu.ts — the zuzuu modules-dashboard contract (/api/zuzuu/*).
 //
-// The brain surface the workbench renders: modules, items, proposals, per-module
+// The zuzuu surface the workbench renders: modules, items, proposals, per-module
 // generations, the agent-exit session-git auto-merge, and the human-gated
 // mutations (always shelled through the `zz` CLI on the server).
 //
 // PRUNED from the v1 protocol (2026-06-22 — these features are gone from the v2
 // CLI/workbench, so their DTOs were dead weight): the OTLP trace views, whole-
-// brain checkpoints (generations are per-module), `eval`/`inbox` (never v2
+// zuzuu checkpoints (generations are per-module), `eval`/`inbox` (never v2
 // verbs), and the read-only session list / session-diff / hosts / health / status
 // views (the panel renders overview + per-module detail only).
 

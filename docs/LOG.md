@@ -985,3 +985,13 @@ The bug was in the docs, not the ignore rules (the store was never actually igno
 - **Dogfood:** added the same explicit block to this repo's own `.gitignore` (the ephemerals were untracked, none committed) — clears the untracked `.zuzuu/.worktrees/` noise.
 
 Existing brains pick up the new lines on the next idempotent `zz init` (it appends only missing lines). Not touched: the safety-critical session-git/worktree code (no characterization risk taken in this pass).
+
+## Nomenclature — the per-project `.zuzuu/` is "the project's zuzuu", not "the brain" (2026-06-24)
+
+"Brain" was doing two incompatible jobs. The foundational *be/run/evolve* framing says the **host agent supplies the brain** (the reasoning loop + the model) and zuzuu gives it an evolving **body** of modules — yet the `.zuzuu/` home was *also* miscalled "this project's brain" (init README, glossary, CLI help, dozens of comments). The two collided.
+
+Fix (a full sweep, ~90 occurrences across ~45 files): the per-project `.zuzuu/` directory is **the project's zuzuu** (a.k.a. *the home*) — the folder is literally `.zuzuu`, so it's the honest, non-invented name (it overloads "zuzuu" the product, but context disambiguates, exactly like `git` the tool vs a repo's `.git`). **"Brain" now means only the host's reasoning loop + model.** Swept the living canon (README · CLAUDE.md · DESIGN · glossary · 9 learn lessons), all product code comments + user-facing strings (CLI help, `doctor explain`, the digest `toon` label, the `(empty zuzuu)` message, web UI/banner), the tests (the `withBrain` helper → `withZuzuu`, test names, comments), and the live `docs/specs/` strategy docs. No code identifiers changed (they were already `home`/`homeDir`); the `.zuzuu/` dir name is unchanged.
+
+KEPT intentionally: host-sense "brain" (the foundational framing); the `brain-sync` feature name; product names that merely contain the substring (**JetBrains** the font, **Braintrust** the tool); and dated artifacts (LOG.md, `docs/{inspiration,plans,brainstorms,design-research}`) as point-in-time snapshots. Glossary gains a `brain` / `zuzuu` disambiguation entry that also pins: there is **no master/aggregate zuzuu** — each project carries its own; cross-project aggregation (deferred Enterprise) is a **roll-up** + an **org module registry**, never "the brain".
+
+**Verified:** root 158 + web 157 green, web tsc clean. No behavior change beyond renamed output strings (no test asserted the literal "brain").

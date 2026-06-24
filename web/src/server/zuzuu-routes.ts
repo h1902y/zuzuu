@@ -6,7 +6,7 @@
 // guards — lives in zuzuu-peek.ts. The one onError here maps the read side's
 // resolveSafe PathError → 403; everything else → 500.
 //
-// (Pruned 2026-06-22 with the v2 CLI: whole-brain checkpoints, the OTLP session
+// (Pruned 2026-06-22 with the v2 CLI: whole-zuzuu checkpoints, the OTLP session
 // views, and eval/inbox — all dead v1 surface. "What a session changed" stays a
 // git-derived view for a later rung.)
 

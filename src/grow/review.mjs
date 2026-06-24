@@ -2,7 +2,7 @@
 //
 // what: apply or reject a proposal. Approving performs the mechanical CRUD on
 //       the module's notes, logs the mutation, and mints a generation. Rejecting
-//       archives it. This is the ONLY door to the brain.
+//       archives it. This is the ONLY door to the zuzuu.
 // why:  the moat — the one defense against knowledge-poisoning that every
 //       automated competitor lacks. No write happens without passing here.
 // how:  approve = write/update/delete the note (notes/note) + log + snapshot;

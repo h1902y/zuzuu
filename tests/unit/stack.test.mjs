@@ -25,7 +25,7 @@ function withStack(fn) {
     mkdirSync(join(home, m, 'items'), { recursive: true });
     writeFileSync(join(home, m, 'items', `${id}.md`), serialize({ id, ...note }));
   };
-  // a small but representative brain
+  // a small but representative zuzuu
   manifest('knowledge', ['query', 'check'], { note_type: 'knowledge' });
   manifest('actions', ['query', 'check', 'act'], { note_type: 'action' });
   manifest('guardrails', ['check'], { note_type: 'rule' });
@@ -84,7 +84,7 @@ test('stack: check surfaces a broken link', () => {
   });
 });
 
-test('stack: propose → review writes the brain and mints a generation', () => {
+test('stack: propose → review writes the zuzuu and mints a generation', () => {
   withStack(({ home }) => {
     // a human-staged proposal flows through the gate end to end
     const p = createProposal(home, 'knowledge', {
