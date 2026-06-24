@@ -25,6 +25,7 @@
    GROW it (the loop):  observe ─► stage ─► plan ─► review ─► evolve
                         (mine)     (queue)  (set)   (gate)    (write + mint a generation + log)
    USE it (the verbs):  query · act · check
+   STEER a session:     start ─► steer ─► wrap   (the brain steers the agent + you)
 ```
 
 ## The agent (the framing)
@@ -192,9 +193,10 @@ Full operation vocabulary + build status (Tier 1–2 shipped):
 ## Plane 3 — Usage & Experience (how you use a Project)
 
 A Project exists to be **used** — *pulled from*, *run*, and *steered by*. Three faces:
-the **read/run verbs** you call, the **conversational steering** the Project gives the agent,
-and the **surfaces** it all happens through. Code: `src/use/` (verbs) · `src/serve/` · `src/cli/`
-· `src/hosts/` (surfaces). The Project is independent of any surface — these are how you reach it.
+the **read/run verbs** you call, the **steering loop** that opens · steers · closes the
+conversation, and the **surfaces** it all happens through. Code: `src/use/` (verbs) ·
+`src/serve/` (steering + brief) · `src/cli/` · `src/hosts/` (surfaces). The Project is
+independent of any surface — these are how you reach it.
 
 ### Use the knowledge — the read/run verbs (`src/use/`)
 
@@ -204,13 +206,29 @@ Each verb heads a small **family**; none writes the Project.
 - **act** — *run procedural knowledge*: execute a runnable note, gated + allowlisted. *Family:* `flow` (a `type: workflow` note — a gated DAG of run-steps, compensating on failure).
 - **check** — *integrity*: broken links · orphans · stale. *Family:* `validate` (type-keyed schema check).
 
-### Conversational steering — how the brain steers the agent
+### Steer the conversation — open · steer · close
 
-The abstracted **primary steering**: the Project shapes each session, before and during it.
+The Project shapes each session: **the brain steers both the agent and you**, so you just
+*initiate and end as recommended* and extract the directory's value.
 
-- **grounding** — at session start the deterministic **digest** (per-module note counts + what's pending review) is injected, so the agent opens *already knowing* what's been learned. (`serve/digest.mjs`; zero-network, no model call.)
-- **instructions** — the **directive module**: standing guidance, pinned into the agent's steering (the system-prompt-shaped artifact, grown like any module).
-- **the tool gate** *(= the **guardrails gate**)* — runtime **`PreToolUse`** enforcement: blocks/asks on a tool call in real time (rules are `type: rule` notes; deny > ask > allow; **fail-open**). The *other* gate vs `review` (Plane 2): this one governs **the running session's tool I/O**, not writes.
+**The steering spine** — a human-authored **`steering`** block in `project.md` (`goals · opener ·
+closer · drift`, the *pinned* session contract) plus the **Instructions** module (*loop-grown*
+standing guidance) are folded into the deterministic **session brief** (`serve/digest.mjs`;
+capped, zero-network) and injected to the agent at session start. *Pin definitions, observe data:*
+`project.md` is the pinned contract, Instructions is grown by the loop — both feed the brief.
+
+**The session loop** — user-facing verbs over the spine + the live state:
+- **`zz start`** — the recommended opener (the first message you paste): the `opener` + `goals` + what's pending review + **where you left off** + a **⚠ leftover-session** recovery prompt if a prior session dropped.
+- **`zz steer`** — stay on scope mid-session: the `drift` signals (the self-check) · a **parking lot** for off-scope items (`--park`) · the grown guidance to consider **pinning** into `steering`.
+- **`zz wrap`** — the recommended closer: a wrap-up + the review nudge + parked items; `--note` saves a **handoff** that loops into the next `start`.
+
+The **handoff** and **parking lot** are *transient session run-state* (the XDG state dir, beside
+`digest.md`) — not tracked notes. A dropped session is **recovered** (the leftover `zz/session-*`
+branch + its checkpoints), never silently lost.
+
+**The tool gate** *(= the **guardrails gate**)* — runtime **`PreToolUse`** enforcement: blocks/asks
+on a tool call in real time (rules are `type: rule` notes; deny > ask > allow; **fail-open**). The
+*other* gate vs `review` (Plane 2): this one governs **the running session's tool I/O**, not writes.
 
 ### Surfaces — where usage happens
 
