@@ -216,6 +216,16 @@ export function moduleCounts(home) {
   } finally { db.close(); }
 }
 
+/** Inbound backlinks: notes that link TO `addr` (the edge table, reversed). */
+export function backlinks(home, addr) {
+  const db = open(home);
+  try {
+    // dst is stored either as a full addr or a bare id — match both forms
+    const id = String(addr).includes(':') ? String(addr).split(':')[1] : String(addr);
+    return db.prepare('SELECT l.src AS addr, l.type FROM link l WHERE l.dst = ? OR l.dst = ? ORDER BY l.src').all(addr, id);
+  } finally { db.close(); }
+}
+
 /** Integrity: relations whose target isn't a known note (broken links). */
 export function brokenLinks(home) {
   const db = open(home);

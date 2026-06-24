@@ -9,14 +9,15 @@
 //       (the `query` verb dispatches through the serve/api façade → queryData);
 //       this module is the pure data fn (AXI: content-first, the veneer formats).
 
-import { search, related, count } from '../notes/index.mjs';
+import { search, related, backlinks, count } from '../notes/index.mjs';
 
 /**
  * Pure: the query result data.
- * @returns {{ kind:'count'|'related'|'search', rows?, total?, addr? }}
+ * @returns {{ kind:'count'|'related'|'backlinks'|'search', rows?, total?, addr? }}
  */
-export function queryData(home, { text = '', module = '', type = '', tag = '', depth = 0, full = false, dryRun = false, from = '', limit = 50 } = {}) {
+export function queryData(home, { text = '', module = '', type = '', tag = '', depth = 0, full = false, dryRun = false, from = '', to = '', limit = 50 } = {}) {
   if (dryRun) return { kind: 'count', total: count(home, { text, module, type, tag }) };
-  if (from) return { kind: 'related', addr: from, rows: related(home, from, { depth: depth || 1, type }) };
+  if (to) return { kind: 'backlinks', addr: to, rows: backlinks(home, to) };          // who links TO this note
+  if (from) return { kind: 'related', addr: from, rows: related(home, from, { depth: depth || 1, type }) }; // what this note links to
   return { kind: 'search', rows: search(home, { text, module, type, tag, full, limit }) };
 }

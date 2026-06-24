@@ -44,7 +44,7 @@ const HELP = `zz — your repo's Project (envelopes, queried/run/grown, human-ga
 
   zz init                       scaffold .zuzuu/ into this repo (git-citizen)
   zz enable / disable           install/remove the lifecycle + guardrails hooks
-  zz query <module> [text]      search a module  (--from <addr> · --tag t · --full)
+  zz query <module> [text]      search  (--from <addr> walk · --to <addr> backlinks · --tag t · --full)
   zz act <module> <id> [--k v]  run a runnable note
   zz check [module]             integrity — broken links · orphans · stale
   zz observe                    mine real sessions → staged changes (the cold-start)
@@ -84,13 +84,24 @@ export async function run(argv, io = {}) {
         const zz = open(cwd);
         const [module, ...words] = args._;
         if (!module) return fail(log, 'usage: zz query <module> [text]');
-        const opts = { text: words.join(' '), tag: args.tag || '', full: !!args.full, depth: Number(args.depth) || 0, from: args.from || '', limit: Number(args.limit) || 50, dryRun: !!args['dry-run'] };
+        const opts = { text: words.join(' '), tag: args.tag || '', full: !!args.full, depth: Number(args.depth) || 0, from: args.from || '', to: args.to || '', limit: Number(args.limit) || 50, dryRun: !!args['dry-run'] };
         const r = zz.query(module, opts);
         if (!r.ok) return fail(log, r.error);
         const v = r.value;
         if (v.kind === 'count') { log(toon('count', [{ total: v.total }], ['total'])); return 0; }
         const rows = v.rows ?? [];
-        log(toon('notes', rows, ['addr', 'type', 'title', 'status'], rows.length ? ['zz act <m> <id>', 'zz query <m> --from <addr>'] : []));
+        if (v.kind === 'backlinks') {
+          log(toon('backlinks', rows, ['addr', 'type'], rows.length ? [] : []));
+          if (!rows.length) log(`0 notes link to ${v.addr} — it's unreferenced (an orphan candidate; see zz check)`);
+          return 0;
+        }
+        // explicit empty-result signal (absence is itself signal — SWE-agent ACI)
+        if (!rows.length) {
+          const what = v.kind === 'related' ? `no notes related to ${v.addr}` : `0 results${opts.text ? ` for "${opts.text}"` : ''}`;
+          log(`${what} — try broader terms, --from <addr> (neighbors), --to <addr> (backlinks), or zz check for orphans`);
+          return 0;
+        }
+        log(toon('notes', rows, ['addr', 'type', 'title', 'status'], ['zz act <m> <id>', 'zz query <m> --from <addr>']));
         return 0;
       }
 
