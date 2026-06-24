@@ -1,4 +1,15 @@
-# zuzuu Design Research — Mobbin
+# zuzuu Design Research
+
+Design research that briefs zuzuu's web **workbench**, in two passes:
+
+| Pass | What it covers | Where |
+| --- | --- | --- |
+| **① Visual language** (Mobbin) | The cross-cutting aesthetic + workbench-wide grammar — moving it from a VS-Code-terminal feel toward consumer-SaaS-grade: **Notion-calm × Duolingo-progression**, premium not toy-like. 14 lanes + synthesis. | this file + `00`–`14` + `tokens-candidates` |
+| **② Subsystem & library deep-dives** | The specialized viz subsystems the workbench lacks — envelope/collection views, the typed link graph, observability/audit + JSONL, version/diff timelines — and the concrete JS/TS libraries to build them, Mobbin-grounded. | [**`workbench/`**](workbench/) |
+
+The rest of this file is **pass ①** (the visual-language brief). For **pass ②** start at [`workbench/README.md`](workbench/README.md).
+
+---
 
 This directory holds the design research that briefs zuzuu's visual redesign of the web **workbench** — moving it from a VS-Code-terminal feel toward a consumer-SaaS-grade surface: **Notion-calm × Duolingo-progression × game-like, welcoming, uncomplicated — but serious and premium, never toy-like.**
 

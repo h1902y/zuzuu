@@ -31,7 +31,7 @@ src/
 | [`cli/`](cli/) | the `zz` router + `init` · `enable` · `doctor` · `code` · `web` · `session` | [07](../docs/learn/07-the-cli-veneer.md) |
 | [`serve/`](serve/) | `api` (the façade) · `registry` (capability dispatch) · `wire` (registerAll) · `digest` | — |
 
-> The eight dirs span the ontology's layers — they are **not** all "the lifecycle": `notes/` is **Data**; `use/` · `grow/` · `guardrails/` · `hosts/` are the **loop + reading**; `cli/` · `serve/` · `sessions/` are **surfaces**. See [`docs/ONTOLOGY.md`](../docs/ONTOLOGY.md).
+> The eight dirs span the ontology's layers — they are **not** all "the lifecycle": `notes/` is **Data**; `use/` · `grow/` · `guardrails/` · `hosts/` are the **loop + reading**; `cli/` · `serve/` · `sessions/` are **surfaces**. See [The model](../README.md#the-model) in the README.
 
 ## The one rule that replaced strict layering
 

@@ -7,7 +7,7 @@ status: live spec, unshipped
 # Ontology-aligned reshape
 
 > **What this is.** A four-lens audit (structure · performance · correctness · architecture) of
-> the codebase against the canonical [`ONTOLOGY.md`](../ONTOLOGY.md) found the structure
+> the codebase against the canonical [The model](../../README.md#the-model) found the structure
 > genuinely elegant **except in one concentrated place: the loop's write-half.** This spec
 > formalizes the reshape ledger from that audit (recorded in [`LOG.md`](../LOG.md), 2026-06-24)
 > into executable units.
@@ -146,4 +146,4 @@ existing suite (185 root) stays green through every unit, the gate's characteriz
 (PR #73) pin the evolve extraction byte-for-byte, and a fresh read of `src/` should let a newcomer
 trace **observe → propose → review → evolve** to four named files, find every durable artifact in
 the Data layer, and see `sessions/` as a surface — i.e. the code finally reads exactly the way
-[`ONTOLOGY.md`](../ONTOLOGY.md) teaches it.
+[The model](../../README.md#the-model) teaches it.
