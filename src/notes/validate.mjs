@@ -23,5 +23,9 @@ export function validateNote(note) {
     if (!nonEmptyStr(note.pattern)) errors.push('a rule needs a non-empty pattern');
   }
   if (note.type === 'action' && !nonEmptyStr(note.run)) errors.push('an action needs a run command');
+  if (note.type === 'workflow') {
+    if (!Array.isArray(note.steps) || !note.steps.length) errors.push('a workflow needs a non-empty steps list');
+    else if (note.steps.some((s) => !s || !nonEmptyStr(s.id) || !nonEmptyStr(s.run))) errors.push('every workflow step needs an id and a run');
+  }
   return { ok: errors.length === 0, errors };
 }

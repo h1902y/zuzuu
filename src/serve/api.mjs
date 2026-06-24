@@ -22,6 +22,7 @@ import { renameNote, mergeNotes, refactorField } from '../grow/refactor.mjs';
 import { patchNote, appendNote } from '../grow/edit.mjs';
 import { viewNote } from '../use/view.mjs';
 import { validateProject } from '../use/check.mjs';
+import { runWorkflow } from '../use/workflow.mjs';
 import { generations, rollback, diffGenerations, notesAsOf } from '../notes/generation.mjs';
 import { timeline } from './timeline.mjs';
 
@@ -45,6 +46,7 @@ export function open(cwd = process.cwd()) {
     query: (module, opts = {}) => invoke(home, module, 'query', opts),
     check: (module, opts = {}) => invoke(home, module, 'check', opts),
     act: (module, id, inputs = {}) => invoke(home, module, 'act', id, inputs),
+    flow: (module, id, inputs = {}) => runWorkflow(home, module, id, inputs),
 
     // ── the human gate (review is interactive — not a registry verb) ────────
     stage: (module, p) => stageChange(home, module, p),

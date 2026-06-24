@@ -47,6 +47,7 @@ const HELP = `zz — your repo's Project (envelopes, queried/run/grown, human-ga
   zz query <module> [text]      search  (--from walk · --to backlinks · --as-of <n> · --tag t · --full)
   zz log [module]               the generation timeline — how the brain evolved
   zz act <module> <id> [--k v]  run a runnable note
+  zz flow <module> <id>         run a workflow note (a DAG of gated run-steps)
   zz view <module> <id>         read a note body windowed (--offset n · --limit n)
   zz patch <m> <id> <key> <v>   set one frontmatter field  ·  zz append <m> <id> <text>
   zz check [module]             integrity — broken links · orphans · stale
@@ -207,6 +208,17 @@ export async function run(argv, io = {}) {
         for (const mod of mods) for (const p of zz.staged(mod)) rows.push({ module: mod, id: p.target ?? p.id, op: p.op, score: p.score ?? 0 });
         rows.sort((a, b) => b.score - a.score);
         log(toon('pending', rows, ['module', 'id', 'op', 'score'], rows.length ? ['zz review approve <m> <id>', 'zz review reject <m> <id>'] : []));
+        return 0;
+      }
+
+      case 'flow': {
+        const [m, id] = args._;
+        if (!m || !id) return fail(log, 'usage: zz flow <module> <id>');
+        const { _: _d, ...inputs } = args;
+        const r = open(cwd).flow(m, id, inputs);
+        if (!r.ok && !r.steps) return fail(log, r.error);
+        log(toon('flow', r.steps, ['id', 'success', 'exitCode']));
+        if (!r.ok) { log(`✗ failed at step '${r.failedStep}'${r.compensations?.length ? ` — compensated ${r.compensations.length} step(s)` : ''}`); return 1; }
         return 0;
       }
 
