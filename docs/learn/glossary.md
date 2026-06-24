@@ -49,16 +49,9 @@ The **whole long-lived local process** that binds `127.0.0.1`, owns the PTYs and
 - the underlying **HTTP listener** (`@hono/node-server`).
 "Daemon" names the process; the other three are parts of it. (Kept as the term after weighing `engine`/`service`/`server` — `server` was too overloaded with the dir/app/listener.)
 
-## Load-bearing terms — defined
+## Load-bearing terms
 
-Single meaning, but each carries a decision worth stating once.
-
-- **The home / `.zuzuu/`** — the hidden, git-citizen directory holding the zuzuu (notes, modules, generations, the log). zuzuu resolves it via `git --show-toplevel` + `/.zuzuu` and **never `git init`s**.
-- **envelope / note** — the atom: markdown body + frontmatter, distinguished by `type`. A *note* (one fact, optionally runnable) and a *module manifest* are the same shape. "Everything is an envelope."
-- **generation** — a content-addressed, **per-module** snapshot of a module's items. Minted on every approve; rollback = pointer-flip + content restore (`zz module <m> rollback <n>`), never `git revert`.
-- **the gate** — the enforced human review step: every write to the zuzuu passes through `review` (approve = CRUD + log + mint). "The gate is the moat." Also the **guardrails gate** — the enforced `PreToolUse` tool check (`guardrails/gate.mjs`), fail-open.
-- **observe** — the live proposal producer: mines host transcripts → routed proposals (**Design B** — re-parse the host's real on-disk format, never drive it).
-- **proposal** — the bridge from observation to a new generation; always human-approved in v1.
+The product-level entities — *the home / a project's zuzuu · envelope · note · module · generation · proposal · observe · the **review gate** vs the **tool (guardrails) gate***  — are defined once in [`../ONTOLOGY.md`](../ONTOLOGY.md) with their relations. This page no longer repeats them; what remains below is **web-internal** vocabulary the ontology doesn't cover.
 
 ### Web-specific (the workbench)
 
