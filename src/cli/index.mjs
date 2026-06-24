@@ -50,6 +50,7 @@ const HELP = `zz — your repo's Project (envelopes, queried/run/grown, human-ga
   zz view <module> <id>         read a note body windowed (--offset n · --limit n)
   zz patch <m> <id> <key> <v>   set one frontmatter field  ·  zz append <m> <id> <text>
   zz check [module]             integrity — broken links · orphans · stale
+  zz validate [module]          schema-check every note (type-keyed invariants)
   zz observe                    mine real sessions → staged changes (the cold-start)
   zz review [module]            list staged changes awaiting the gate
   zz review plan <m>            preview the module's pending set as one change-set
@@ -84,6 +85,13 @@ export async function run(argv, io = {}) {
         log(toon('init', [{ home: r.home, created: r.created.length, skipped: r.skipped.length }], ['home', 'created', 'skipped']));
         if (r.created.length) log(`created: ${r.created.join(', ')}`);
         return 0;
+      }
+
+      case 'validate': {
+        const bad = open(cwd).validate(args._[0] || '');
+        if (!bad.length) { log('all notes valid'); return 0; }
+        log(toon('invalid', bad.map((b) => ({ addr: b.addr, errors: b.errors.join('; ') })), ['addr', 'errors']));
+        return 1;
       }
 
       case 'log': {
@@ -179,6 +187,7 @@ export async function run(argv, io = {}) {
           const r = zz.apply(m, id);
           if (!r.ok) return fail(log, r.error);
           log(toon('apply', [{ module: r.module, applied: r.applied, generation: r.generation }], ['module', 'applied', 'generation']));
+          integrityNudge(zz, log);
           return 0;
         }
         if (sub === 'approve' || sub === 'reject') {
@@ -189,6 +198,7 @@ export async function run(argv, io = {}) {
           const r = sub === 'approve' ? zz.approve(m, match.id) : zz.reject(m, match.id, args.reason || '');
           if (!r.ok) return fail(log, r.error);
           log(toon('review', [{ action: sub, module: m, id }], ['action', 'module', 'id']));
+          if (sub === 'approve') integrityNudge(zz, log);
           return 0;
         }
         // list pending across modules (or one)
@@ -329,4 +339,11 @@ export async function run(argv, io = {}) {
 function fail(log, msg) {
   log(toon('error', [{ message: msg }], ['message']));
   return 1;
+}
+
+// post-write integrity nudge: after a gated write, surface any broken links so the
+// reviewer sees the consequence (the LSP-after-edit / auto-check pattern).
+function integrityNudge(zz, log) {
+  const broken = zz.modules().reduce((n, m) => { const c = zz.check(m.id); return n + (c.ok ? c.value.broken.length : 0); }, 0);
+  if (broken) log(`⚠ ${broken} broken link(s) after this change — run zz check`);
 }

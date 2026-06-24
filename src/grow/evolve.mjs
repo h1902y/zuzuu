@@ -16,6 +16,7 @@ import { serialize, parse } from '../notes/note.mjs';
 import { itemPath, itemsDir } from '../notes/store.mjs';
 import { logMutation } from '../notes/log.mjs';
 import { mint } from '../notes/generation.mjs';
+import { validateNote } from '../notes/validate.mjs';
 
 const isPlainObject = (x) => x != null && typeof x === 'object' && !Array.isArray(x);
 
@@ -78,6 +79,10 @@ export function applyChange(home, module, staged, { edit = null } = {}) {
     const current = readNote(home, module, lookupId(staged, change));
     const { target, after, error } = projectChange(staged, current, edit);
     if (error) return { ok: false, error };
+    if (after !== null) { // validate BEFORE the write — reject a malformed note, don't land it
+      const v = validateNote(after);
+      if (!v.ok) return { ok: false, error: `invalid note '${module}:${target}': ${v.errors.join('; ')}` };
+    }
     if (after === null) rmSync(itemPath(home, module, target));
     else { mkdirSync(itemsDir(home, module), { recursive: true }); writeFileSync(itemPath(home, module, target), serialize(after)); }
     const logOp = staged.op === 'relate' ? 'update' : staged.op;

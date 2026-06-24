@@ -21,6 +21,7 @@ import { planFor, applyPlan } from '../grow/plan.mjs';
 import { renameNote, mergeNotes, refactorField } from '../grow/refactor.mjs';
 import { patchNote, appendNote } from '../grow/edit.mjs';
 import { viewNote } from '../use/view.mjs';
+import { validateProject } from '../use/check.mjs';
 import { generations, rollback, diffGenerations, notesAsOf } from '../notes/generation.mjs';
 import { timeline } from './timeline.mjs';
 
@@ -62,6 +63,7 @@ export function open(cwd = process.cwd()) {
     patch: (module, id, key, value) => patchNote(home, module, id, key, value),
     append: (module, id, text) => appendNote(home, module, id, text),
     view: (module, id, opts) => viewNote(home, module, id, opts),
+    validate: (module = '') => validateProject(home, module),
 
     // ── snapshots (per-module generations) ─────────────────────────────────
     generations: (module) => generations(home, module),
