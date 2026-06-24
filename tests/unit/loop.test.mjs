@@ -1,7 +1,7 @@
 // rung 5 — the loop: snapshot · propose · review.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, appendFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { serialize, parse } from '../../src/notes/note.mjs';
@@ -20,6 +20,75 @@ const writeZu = (home, module, id, note) => {
   writeFileSync(join(home, module, 'items', `${id}.md`), serialize({ id, ...note }));
 };
 const readZu = (home, module, id) => parse(readFileSync(join(home, module, 'items', `${id}.md`), 'utf8'), { id }).note;
+
+// ── gate re-entrancy + fail-soft branch coverage (loop audit gaps) ───────────
+
+test('review: approving twice is idempotent — the second finds no proposal, no double-mint', () => {
+  withHome((home) => {
+    const p = createProposal(home, 'knowledge', { op: 'create', target: 'fact', change: { type: 'knowledge', title: 'A' } });
+    assert.equal(approve(home, 'knowledge', p.id).ok, true);
+    // the atomic post-condition of one approve: note + log + a generation + archived proposal
+    assert.equal(readZu(home, 'knowledge', 'fact').title, 'A');
+    assert.equal(read(home, 'knowledge', 'mutations')[0].event, 'create');
+    assert.equal(generations(home, 'knowledge').active, 1);
+    assert.equal(readProposal(home, 'knowledge', p.id), null, 'proposal archived');
+    // the second approve is a no-op: the proposal is gone → ok:false, generation still 1
+    assert.equal(approve(home, 'knowledge', p.id).ok, false);
+    assert.equal(generations(home, 'knowledge').active, 1, 'no double-mint');
+  });
+});
+
+test('propose: a malformed op never reaches the queue (and mints no manifest)', () => {
+  withHome((home) => {
+    assert.equal(createProposal(home, 'knowledge', { op: 'frobnicate', change: {} }), null);
+    assert.equal(listProposals(home, 'knowledge').length, 0, 'nothing staged');
+    assert.equal(existsSync(join(home, 'knowledge', 'module.md')), false, 'no manifest minted for a bad op');
+  });
+});
+
+test('propose: a corrupt proposal file is skipped, not fatal', () => {
+  withHome((home) => {
+    const p = createProposal(home, 'knowledge', { op: 'create', target: 'x', change: { type: 'knowledge', title: 'x' } });
+    writeFileSync(join(home, 'knowledge', 'proposals', 'garbage.json'), '{ not json');
+    const list = listProposals(home, 'knowledge');
+    assert.equal(list.length, 1, 'the valid proposal survives; the corrupt file is skipped');
+    assert.equal(list[0].id, p.id);
+  });
+});
+
+test('log: read skips a bad line and keeps the rest', () => {
+  withHome((home) => {
+    mkdirSync(join(home, 'knowledge'), { recursive: true });
+    const f = join(home, 'knowledge', 'log.jsonl');
+    appendFileSync(f, JSON.stringify({ event: 'create', target: 'a' }) + '\n');
+    appendFileSync(f, 'not-json\n');
+    appendFileSync(f, JSON.stringify({ event: 'update', target: 'b' }) + '\n');
+    assert.deepEqual(read(home, 'knowledge', 'mutations').map((e) => e.event), ['create', 'update']);
+  });
+});
+
+test('snapshot: the merkle root is deterministic and content-sensitive', () => {
+  withHome((home) => {
+    writeZu(home, 'knowledge', 'a', { type: 'knowledge', title: 'one' });
+    writeZu(home, 'knowledge', 'b', { type: 'knowledge', title: 'two' });
+    const g1 = mint(home, 'knowledge');
+    const g2 = mint(home, 'knowledge'); // no change between mints
+    assert.equal(g1.root, g2.root, 'same items → same root (iteration-order independent)');
+    writeZu(home, 'knowledge', 'a', { type: 'knowledge', title: 'one-changed' });
+    assert.notEqual(mint(home, 'knowledge').root, g1.root, 'a content change changes the root');
+  });
+});
+
+test('snapshot: rollback to a non-existent generation is a no-op error', () => {
+  withHome((home) => {
+    writeZu(home, 'knowledge', 'a', { type: 'knowledge', title: 'one' });
+    mint(home, 'knowledge'); // gen 1
+    const r = rollback(home, 'knowledge', 99);
+    assert.equal(r.ok, false);
+    assert.match(r.error, /no generation 99/);
+    assert.equal(readZu(home, 'knowledge', 'a').title, 'one', 'on-disk items untouched (no prune ran)');
+  });
+});
 
 // ── snapshot ────────────────────────────────────────────────────────────────
 

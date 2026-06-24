@@ -107,3 +107,30 @@ test('observe: routes a command to actions (runnable) and a file to knowledge', 
   assert.equal(observe(home, { sessions }).proposed, 0);
   rmSync(root, { recursive: true, force: true });
 });
+
+// ── the `fact` route (frequently-failing tool → knowledge) — was untested ────
+
+test('aggregate: a tool failing across enough sessions becomes a fact candidate', () => {
+  const sessions = Array.from({ length: 3 }, (_, i) => ({ sessionId: `s${i}`, commands: [], files: [], failures: ['Bash'] }));
+  const fact = aggregate(sessions).find((c) => c.kind === 'fact');
+  assert.ok(fact, 'a recurring tool failure (≥ minFailures) is a fact candidate');
+  assert.equal(fact.id, 'failing-tool-bash');
+  assert.match(fact.title, /Bash fails frequently/);
+});
+
+test('aggregate: a tool failing in too few sessions is below the threshold', () => {
+  const sessions = Array.from({ length: 2 }, (_, i) => ({ sessionId: `s${i}`, commands: [], files: [], failures: ['Bash'] }));
+  assert.equal(aggregate(sessions).filter((c) => c.kind === 'fact').length, 0);
+});
+
+test('observe: a recurring tool failure routes a fact to knowledge', () => {
+  const root = mkdtempSync(join(tmpdir(), 'zuzuu-obs-fact-'));
+  const home = join(root, '.zuzuu');
+  const sessions = Array.from({ length: 3 }, (_, i) => ({ sessionId: `s${i}`, commands: [], files: [], failures: ['Bash'] }));
+  observe(home, { sessions });
+  const knowledge = listProposals(home, 'knowledge');
+  assert.equal(knowledge.length, 1);
+  assert.equal(knowledge[0].change.type, 'knowledge');
+  assert.match(knowledge[0].change.title, /Bash fails frequently/);
+  rmSync(root, { recursive: true, force: true });
+});
