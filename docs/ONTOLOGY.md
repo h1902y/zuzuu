@@ -21,9 +21,9 @@
              generic:
              any goal)
 
-   THE LOOP grows it:   observe ──► propose ──► review ──► evolve
-                        (mine the    (ranked,    (the gate,   (write the note +
-                         transcript)  deduped)    human)       mint a generation + log)
+   THE LOOP grows it:   observe ──► stage ──► review ──► evolve
+                        (mine the    (ranked,   (the gate,   (write the note +
+                         transcript)  deduped)   human)       mint a generation + log)
 ```
 
 ## The agent (the framing)
@@ -92,7 +92,7 @@ any envelope generically.
 
 **How it ties to Plane 2 (the operations).** The envelope is the **unit every loop
 operation touches** — Plane 1 defines the *thing*, Plane 2 is the verbs that read and write it:
-- **observe** emits envelope-shaped changes (a *proposal*'s `change` is the frontmatter +
+- **observe** emits envelope-shaped changes (a *staged change*'s `change` is the frontmatter +
   body of a note-to-be).
 - **review → evolve** *serializes an envelope* to disk — that is the only write to a Project.
 - a **generation** content-addresses the exact bytes of every envelope in a module.
@@ -139,8 +139,8 @@ Only **Guardrails** ships (protection must hold from byte one); the four content
 start absent.
 
 **Grows on demand.** As the loop runs, a **module** materializes the first time `observe`
-routes a proposal to it (its `module.md` minted from a template), and **notes** accumulate
-under `<module>/items/` as proposals are approved. A real, evolved Project — still flat and
+routes a staged change to it (its `module.md` minted from a template), and **notes** accumulate
+under `<module>/items/` as staged changes are approved. A real, evolved Project — still flat and
 legible, every path a plain file you can open:
 
 ```
@@ -153,10 +153,10 @@ legible, every path a plain file you can open:
     log.jsonl                         ← this module's mutation + run journal
     generations.json                 ← the n→commit ledger (git holds the bytes)
 
-  knowledge/                          ← materialized on its first proposal
+  knowledge/                          ← materialized on its first staged change
     module.md
     items/ card-schema.md · deck-index.md · hot-file-app-tsx.md
-    proposals/ file-src-db-ts.json    ← staged, awaiting the review gate (not yet a note)
+    staged/ file-src-db-ts.json       ← awaiting the review gate (not yet a note)
     log.jsonl · generations.json
 
   actions/
@@ -169,37 +169,46 @@ legible, every path a plain file you can open:
     items/ always-run-tests-first.md
     log.jsonl · generations.json
 
-  .live/  ·  .worktrees/  ·  .index.db     ← gitignored, ephemeral (rebuildable)
+  worktrees/                          ← the ONE gitignored entry (live session checkouts)
 ```
 
-Each module is the *same five things* — `module.md` + `items/` + (optional) `proposals/` +
+Each module is the *same five things* — `module.md` + `items/` + (optional) `staged/` +
 `log.jsonl` + `generations.json` — so the directory stays uniform however many modules grow.
-That uniformity is the *whole* durable Project; there is no deeper fan-out. **Generations are
-git-native, not a parallel store.** A module's history *is* its git history: every approve
-writes the note and makes a **path-scoped commit** to `.zuzuu/`, so a **generation = that
-commit** and **rollback = `git restore`** from a past one. The tiny `generations.json` ledger
-maps `n → commit`; git's own objects hold every past version — no `.generations/.store/`
-blob store (re-implementing git's object DB *inside* a git repo was the redundancy we cut).
-The only non-durable entries are gitignored and ephemeral: `.live/` · `.worktrees/` ·
-`.index.db`. Mechanism + the approve↔commit decision:
-[`specs/2026-06-24-git-native-generations.md`](specs/2026-06-24-git-native-generations.md).
-*(The current build still carries the legacy `.store`; it is being retired to this form.)*
+That uniformity is the *whole* durable Project; there is no deeper fan-out. Two principles
+keep it that clean:
 
-> **generation · proposal · log** are produced *by the loop* as a Project evolves — so they
+- **Generations are git-native, not a parallel store.** A module's history *is* its git
+  history: every approve writes the note and makes a **path-scoped commit** to `.zuzuu/`, so a
+  **generation = that commit** and **rollback = `git restore`**. The tiny `generations.json`
+  ledger maps `n → commit`; git's own objects hold every past version — no `.generations/.store/`
+  blob store (re-implementing git's object DB *inside* a git repo was the redundancy we cut).
+  Spec: [`specs/2026-06-24-git-native-generations.md`](specs/2026-06-24-git-native-generations.md).
+- **Derived state lives outside the repo (XDG), not in `.zuzuu/`.** The rebuildable sqlite
+  index → `~/.cache/zuzuu/<repo-hash>/index.db`; live session run-state + the gate log →
+  `~/.local/state/zuzuu/<repo-hash>/`. Only `worktrees/` stays in-repo and gitignored — it
+  holds *live, uncommitted* session work, so it's never treated as cache. So `.zuzuu/` itself
+  is **100% durable, git-tracked Project** — a true git citizen, like `.git` keeping its own
+  machine-local state out of your tree.
+  Spec: [`specs/2026-06-24-storage-layout-and-staging.md`](specs/2026-06-24-storage-layout-and-staging.md).
+
+*(Both are accepted but unbuilt — today's build still carries the legacy `.store` and the
+in-repo `.live/` · `.index.db`; they're being retired to the form above.)*
+
+> **generation · staged change · log** are produced *by the loop* as a Project evolves — so they
 > are defined in **Plane 2**, even though they live on disk under `.zuzuu/`.
 
 ## Plane 2 — The loop (how a Project grows)
 
 The compounding engine. Invariant: **only `grow/` writes the Project, and only through `review`.** Code: `src/grow/` (writes) + `src/use/` (reads).
 
-- **observe** — the **live proposal producer**: **re-parses the host's own on-disk transcript** (never wraps/drives the agent — *this is why adding a host = one adapter file*), aggregates per-session signals past a corroboration threshold, and **routes** each candidate to the right module → proposals.
-- **propose** — stage the typed, deduped, ranked **proposal** queue.
+- **observe** — the **live staging producer**: **re-parses the host's own on-disk transcript** (never wraps/drives the agent — *this is why adding a host = one adapter file*), aggregates per-session signals past a corroboration threshold, and **routes** each candidate to the right module → staged changes.
+- **stage** — file the typed, deduped, ranked **staged-change** queue (`<module>/staged/`), each awaiting the gate. *(Renamed from `propose`: the noun collided with the verb, and `staged → review → evolve` mirrors git's `staged → committed`. The upstream raw signal observe mines is still a* candidate *— staging is where it lands.)*
 - **the review gate** *(= `review`, "the gate", "the human gate")* — the **decision**: a human approves or rejects. *"The gate is the moat."* The one door to a Project.
 - **evolve** — the **execution** of an approve (what `review` does on approve): **write the note + mint a generation + log it.** The loop's final beat; `write + snapshot` named as one, since they never happen apart. (Aligns with the `be / run / evolve` framing.)
 - **snapshot** — the generation mechanism behind `evolve` (mint) and `rollback`.
 - **the four verbs** — `query` (read: FTS + graph) · `act` (run a runnable note, gated) · `check` (integrity) · `review` (the gate). The capability surface over a Project.
 - **the tool gate** *(= the **guardrails gate**)* — a **different gate**: the enforced **`PreToolUse`** check that blocks/asks on tool calls in real time (rules are `type: rule` notes; deny > ask > allow; **fail-open**). The review gate governs *writes to the Project*; the tool gate governs *the running session's tool I/O*.
-  *Relates:* `observe → propose → review → evolve`.
+  *Relates:* `observe → stage → review → evolve`.
 
 ## Plane 3 — Surfaces (how you reach a Project)
 
@@ -223,7 +232,7 @@ A Project exists independently of any surface. The two paths share one door:
 - **the modules dashboard** — the workbench's "modules mode" panel: per-module generations + approve/reject. The browser face of `review`.
 - **the composer** — the workbench's **agent-session input**: a **remote keyboard** into the host's TUI (types your message into the live host CLI; never drives it headlessly).
 - **session** *(= a git branch)* — the lifecycle unit: a `zz/session-*` branch (open → branch, turn → checkpoint, end → squash-merge). **"session = git branch."** *(Overloaded with the daemon's PTY `Session` — see [glossary](learn/glossary.md).)*
-- **worktree** — a **per-session git worktree** under `.zuzuu/.worktrees/` → **N concurrent agents** without clashing on the one working branch. Machine-local, gitignored.
+- **worktree** — a **per-session git worktree** under `.zuzuu/worktrees/` → **N concurrent agents** without clashing on the one working branch. Machine-local, gitignored — the one in-repo non-durable entry (it holds live, uncommitted work, so it's never treated as cache).
 
 ## Plane 4 — Identity & naming
 
