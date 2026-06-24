@@ -33,22 +33,27 @@ test('brain-sync: generations are git-native — .zuzuu/ is 100% durable, no blo
   writeFileSync(join(home, 'knowledge', 'items', 'fact.md'), note('v1'));
   assert.equal(mint(home, 'knowledge').n, 1);
 
-  // worktrees/ is the ONE in-repo machine-local entry — gitignored. Cache + run-state
-  // no longer live in .zuzuu/ at all (they moved to XDG dirs).
+  // Two in-repo machine-local entries are gitignored: worktrees/ (live checkouts) and
+  // each module's runs.jsonl (ephemeral run telemetry). The cache + gate log + session
+  // run-state live in XDG dirs, not .zuzuu/ at all.
   mkdirSync(join(home, 'worktrees', 'abc123'), { recursive: true });
   writeFileSync(join(home, 'worktrees', 'abc123', 'scratch.txt'), 'ephemeral');
+  writeFileSync(join(home, 'knowledge', 'log.jsonl'), '{"event":"create","note":"fact"}\n');
+  writeFileSync(join(home, 'knowledge', 'runs.jsonl'), '{"event":"run","note":"fact"}\n');
 
   git(['add', '-A'], cwd);
   const tracked = git(['ls-files'], cwd).split('\n').filter(Boolean);
 
-  // the durable brain travels — the ledger + the note (git history holds past bytes)
+  // the durable brain travels — the ledger + the note + the mutation log
   assert.ok(tracked.includes('.zuzuu/knowledge/generations.json'), 'the generation ledger travels');
   assert.ok(tracked.includes('.zuzuu/knowledge/items/fact.md'), 'the note travels');
+  assert.ok(tracked.includes('.zuzuu/knowledge/log.jsonl'), 'the mutation log travels (durable provenance)');
   assert.ok(tracked.includes('.zuzuu/guardrails/module.md'), 'the guardrails floor travels');
   // the old parallel content store is GONE — no .generations/.store/ in the tree
   assert.ok(!tracked.some((f) => f.startsWith('.zuzuu/.generations/')), 'no parallel blob store');
-  // the one in-repo machine-local entry does NOT travel
+  // the in-repo machine-local entries do NOT travel
   assert.ok(!tracked.some((f) => f.startsWith('.zuzuu/worktrees/')), 'worktrees/ is ignored');
+  assert.ok(!tracked.some((f) => f.endsWith('/runs.jsonl')), 'per-module runs.jsonl is ignored (local telemetry)');
 });
 
 test('brain-sync: rollback round-trips after a clone (git holds every version)', () => {

@@ -129,7 +129,7 @@ legible, every path a plain file you can open:
     module.md
     items/ no-root-wipe.md · no-secret-reads.md · confirm-force-push.md · ask-before-rm.md
     log.jsonl                         ← mutations (create/update/delete) — git-tracked provenance
-    runs.jsonl                        ← runs + queries — local telemetry (observe's feedback edge)
+    runs.jsonl                        ← runs + queries — local telemetry, gitignored (observe's feedback edge)
     generations.json                 ← the lineage ledger ({n, mintedAt, mintedFrom}; git holds the bytes)
 
   knowledge/                          ← materialized on its first staged change
@@ -165,9 +165,10 @@ is the **whole** durable Project; no deeper fan-out, because two things stay lea
   notes + KV props + a typed **link graph** + **FTS5** full-text + BM25, rebuilt on mtime/size
   staleness — the query keystone that lets the agent *search* on demand instead of stuffing
   context) → `~/.cache/zuzuu/<hash>/index.db`; session run-state + the gate log →
-  `~/.local/state/zuzuu/<hash>/`. Only `worktrees/` (live, uncommitted work) stays in-repo,
-  gitignored. So `.zuzuu/` is **100% durable, git-tracked** — a true git citizen, like `.git`
-  keeping machine-local state out of your tree ([spec](specs/2026-06-24-storage-layout-and-staging.md)).
+  `~/.local/state/zuzuu/<hash>/`. The only in-repo gitignored entries are `worktrees/` (live,
+  uncommitted work) and each module's `runs.jsonl` (local run telemetry). So the durable Project —
+  notes · mutations (`log.jsonl`) · each `generations.json` lineage — is **100% git-tracked**, a
+  true git citizen, like `.git` keeping machine-local state out of your tree ([spec](specs/2026-06-24-storage-layout-and-staging.md)).
 
 > `generation · staged change · log` live on disk here but are *produced by the loop* — so
 > they're defined in **Plane 2**.
