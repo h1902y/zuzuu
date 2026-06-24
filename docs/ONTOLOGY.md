@@ -7,8 +7,8 @@
 > [`DESIGN.md`](DESIGN.md).
 >
 > One framing + **four planes**: **the agent** → **data** → **operations** → **surfaces**
-> → **identity**. The data hierarchy is **note › module › Project**; operations are the
-> growth loop + the six families over it.
+> → **identity**. The data hierarchy is **note › module › Project**; operations split into
+> **use** (query · act · check) and **grow** (the loop).
 
 ## The spine
 
@@ -22,9 +22,9 @@
              generic:
              any goal)
 
-   THE LOOP grows it:   observe ──► stage ──► review ──► evolve
-                        (mine the    (ranked,   (the gate,   (write the note +
-                         transcript)  deduped)   human)       mint a generation + log)
+   GROW it (the loop):  observe ─► stage ─► plan ─► review ─► evolve
+                        (mine)     (queue)  (set)   (gate)    (write + mint a generation + log)
+   USE it (the verbs):  query · act · check
 ```
 
 ## The agent (the framing)
@@ -198,47 +198,45 @@ XDG, and `proposals/` is now `staged/` with the loop's 2nd beat renamed `propose
 > **generation · staged change · log** are produced *by the loop* as a Project evolves — so they
 > are defined in **Plane 2**, even though they live on disk under `.zuzuu/`.
 
-## Plane 2 — Operations (how you use & grow a Project)
+## Plane 2 — Operations (use & grow a Project)
 
-The compounding engine + the full operation surface. Invariant: **only `grow/` writes
-the Project, and only through `review` (the human gate); `use/` reads + runs.** Every
-operation composes **five reused primitives** — the *envelope* (`parse`/`serialize`), the
-*index handle*, the *git-native generation* (`commit`/`restore`), `diff`, and *the gate*.
-Code: `src/grow/` (writes) · `src/use/` (reads/runs) · `src/notes/` (the primitives).
+Two things you do with a Project — **use** it and **grow** it — which map exactly to the
+two code dirs `src/use/` and `src/grow/`. **Every operation is a `zz` command** (the agent
+runs them in its shell; the human at a terminal). Each composes **five reused primitives** —
+the *envelope* (`parse`/`serialize`), the *index handle*, the *git-native generation*
+(`commit`/`restore`), `diff`, and *the gate*. Invariant: **only Grow writes the Project, and
+only through `review`; Use reads + runs.**
 
-### The loop — the WRITE spine
+### Use — the three verbs (`src/use/`, no Project write)
 
-How a Project grows. Each beat is one named thing; **every write is human-gated.**
+Each verb heads a small **family** of read/run commands.
 
-- **observe** — the **live staging producer**: **re-parses the host's own on-disk transcript** (never wraps/drives the agent — *this is why adding a host = one adapter file*), aggregates per-session signals past a corroboration threshold, and **routes** each candidate to the right module → staged changes.
-- **stage** — file the typed, deduped, ranked **staged-change** queue (`<module>/staged/`), each awaiting the gate. *(Renamed from `propose`: the noun collided with the verb, and `staged → review → evolve` mirrors git's `staged → committed`. The raw signal observe mines is still a* candidate *— staging is where it lands.)*
-- **plan** *(optional)* — gather a module's pending set into ONE content-addressed **change-set**, render its diff, write nothing. The gate then approves a *set*, applied as one generation (Terraform `plan → apply`; the plan id is a TOCTOU guard).
-- **the review gate** *(= `review`, "the gate", "the human gate")* — the **decision**: approve or reject. *"The gate is the moat."* The one door to a Project. `validate` runs first — a malformed note is refused before it lands.
-- **evolve** — the **execution** of an approve: **write the note + log it**, then **mint a generation**. `write` and `mint` are *separable* (so a batch commits as one generation), but on a single approve they're one beat. (Aligns with `be / run / evolve`.)
-- **snapshot** — the **generation** mechanism behind evolve (`mint`) and `rollback`; a generation = a git commit (Plane 1).
+- **query** — *retrieve*: full-text search + graph walk (BM25-ranked). *Family:* `view` (page a long body) · `links` (inbound backlinks + out-walk) · `diff` (note↔note · generation↔generation) · `log` (the evolution timeline) · `as-of` (read a module at a past generation).
+- **act** — *run procedural knowledge*: execute a runnable note, gated + allowlisted. *Family:* `flow` (a `type: workflow` note — a gated DAG of run-steps, compensating on failure).
+- **check** — *integrity*: broken links · orphans · stale. *Family:* `validate` (type-keyed schema check).
 
-### The six operation families
+### Grow — the loop (`src/grow/`, every write human-gated)
 
-The complete surface an agent (and the human gate) acts through. The two **gates** are
-different (see below). Built Tier 1–2; full vocabulary + build status:
+How a Project changes. **Five beats** — `snapshot` is *not* a beat: minting a generation is
+part of evolve (write and mint never happen apart).
+
+- **observe** — mine the host's own on-disk transcript (never drives the agent — *adding a host = one adapter file*); aggregate corroborated per-session signals and **route** each to the right module → staged changes.
+- **stage** — the typed, deduped, ranked **staged-change** queue (`<module>/staged/`). *(Renamed from `propose`: the noun collided with the verb; `staged → review → evolve` mirrors git's `staged → committed`.)*
+- **plan** — bundle a module's pending set into ONE content-addressed **change-set** + its diff; writes nothing (a dry-run). The gate then approves a *set*, applied as one generation (Terraform `plan → apply`; the plan id is a TOCTOU guard). A single change is a plan-of-one.
+- **review** — **the human gate**: approve or reject. *"The gate is the moat"* — the one door to a Project. `validate` runs first; a malformed note is refused before it lands.
+- **evolve** — the **execution** of an approve: **write the note + log it + mint a generation** (one beat; the mint = the snapshot). For a batch, the writes apply then mint *once*.
+
+*Direct grow edits (outside the loop — the operator running the command is the gate):* the
+graph-safe refactors `rename` · `merge` · `refactor` (rewrite a field), the scoped edits
+`patch` · `append`, and `rollback`. Each lands as a generation.
+
+### The two gates (different things)
+
+- **the review gate** *(= `review`)* — **write-time, human, fail-closed**: nothing enters the Project without it. Governs *writes to the notes*.
+- **the tool gate** *(= the **guardrails gate**)* — **runtime, enforced, fail-open**: the `PreToolUse` check that blocks/asks on a tool call in real time (rules are `type: rule` notes; deny > ask > allow). Governs *the running session's tool I/O*. *(The host lifecycle hook — open/turn/end — is what sequences observe + grounding + these gates; it's a surface, Plane 3.)*
+
+Full operation vocabulary + build status (Tier 1–2 shipped):
 [`specs/2026-06-24-plane2-operation-vocabulary.md`](specs/2026-06-24-plane2-operation-vocabulary.md).
-
-| Family | Gate | Operations |
-|---|---|---|
-| **READ** | none | `query` (FTS + filters, BM25-ranked, snippets, prefix) · `view` (windowed body) · `links` (out-walk + inbound backlinks) · `check` (integrity) · `diff` (note↔proposed · gen↔gen) · `log` (evolution timeline) · `as-of` (time-travel a generation) |
-| **WRITE** | review (human) | the loop above; evolve's op-set — `create · update · delete · relate · deprecate` **＋** graph refactors `rename · merge · refactor-field` (with link-update) **＋** scoped `patch · append`; `plan`/`apply`; `validate` |
-| **RUN** | tool gate + allowlist | `act` (one runnable note) · `flow` (a `type: workflow` note — a gated DAG of run-steps, compensating on failure) |
-| **VERSION** | — | per-module, git-native: `generations` · `rollback` · `diff` · `as-of` |
-| **ENFORCE** | *is* the gate | the **tool gate** (`PreToolUse`) |
-| **ORCHESTRATE** | — | the host lifecycle (open/turn/end) — sequences observe + digest + the gates |
-
-### The two gates (not the same thing)
-
-- **the review gate** *(= `review`)* — **write-time, human, fail-closed by design**: nothing enters the Project without it. Governs *writes to the Project's notes*.
-- **the tool gate** *(= the **guardrails gate**)* — **runtime, enforced, fail-open**: the `PreToolUse` check that blocks/asks on a tool call in real time (rules are `type: rule` notes; deny > ask > allow). Governs *the running session's tool I/O*.
-
-*Relates:* `observe → stage → review → evolve` (the WRITE spine) · `query · act · check`
-(the original capability verbs, now the seeds of READ/RUN).
 
 ## Plane 3 — Surfaces (how you reach a Project)
 
