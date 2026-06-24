@@ -11,7 +11,41 @@
 import { open } from './api.mjs';
 import { toon } from '../notes/toon.mjs';
 import { readProject } from '../notes/project.mjs';
-import { moduleCounts } from '../notes/index.mjs';
+import { moduleCounts, search } from '../notes/index.mjs';
+
+// The steering addition is always-loaded into the session, so it stays LEAN: the
+// Instructions module's standing notes are capped to the top-N (by id, deterministic),
+// and the whole block is hard-capped by lines + chars. (Prior art: keep always-loaded
+// guidance well under ~200 lines.)
+const INSTRUCTIONS_TOP = 8;
+const STEER_MAX_LINES = 27;   // ~25 content lines + the two leading blanks
+const STEER_MAX_CHARS = 2000;
+
+/**
+ * The deterministic steering section: the Project's goals + the Instructions module's
+ * standing notes (title-line each), capped. '' when there's nothing to add — so a
+ * Project with no steering + no instructions yields a byte-identical brief. Zero-network.
+ */
+function steeringSection(zz) {
+  const parts = [];
+  const goals = readProject(zz.home).steering?.goals;
+  if (goals && String(goals).trim()) parts.push(`## Goals\n${String(goals).trim()}`);
+
+  const all = search(zz.home, { module: 'instructions', limit: 200 }).sort((a, b) => a.addr.localeCompare(b.addr));
+  const shown = all.slice(0, INSTRUCTIONS_TOP);
+  if (shown.length) {
+    let s = `## Standing guidance\n` + shown.map((n) => `- ${n.title || n.addr}`).join('\n');
+    if (all.length > shown.length) s += `\n- … (+${all.length - shown.length} more)`;
+    parts.push(s);
+  }
+  if (!parts.length) return '';
+
+  let block = '\n\n' + parts.join('\n\n');
+  const lines = block.split('\n');
+  if (lines.length > STEER_MAX_LINES) block = lines.slice(0, STEER_MAX_LINES).join('\n') + '\n…';
+  if (block.length > STEER_MAX_CHARS) block = block.slice(0, STEER_MAX_CHARS) + '…';
+  return block;
+}
 
 /** The brief as markdown text. Empty string if there's nothing to say. */
 export function digestText(cwd = process.cwd()) {
@@ -28,6 +62,7 @@ export function digestText(cwd = process.cwd()) {
     const pending = rows.reduce((a, r) => a + r.pending, 0);
     let out = `# ${name} — session brief\n` + toon('zuzuu', rows, ['module', 'notes', 'pending']);
     if (pending) out += `\n${pending} proposal(s) awaiting review: zz review`;
+    out += steeringSection(zz); // the steering spine — goals + standing guidance, capped (Plane 3)
     return out;
   } catch { return ''; }
 }

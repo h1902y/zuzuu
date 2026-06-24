@@ -55,3 +55,37 @@ test('digest: deterministic — identical output across calls', () => {
     assert.equal(digestText(root), digestText(root));
   });
 });
+
+// ── the steering injection (U3) ───────────────────────────────────────────────
+
+test('digest: steering.goals renders a Goals section (below the table, not the title)', () => {
+  withHome((home, root) => {
+    project(home, { title: 'demo', steering: { goals: 'ship the deck game' } });
+    note(home, 'knowledge', 'a', { type: 'knowledge', title: 'A' });
+    const out = digestText(root);
+    assert.match(out, /^# demo — session brief/, 'title line unchanged');
+    assert.match(out, /## Goals\nship the deck game/);
+  });
+});
+
+test('digest: the Instructions module folds in as Standing guidance (top-8 + truncation marker)', () => {
+  withHome((home, root) => {
+    project(home, { title: 'demo' });
+    for (let i = 0; i < 12; i++) note(home, 'instructions', `i${String(i).padStart(2, '0')}`, { type: 'instruction', title: `rule ${i}` });
+    const out = digestText(root);
+    assert.match(out, /## Standing guidance/);
+    assert.equal((out.match(/^- rule /gm) || []).length, 8, 'only the top 8 shown');
+    assert.match(out, /- … \(\+4 more\)/, 'the remaining count is signalled');
+  });
+});
+
+test('digest: goals + instructions are deterministic across calls', () => {
+  withHome((home, root) => {
+    project(home, { title: 'demo', steering: { goals: 'g' } });
+    note(home, 'instructions', 'b', { type: 'instruction', title: 'second' });
+    note(home, 'instructions', 'a', { type: 'instruction', title: 'first' });
+    const out = digestText(root);
+    assert.equal(out, digestText(root), 'same corpus → identical brief');
+    assert.ok(out.indexOf('- first') < out.indexOf('- second'), 'notes ordered by id, deterministically');
+  });
+});
