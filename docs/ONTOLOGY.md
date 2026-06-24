@@ -6,9 +6,9 @@
 > holds the **renames** table. Architecture: [`../CLAUDE.md`](../CLAUDE.md) · rationale:
 > [`DESIGN.md`](DESIGN.md).
 >
-> One framing + **four planes**: **the agent** → **data** → **operations** → **surfaces**
-> → **identity**. The data hierarchy is **note › module › Project**; operations split into
-> **use** (query · act · check) and **grow** (the loop).
+> One framing + **four planes**: **the agent** → **data** → **growth** → **usage** →
+> **identity**. The data hierarchy is **note › module › Project**; **growth** is the loop
+> (how the Project is scaffolded & evolves), **usage** is how you use it (verbs · steering · surfaces).
 
 ## The spine
 
@@ -71,7 +71,7 @@ machine edits coexist without clobbering) · **plain text** (git-diffable, grep-
 file is the source of truth) · **one shape, many roles** (a fact, an action, a rule, a
 module/Project manifest — all envelopes, differing only by `type`). One shape buys **one
 parser** (`notes/note.mjs`) + a generic **index**, not a type system per concept — and every
-Plane-2 operation reads or writes envelopes.
+operation that grows or uses a Project reads or writes envelopes.
 
 ### note · module · Project — the three levels
 
@@ -161,69 +161,76 @@ uniform tree is the **whole** durable Project; no deeper fan-out, because two th
 > `generation · staged change · log` live on disk here but are *produced by the loop* — so
 > they're defined in **Plane 2**.
 
-## Plane 2 — Operations (use & grow a Project)
+## Plane 2 — Growth (how a Project is scaffolded & evolves)
 
-Two things you do with a Project — **use** it and **grow** it — which map exactly to the
-two code dirs `src/use/` and `src/grow/`. **Every operation is a `zz` command** (the agent
-runs them in its shell; the human at a terminal). Each composes **five reused primitives** —
-the *envelope* (`parse`/`serialize`), the *index handle*, the *git-native generation*
-(`commit`/`restore`), `diff`, and *the gate*. Invariant: **only Grow writes the Project, and
-only through `review`; Use reads + runs.**
+How a Project comes to be and changes — the compounding loop, **every write human-gated**.
+Code: `src/grow/`. Each approved change commits as a **git-native generation** (Plane 1), so
+growth *is* git history. The invariant: **only this plane writes the Project, and only through
+`review`.** *(How you* use *what it grows — the verbs, the steering, the surfaces — is Plane 3.)*
 
-### Use — the three verbs (`src/use/`, no Project write)
+### The loop — five beats
 
-Each verb heads a small **family** of read/run commands.
+`snapshot` is *not* a beat: minting a generation is part of evolve (write and mint never happen apart).
+
+- **observe** — mine the host's own on-disk transcript (never drives the agent — *adding a host = one adapter file*); aggregate corroborated per-session signals and **route** each to the right module → staged changes.
+- **stage** — the typed, deduped, ranked **staged-change** queue (`<module>/staged/`). *(Renamed from `propose`: the noun collided with the verb; `staged → review → evolve` mirrors git's `staged → committed`.)*
+- **plan** — bundle a module's pending set into ONE content-addressed **change-set** + its diff; writes nothing (a dry-run). The gate approves a *set*, applied as one generation (Terraform `plan → apply`; the plan id is a TOCTOU guard). A single change is a plan-of-one.
+- **review** — **the human gate**: approve or reject. *"The gate is the moat"* — the one door to a Project. `validate` runs first; a malformed note is refused before it lands.
+- **evolve** — the **execution** of an approve: **write the note + log it + mint a generation** (one beat; the mint = the snapshot). A batch applies all writes, then mints *once*.
+
+### Direct edits — outside the loop
+
+The operator running the command is the gate: graph-safe refactors `rename` · `merge` ·
+`refactor` (rewrite a field), scoped edits `patch` · `append`, and `rollback`. Each lands as a
+generation.
+
+*The **review gate** here governs **writes** to the Project — fail-closed by design (the moat). A
+different gate — the runtime **tool gate** — governs a running session's tool I/O (Plane 3).*
+Full operation vocabulary + build status (Tier 1–2 shipped):
+[`specs/2026-06-24-plane2-operation-vocabulary.md`](specs/2026-06-24-plane2-operation-vocabulary.md).
+
+## Plane 3 — Usage & Experience (how you use a Project)
+
+A Project exists to be **used** — *pulled from*, *run*, and *steered by*. Three faces:
+the **read/run verbs** you call, the **conversational steering** the Project gives the agent,
+and the **surfaces** it all happens through. Code: `src/use/` (verbs) · `src/serve/` · `src/cli/`
+· `src/hosts/` (surfaces). The Project is independent of any surface — these are how you reach it.
+
+### Use the knowledge — the read/run verbs (`src/use/`)
+
+Each verb heads a small **family**; none writes the Project.
 
 - **query** — *retrieve*: full-text search + graph walk (BM25-ranked). *Family:* `view` (page a long body) · `links` (inbound backlinks + out-walk) · `diff` (note↔note · generation↔generation) · `log` (the evolution timeline) · `as-of` (read a module at a past generation).
 - **act** — *run procedural knowledge*: execute a runnable note, gated + allowlisted. *Family:* `flow` (a `type: workflow` note — a gated DAG of run-steps, compensating on failure).
 - **check** — *integrity*: broken links · orphans · stale. *Family:* `validate` (type-keyed schema check).
 
-### Grow — the loop (`src/grow/`, every write human-gated)
+### Conversational steering — how the brain steers the agent
 
-How a Project changes. **Five beats** — `snapshot` is *not* a beat: minting a generation is
-part of evolve (write and mint never happen apart).
+The abstracted **primary steering**: the Project shapes each session, before and during it.
 
-- **observe** — mine the host's own on-disk transcript (never drives the agent — *adding a host = one adapter file*); aggregate corroborated per-session signals and **route** each to the right module → staged changes.
-- **stage** — the typed, deduped, ranked **staged-change** queue (`<module>/staged/`). *(Renamed from `propose`: the noun collided with the verb; `staged → review → evolve` mirrors git's `staged → committed`.)*
-- **plan** — bundle a module's pending set into ONE content-addressed **change-set** + its diff; writes nothing (a dry-run). The gate then approves a *set*, applied as one generation (Terraform `plan → apply`; the plan id is a TOCTOU guard). A single change is a plan-of-one.
-- **review** — **the human gate**: approve or reject. *"The gate is the moat"* — the one door to a Project. `validate` runs first; a malformed note is refused before it lands.
-- **evolve** — the **execution** of an approve: **write the note + log it + mint a generation** (one beat; the mint = the snapshot). For a batch, the writes apply then mint *once*.
+- **grounding** — at session start the deterministic **digest** (per-module note counts + what's pending review) is injected, so the agent opens *already knowing* what's been learned. (`serve/digest.mjs`; zero-network, no model call.)
+- **instructions** — the **directive module**: standing guidance, pinned into the agent's steering (the system-prompt-shaped artifact, grown like any module).
+- **the tool gate** *(= the **guardrails gate**)* — runtime **`PreToolUse`** enforcement: blocks/asks on a tool call in real time (rules are `type: rule` notes; deny > ask > allow; **fail-open**). The *other* gate vs `review` (Plane 2): this one governs **the running session's tool I/O**, not writes.
 
-*Direct grow edits (outside the loop — the operator running the command is the gate):* the
-graph-safe refactors `rename` · `merge` · `refactor` (rewrite a field), the scoped edits
-`patch` · `append`, and `rollback`. Each lands as a generation.
+### Surfaces — where usage happens
 
-### The two gates (different things)
-
-- **the review gate** *(= `review`)* — **write-time, human, fail-closed**: nothing enters the Project without it. Governs *writes to the notes*.
-- **the tool gate** *(= the **guardrails gate**)* — **runtime, enforced, fail-open**: the `PreToolUse` check that blocks/asks on a tool call in real time (rules are `type: rule` notes; deny > ask > allow). Governs *the running session's tool I/O*. *(The host lifecycle hook — open/turn/end — is what sequences observe + grounding + these gates; it's a surface, Plane 3.)*
-
-Full operation vocabulary + build status (Tier 1–2 shipped):
-[`specs/2026-06-24-plane2-operation-vocabulary.md`](specs/2026-06-24-plane2-operation-vocabulary.md).
-
-## Plane 3 — Surfaces (how you reach a Project)
-
-A Project exists independently of any surface. The two paths share one door:
+Two paths to a Project through **one door** (`serve/api`); a session is a git branch.
 
 ```
-   CLI (zz) ───────────────────────────────────────────►  serve/api  ──►  a PROJECT
-                                                                          (direct, in-process)
-   Workbench (browser) ──► the daemon ──(shells `zz`)───►  serve/api  ──►  a PROJECT
-                                                                          (same door, gated)
-
-   A SESSION ≡ a git branch:
-      a host CLI runs in a session  →  its own git worktree  →  squash-merged on exit
+   CLI (zz) ─────────────────────────────────►  serve/api  ──►  a PROJECT   (direct, in-process)
+   Workbench (browser) ─► daemon ─(shells zz)─►  serve/api  ──►  a PROJECT   (same door, gated)
+   A SESSION ≡ a git branch:  a host runs in a session → its own worktree → squash-merged on exit
 ```
 
-**Why the daemon shells the CLI** (not write files directly): **one door to every write** — every mutation goes through the gated CLI, so the browser physically can't bypass the review gate (the daemon never imports `grow/`). That's the integrity boundary, not indirection for its own sake.
+**One door to every write:** the daemon shells the gated `zz` CLI (never imports `grow/`), so the
+browser physically can't bypass the review gate — the integrity boundary, not indirection.
 
 - **the CLI** — `zz` (and `zuzuu`): the command surface. `bin/zuzuu.mjs` → `src/cli/` → `src/serve/api`.
-- **the daemon** — the **long-lived local process** (binds `127.0.0.1`) that owns the PTYs + filesystem and serves the workbench. Shells the `zz` CLI for every write.
-- **the workbench** — the **browser visual surface**: terminal + file explorer + Monaco editor + the **modules dashboard** + the **composer**. A **view onto a Project, served by the daemon** — *not* the Project itself.
-- **the modules dashboard** — the workbench's "modules mode" panel: per-module generations + approve/reject. The browser face of `review`.
-- **the composer** — the workbench's **agent-session input**: a **remote keyboard** into the host's TUI (types your message into the live host CLI; never drives it headlessly).
-- **session** *(= a git branch)* — the lifecycle unit: a `zz/session-*` branch (open → branch, turn → checkpoint, end → squash-merge). **"session = git branch."** *(Overloaded with the daemon's PTY `Session` — see [glossary](learn/glossary.md).)*
-- **worktree** — a **per-session git worktree** under `.zuzuu/worktrees/` → **N concurrent agents** without clashing on the one working branch. Machine-local, gitignored — the one in-repo non-durable entry (it holds live, uncommitted work, so it's never treated as cache).
+- **the daemon** — the long-lived local process (binds `127.0.0.1`) owning the PTYs + filesystem; serves the workbench; shells `zz` for every write.
+- **the workbench** — the browser visual surface: terminal + explorer + Monaco editor + the **modules dashboard** (the browser face of `review`) + the **composer** (a *remote keyboard* into the host's TUI — types into the live host CLI, never drives it headlessly). A *view onto* a Project, not the Project.
+- **the host hook** — the lifecycle (open → grounding + session branch · turn → checkpoint · end → observe + squash-merge) that sequences steering + observe across a session. One adapter per host.
+- **session** *(= a git branch)* — the lifecycle unit: a `zz/session-*` branch. **"session = git branch."** *(Overloaded with the daemon's PTY `Session` — see [glossary](learn/glossary.md).)*
+- **worktree** — a per-session git worktree under `.zuzuu/worktrees/` → **N concurrent agents** without clashing; machine-local, gitignored.
 
 ## Plane 4 — Identity & naming
 
@@ -239,4 +246,4 @@ How zuzuu is packaged & sold is *strategy*, not core ontology — the full model
 
 ## Reading order
 
-**Spine → the agent (framing) → Plane 1 (data) → Plane 2 (operations) → Plane 3 (surfaces).** Then Plane 4 (names) and the tiers pointer. For *same-word-two-meanings* cases, jump to [`learn/glossary.md`](learn/glossary.md).
+**Spine → the agent (framing) → Plane 1 (data) → Plane 2 (growth) → Plane 3 (usage).** Then Plane 4 (names) and the tiers pointer. For *same-word-two-meanings* cases, jump to [`learn/glossary.md`](learn/glossary.md).
