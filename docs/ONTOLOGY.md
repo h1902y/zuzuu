@@ -60,44 +60,18 @@ relations: { uses: knowledge:card-schema }
 Regenerates dist/index.json from src/cards/. Safe to run anytime.   ← the body
 ```
 
-**Structure.**
-- **`type`** — the *only* required field. It names what the envelope is (`knowledge`,
-  `action`, `rule`, `instruction`, `episode`, `module`, `project`). The **type**, not a
-  folder and not a class, is the discriminator.
-- **frontmatter** — typed scalar / list / map fields. Any keys are allowed; only `type`
-  is required; **unknown keys are preserved round-trip-exact** (a reader that doesn't
-  recognize a key keeps it intact).
-- **body** — free markdown prose below the closing fence.
-- **`id`** — the **filename stem**, injected by the caller, **never stored in the
-  frontmatter** (the file *is* its id). `knowledge/items/card-schema.md` → id `card-schema`.
+- **`type`** is the *only* required field and the sole discriminator (`knowledge` · `action` · `rule` · `instruction` · `episode` · `module` · `project`) — not a folder, not a class.
+- **`id`** is the filename stem, injected by the caller, **never in the frontmatter** (the file *is* its id): `knowledge/items/card-schema.md` → `card-schema`.
+- **frontmatter** takes any keys (only `type` required); a **body** of free markdown follows the fence.
 
-**Properties** (each is load-bearing, not incidental):
-- **Self-describing** — `type` tells any reader what it's holding; no external schema is
-  needed to interpret a file.
-- **Tolerant** — unknown keys survive a read→write, so a field added by a newer version
-  never breaks an older reader (forward- and backward-compatible).
-- **Round-trip-exact** — `parse ∘ serialize` is the identity (read a file, write it back,
-  byte-for-byte unchanged). This is what lets **hand edits and machine edits coexist**
-  without one silently clobbering the other.
-- **Plain text** — git-diffable, grep-able, human-readable; no database, no binary. The
-  file is the source of truth.
-- **One shape, many roles** — a fact, a runnable action, a guardrail rule, a module's
-  manifest, the Project's manifest are *all envelopes*, differing only by `type`.
-  **"Everything is an envelope."**
-
-**How it helps.** One shape means **one parser/serializer** (`notes/note.mjs`) instead of
-a parallel type system per concept. Tolerance + round-trip-exactness give **safe
-evolution**: the format can gain fields with no migration, and the human gate can edit a
-note by hand without the machine overwriting it. Self-description lets the **index** ingest
-any envelope generically.
-
-**How it ties to Plane 2 (the operations).** The envelope is the **unit every loop
-operation touches** — Plane 1 defines the *thing*, Plane 2 is the verbs that read and write it:
-- **observe** emits envelope-shaped changes (a *staged change*'s `change` is the frontmatter +
-  body of a note-to-be).
-- **review → evolve** *serializes an envelope* to disk — that is the only write to a Project.
-- a **generation** content-addresses the exact bytes of every envelope in a module.
-- the **index** parses every envelope into queryable rows + a typed link graph.
+**Five load-bearing properties:** **self-describing** (`type` says what it is — no external
+schema) · **tolerant** (unknown keys survive a read→write, so a new field never breaks an
+old reader) · **round-trip-exact** (`parse ∘ serialize` is the identity — hand edits and
+machine edits coexist without clobbering) · **plain text** (git-diffable, grep-able; the
+file is the source of truth) · **one shape, many roles** (a fact, an action, a rule, a
+module/Project manifest — all envelopes, differing only by `type`). One shape buys **one
+parser** (`notes/note.mjs`) + a generic **index**, not a type system per concept — and every
+Plane-2 operation reads or writes envelopes.
 
 ### note · module · Project — the three levels
 
@@ -120,11 +94,10 @@ envelope** that declares it.
 A Project is a *directory*, and a **git-citizen**: zuzuu plants `.zuzuu/` at the repo's git
 root and **never `git init`s** — it lives *inside* your repo's history, like `.git` itself.
 
-**`project.md` declares it — the territory and its identity card.** The **Project** is the
-*whole* `.zuzuu/` directory (the territory); **`project.md`** is the one envelope
-(`type: project`) that **declares its identity** — title, format version, project-wide
-config — exactly as `module.md` declares a module. Read the small `project.md` to know
-*what* a Project is without traversing all of it.
+**`project.md` is its identity card.** The Project is the *whole* `.zuzuu/` directory;
+`project.md` (`type: project`) declares its identity — title, format version, config —
+exactly as `module.md` declares a module (read the small file to know *what* a Project is
+without traversing it all).
 
 **Born (`zz init`) — an empty brain.** The honest first-run state, not five empty tiles:
 
@@ -173,30 +146,20 @@ legible, every path a plain file you can open:
   worktrees/                          ← the ONE gitignored entry (live session checkouts)
 ```
 
-Each module is the *same five things* — `module.md` + `items/` + (optional) `staged/` +
-`log.jsonl` + `generations.json` — so the directory stays uniform however many modules grow.
-That uniformity is the *whole* durable Project; there is no deeper fan-out. Two principles
-keep it that clean:
+Every module is the *same five things* — `module.md` · `items/` · (optional) `staged/` ·
+`log.jsonl` · `generations.json` — so the tree stays uniform however large it grows. That
+uniform tree is the **whole** durable Project; no deeper fan-out, because two things stay lean:
 
-- **Generations are git-native, not a parallel store.** A module's history *is* its git
-  history: every approve writes the note and makes a **path-scoped commit** to `.zuzuu/`, so a
-  **generation = that commit** and **rollback = `git restore`**. The tiny `generations.json`
-  ledger maps `n → commit`; git's own objects hold every past version — no `.generations/.store/`
-  blob store (re-implementing git's object DB *inside* a git repo was the redundancy we cut).
-  Spec: [`specs/2026-06-24-git-native-generations.md`](specs/2026-06-24-git-native-generations.md).
-- **Derived state lives outside the repo (XDG), not in `.zuzuu/`.** The rebuildable sqlite
-  index → `~/.cache/zuzuu/<repo-hash>/index.db`; live session run-state + the gate log →
-  `~/.local/state/zuzuu/<repo-hash>/`. Only `worktrees/` stays in-repo and gitignored — it
-  holds *live, uncommitted* session work, so it's never treated as cache. So `.zuzuu/` itself
-  is **100% durable, git-tracked Project** — a true git citizen, like `.git` keeping its own
-  machine-local state out of your tree.
-  Spec: [`specs/2026-06-24-storage-layout-and-staging.md`](specs/2026-06-24-storage-layout-and-staging.md).
+- **Generations are git-native** — a module's history *is* its git history: every approve is
+  a path-scoped commit, so **generation = commit**, **rollback = `git restore`**, and the tiny
+  `generations.json` maps `n → commit`. No parallel blob store ([spec](specs/2026-06-24-git-native-generations.md)).
+- **Derived state lives outside the repo (XDG)** — the rebuildable index → `~/.cache/zuzuu/<hash>/index.db`,
+  session run-state + the gate log → `~/.local/state/zuzuu/<hash>/`. Only `worktrees/` (live,
+  uncommitted work) stays in-repo, gitignored. So `.zuzuu/` is **100% durable, git-tracked** —
+  a true git citizen, like `.git` keeping machine-local state out of your tree ([spec](specs/2026-06-24-storage-layout-and-staging.md)).
 
-*(Both shipped 2026-06-24 — the `.store` blob store is gone, the cache + run-state moved to
-XDG, and `proposals/` is now `staged/` with the loop's 2nd beat renamed `propose → stage`.)*
-
-> **generation · staged change · log** are produced *by the loop* as a Project evolves — so they
-> are defined in **Plane 2**, even though they live on disk under `.zuzuu/`.
+> `generation · staged change · log` live on disk here but are *produced by the loop* — so
+> they're defined in **Plane 2**.
 
 ## Plane 2 — Operations (use & grow a Project)
 
