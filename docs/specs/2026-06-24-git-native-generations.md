@@ -1,7 +1,7 @@
 ---
 title: "Git-native generations — drop the parallel content store, let git version the brain"
 date: 2026-06-24
-status: live spec — direction accepted 2026-06-24, unbuilt
+status: shipped 2026-06-24
 ---
 
 # Git-native generations

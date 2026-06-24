@@ -1,7 +1,7 @@
 ---
 title: "Storage layout & the staging rename — .zuzuu/ becomes 100% durable; derived state goes to XDG"
 date: 2026-06-24
-status: live spec — direction accepted 2026-06-24, unbuilt
+status: shipped 2026-06-24
 ---
 
 # Storage layout & the staging rename

@@ -191,8 +191,8 @@ keep it that clean:
   machine-local state out of your tree.
   Spec: [`specs/2026-06-24-storage-layout-and-staging.md`](specs/2026-06-24-storage-layout-and-staging.md).
 
-*(Both are accepted but unbuilt — today's build still carries the legacy `.store` and the
-in-repo `.live/` · `.index.db`; they're being retired to the form above.)*
+*(Both shipped 2026-06-24 — the `.store` blob store is gone, the cache + run-state moved to
+XDG, and `proposals/` is now `staged/` with the loop's 2nd beat renamed `propose → stage`.)*
 
 > **generation · staged change · log** are produced *by the loop* as a Project evolves — so they
 > are defined in **Plane 2**, even though they live on disk under `.zuzuu/`.
