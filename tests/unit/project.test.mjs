@@ -103,3 +103,25 @@ test('readProject: a non-map steering value degrades to {} (never throws)', () =
     assert.deepEqual(readProject(home).steering, {});
   });
 });
+
+test('init seeds a steering template; it round-trips and surfaces in the digest', () => {
+  withRepo((cwd) => {
+    initHome(cwd);
+    const home = join(cwd, '.zuzuu');
+    const p = readProject(home);
+    assert.ok(p.steering.goals && p.steering.opener && p.steering.closer && p.steering.drift, 'all four keys seeded');
+    // the seeded goals render in the brief (discoverability)
+    assert.match(digestText(cwd), /## Goals\nWhat this project is for/);
+  });
+});
+
+test('init is brownfield-safe — a second init never clobbers an edited project.md', () => {
+  withRepo((cwd) => {
+    initHome(cwd);
+    const path = join(cwd, '.zuzuu', 'project.md');
+    writeFileSync(path, '---\ntype: project\ntitle: mine\nsteering: {"goals":"my real goal"}\n---\nedited\n');
+    const r2 = initHome(cwd);
+    assert.ok(r2.skipped.includes('project.md'), 'project.md skipped on re-init');
+    assert.equal(readProject(join(cwd, '.zuzuu')).steering.goals, 'my real goal', 'user edit preserved');
+  });
+});
