@@ -25,11 +25,12 @@ import { generations, rollback } from '../grow/snapshot.mjs';
  */
 export function open(cwd = process.cwd()) {
   registerAll(); // idempotent
-  const home = homeDir(repoRoot(cwd));
+  const root = repoRoot(cwd);
+  const home = homeDir(root);
 
   return {
     home,
-    root: repoRoot(cwd),
+    root,
 
     // ── inspection ──────────────────────────────────────────────────────────
     modules: () => listModules(home),

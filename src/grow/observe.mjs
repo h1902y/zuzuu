@@ -4,7 +4,7 @@
 //       hosts/capture) across sessions with a corroboration threshold, then route
 //       each candidate to the RIGHT module as a typed proposal — never writing,
 //       always human-gated (rung 5's propose/review).
-// why:  this is what feeds `enhance` from real work and solves the cold-start —
+// why:  this is what `observe` mines from real work and solves the cold-start —
 //       the conversation/work tracks the design promised, made concrete and
 //       deterministic (zero-LLM). It mines what RECURRED, corroborated across
 //       sessions (Generative-Agents: don't act on a single sighting).

@@ -21,12 +21,18 @@ function withHome(manifests, fn) {
 // ── module manifest ─────────────────────────────────────────────────────────
 
 test('readManifest: parses module.md (the same envelope as a note)', () => {
-  withHome({ actions: { title: 'Actions', note_type: 'action', enhance: { goal: 'capture procedures' }, policy: { tier: 'contained' } } }, (home) => {
+  withHome({ actions: { title: 'Actions', note_type: 'action', goal: 'capture procedures', policy: { tier: 'contained' } } }, (home) => {
     const m = readManifest(home, 'actions');
     assert.equal(m.id, 'actions');
     assert.equal(m.note_type, 'action');
-    assert.equal(m.enhance.goal, 'capture procedures');
+    assert.equal(m.goal, 'capture procedures');
     assert.equal(m.policy.tier, 'contained');
+  });
+});
+
+test('readManifest: tolerant-reads the old nested enhance.goal shape', () => {
+  withHome({ actions: { title: 'Actions', note_type: 'action', enhance: { goal: 'legacy goal' } } }, (home) => {
+    assert.equal(readManifest(home, 'actions').goal, 'legacy goal');
   });
 });
 

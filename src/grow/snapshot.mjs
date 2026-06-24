@@ -12,12 +12,11 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { itemsDir } from '../notes/store.mjs';
+import { itemsDir, generationsDir } from '../notes/store.mjs';
 
 const sha = (buf) => createHash('sha256').update(buf).digest('hex');
-const storeDir = (home) => join(paths_(home).generations, '.store');
-const genDir = (home, module) => join(paths_(home).generations, module);
-const paths_ = (home) => ({ generations: join(home, '.generations') });
+const storeDir = (home) => join(generationsDir(home), '.store');
+const genDir = (home, module) => join(generationsDir(home), module);
 
 const blobPath = (home, hash) => join(storeDir(home), hash.slice(0, 2), hash.slice(2));
 

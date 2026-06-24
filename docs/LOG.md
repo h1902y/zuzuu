@@ -1019,3 +1019,15 @@ Three model refinements landed together:
 **3. `write + snapshot` → *evolve*.** They never happen apart (an approve writes the note + mints a generation + logs), so the loop's final beat is named once: **observe → propose → review → evolve** (review = the decision; evolve = the execution). Aligns with the `be / run / evolve` framing.
 
 The ontology was rewritten to match (Project · project.md · evolve · a proper surfaces workflow diagram with the *why daemon→CLI* rationale), and the two collisions both called "the gate" stay split as **the review gate** (writes the Project) vs **the tool gate** (guardrails). **Verified:** root 162 + web 157 green, web tsc clean.
+
+## Substrate audit — hardening pass (Data layer) (2026-06-24)
+
+Three specialized audits (structure · performance · testing) over the Data-layer substrate (note · module · Project · generation · proposal · log). Applied the safe, high-value batch; the keystone-index restructure is a deliberate follow-up.
+
+- **Correctness (real bug):** `search()` passed raw user text into FTS5 `MATCH`, so `zz query '"foo'` / `'a:b'` threw `SqliteError`. Added a `ftsQuery()` sanitizer (each whitespace token → a quoted FTS string, ANDed) — never crashes, multi-word still matches. Live-verified on the binary.
+- **Ontology contract:** `enhance` was a *live manifest field name* for a verb cut 2026-06-22 → renamed to a flat `goal` (tolerant read of the old `enhance.goal`); swept the residual `enhance`-verb comment refs to `observe`. `doctor explain home` gloss → "this repo's Project".
+- **Perf (safe wins):** cache pragmas on the throwaway index (`journal_mode/synchronous=OFF`, `temp_store=MEMORY`, `mmap`); `count()` → `SELECT COUNT(*)` (was materializing 100k rows for a `.length`); `digest` now does ONE index open + `GROUP BY module` instead of M opens on every session-start; added `link_src(src,type)` + `notes_id` indexes (the graph walk + broken-link scan); memoized `repoRoot` (was a git spawn per call, twice in `api.open`). Hardened the corrupt-index self-heal so the new pragma-on-open can't break it.
+- **Structure:** deleted the duplicate dead `idFromPath`; replaced the near-dead, mis-named `paths()` (its `index` field pointed at *sessions.json*) with a `generationsDir` helper that `snapshot.mjs` now uses (one source for the `.generations/` path).
+- **Tests (+11):** FTS crash-safety, transitive (depth≥2) / cycle-termination / type-filter graph walks, corrupt-index self-heal, array-valued relations, the `goal` tolerant-read, and a new `store.test.mjs` (git-root resolution + walk-up + readJson/writeJson fallback). Root 174 green.
+
+**Deferred (keystone restructure — correctness-sensitive, its own pass):** the per-call `corpusSig` full-corpus stat (C1) + DB-handle cache (C3), incremental index keyed on per-file mtime (H1, O(δ) not O(n) rebuild), external-content FTS5 (M4), and mint hash-skip (S1).

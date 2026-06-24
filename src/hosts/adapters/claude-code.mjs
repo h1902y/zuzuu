@@ -3,7 +3,7 @@
 // what: read a real Claude transcript (~/.claude/projects/<encoded-cwd>/<id>.jsonl)
 //       and extract deterministic mining SIGNALS — recurring commands, hot files,
 //       failing tools, command 2-grams, corrective turns, destructive failures.
-// why:  observe solves the cold-start (the loop has nothing to enhance from until
+// why:  observe solves the cold-start (the loop has nothing to mine from until
 //       it has watched real work). Design B: we re-parse the transcript the host
 //       already wrote — we never build spans or drive the host.
 // how:  pure file parsing, zero-dep, tolerant (a malformed line is skipped, never

@@ -106,7 +106,71 @@ test('toon: values with commas are quoted', () => {
   assert.match(out, /"a, b, c"/);
 });
 
-test('related: follows a BARE-id relation target (the shape enhance/relate write)', () => {
+test('search: FTS metacharacters never crash (sanitized) but still match', () => {
+  withZuzuu(CORPUS, (home) => {
+    // each of these is a live FTS5 query metacharacter that used to throw SqliteError
+    for (const text of ['"unbalanced', 'acme:style', 'a AND', 'foo*bar:', 'a OR b']) {
+      assert.doesNotThrow(() => search(home, { text }), `search(${JSON.stringify(text)}) must not throw`);
+    }
+    // a normal multi-word query still matches (tokens ANDed)
+    const r = search(home, { text: 'blue accent' });
+    assert.equal(r.length, 1);
+    assert.equal(r[0].addr, 'knowledge:acme-style');
+  });
+});
+
+test('related: transitive walk (depth ≥ 2) returns correct hops', () => {
+  withZuzuu({
+    'k:a': { type: 'knowledge', relations: { uses: 'k:b' } },
+    'k:b': { type: 'knowledge', relations: { uses: 'k:c' } },
+    'k:c': { type: 'knowledge', title: 'c' },
+  }, (home) => {
+    assert.deepEqual(related(home, 'k:a', { depth: 2 }).map((r) => [r.addr, r.hop]), [['k:b', 1], ['k:c', 2]]);
+    assert.deepEqual(related(home, 'k:a', { depth: 1 }).map((r) => r.addr), ['k:b']);
+  });
+});
+
+test('related: a cycle terminates and stays bounded (UNION, not UNION ALL)', () => {
+  withZuzuu({
+    'k:a': { type: 'knowledge', relations: { uses: 'k:b' } },
+    'k:b': { type: 'knowledge', relations: { uses: 'k:a' } },
+  }, (home) => {
+    const r = related(home, 'k:a', { depth: 3 }); // the test completing at all proves it terminates
+    assert.ok(r.some((x) => x.addr === 'k:b'));
+    assert.ok(r.length <= 3, 'bounded by depth — no infinite expansion');
+  });
+});
+
+test('related: the type filter restricts the edge type', () => {
+  withZuzuu({
+    'k:a': { type: 'knowledge', relations: { uses: 'k:b', about: 'k:c' } },
+    'k:b': { type: 'knowledge', title: 'b' },
+    'k:c': { type: 'knowledge', title: 'c' },
+  }, (home) => {
+    assert.deepEqual(related(home, 'k:a', { depth: 1, type: 'uses' }).map((r) => r.addr), ['k:b']);
+    assert.equal(related(home, 'k:a', { depth: 1 }).length, 2, 'untyped returns both edges');
+  });
+});
+
+test('index self-heals from a corrupt .index.db (rebuilds, never throws)', () => {
+  withZuzuu(CORPUS, (home) => {
+    assert.equal(search(home, { text: 'blue' }).length, 1); // build the db
+    writeFileSync(join(home, '.index.db'), 'GARBAGE NOT SQLITE'); // corrupt it
+    assert.equal(search(home, { text: 'blue' }).length, 1, 'rebuilt from the files');
+  });
+});
+
+test('related: an array-valued relation indexes every target', () => {
+  withZuzuu({
+    'k:a': { type: 'knowledge', relations: { uses: ['k:b', 'k:c'] } },
+    'k:b': { type: 'knowledge', title: 'b' },
+    'k:c': { type: 'knowledge', title: 'c' },
+  }, (home) => {
+    assert.deepEqual(related(home, 'k:a', { depth: 1 }).map((r) => r.addr).sort(), ['k:b', 'k:c']);
+  });
+});
+
+test('related: follows a BARE-id relation target (the shape observe/relate write)', () => {
   withZuzuu({
     'actions:pull': { type: 'action', relations: { 'related-to': 'render' } }, // bare id, not 'actions:render'
     'actions:render': { type: 'action', title: 'render' },

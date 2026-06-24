@@ -3,7 +3,7 @@
 // what: append-only, schema-bound JSONL recording what happened in a module —
 //       mutations (create/update/delete) and runs (each execution).
 // why:  a note never records its own outcomes (it stays pure definition); the
-//       module does. This log is also `enhance`'s feedback edge — it mines what
+//       module does. This log is also `observe`'s feedback edge — it mines what
 //       actually got used/run, not just what was said.
 // how:  split by durability — log.jsonl (mutations, git-TRACKED, durable
 //       provenance) + runs.jsonl (runs, git-IGNORED, local telemetry). Each
