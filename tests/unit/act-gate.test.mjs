@@ -1,4 +1,4 @@
-// use/act.mjs + guardrails/gate.mjs + grow/log.mjs.
+// use/act.mjs + guardrails/gate.mjs + notes/log.mjs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
@@ -8,7 +8,7 @@ import { serialize } from '../../src/notes/note.mjs';
 import { readManifest } from '../../src/notes/module.mjs';
 import { act } from '../../src/use/act.mjs';
 import { loadRules, evaluate, gate, toPreToolUseDecision, clearCache } from '../../src/guardrails/gate.mjs';
-import { append, logRun, read } from '../../src/grow/log.mjs';
+import { append, logRun, read } from '../../src/notes/log.mjs';
 
 function withHome(setup, fn) {
   const root = mkdtempSync(join(tmpdir(), 'zuzuu-r4-'));

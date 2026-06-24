@@ -11,7 +11,7 @@ import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { initHome } from '../../src/cli/init.mjs';
-import { mint, rollback } from '../../src/grow/snapshot.mjs';
+import { mint, rollback } from '../../src/notes/generation.mjs';
 import { serialize } from '../../src/notes/note.mjs';
 
 const git = (args, cwd) => execFileSync('git', args, { cwd, encoding: 'utf8' });

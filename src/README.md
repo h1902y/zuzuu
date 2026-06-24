@@ -15,7 +15,7 @@ src/
   grow/        GROW the Project — the compounding engine, every write human-gated
   guardrails/  what the agent must NOT do — enforced
   hosts/       OBSERVE a host (Design B: re-parse, never drive)
-  sessions/    a session ≡ a conversation ≡ a git branch
+  sessions/    (surface) the session surface's git plumbing — session ≡ git branch
   cli/         the zz veneer + lifecycle
   serve/       compose · expose · ground
 ```
@@ -24,18 +24,20 @@ src/
 |---|---|---|
 | [`notes/`](notes/) | `note` (the atom) · `store` · `index` · `module` · `toon` — the **note › module › project** substrate | [02](../docs/learn/02-the-seed-in-one-file.md) · [03](../docs/learn/03-how-a-note-becomes-queryable.md) |
 | [`use/`](use/) | `query` · `act` · `check` — read / run / inspect | [03](../docs/learn/03-how-a-note-becomes-queryable.md) · [04](../docs/learn/04-how-an-act-runs-safely.md) |
-| [`grow/`](grow/) | `observe` · `propose` · `review` · `snapshot` · `log` — the whole growth loop in one place | [05](../docs/learn/05-how-the-system-grows.md) · [06](../docs/learn/06-observing-a-host.md) |
+| [`grow/`](grow/) | `observe` · `propose` · `review` · `evolve` — the four loop verbs (the durable artifacts `generation`/`log` live in `notes/`) | [05](../docs/learn/05-how-the-system-grows.md) · [06](../docs/learn/06-observing-a-host.md) |
 | [`guardrails/`](guardrails/) | `gate` — the enforced `PreToolUse` check | [04](../docs/learn/04-how-an-act-runs-safely.md) |
 | [`hosts/`](hosts/) | per-host adapters + `capture` · `signals` · `hook` (Design B) | [06](../docs/learn/06-observing-a-host.md) |
-| [`sessions/`](sessions/) | the git-branch engine — `session-git` (lifecycle) · `session-worktree` (concurrency) · `git` (plumbing) · `labels` | [08](../docs/learn/08-the-cull.md) |
+| [`sessions/`](sessions/) | *(a Layer-3 **surface**, not a lifecycle stage)* the git-branch engine — `session-git` (lifecycle) · `session-worktree` (concurrency) · `git` (plumbing) · `labels` | [08](../docs/learn/08-the-cull.md) |
 | [`cli/`](cli/) | the `zz` router + `init` · `enable` · `doctor` · `code` · `web` · `session` | [07](../docs/learn/07-the-cli-veneer.md) |
 | [`serve/`](serve/) | `api` (the façade) · `registry` (capability dispatch) · `wire` (registerAll) · `digest` | — |
+
+> The eight dirs span the ontology's layers — they are **not** all "the lifecycle": `notes/` is **Data**; `use/` · `grow/` · `guardrails/` · `hosts/` are the **loop + reading**; `cli/` · `serve/` · `sessions/` are **surfaces**. See [`docs/ONTOLOGY.md`](../docs/ONTOLOGY.md).
 
 ## The one rule that replaced strict layering
 
 The code used to be filed by a strict dependency layer (`kernel ← capabilities ← …`). Re-filing by concept relaxed that into a plain DAG (no cycles) with **one invariant worth more than the layer diagram**:
 
-> **Only the `grow/` dir writes the Project — and only through `review` (the gate). `use/` only reads and runs.**
+> **Only `grow/` (review→evolve) writes the Project's *notes + generations* — and only through `review` (the gate). `use/` reads + runs; a run appends to the *log* (Data), never the notes.**
 
 That's the whole safety story in a sentence: every change to your notes passes the human gate in `grow/review.mjs`; nothing else mutates the Project.
 
@@ -43,7 +45,7 @@ That's the whole safety story in a sentence: every change to your notes passes t
 
 1. **`notes/note.mjs`** — the atom (the envelope). Then `store`, `index`.
 2. **`use/`** — what you *do* with the Project (query/act/check).
-3. **`grow/`** — how it *grows* (observe → propose → review → snapshot).
+3. **`grow/`** — how it *grows* (observe → propose → review → evolve).
 4. **`hosts/` + `cli/`** — the edges where the outside world reaches the core; **`serve/`** is the façade that ties it together.
 
 ## The rules that keep it readable

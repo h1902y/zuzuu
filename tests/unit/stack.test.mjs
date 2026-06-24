@@ -12,7 +12,7 @@ import { registerAll, resetCapabilities } from '../../src/serve/wire.mjs';
 import { gate } from '../../src/guardrails/gate.mjs';
 import { createProposal } from '../../src/grow/propose.mjs';
 import { approve } from '../../src/grow/review.mjs';
-import { generations } from '../../src/grow/snapshot.mjs';
+import { generations } from '../../src/notes/generation.mjs';
 
 function withStack(fn) {
   const root = mkdtempSync(join(tmpdir(), 'zuzuu-stack-'));

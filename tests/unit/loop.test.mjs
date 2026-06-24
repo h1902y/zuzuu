@@ -5,10 +5,11 @@ import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, appendFile
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { serialize, parse } from '../../src/notes/note.mjs';
-import { mint, generations, rollback } from '../../src/grow/snapshot.mjs';
+import { mint, generations, rollback } from '../../src/notes/generation.mjs';
 import { createProposal, listProposals, readProposal } from '../../src/grow/propose.mjs';
 import { approve, reject } from '../../src/grow/review.mjs';
-import { read } from '../../src/grow/log.mjs';
+import { evolve } from '../../src/grow/evolve.mjs';
+import { read } from '../../src/notes/log.mjs';
 
 function withHome(fn) {
   const root = mkdtempSync(join(tmpdir(), 'zuzuu-r5-'));
@@ -20,6 +21,19 @@ const writeZu = (home, module, id, note) => {
   writeFileSync(join(home, module, 'items', `${id}.md`), serialize({ id, ...note }));
 };
 const readZu = (home, module, id) => parse(readFileSync(join(home, module, 'items', `${id}.md`), 'utf8'), { id }).note;
+
+// ── evolve (the loop's 4th beat) vs review (the gate) ────────────────────────
+
+test('evolve: writes + mints but does NOT archive (archiving is review.approve’s job)', () => {
+  withHome((home) => {
+    const p = createProposal(home, 'knowledge', { op: 'create', target: 'fact', change: { type: 'knowledge', title: 'A' } });
+    const r = evolve(home, 'knowledge', readProposal(home, 'knowledge', p.id));
+    assert.equal(r.ok, true);
+    assert.equal(readZu(home, 'knowledge', 'fact').title, 'A', 'evolve wrote the note');
+    assert.equal(generations(home, 'knowledge').active, 1, 'evolve minted a generation');
+    assert.ok(readProposal(home, 'knowledge', p.id), 'proposal still pending — evolve does not archive');
+  });
+});
 
 // ── gate re-entrancy + fail-soft branch coverage (loop audit gaps) ───────────
 

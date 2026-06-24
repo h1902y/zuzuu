@@ -1,7 +1,9 @@
-// src/grow/log.mjs — the module event log.
+// src/notes/log.mjs — the module event log (Data layer).
 //
 // what: append-only, schema-bound JSONL recording what happened in a module —
-//       mutations (create/update/delete) and runs (each execution).
+//       mutations (create/update/delete) and runs (each execution). A durable
+//       artifact of a Project (Layer 1), not loop machinery — so `use/` may append
+//       a run here without crossing into the write path (the log is data).
 // why:  a note never records its own outcomes (it stays pure definition); the
 //       module does. This log is also `observe`'s feedback edge — it mines what
 //       actually got used/run, not just what was said.

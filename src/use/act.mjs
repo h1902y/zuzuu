@@ -17,7 +17,7 @@ import { spawnSync } from 'node:child_process';
 import { resolve as resolvePath, sep } from 'node:path';
 import { parse } from '../notes/note.mjs';
 import { itemPath, repoRoot } from '../notes/store.mjs';
-import { logRun } from '../grow/log.mjs';
+import { logRun } from '../notes/log.mjs';
 import { gate } from '../guardrails/gate.mjs';
 
 /** A repo-local script: a path that resolves to within the repo root. */
