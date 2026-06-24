@@ -18,6 +18,7 @@ import { registerAll } from './wire.mjs';
 import { stageChange, listStaged } from '../grow/stage.mjs';
 import { approve, reject } from '../grow/review.mjs';
 import { planFor, applyPlan } from '../grow/plan.mjs';
+import { renameNote, mergeNotes, refactorField } from '../grow/refactor.mjs';
 import { generations, rollback, diffGenerations } from '../notes/generation.mjs';
 
 /**
@@ -48,6 +49,11 @@ export function open(cwd = process.cwd()) {
     reject: (module, id, reason) => reject(home, module, id, reason),
     plan: (module) => planFor(home, module),
     apply: (module, planId) => applyPlan(home, module, planId),
+
+    // ── graph-safe refactors (multi-note, link-updating) ────────────────────
+    rename: (module, oldId, newId) => renameNote(home, module, oldId, newId),
+    merge: (module, src, dst) => mergeNotes(home, module, src, dst),
+    refactor: (module, key, from, to) => refactorField(home, module, key, from, to),
 
     // ── snapshots (per-module generations) ─────────────────────────────────
     generations: (module) => generations(home, module),

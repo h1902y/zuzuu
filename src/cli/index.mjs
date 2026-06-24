@@ -53,6 +53,9 @@ const HELP = `zz — your repo's Project (envelopes, queried/run/grown, human-ga
   zz review apply <m> [plan]    apply the set as ONE generation (all-or-nothing)
   zz review approve <m> <id>    apply a single staged change  (the human gate)
   zz review reject  <m> <id>    archive a staged change
+  zz rename <m> <old> <new>     rename a note + rewrite every inbound link
+  zz merge <m> <src> <dst>      merge two notes (re-point referrers to dst)
+  zz refactor <m> --field k --from v --to v   rewrite a field across the module
   zz module [list | <m> generations | <m> diff <a> <b> | <m> rollback <n>]
   zz session [status|merge|continue|discard --yes|worktree …|label]
   zz doctor / status / explain  health · inventory · porcelain
@@ -179,6 +182,33 @@ export async function run(argv, io = {}) {
         for (const mod of mods) for (const p of zz.staged(mod)) rows.push({ module: mod, id: p.target ?? p.id, op: p.op, score: p.score ?? 0 });
         rows.sort((a, b) => b.score - a.score);
         log(toon('pending', rows, ['module', 'id', 'op', 'score'], rows.length ? ['zz review approve <m> <id>', 'zz review reject <m> <id>'] : []));
+        return 0;
+      }
+
+      case 'rename': {
+        const [m, oldId, newId] = args._;
+        if (!m || !oldId || !newId) return fail(log, 'usage: zz rename <module> <old-id> <new-id>');
+        const r = open(cwd).rename(m, oldId, newId);
+        if (!r.ok) return fail(log, r.error);
+        log(`renamed ${r.renamed} — ${r.refs} referrer(s) updated, ${r.generations.length} generation(s)`);
+        return 0;
+      }
+
+      case 'merge': {
+        const [m, src, dst] = args._;
+        if (!m || !src || !dst) return fail(log, 'usage: zz merge <module> <src-id> <dst-id>');
+        const r = open(cwd).merge(m, src, dst);
+        if (!r.ok) return fail(log, r.error);
+        log(`merged ${r.merged} — ${r.refs} referrer(s) re-pointed`);
+        return 0;
+      }
+
+      case 'refactor': {
+        const [m] = args._;
+        if (!m || !args.field || args.from === undefined || args.to === undefined) return fail(log, 'usage: zz refactor <module> --field <key> --from <v> --to <v>');
+        const r = open(cwd).refactor(m, args.field, args.from, args.to);
+        if (!r.ok) return fail(log, r.error);
+        log(`refactored ${m}.${r.field} — ${r.changed} note(s) rewritten`);
         return 0;
       }
 
