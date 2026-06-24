@@ -2,7 +2,7 @@
 //
 // Its pending proposals (the human gate — approve/reject, CLI-shelled by the
 // daemon), its items, and its per-module generation lineage (rollback to a past
-// pin). Every mutation re-reads the zuzuu (invalidate the zuzuu query tree).
+// pin). Every mutation re-reads the Project (invalidate the zuzuu query tree).
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api.js";

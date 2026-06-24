@@ -1,4 +1,4 @@
-// src/serve/api.mjs — the one programmatic surface over a zuzuu.
+// src/serve/api.mjs — the one programmatic surface over a Project.
 //
 // what: a single import that composes the notes substrate + the verbs & loop into the clean
 //       façade every host (CLI veneer, web daemon, plugin) consumes. `open(cwd)`
@@ -20,7 +20,7 @@ import { approve, reject } from '../grow/review.mjs';
 import { generations, rollback } from '../grow/snapshot.mjs';
 
 /**
- * Open the zuzuu rooted at `cwd` (git-citizen: the `.zuzuu/` at the repo root).
+ * Open the Project rooted at `cwd` (git-citizen: the `.zuzuu/` at the repo root).
  * @returns a handle bound to that home — the host's entire dependency surface.
  */
 export function open(cwd = process.cwd()) {

@@ -21,7 +21,7 @@ test('doctor: a fresh init reports healthy with the home + hosts', () => {
     initHome(cwd);
     const r = doctorReport(cwd);
     assert.equal(r.ok, true);
-    // an empty zuzuu — only the guardrails safety floor
+    // an empty Project — only the guardrails safety floor
     assert.ok(r.info.some((i) => i.includes('1 module')));
     assert.ok(r.info.some((i) => i.startsWith('hooks:')));
   });

@@ -1,5 +1,5 @@
 // reading-the-code.md rule 6: the concept tree is an acyclic import graph, and
-// only grow/ writes the zuzuu. This pins both as executable documentation — it
+// only grow/ writes the Project. This pins both as executable documentation — it
 // would have caught the grow⇄hosts cycle the ce review found.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -43,14 +43,14 @@ test('rule 6: the concept-directory import graph is acyclic (a DAG)', () => {
   for (const n of edges.keys()) if (color.get(n) === WHITE) dfs(n);
 });
 
-test('rule 6: use/ never writes the zuzuu (no import of review/propose/snapshot)', () => {
+test('rule 6: use/ never writes the Project (no import of review/propose/snapshot)', () => {
   // use/ reads and runs; a run may append telemetry to the git-ignored runs.jsonl
-  // (grow/log) — but it must never touch the zuzuu-WRITE path (propose/review/
+  // (grow/log) — but it must never touch the Project-WRITE path (propose/review/
   // snapshot). Only grow/ writes notes, and only through review (the gate).
   const WRITERS = ['review', 'propose', 'snapshot'];
   for (const f of srcFiles(join(SRC, 'use'))) {
     const bad = [...readFileSync(f, 'utf8').matchAll(/from '(\.\.?\/[^']+)'/g)]
       .map((m) => m[1]).filter((p) => WRITERS.some((w) => p.endsWith(`/${w}.mjs`)));
-    assert.deepEqual(bad, [], `${relative(SRC, f)} must not import the zuzuu-write path`);
+    assert.deepEqual(bad, [], `${relative(SRC, f)} must not import the Project-write path`);
   }
 });

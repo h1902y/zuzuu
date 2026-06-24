@@ -4,7 +4,7 @@
 //       mint helper. `zz init` seeds only the guardrails module from here; the
 //       growth loop MINTS a module's `module.md` on first use from here.
 // why:  no prebuilt modules — the four content modules ship empty and materialize
-//       as the zuzuu grows. A grown module needs a manifest to be enumerable
+//       as the Project grows. A grown module needs a manifest to be enumerable
 //       (notes/module.mjs `listModules` requires `module.md`), so the loop mints
 //       one. The five module TYPES still exist as the standard kinds; we just stop
 //       SHIPPING them prebuilt.

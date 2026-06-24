@@ -1,4 +1,4 @@
-// src/use/query.mjs — read the zuzuu, on demand.
+// src/use/query.mjs — read the Project, on demand.
 //
 // what: the `query` verb — search/filter notes and walk relations, returning
 //       token-dense TOON. Brief by default; --full for bodies; --depth to walk;

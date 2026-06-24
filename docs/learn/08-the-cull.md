@@ -43,7 +43,7 @@ What's left is one coherent stack — `notes · use · loop · guardrails · hos
 4. **Characterization tests are the safety net** for the scary code — they let you move session-git without fear.
 5. **A rewrite is a chance to drop, not just move** — the OTLP layer was the biggest win precisely because it wasn't ported.
 
-That's the whole rebuild: eight rungs, one envelope, a zuzuu that grows from real work through a human gate — and now, nothing left to cull.
+That's the whole rebuild: eight rungs, one envelope, a Project that grows from real work through a human gate — and now, nothing left to cull.
 
 ---
 

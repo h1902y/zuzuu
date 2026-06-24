@@ -70,7 +70,7 @@ export const api = {
     return request<SearchResponse>(`/api/search?${qs}`);
   },
 
-  // the zuzuu — the modules dashboard surface (/api/zuzuu/*). Mutations are
+  // the Project — the modules dashboard surface (/api/zuzuu/*). Mutations are
   // CLI-shelled by the daemon; the client only ever reads + posts intents.
   zuzuu: {
     overview: () => request<ModuleOverviewResponse>("/api/zuzuu/overview"),

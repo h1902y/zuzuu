@@ -1,6 +1,6 @@
 // src/serve/digest.mjs — the deterministic session-start brief.
 //
-// what: a zero-network snapshot of the zuzuu — per-module note counts + pending
+// what: a zero-network snapshot of the Project — per-module note counts + pending
 //       proposals — rendered as markdown. The ONE grounding channel every host
 //       reads at session start (written to .live/digest.md by the hook).
 // why:  the agent opens a session already knowing what's been learned and what's
@@ -10,6 +10,7 @@
 
 import { open } from './api.mjs';
 import { toon } from '../notes/toon.mjs';
+import { readProject } from '../notes/project.mjs';
 
 /** The brief as markdown text. Empty string if there's nothing to say. */
 export function digestText(cwd = process.cwd()) {
@@ -21,7 +22,8 @@ export function digestText(cwd = process.cwd()) {
       const q = zz.query(m.id, { dryRun: true });
       return { module: m.id, notes: q.ok ? q.value.total : 0, pending: zz.proposals(m.id).length };
     });
-    const name = cwd.split('/').filter(Boolean).pop() || 'project';
+    // the Project's declared title (project.md manifest), falling back to the dir name
+    const name = readProject(zz.home).title || cwd.split('/').filter(Boolean).pop() || 'project';
     const pending = rows.reduce((a, r) => a + r.pending, 0);
     let out = `# ${name} — session brief\n` + toon('zuzuu', rows, ['module', 'notes', 'pending']);
     if (pending) out += `\n${pending} proposal(s) awaiting review: zz review`;

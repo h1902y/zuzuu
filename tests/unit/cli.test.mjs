@@ -33,7 +33,7 @@ const note = (cwd, module, id, note) => {
 
 // ── init ─────────────────────────────────────────────────────────────────────
 
-test('init: scaffolds guardrails only (empty zuzuu) + seed rules; idempotent', async () => {
+test('init: scaffolds guardrails only (empty Project) + seed rules; idempotent', async () => {
   await withRepo(({ cwd }) => {
     const r = initHome(cwd);
     assert.equal(r.ok, true);
@@ -65,12 +65,12 @@ test('init: writes gitignore lines and is git-citizen (no .git created)', async 
 
 // ── router ───────────────────────────────────────────────────────────────────
 
-test('run: a fresh init lists only guardrails (the empty zuzuu)', async () => {
+test('run: a fresh init lists only guardrails (the empty Project)', async () => {
   await withRepo(async ({ io, text }) => {
     assert.equal(await run(['init'], io), 0);
     assert.equal(await run(['module', 'list'], io), 0);
     assert.match(text(), /guardrails/);
-    // no prebuilt content modules — they materialize as the zuzuu grows
+    // no prebuilt content modules — they materialize as the Project grows
     for (const m of ['knowledge', 'memory', 'actions', 'instructions']) assert.doesNotMatch(text(), new RegExp(m));
   });
 });
@@ -115,7 +115,7 @@ test('run: review approve applies a proposal by its human handle', async () => {
   });
 });
 
-test('run: check reports integrity per module; digest summarizes the zuzuu', async () => {
+test('run: check reports integrity per module; digest summarizes the Project', async () => {
   await withRepo(async ({ cwd, io, out }) => {
     await run(['init'], io);
     note(cwd, 'knowledge', 'dangling', { type: 'knowledge', title: 'x', relations: { 'related-to': 'knowledge:ghost' } });

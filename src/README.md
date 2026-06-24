@@ -4,15 +4,15 @@ This is the whole product: ~3.8k lines, zero runtime dependencies (`node:*` only
 
 ## The one idea
 
-**Everything is an envelope** — a markdown body + YAML frontmatter, distinguished by `type`. A **note** (one fact, optionally runnable) and a **module** manifest are the same shape. The data hierarchy is **note › module › project** (a project *is* the zuzuu). You **use** the zuzuu (query · act · check); zuzuu **observes** and the **loop** grows it; you **review** every write. Plain files, human-gated.
+**Everything is an envelope** — a markdown body + YAML frontmatter, distinguished by `type`. A **note** (one fact, optionally runnable) and a **module** manifest are the same shape. The data hierarchy is **note › module › Project** (the `.zuzuu/` home). You **use** the Project (query · act · check); zuzuu **observes** and the **loop** grows it; you **review** every write. Plain files, human-gated.
 
 ## The directories
 
 ```
 src/
   notes/       the substrate — what a note IS, where it lives, how you address it
-  use/         USE the zuzuu — read · run · inspect
-  grow/        GROW the zuzuu — the compounding engine, every write human-gated
+  use/         USE the Project — read · run · inspect
+  grow/        GROW the Project — the compounding engine, every write human-gated
   guardrails/  what the agent must NOT do — enforced
   hosts/       OBSERVE a host (Design B: re-parse, never drive)
   sessions/    a session ≡ a conversation ≡ a git branch
@@ -35,14 +35,14 @@ src/
 
 The code used to be filed by a strict dependency layer (`kernel ← capabilities ← …`). Re-filing by concept relaxed that into a plain DAG (no cycles) with **one invariant worth more than the layer diagram**:
 
-> **Only the `grow/` dir writes the zuzuu — and only through `review` (the gate). `use/` only reads and runs.**
+> **Only the `grow/` dir writes the Project — and only through `review` (the gate). `use/` only reads and runs.**
 
-That's the whole safety story in a sentence: every change to your notes passes the human gate in `grow/review.mjs`; nothing else mutates the zuzuu.
+That's the whole safety story in a sentence: every change to your notes passes the human gate in `grow/review.mjs`; nothing else mutates the Project.
 
 ## How to read the whole thing
 
 1. **`notes/note.mjs`** — the atom (the envelope). Then `store`, `index`.
-2. **`use/`** — what you *do* with the zuzuu (query/act/check).
+2. **`use/`** — what you *do* with the Project (query/act/check).
 3. **`grow/`** — how it *grows* (observe → propose → review → snapshot).
 4. **`hosts/` + `cli/`** — the edges where the outside world reaches the core; **`serve/`** is the façade that ties it together.
 

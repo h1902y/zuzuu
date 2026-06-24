@@ -1,7 +1,7 @@
 // src/client/state/panel.ts — the right-panel + palette state.
 //
 // The right panel is ONE surface with two modes: FILES (the Monaco editor over
-// the open file) and MODULES (the modules dashboard — the zuzuu surface). Opening
+// the open file) and MODULES (the modules dashboard — the Project surface). Opening
 // a file switches to files; closing it returns to the modules dashboard.
 // The command palette's open flag rides here too (one global hotkey owns it).
 
