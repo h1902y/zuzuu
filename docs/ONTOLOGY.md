@@ -66,8 +66,9 @@ Regenerates dist/index.json from src/cards/. Safe to run anytime.   ← the body
 - **`id`** is the filename stem, injected by the caller, **never in the frontmatter** (the file *is* its id): `knowledge/items/card-schema.md` → `card-schema`.
 - **frontmatter** takes any keys (only `type` required); a **body** of free markdown follows the fence.
 
-**Five load-bearing properties:** **self-describing** (`type` says what it is — no external
-schema) · **tolerant** (unknown keys survive a read→write, so a new field never breaks an
+**Five load-bearing properties:** **self-describing** (`type` says what it is — no schema
+*per concept*; just a few type-keyed write-time invariants — a `rule` needs a `pattern`, an
+`action` a `run` — enforced by `notes/validate.mjs`) · **tolerant** (unknown keys survive a read→write, so a new field never breaks an
 old reader) · **round-trip-exact** (`parse ∘ serialize` is the identity — hand edits and
 machine edits coexist without clobbering) · **plain text** (git-diffable, grep-able; the
 file is the source of truth) · **one shape, many roles** (a fact, an action, a rule, a
@@ -81,7 +82,8 @@ The data nests three deep: the **leaf is an envelope**, and each **container has
 envelope** that declares it.
 
 - **note** — one envelope = one fact, optionally runnable (the leaf). Typed `relations:` to
-  other notes make a Project a **graph**; a `run:` field makes the note executable.
+  other notes make a Project a **graph** (walkable both ways — out-relations + inbound
+  **backlinks**); a `run:` field makes the note executable.
   Immutable until CRUD'd through the gate (Plane 2).
 - **module** — a goal-shaped collection of notes, declared by `module.md`. **Generic** (no
   per-module code — it differs from another only by its manifest's `note_type` ·
@@ -126,72 +128,103 @@ legible, every path a plain file you can open:
   guardrails/                         ← shipped at init, then grown
     module.md
     items/ no-root-wipe.md · no-secret-reads.md · confirm-force-push.md · ask-before-rm.md
-    log.jsonl                         ← this module's mutation + run journal
-    generations.json                 ← the n→commit ledger (git holds the bytes)
+    log.jsonl                         ← mutations (create/update/delete) — git-tracked provenance
+    runs.jsonl                        ← runs + queries — local telemetry (observe's feedback edge)
+    generations.json                 ← the lineage ledger ({n, mintedAt, mintedFrom}; git holds the bytes)
 
   knowledge/                          ← materialized on its first staged change
     module.md
     items/ card-schema.md · deck-index.md · hot-file-app-tsx.md
     staged/ file-src-db-ts.json       ← awaiting the review gate (not yet a note)
-    log.jsonl · generations.json
+    log.jsonl · runs.jsonl · generations.json
 
   actions/
     module.md
     items/ rebuild-index.md · run-tests.md
-    log.jsonl · generations.json
+    log.jsonl · runs.jsonl · generations.json
 
   instructions/
     module.md
     items/ always-run-tests-first.md
-    log.jsonl · generations.json
+    log.jsonl · runs.jsonl · generations.json
 
   worktrees/                          ← the ONE gitignored entry (live session checkouts)
 ```
 
-Every module is the *same five things* — `module.md` · `items/` · (optional) `staged/` ·
-`log.jsonl` · `generations.json` — so the tree stays uniform however large it grows. That
-uniform tree is the **whole** durable Project; no deeper fan-out, because two things stay lean:
+Every module is the *same shape* — `module.md` · `items/` · (optional) `staged/` (+ its
+`archive/` of decided changes, kept for the audit trail) · `log.jsonl` (mutations) + `runs.jsonl`
+(runs) · `generations.json` — so the tree stays uniform however large it grows. That uniform tree
+is the **whole** durable Project; no deeper fan-out, because two things stay lean:
 
-- **Generations are git-native** — a module's history *is* its git history: every approve is
-  a path-scoped commit, so **generation = commit**, **rollback = `git restore`**, and the tiny
-  `generations.json` maps `n → commit`. No parallel blob store ([spec](specs/2026-06-24-git-native-generations.md)).
-- **Derived state lives outside the repo (XDG)** — the rebuildable index → `~/.cache/zuzuu/<hash>/index.db`,
-  session run-state + the gate log → `~/.local/state/zuzuu/<hash>/`. Only `worktrees/` (live,
-  uncommitted work) stays in-repo, gitignored. So `.zuzuu/` is **100% durable, git-tracked** —
-  a true git citizen, like `.git` keeping machine-local state out of your tree ([spec](specs/2026-06-24-storage-layout-and-staging.md)).
+- **Generations are git-native** — a module's history *is* its git history: every approve is a
+  path-scoped commit carrying a `zz-gen: <module>/<n>` trailer, so **generation = commit** and
+  `n → commit` is resolvable from `git log`. The tiny `generations.json` records only the lineage
+  (`{n, mintedAt, mintedFrom}`); **rollback** is a `git restore` to gen-n, recorded as a new
+  *forward* generation (history stays append-only). No parallel blob store ([spec](specs/2026-06-24-git-native-generations.md)).
+- **Derived state lives outside the repo (XDG)** — the rebuildable **index** (`node:sqlite`:
+  notes + KV props + a typed **link graph** + **FTS5** full-text + BM25, rebuilt on mtime/size
+  staleness — the query keystone that lets the agent *search* on demand instead of stuffing
+  context) → `~/.cache/zuzuu/<hash>/index.db`; session run-state + the gate log →
+  `~/.local/state/zuzuu/<hash>/`. Only `worktrees/` (live, uncommitted work) stays in-repo,
+  gitignored. So `.zuzuu/` is **100% durable, git-tracked** — a true git citizen, like `.git`
+  keeping machine-local state out of your tree ([spec](specs/2026-06-24-storage-layout-and-staging.md)).
 
 > `generation · staged change · log` live on disk here but are *produced by the loop* — so
 > they're defined in **Plane 2**.
 
 ## Plane 2 — Operations (the vocabulary)
 
-The **plumbing**: precise, single-purpose commands — the operation vocabulary every higher
-surface composes, each bottoming out in filesystem + git. Two groups — **use** (read & run, no
-write) and **grow** (write, every change human-gated). Plane 3's porcelain (`zz`, `start · steer ·
-wrap`, …) is built *on* these. Code: `src/use/` + `src/grow/`. The invariant: **only grow writes
-the Project, and only through `review`; use reads + runs.**
+The **plumbing**: precise, single-purpose operations — the vocabulary every higher surface
+composes, each bottoming out in filesystem + git. Four families — **use** (read & run, no write) ·
+**grow** (the write loop + edits, every change human-gated) · **version** (read & roll a module's
+git-native lineage) · **dispatch** (how a verb reaches a module) — and the **two gates**. Plane 3's
+porcelain (`zz`, `start · steer · wrap`, …) is built *on* these. Code: `src/use/` (read/run) ·
+`src/grow/` (the loop + edits) · `src/serve/{dispatch,wire,timeline,api}.mjs` (dispatch + the
+façade) · `src/notes/{generation,log,index,validate}.mjs` (version · the ledger · search · the
+pre-write check). The invariant: **only grow writes the Project, and only through `review`; use
+reads + runs.**
 
 ### Use — read & run (no Project write)
 
 Each verb heads a small **family**.
 
-- **query** — retrieve: FTS + graph walk, BM25-ranked. *Family:* `view` (page a body) · `links` (inbound backlinks + out-walk) · `diff` (note↔note · generation↔generation) · `log` (the evolution timeline) · `as-of` (a module at a past generation).
-- **act** — run a runnable note, gated + allowlisted. *Family:* `flow` (a `type: workflow` DAG of run-steps, compensating on failure).
-- **check** — integrity: broken links · orphans · stale. *Family:* `validate` (type-keyed schema).
+- **query** — retrieve: FTS + graph walk, BM25-ranked, TOON output. *Family:* `view` (page a body) · `links` (out-relations + inbound **backlinks**) · `diff` (note↔note — the change preview `plan`/`review` render; generation↔generation diff is a **version** op, below).
+- **act** — run a runnable note, gated + allowlisted (each run appends to `runs.jsonl`). *Family:* `flow` (a `type: workflow` DAG of run-steps, compensating on failure).
+- **check** — integrity: broken links · orphans · stale. *Family:* `validate` (the type-keyed schema — and the **pre-write reject** inside `evolve`: a malformed note never lands).
 
 ### Grow — the loop (every write human-gated)
 
-**Five beats** — `snapshot` is not a beat (minting a generation is part of evolve). Each approved
-change commits as a **git-native generation** (Plane 1), so growth *is* git history.
+**Five beats** — `stage` and `evolve` are loop beats, not typed verbs; `snapshot` is not a beat
+(minting a generation is part of evolve). Each approved change commits as a **git-native
+generation** (Plane 1), so growth *is* git history.
 
-- **observe** — mine the host's own on-disk transcript (never drives the agent — *adding a host = one adapter file*); route corroborated per-session signals → staged changes.
-- **stage** — the typed, deduped, ranked **staged-change** queue (`<module>/staged/`). *(Renamed from `propose` — the noun collided with the verb; `staged → review → evolve` mirrors git's `staged → committed`.)*
-- **plan** — bundle a module's pending set into ONE content-addressed **change-set** + its diff (a dry-run, writes nothing). The gate approves a *set*, applied as one generation (Terraform `plan → apply`; the id is a TOCTOU guard). A single change is a plan-of-one.
+- **observe** — mine the host's own on-disk transcript (never drives the agent — *adding a host = one adapter file*); route corroborated per-session signals → staged changes via the declarative `ROUTE` table (reaching 4 of the 5 standard module kinds).
+- **stage** — the typed, deduped, ranked **staged-change** queue (`<module>/staged/`; decided changes move to `staged/archive/`, never deleted). A module **materializes on its first staged change** (its `module.md` minted from a template — the "no prebuilt modules" rule). *(Renamed from `propose` — the noun collided with the verb; `staged → review → evolve` mirrors git's `staged → committed`.)*
+- **plan → apply** — `plan` bundles a module's pending set into ONE content-addressed **change-set** + its diff (a dry-run, writes nothing); **apply** commits the whole set as one generation, all-or-nothing (reverts via `git restore` mid-batch). The id is a TOCTOU guard; Terraform's `plan → apply`. A single change is a plan-of-one.
 - **review** — **the human gate**: approve or reject. *"The gate is the moat"* — the one door to a Project. `validate` runs first; a malformed note is refused before it lands.
-- **evolve** — execute the approve: **write the note + log it + mint a generation** (one beat). A batch applies all writes, then mints *once*.
+- **evolve** — execute the approve: **write the note + log the mutation + mint a generation** (one beat; the **only** notes-writer). A batch applies all writes, then mints *once*.
 
-*Direct edits (outside the loop, operator-gated):* the refactors `rename · merge · refactor`
-(rewrite a field), the scoped edits `patch · append`, and `rollback`. Each lands as a generation.
+*Direct edits (outside the loop, operator-gated):* the graph-safe refactors `rename · merge ·
+refactor` (rewrite a field, **repointing inbound links**) and the scoped edits `patch · append`.
+Each lands as a generation.
+
+### Version — read & roll the git-native lineage
+
+Per-module, over git history (`notes/generation.mjs` + `serve/timeline.mjs`), surfaced on the façade:
+
+- **generations** — list the lineage (the ledger entries + the active `n`).
+- **as-of `<n>`** — read a module's notes as they were at generation n (time-travel).
+- **diff `<a> <b>`** — generation↔generation diff (distinct from the note↔note `diff` preview above).
+- **rollback `<n>`** — `git restore` to gen-n, recorded as a new *forward* generation (append-only).
+- **log / timeline** — the unified cross-module generation timeline, over each module's `generations.json` plus the `log.jsonl` (mutations) / `runs.jsonl` (runs) ledgers (`logMutation` / `logRun` / `read`).
+
+### Dispatch — how a verb reaches a module
+
+The seam between an operation and a module's declared `capabilities`:
+
+- **register / invoke / list** (`serve/dispatch.mjs`) — one `Map` of `name → {handler, permission}`; `invoke` is **manifest-gated** (refuses a verb the module's `module.md` doesn't list) and **fail-soft** (returns `{ok:false}`, never throws).
+- **registerAll** (`serve/wire.mjs`) — binds `query · check · act`; `review` and the tool gate are **deliberately off-registry** (a gate is not a capability).
+- **the façade** (`serve/api.mjs` — `open(cwd)`) — the one handle that exposes all of the above; the seam the CLI and the daemon both compose (Plane 3).
 
 The **review gate** governs *writes* — fail-closed by design (the moat). A different gate, the
 runtime **tool gate**, governs a session's tool I/O (Plane 3). Full vocabulary + build status:
@@ -212,7 +245,7 @@ git-branch engine) · `src/cli/` · `src/hosts/` (the lifecycle hook + surfaces)
    zz                            ← apex: one command, the whole conversation
    start · steer · wrap          ← headline porcelain (the few you remember)
    session continue · module rollback · enable · doctor · …   ← niche porcelain
-   query · stage · evolve · act · diff · …                    ← Plane-2 vocabulary
+   query · act · check · plan/apply · rename · rollback · …    ← Plane-2 vocabulary
    read/write files · git commit/restore                      ← the metal
 ```
 
@@ -247,18 +280,27 @@ on a tool call in real time (rules are `type: rule` notes; deny > ask > allow; *
 
 The substrate beneath the conversation. A **session ≡ a git branch** (`zz/session-*`): the
 lifecycle unit *and* the record (the branch IS the record — no separate index). One working branch
-at a time (the **single-branch invariant**). Code: `src/sessions/`.
+at a time (the **single-branch invariant**): a leftover `zz/session-*` **blocks** opening a new
+session until it's continued, merged, or discarded — the teeth behind drop-recovery, not just its
+prompt. Code: `src/sessions/`.
 
-**The lifecycle** — driven automatically by the host **hook** (one adapter per host; *fail-open*, never blocks the agent):
+**Enablement & hosts** — the lifecycle is dormant until **`zz enable`** installs the `#zz-hook`
+block into the host's settings (idempotent; never clobbers your hooks — `zz disable` removes only
+tagged entries). It fires for **five hosts** — Claude Code · Codex · Gemini CLI · OpenCode · pi —
+each a one-file adapter that **re-parses that host's real transcript** (Design B: observe, never
+drive); the core iterates *detected* hosts, never a host name (`hosts/registry · capture · signals`).
+
+**The lifecycle** — driven automatically by the host **hook** (*fail-open*, never blocks the agent):
 - **open** → cut the session branch + **ground** (inject the brief — the steering above).
-- **turn** → **checkpoint**: commit the turn's dirty state to the session branch, **secrets excluded** — nothing is lost mid-session, and no key ever lands in a commit.
+- **turn** → **checkpoint**: commit the turn's dirty state to the session branch, **secrets excluded** (`.env` · `*.pem/*.key` · `id_rsa*` · `credentials` …; an all-secret diff yields *no* commit) — nothing is lost mid-session, and no key ever lands in a commit.
 - **end** → **squash-merge** every checkpoint into one `session: <title>` commit on the working branch, then **observe** (mine the transcript → staged proposals, Plane 2) + refresh the brief.
 
 **Drop & recovery** *(#7)* — a session that drops mid-task (crash · closed terminal · walk-away)
 leaves a leftover branch with uncommitted checkpoints and no clean end. It **never corrupts the
 working branch** (checkpoints live on the session branch; squash-merge happens only on a clean end).
-`zz start` surfaces it; **`zz session continue`** resumes (the work restored from the checkpoints),
-**`zz session discard`** drops it.
+`zz start` **and `zz doctor`** both surface it; **`zz session continue`** resumes (the work restored
+from the checkpoints), **`zz session merge`** keeps it (squash onto the working branch), **`zz
+session discard`** drops it.
 
 **Concurrency** — a per-session **worktree** (`.zuzuu/worktrees/<id>`) gives N agents their own
 checkout, so they never clash on the one working branch. Machine-local, gitignored (the lone
@@ -271,6 +313,12 @@ state dir beside `digest.md`; never tracked notes.
 **Commands** — `zz session status · merge · continue · discard · worktree · label` (the niche
 porcelain over this engine). *(Overload: the daemon's PTY `Session` ≠ this git-branch session — see
 [glossary](learn/glossary.md).)*
+
+**Transparency** *(the `.git` model)* — session state is read out by plain files plus three
+read-only verbs: **`zz doctor`** (git/home/host/hook health — and the second place a dropped session
+surfaces, beside `zz start`) · **`zz status`** (detected hosts + their session-branch counts) ·
+**`zz explain`** (the topic glossary). These are the window onto a session; the human gate is the
+only write.
 
 ### Surfaces — where the porcelain runs
 
