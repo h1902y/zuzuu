@@ -101,7 +101,8 @@ export async function run(argv, io = {}) {
           log(`${what} — try broader terms, --from <addr> (neighbors), --to <addr> (backlinks), or zz check for orphans`);
           return 0;
         }
-        log(toon('notes', rows, ['addr', 'type', 'title', 'status'], ['zz act <m> <id>', 'zz query <m> --from <addr>']));
+        const cols = rows.some((r) => r.snippet) ? ['addr', 'type', 'title', 'snippet'] : ['addr', 'type', 'title', 'status'];
+        log(toon('notes', rows, cols, ['zz act <m> <id>', 'zz query <m> --from <addr>']));
         return 0;
       }
 

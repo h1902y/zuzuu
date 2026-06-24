@@ -119,6 +119,33 @@ test('search: FTS metacharacters never crash (sanitized) but still match', () =>
   });
 });
 
+test('search: a trailing * is a prefix query', () => {
+  withZuzuu(CORPUS, (home) => {
+    const r = search(home, { text: 'implem*' }); // matches nothing
+    assert.equal(r.length, 0);
+    const hit = search(home, { text: 'ret*' }); // "retail client" body
+    assert.ok(hit.some((x) => x.addr === 'knowledge:acme'), 'ret* prefix-matches "retail"');
+  });
+});
+
+test('search: BM25 ranks a title match above a body-only match', () => {
+  withZuzuu({
+    'k:title-hit': { type: 'knowledge', title: 'widget calibration', body: 'unrelated text' },
+    'k:body-hit': { type: 'knowledge', title: 'unrelated', body: 'a passing mention of widget here' },
+  }, (home) => {
+    const r = search(home, { text: 'widget' });
+    assert.equal(r.length, 2);
+    assert.equal(r[0].addr, 'k:title-hit', 'the title match ranks first (title weighted 10×)');
+  });
+});
+
+test('search: --full carries a matched-context snippet', () => {
+  withZuzuu(CORPUS, (home) => {
+    const r = search(home, { text: 'blue', full: true });
+    assert.ok(r[0].snippet && r[0].snippet.includes('blue'), 'snippet shows the matched context');
+  });
+});
+
 test('related: transitive walk (depth ≥ 2) returns correct hops', () => {
   withZuzuu({
     'k:a': { type: 'knowledge', relations: { uses: 'k:b' } },

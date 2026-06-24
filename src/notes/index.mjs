@@ -143,12 +143,17 @@ const FULL_SEL = qualify('addr, type, title, status, body');
 
 /**
  * Make arbitrary user text a SAFE FTS5 query. The raw value is parsed by FTS5 as a
- * QUERY EXPRESSION, so a quote/colon/`*`/`AND` crashes or silently mis-matches.
- * Wrap each whitespace token in a quoted string (quotes doubled to escape) so every
- * character is literal, then AND them. '' when nothing usable (→ no text filter).
+ * QUERY EXPRESSION, so a quote/colon/`AND` crashes or silently mis-matches. Wrap each
+ * token in a quoted string (quotes doubled to escape) so every character is literal,
+ * then AND them. A trailing `*` is honoured as a PREFIX query (`implem*` → `"implem"*`).
+ * '' when nothing usable (→ no text filter).
  */
 function ftsQuery(text) {
-  return (String(text).match(/\S+/g) || []).map((t) => `"${t.replace(/"/g, '""')}"`).join(' ');
+  return (String(text).match(/\S+/g) || []).map((raw) => {
+    const prefix = raw.length > 1 && raw.endsWith('*');
+    const t = (prefix ? raw.slice(0, -1) : raw).replace(/"/g, '""');
+    return prefix ? `"${t}"*` : `"${t}"`;
+  }).join(' ');
 }
 
 /** Build the shared FROM + WHERE + args for a filter set (search and count reuse it). */
@@ -173,7 +178,12 @@ export function search(home, { limit = 50, full = false, ...filters } = {}) {
   const db = open(home);
   try {
     const { from, whereSql, args } = plan(filters);
-    const sql = `SELECT ${full ? FULL_SEL : BRIEF_SEL} FROM ${from}${whereSql} LIMIT ${Number(limit) || 50}`;
+    const usesFts = from.includes('fts');
+    // relevance order on a text query (BM25; title weighted 10× over body); a
+    // matched-context snippet rides along on --full. (fts cols: addr·title·body.)
+    const sel = (full ? FULL_SEL : BRIEF_SEL) + (usesFts && full ? `, snippet(fts, 2, '', '', '…', 12) AS snippet` : '');
+    const order = usesFts ? ' ORDER BY bm25(fts, 1.0, 10.0, 1.0)' : '';
+    const sql = `SELECT ${sel} FROM ${from}${whereSql}${order} LIMIT ${Number(limit) || 50}`;
     return db.prepare(sql).all(...args);
   } finally { db.close(); }
 }
