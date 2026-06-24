@@ -18,6 +18,7 @@ import { existsSync, readFileSync, readdirSync, writeFileSync, mkdirSync, rmSync
 import { join, dirname } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { itemsDir } from './store.mjs';
+import { parse } from './note.mjs';
 
 const git = (root, args) => {
   const r = spawnSync('git', ['-C', root, ...args], { encoding: 'utf8' });
@@ -64,6 +65,23 @@ const commitForN = (root, module, n) => genCommits(root, module)[n - 1] ?? null;
 /** The git commit SHA backing a module's generation `n` (or null). For diff/as-of. */
 export function generationCommit(home, module, n) {
   return commitForN(rootOf(home), module, n);
+}
+
+/**
+ * Time-travel: the module's notes as they were at generation `n` (read from that
+ * generation's commit — never touches the working tree). @returns {{ok, notes?, error?}}
+ */
+export function notesAsOf(home, module, n) {
+  const root = rootOf(home);
+  const commit = commitForN(root, module, n);
+  if (!commit) return { ok: false, error: `no generation ${n} for ${module}` };
+  const tree = git(root, ['ls-tree', '-r', '--name-only', commit, `.zuzuu/${module}/items/`]) ?? '';
+  const notes = tree.split('\n').filter((f) => f.endsWith('.md')).map((f) => {
+    const id = f.split('/').pop().slice(0, -3);
+    const { note } = parse(git(root, ['show', `${commit}:${f}`]) ?? '', { id });
+    return { addr: `${module}:${id}`, type: note?.type ?? '', title: note?.title ?? '', status: note?.status ?? '' };
+  });
+  return { ok: true, module, generation: n, commit: commit.slice(0, 8), notes };
 }
 
 /**

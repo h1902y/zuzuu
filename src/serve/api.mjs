@@ -21,7 +21,8 @@ import { planFor, applyPlan } from '../grow/plan.mjs';
 import { renameNote, mergeNotes, refactorField } from '../grow/refactor.mjs';
 import { patchNote, appendNote } from '../grow/edit.mjs';
 import { viewNote } from '../use/view.mjs';
-import { generations, rollback, diffGenerations } from '../notes/generation.mjs';
+import { generations, rollback, diffGenerations, notesAsOf } from '../notes/generation.mjs';
+import { timeline } from './timeline.mjs';
 
 /**
  * Open the Project rooted at `cwd` (git-citizen: the `.zuzuu/` at the repo root).
@@ -66,5 +67,7 @@ export function open(cwd = process.cwd()) {
     generations: (module) => generations(home, module),
     rollback: (module, n) => rollback(home, module, n),
     diff: (module, from, to, opts = {}) => diffGenerations(home, module, from, to, opts),
+    asOf: (module, n) => notesAsOf(home, module, n),
+    timeline: (opts = {}) => timeline(home, opts),
   };
 }

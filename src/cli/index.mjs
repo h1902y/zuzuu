@@ -44,7 +44,8 @@ const HELP = `zz — your repo's Project (envelopes, queried/run/grown, human-ga
 
   zz init                       scaffold .zuzuu/ into this repo (git-citizen)
   zz enable / disable           install/remove the lifecycle + guardrails hooks
-  zz query <module> [text]      search  (--from <addr> walk · --to <addr> backlinks · --tag t · --full)
+  zz query <module> [text]      search  (--from walk · --to backlinks · --as-of <n> · --tag t · --full)
+  zz log [module]               the generation timeline — how the brain evolved
   zz act <module> <id> [--k v]  run a runnable note
   zz view <module> <id>         read a note body windowed (--offset n · --limit n)
   zz patch <m> <id> <key> <v>   set one frontmatter field  ·  zz append <m> <id> <text>
@@ -85,10 +86,22 @@ export async function run(argv, io = {}) {
         return 0;
       }
 
+      case 'log': {
+        const rows = open(cwd).timeline({ module: args._[0] || '', limit: Number(args.limit) || 50 });
+        log(toon('timeline', rows, ['at', 'module', 'gen', 'active', 'from']));
+        return 0;
+      }
+
       case 'query': {
         const zz = open(cwd);
         const [module, ...words] = args._;
         if (!module) return fail(log, 'usage: zz query <module> [text]');
+        if (args['as-of'] !== undefined) {
+          const r = zz.asOf(module, Number(args['as-of']));
+          if (!r.ok) return fail(log, r.error);
+          log(toon(`notes@gen${r.generation}`, r.notes, ['addr', 'type', 'title', 'status']));
+          return 0;
+        }
         const opts = { text: words.join(' '), tag: args.tag || '', full: !!args.full, depth: Number(args.depth) || 0, from: args.from || '', to: args.to || '', limit: Number(args.limit) || 50, dryRun: !!args['dry-run'] };
         const r = zz.query(module, opts);
         if (!r.ok) return fail(log, r.error);
