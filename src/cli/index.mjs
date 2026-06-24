@@ -21,6 +21,7 @@ import { runHook } from '../hosts/hook.mjs';
 import { captureSignals } from '../hosts/capture.mjs';
 import { observe } from '../grow/observe.mjs';
 import { digestText } from '../serve/digest.mjs';
+import { openerText, closerText, writeHandoff } from '../serve/steering.mjs';
 import { renderNoteDiff } from '../use/diff.mjs';
 import { toon } from '../notes/toon.mjs';
 
@@ -65,7 +66,9 @@ const HELP = `zz — your repo's Project (envelopes, queried/run/grown, human-ga
   zz session [status|merge|continue|discard --yes|worktree …|label]
   zz doctor / status / explain  health · inventory · porcelain
   zz code [dir] / web           launch OpenCode (bundled host) · the workbench
-  zz digest                     the session-start brief`;
+  zz digest                     the session-start brief (agent-facing)
+  zz start                      the recommended session opener (paste as your first message)
+  zz wrap [--note <text>]       the recommended session closer; --note saves a handoff`;
 
 export async function run(argv, io = {}) {
   const log = io.log ?? console.log;
@@ -337,6 +340,18 @@ export async function run(argv, io = {}) {
       case 'digest': {
         const text = digestText(cwd);
         log(text || '(empty Project — run `zz init`)');
+        return 0;
+      }
+
+      case 'start': {
+        log(openerText(cwd) || '(no Project — run `zz init`)');
+        return 0;
+      }
+
+      case 'wrap': {
+        if (args.note) writeHandoff(open(cwd).home, args.note);
+        log(closerText(cwd) || '(no Project — run `zz init`)');
+        if (args.note) log('\n(handoff saved — `zz start` will surface it next session)');
         return 0;
       }
 
