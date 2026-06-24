@@ -43,6 +43,28 @@ test('review: approving a `../` proposal cannot escape the module or neuter a gu
   });
 });
 
+test('review: a `../` relate `from` cannot escape the module either', () => {
+  withHome(({ home }) => {
+    const before = readFileSync(join(home, 'guardrails', 'items', 'no-root-wipe.md'), 'utf8');
+    const p = createProposal(home, 'knowledge', { op: 'relate', change: { from: '../../guardrails/items/no-root-wipe', type: 'related-to', to: 'x' } });
+    const r = approve(home, 'knowledge', p.id);
+    assert.equal(r.ok, false);
+    assert.match(r.error, /unsafe id/);
+    assert.equal(readFileSync(join(home, 'guardrails', 'items', 'no-root-wipe.md'), 'utf8'), before, 'guardrail untouched');
+  });
+});
+
+test('review: a relate `to` is stored as a relation VALUE — content, never a write path', () => {
+  withHome(({ home }) => {
+    note(home, 'knowledge', 'src-note', { type: 'knowledge', title: 'src' });
+    const before = readFileSync(join(home, 'guardrails', 'items', 'no-root-wipe.md'), 'utf8');
+    const r = approve(home, 'knowledge', createProposal(home, 'knowledge', { op: 'relate', change: { from: 'src-note', type: 'related-to', to: '../../guardrails/items/no-root-wipe' } }).id);
+    assert.equal(r.ok, true, 'a weird `to` is accepted — it is content on the FROM note, not a path');
+    assert.match(readFileSync(join(home, 'knowledge', 'items', 'src-note.md'), 'utf8'), /\.\.\/\.\.\/guardrails/, 'stored verbatim as a relation value');
+    assert.equal(readFileSync(join(home, 'guardrails', 'items', 'no-root-wipe.md'), 'utf8'), before, 'nothing written outside the module');
+  });
+});
+
 // ── P0: guardrails gate bypass (whitespace-escape, long flags, quoted root) ───
 
 test('gate: root-wipe deny fires on every bypass variant; allows safe deletes', () => {

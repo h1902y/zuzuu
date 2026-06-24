@@ -1031,3 +1031,18 @@ Three specialized audits (structure · performance · testing) over the Data-lay
 - **Tests (+11):** FTS crash-safety, transitive (depth≥2) / cycle-termination / type-filter graph walks, corrupt-index self-heal, array-valued relations, the `goal` tolerant-read, and a new `store.test.mjs` (git-root resolution + walk-up + readJson/writeJson fallback). Root 174 green.
 
 **Deferred (keystone restructure — correctness-sensitive, its own pass):** the per-call `corpusSig` full-corpus stat (C1) + DB-handle cache (C3), incremental index keyed on per-file mtime (H1, O(δ) not O(n) rebuild), external-content FTS5 (M4), and mint hash-skip (S1).
+
+## Loop audit — hardening pass + the reshape ledger (2026-06-24)
+
+Four specialized audits (structure · performance · correctness · architecture) over the loop (observe → propose → review → evolve = src/grow/ + src/hosts/). Applied the safe wins; the structural reshape is deliberately held for the next-session ontology pass.
+
+**Applied (safe, this pass):** `snapshot.mint` now computes the next generation number + parent pointer from filenames + the `active` file (a parse-free `nextN`/`readActive`) instead of parsing every prior generation's JSON (O3). **+11 tests** closing the audit's gaps: the GATE's double-approve idempotency + atomic post-condition; `relate`'s `from` path-traversal block + the `to`-is-content characterization (security); observe's previously-untested **`fact` route** (frequently-failing tool → knowledge) + its threshold; merkle-root determinism + content-sensitivity; rollback-to-missing-generation; propose's malformed-op rejection + corrupt-file skip; log's bad-line skip. Root 185 green.
+
+**Deferred — mining/write perf (real-wire-sensitive, own pass):** the per-session-close hook's `transcriptsFor` lists+stats **every transcript on the machine** before slicing to `scope:'last'` (C1 — the hot-path cost grows with lifetime usage, push the scope filter into the adapters); `mint()` re-reads+re-hashes every note per approve (C2 — mtime side-map); `zz observe --all` re-mines the whole corpus each call (O1 — mtime-keyed signal cache).
+
+**The reshape ledger (input for the next-session ontology→code reshape).** The directory tree maps cleanly to the ONTOLOGY's four layers and the host-agnostic seam + the single-door moat are genuinely elegant. The drift is concentrated in the loop's write-half:
+1. **`evolve` is nameless** — its triple (write the note + mint a generation + log) is inlined in `review.approve()`. Extract `grow/evolve.mjs`; let `review` be only the gate. *(Highest leverage; also fixes the only real gate re-entrancy edge — partial mint failure — atomically.)*
+2. **`grow/` conflates process and data** — generation · proposal · log are Data-layer per the ontology but filed by their producer (the loop). Lift them toward the substrate.
+3. **`sessions/` is a surface (Layer 3) filed as a core stage** — the biggest non-substrate dir, consumed only by cli/ + hook.
+4. **`use/act → grow/log` is the one cross-seam edge** — an artifact of the log's misfiling (resolved by #2).
+5. **A closed routing taxonomy inside an "open set" ontology** — observe's `ROUTE` covers only 2 of 5 module kinds, and the `correctionTurns`/`destructiveFailures`/`sequences` signals every adapter mines are **routed nowhere** (a half-built seam): wire them (corrections→Instructions, destructive→Guardrails) or trim the producers — a decision the reshape should make.

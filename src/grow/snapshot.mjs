@@ -29,16 +29,26 @@ function put(home, buf) {
 }
 const getBlob = (home, hash) => readFileSync(blobPath(home, hash));
 
+/** The active generation pointer (a single small file — no JSON parse). */
+function readActive(dir) {
+  const a = join(dir, 'active');
+  return existsSync(a) ? Number(readFileSync(a, 'utf8').trim()) : null;
+}
+
+/** The next generation number — from the filenames alone, no JSON parse. */
+function nextN(dir) {
+  if (!existsSync(dir)) return 1;
+  const ns = readdirSync(dir).filter((f) => /^\d+\.json$/.test(f)).map((f) => parseInt(f, 10));
+  return (ns.length ? Math.max(...ns) : 0) + 1;
+}
+
 /** The module's generation entries (sorted by n), and the active pointer. */
 export function generations(home, module) {
   const dir = genDir(home, module);
   if (!existsSync(dir)) return { generations: [], active: null };
   const gens = readdirSync(dir).filter((f) => /^\d+\.json$/.test(f))
     .map((f) => JSON.parse(readFileSync(join(dir, f), 'utf8'))).sort((a, b) => a.n - b.n);
-  let active = null;
-  const a = join(dir, 'active');
-  if (existsSync(a)) active = Number(readFileSync(a, 'utf8').trim());
-  return { generations: gens, active };
+  return { generations: gens, active: readActive(dir) };
 }
 
 /**
@@ -56,8 +66,9 @@ export function mint(home, module, { mintedFrom = [] } = {}) {
       items[f.slice(0, -3)] = put(home, readFileSync(join(idir, f)));
     }
   }
-  const { generations: gens, active } = generations(home, module);
-  const n = (gens.length ? Math.max(...gens.map((g) => g.n)) : 0) + 1;
+  // next number + parent pointer WITHOUT parsing every prior generation's JSON
+  const n = nextN(dir);
+  const active = readActive(dir);
   const root = sha(Object.entries(items).sort().map(([k, v]) => `${k}:${v}`).join('\n'));
   const entry = { n, mintedAt: new Date().toISOString(), parent: active, root, mintedFrom, items };
   writeFileSync(join(dir, `${n}.json`), JSON.stringify(entry, null, 2) + '\n');
