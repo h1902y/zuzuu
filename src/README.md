@@ -37,7 +37,7 @@ src/
 
 The code used to be filed by a strict dependency layer (`kernel ← capabilities ← …`). Re-filing by concept relaxed that into a plain DAG (no cycles) with **one invariant worth more than the layer diagram**:
 
-> **Only the `grow/` dir writes the Project — and only through `review` (the gate). `use/` only reads and runs.**
+> **Only `grow/` (review→evolve) writes the Project's *notes + generations* — and only through `review` (the gate). `use/` reads + runs; a run appends to the *log* (Data), never the notes.**
 
 That's the whole safety story in a sentence: every change to your notes passes the human gate in `grow/review.mjs`; nothing else mutates the Project.
 
