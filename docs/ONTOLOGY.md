@@ -17,7 +17,7 @@
 
    note ──► MODULE ─────► PROJECT
             (a folder      (the .zuzuu/ home + project.md, one per repo;
-             + module.md;   each module keeps a lineage of GENERATIONS)
+             + module.md;   each module's lineage IS its git history)
              generic:
              any goal)
 
@@ -145,20 +145,21 @@ under `<module>/items/` as proposals are approved. The clean durable core stays 
 ```
 .zuzuu/
   project.md
-  <module>/   module.md · items/*.md · proposals/*.json · log.jsonl
+  <module>/   module.md · items/*.md · proposals/*.json · log.jsonl · generations.json
   …                                                  (modules materialize as they're grown)
 ```
 
-> **⚠️ How the durable layout *fully* evolves is UNDER REVISIT (this session).** Today a
-> grown Project also fans out into a content-addressed **blob store** at
-> `.generations/.store/<hash>` (one blob per note-version, fanned 2-char like git objects)
-> plus per-module `.generations/<n>.json` manifests — alongside the gitignored `.live/` ·
-> `.worktrees/` · `.index.db`. **That blob store re-implements git's own object database
-> inside a git repo** — redundant, and an intimidating fan-out to browse/manage on GitHub.
-> The open redesign: make **generations fully git-native** (a generation = a git *ref*, not
-> a parallel store), so the durable `.zuzuu/` is just the legible core above and **git's own
-> objects/refs hold the versioning**. See [`specs/2026-06-24-git-native-generations.md`](specs/2026-06-24-git-native-generations.md).
->
+That tree is the *whole* durable Project — there is no deeper fan-out. **Generations are
+git-native, not a parallel store.** A module's history *is* its git history: every approve
+writes the note and makes a **path-scoped commit** to `.zuzuu/`, so a **generation = that
+commit** and **rollback = `git restore`** from a past one. The tiny `generations.json` ledger
+maps `n → commit`; git's own objects hold every past version — no `.generations/.store/`
+blob store (re-implementing git's object DB *inside* a git repo was the redundancy we cut).
+The only non-durable entries are gitignored and ephemeral: `.live/` · `.worktrees/` ·
+`.index.db`. Mechanism + the approve↔commit decision:
+[`specs/2026-06-24-git-native-generations.md`](specs/2026-06-24-git-native-generations.md).
+*(The current build still carries the legacy `.store`; it is being retired to this form.)*
+
 > **generation · proposal · log** are produced *by the loop* as a Project evolves — so they
 > are defined in **Plane 2**, even though they live on disk under `.zuzuu/`.
 

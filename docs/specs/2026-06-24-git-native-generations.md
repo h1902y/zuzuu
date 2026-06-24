@@ -1,7 +1,7 @@
 ---
 title: "Git-native generations — drop the parallel content store, let git version the brain"
 date: 2026-06-24
-status: live spec, unshipped
+status: live spec — direction accepted 2026-06-24, unbuilt
 ---
 
 # Git-native generations
@@ -67,8 +67,8 @@ human-legible, GitHub-browsable, and git-versioned.
 
 ## The one real decision: approve → a commit
 
-This couples a brain write to a git commit. **Recommended: yes**, because it *is* the
-git-native payoff and it sharpens the moat — every brain mutation becomes an **attributed,
+This couples a brain write to a git commit. **Decided: yes** (2026-06-24) — it *is* the
+git-native payoff and it sharpens the moat: every brain mutation becomes an **attributed,
 timestamped commit** in the user's repo (exactly what the Enterprise audit story wants:
 *"governance changes are commits, not API calls"*). Requirements for it to be safe:
 
