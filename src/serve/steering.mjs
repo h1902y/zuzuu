@@ -15,6 +15,7 @@ import { join } from 'node:path';
 import { open } from './api.mjs';
 import { readProject } from '../notes/project.mjs';
 import { stateDir } from '../notes/store.mjs';
+import { sessionStatus } from '../sessions/session-git.mjs';
 
 const DEFAULT_OPENER = "State today's task, the files in scope, what's out of scope, and a Done-when signal.";
 const DEFAULT_CLOSER = "Summarize what shipped, the decisions made (and why), what's blocked, and the next task.";
@@ -44,6 +45,14 @@ export function openerText(cwd = process.cwd()) {
     if (proj.steering?.goals) out += `\n\nGoals: ${String(proj.steering.goals).trim()}`;
     const pending = pendingCount(zz);
     if (pending) out += `\n${pending} change(s) awaiting review — zz review`;
+    // #7 — mid-session-drop recovery: a previous session that dropped mid-task left a
+    // session branch with uncommitted checkpoints (a crash/closed terminal often leaves
+    // HEAD *on* that branch). Surface it at the natural moment (the next opener) so it's
+    // recovered, not silently abandoned. (continue/discard mechanics already exist.)
+    const ss = sessionStatus(cwd);
+    if (ss.active && ss.active.checkpoints > 0) {
+      out += `\n\n## ⚠ Leftover session work\n${ss.active.branch} — ${ss.active.checkpoints} uncommitted checkpoint(s) from a prior session. Resume with \`zz session continue\`, or drop with \`zz session discard --yes\`.`;
+    }
     const handoff = readHandoff(zz.home);
     if (handoff) out += `\n\n## Where you left off\n${handoff}`;
     return out;

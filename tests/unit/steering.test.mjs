@@ -7,6 +7,9 @@ import { join } from 'node:path';
 import { serialize } from '../../src/notes/note.mjs';
 import { ensureModuleManifest } from '../../src/notes/module-templates.mjs';
 import { stageChange } from '../../src/grow/stage.mjs';
+import { execFileSync } from 'node:child_process';
+import { initHome } from '../../src/cli/init.mjs';
+import { openSession, checkpoint } from '../../src/sessions/session-git.mjs';
 import { openerText, closerText, writeHandoff, readHandoff } from '../../src/serve/steering.mjs';
 
 function withHome(fn) {
@@ -66,6 +69,24 @@ test('wrap: renders the steering closer (or a default) + the review nudge', () =
     project(home, { title: 'deck' });
     assert.match(closerText(root), /what's blocked, and the next task/);
   });
+});
+
+test('start surfaces leftover session work — mid-session-drop recovery (#7)', () => {
+  const root = mkdtempSync(join(tmpdir(), 'zz-drop-'));
+  const git = (args) => execFileSync('git', args, { cwd: root });
+  git(['init', '-q', '-b', 'main']);
+  git(['config', 'user.email', 't@e.com']); git(['config', 'user.name', 't']); git(['config', 'commit.gpgsign', 'false']);
+  writeFileSync(join(root, 'a.txt'), 'one\n'); git(['add', '-A']); git(['commit', '-q', '-m', 'init']);
+  initHome(root);
+  try {
+    openSession(root, 'sess-dropped-1111');           // a session opens…
+    writeFileSync(join(root, 'work.txt'), 'in flight\n');
+    checkpoint(root);                                  // …turn checkpoint, then the process "drops" (no close)
+    const out = openerText(root);
+    assert.match(out, /⚠ Leftover session work/);
+    assert.match(out, /zz session continue/);
+    assert.match(out, /zz session discard --yes/);
+  } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
 test('opener & closer are deterministic (read-only)', () => {
