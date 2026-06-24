@@ -2,6 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, appendFileSync, existsSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { serialize, parse } from '../../src/notes/note.mjs';
@@ -11,8 +12,13 @@ import { approve, reject } from '../../src/grow/review.mjs';
 import { evolve } from '../../src/grow/evolve.mjs';
 import { read } from '../../src/notes/log.mjs';
 
+// generations are git-native (a generation = an approve-commit), so the home is a
+// real git repo. (In production .zuzuu is always planted at a git root.)
 function withHome(fn) {
   const root = mkdtempSync(join(tmpdir(), 'zuzuu-r5-'));
+  execFileSync('git', ['init', '-q'], { cwd: root });
+  execFileSync('git', ['config', 'user.email', 't@example.com'], { cwd: root });
+  execFileSync('git', ['config', 'user.name', 'test'], { cwd: root });
   const home = join(root, '.zuzuu');
   try { return fn(home); } finally { rmSync(root, { recursive: true, force: true }); }
 }
@@ -81,15 +87,19 @@ test('log: read skips a bad line and keeps the rest', () => {
   });
 });
 
-test('snapshot: the merkle root is deterministic and content-sensitive', () => {
+test('snapshot: each mint advances the ledger and is a git commit', () => {
   withHome((home) => {
     writeZu(home, 'knowledge', 'a', { type: 'knowledge', title: 'one' });
+    assert.equal(mint(home, 'knowledge').n, 1);
     writeZu(home, 'knowledge', 'b', { type: 'knowledge', title: 'two' });
-    const g1 = mint(home, 'knowledge');
-    const g2 = mint(home, 'knowledge'); // no change between mints
-    assert.equal(g1.root, g2.root, 'same items → same root (iteration-order independent)');
-    writeZu(home, 'knowledge', 'a', { type: 'knowledge', title: 'one-changed' });
-    assert.notEqual(mint(home, 'knowledge').root, g1.root, 'a content change changes the root');
+    assert.equal(mint(home, 'knowledge').n, 2);
+    const { generations: gens, active } = generations(home, 'knowledge');
+    assert.equal(active, 2, 'active = the latest generation');
+    assert.deepEqual(gens.map((g) => g.n), [1, 2], 'the ledger records the lineage');
+    // a generation is a real commit (git holds the bytes — no parallel blob store)
+    const root = join(home, '..');
+    const log = execFileSync('git', ['-C', root, 'log', '--format=%s', '--grep', 'zz-gen: knowledge/'], { encoding: 'utf8' });
+    assert.equal(log.trim().split('\n').length, 2, 'two generation commits');
   });
 });
 
@@ -106,30 +116,21 @@ test('snapshot: rollback to a non-existent generation is a no-op error', () => {
 
 // ── snapshot ────────────────────────────────────────────────────────────────
 
-test('snapshot: mint pins items; rollback restores them (pointer-flip)', () => {
+test('snapshot: rollback restores a generation via git, as forward motion', () => {
   withHome((home) => {
     writeZu(home, 'knowledge', 'fact', { type: 'knowledge', title: 'v1' });
-    const g1 = mint(home, 'knowledge');
-    assert.equal(g1.n, 1);
-    assert.equal(generations(home, 'knowledge').active, 1);
+    assert.equal(mint(home, 'knowledge').n, 1);
 
     writeZu(home, 'knowledge', 'fact', { type: 'knowledge', title: 'v2 — changed' });
-    mint(home, 'knowledge');
+    mint(home, 'knowledge'); // gen 2
     assert.equal(readZu(home, 'knowledge', 'fact').title, 'v2 — changed');
 
     const r = rollback(home, 'knowledge', 1);
     assert.equal(r.ok, true);
-    assert.equal(readZu(home, 'knowledge', 'fact').title, 'v1', 'restored to gen 1');
-    assert.equal(generations(home, 'knowledge').active, 1);
-  });
-});
-
-test('snapshot: content store dedups identical bytes', () => {
-  withHome((home) => {
-    writeZu(home, 'knowledge', 'a', { type: 'knowledge', title: 'same' });
-    writeZu(home, 'knowledge', 'b', { type: 'knowledge', title: 'same' });
-    const g = mint(home, 'knowledge');
-    assert.equal(g.items.a, g.items.b, 'identical content → one blob hash');
+    assert.equal(readZu(home, 'knowledge', 'fact').title, 'v1', 'items restored to gen 1 (git restore)');
+    // immutable history: the restore is a NEW generation, not a pointer moved back
+    assert.equal(r.newGeneration, 3);
+    assert.equal(generations(home, 'knowledge').active, 3, 'active = the new forward generation');
   });
 });
 

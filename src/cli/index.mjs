@@ -161,7 +161,7 @@ export async function run(argv, io = {}) {
         }
         if (action === 'generations') {
           const g = zz.generations(m);
-          log(toon('generations', (g.generations ?? []).map((x) => ({ n: x.n, active: x.n === g.active, items: x.items ? Object.keys(x.items).length : '' })), ['n', 'active', 'items']));
+          log(toon('generations', (g.generations ?? []).map((x) => ({ n: x.n, active: x.n === g.active, from: (x.mintedFrom || []).join('|') })), ['n', 'active', 'from']));
           return 0;
         }
         if (action === 'rollback') {

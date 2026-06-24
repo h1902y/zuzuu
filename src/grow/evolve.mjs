@@ -78,7 +78,7 @@ export function evolve(home, module, proposal, { edit = null } = {}) {
     } else {
       return { ok: false, error: `unknown op '${op}'` };
     }
-    mint(home, module, { mintedFrom: [id] }); // snapshot the new state
+    mint(home, module, { mintedFrom: [id], label: `${op} ${module}:${note}` }); // commit the new state as a generation
     return { ok: true, op, note };
   } catch (e) {
     return { ok: false, error: e?.message ?? String(e) };

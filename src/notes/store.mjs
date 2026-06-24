@@ -70,10 +70,6 @@ export function gitInfo(cwd = process.cwd()) {
   return { commit: git(['rev-parse', 'HEAD'], cwd), branch: git(['rev-parse', '--abbrev-ref', 'HEAD'], cwd) };
 }
 
-/** The per-module generations store: `<home>/.generations/` (the layout chokepoint
- *  for snapshots — notes/generation.mjs builds its store under here). */
-export const generationsDir = (home) => join(home, '.generations');
-
 // ── addressing ──────────────────────────────────────────────────────────────
 
 // A module or note id is a single filename segment — never a path. Anything with
