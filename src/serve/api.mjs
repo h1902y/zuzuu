@@ -17,7 +17,7 @@ import { listModules } from '../notes/module.mjs';
 import { registerAll } from './wire.mjs';
 import { stageChange, listStaged } from '../grow/stage.mjs';
 import { approve, reject } from '../grow/review.mjs';
-import { generations, rollback } from '../notes/generation.mjs';
+import { generations, rollback, diffGenerations } from '../notes/generation.mjs';
 
 /**
  * Open the Project rooted at `cwd` (git-citizen: the `.zuzuu/` at the repo root).
@@ -49,5 +49,6 @@ export function open(cwd = process.cwd()) {
     // ── snapshots (per-module generations) ─────────────────────────────────
     generations: (module) => generations(home, module),
     rollback: (module, n) => rollback(home, module, n),
+    diff: (module, from, to, opts = {}) => diffGenerations(home, module, from, to, opts),
   };
 }

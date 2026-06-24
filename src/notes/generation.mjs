@@ -61,6 +61,31 @@ function genCommits(root, module) {
 }
 const commitForN = (root, module, n) => genCommits(root, module)[n - 1] ?? null;
 
+/** The git commit SHA backing a module's generation `n` (or null). For diff/as-of. */
+export function generationCommit(home, module, n) {
+  return commitForN(rootOf(home), module, n);
+}
+
+/**
+ * Diff two of a module's generations: which notes were added/modified/deleted
+ * between them (read-only — git holds the bytes). @returns {{ok, changes?, error?}}
+ */
+export function diffGenerations(home, module, from, to, { full = false } = {}) {
+  const root = rootOf(home);
+  const ca = commitForN(root, module, from);
+  const cb = commitForN(root, module, to);
+  if (!ca || !cb) return { ok: false, error: `no commit for ${module} generation ${!ca ? from : to}` };
+  const path = `.zuzuu/${module}/items/`;
+  const out = git(root, ['diff', '--name-status', ca, cb, '--', path]) ?? '';
+  const changes = out.split('\n').filter(Boolean).map((line) => {
+    const [st, file] = line.split('\t');
+    return { status: st[0], id: (file || '').split('/').pop().replace(/\.md$/, '') };
+  });
+  const result = { ok: true, module, from, to, changes };
+  if (full) result.patch = git(root, ['diff', ca, cb, '--', path]) ?? '';
+  return result;
+}
+
 /**
  * Mint a generation: append the ledger entry and commit the module's state. The
  * commit is the generation (git holds the bytes). Returns the ledger entry.

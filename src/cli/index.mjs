@@ -50,7 +50,7 @@ const HELP = `zz — your repo's Project (envelopes, queried/run/grown, human-ga
   zz review [module]            list staged changes awaiting the gate
   zz review approve <m> <id>    apply a staged change  (the human gate)
   zz review reject  <m> <id>    archive a staged change
-  zz module [list | <m> generations | <m> rollback <n>]
+  zz module [list | <m> generations | <m> diff <a> <b> | <m> rollback <n>]
   zz session [status|merge|continue|discard --yes|worktree …|label]
   zz doctor / status / explain  health · inventory · porcelain
   zz code [dir] / web           launch OpenCode (bundled host) · the workbench
@@ -170,7 +170,13 @@ export async function run(argv, io = {}) {
           log(`rolled ${m} back to generation ${n}`);
           return 0;
         }
-        return fail(log, 'usage: zz module [list | <m> generations | <m> rollback <n>]');
+        if (action === 'diff') {
+          const r = zz.diff(m, Number(n), Number(args._[3]));
+          if (!r.ok) return fail(log, r.error || 'diff failed');
+          log(toon('diff', r.changes, ['status', 'id']));
+          return 0;
+        }
+        return fail(log, 'usage: zz module [list | <m> generations | <m> diff <a> <b> | <m> rollback <n>]');
       }
 
       case 'session':
