@@ -2,8 +2,9 @@
 
 > Some words in this codebase carry decisions, and a few are **overloaded** — the
 > same word means different things in different files, and mixing them up causes real
-> confusion. This page pins them. It's a companion to the book (read any time), and a
-> reference for the nomenclature pass that resolved `ws-term`/`sessions`/`faculty`.
+> confusion. This page pins the **overloaded** ones (same word, two meanings) + the
+> renames. For the **full entity map + relations** — every load-bearing term, organized
+> by layer — see [`../ONTOLOGY.md`](../ONTOLOGY.md); this page is its *disambiguator*.
 
 ## Overloaded terms — disambiguated
 
