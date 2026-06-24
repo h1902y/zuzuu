@@ -14,7 +14,7 @@ survive page reloads. `zz web` (the root CLI) launches it.
 replaced a 3-package npm workspace (`protocol`/`daemon`/`web-ui`). The SPA was
 rebuilt from scratch (**18.1k → 1.7k LOC**, the bloat cut); the proven daemon
 engine was ported, not rewritten (the tests are its proof). Rationale + the rung
-sequence: [`../docs/specs/2026-06-22-workbench-greenfield-rebuild.md`](../docs/specs/2026-06-22-workbench-greenfield-rebuild.md).
+sequence: the greenfield-rebuild entry in [`../docs/LOG.md`](../docs/LOG.md).
 
 ## Commands
 

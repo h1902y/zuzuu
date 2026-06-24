@@ -6,8 +6,8 @@
 > and it carries its own lesson: **how to rebuild from scratch without re-suffering
 > the hard parts.**
 
-The code is `web/src/{shared,server,client}`. The rationale + the rung-by-rung plan
-are in [`docs/specs/2026-06-22-workbench-greenfield-rebuild.md`](../specs/2026-06-22-workbench-greenfield-rebuild.md).
+The code is `web/src/{shared,server,client}`. The rationale + the rung-by-rung record
+are in the greenfield-rebuild entry of [`docs/LOG.md`](../LOG.md).
 
 ## What it is
 
