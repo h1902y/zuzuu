@@ -10,7 +10,7 @@ import { stageChange } from '../../src/grow/stage.mjs';
 import { execFileSync } from 'node:child_process';
 import { initHome } from '../../src/cli/init.mjs';
 import { openSession, checkpoint } from '../../src/sessions/session-git.mjs';
-import { openerText, closerText, writeHandoff, readHandoff } from '../../src/serve/steering.mjs';
+import { openerText, closerText, steerText, writeHandoff, readHandoff, parkItem, readParking, clearParking } from '../../src/serve/steering.mjs';
 
 function withHome(fn) {
   const root = mkdtempSync(join(tmpdir(), 'zz-steer-'));
@@ -19,6 +19,11 @@ function withHome(fn) {
   try { return fn(home, root); } finally { rmSync(root, { recursive: true, force: true }); }
 }
 const project = (home, fields) => writeFileSync(join(home, 'project.md'), serialize({ type: 'project', ...fields }));
+const note = (home, module, id, n) => {
+  ensureModuleManifest(home, module);
+  mkdirSync(join(home, module, 'items'), { recursive: true });
+  writeFileSync(join(home, module, 'items', `${id}.md`), serialize({ id, ...n }));
+};
 
 test('start: renders the steering opener + goals + the recommended message', () => {
   withHome((home, root) => {
@@ -89,10 +94,54 @@ test('start surfaces leftover session work — mid-session-drop recovery (#7)', 
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
+test('steer: shows drift signals (#6) from steering.drift', () => {
+  withHome((home, root) => {
+    project(home, { title: 'deck', steering: { drift: ['out-of-scope files', '>3 turns on one error'] } });
+    const out = steerText(root);
+    assert.match(out, /## Drift signals/);
+    assert.match(out, /- out-of-scope files/);
+    assert.match(out, /- >3 turns on one error/);
+  });
+});
+
+test('steer: the parking lot (#6) — park items, surface them in steer + the closer', () => {
+  withHome((home, root) => {
+    project(home, { title: 'deck' });
+    assert.deepEqual(readParking(home), []);
+    parkItem(home, 'refactor the deck loader');
+    parkItem(home, 'investigate the flaky test');
+    assert.deepEqual(readParking(home), ['refactor the deck loader', 'investigate the flaky test']);
+    assert.match(steerText(root), /## Parking lot[\s\S]*refactor the deck loader[\s\S]*investigate the flaky test/);
+    assert.match(closerText(root), /Parked for next session:[\s\S]*refactor the deck loader/);
+    clearParking(home);
+    assert.deepEqual(readParking(home), []);
+  });
+});
+
+test('steer: surfaces grown Instructions guidance to pin into steering (#4)', () => {
+  withHome((home, root) => {
+    project(home, { title: 'deck' });
+    note(home, 'instructions', 'a', { type: 'instruction', title: 'always run tests first' });
+    note(home, 'instructions', 'b', { type: 'instruction', title: 'prefer small commits' });
+    const out = steerText(root);
+    assert.match(out, /## Learned guidance — consider pinning/);
+    assert.match(out, /- always run tests first/);
+    assert.match(out, /- prefer small commits/);
+  });
+});
+
+test('steer: on track when nothing set', () => {
+  withHome((home, root) => {
+    project(home, { title: 'deck' });
+    assert.match(steerText(root), /On track/);
+  });
+});
+
 test('opener & closer are deterministic (read-only)', () => {
   withHome((home, root) => {
     project(home, { title: 'deck', steering: { goals: 'g' } });
     assert.equal(openerText(root), openerText(root));
     assert.equal(closerText(root), closerText(root));
+    assert.equal(steerText(root), steerText(root));
   });
 });

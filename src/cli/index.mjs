@@ -21,7 +21,7 @@ import { runHook } from '../hosts/hook.mjs';
 import { captureSignals } from '../hosts/capture.mjs';
 import { observe } from '../grow/observe.mjs';
 import { digestText } from '../serve/digest.mjs';
-import { openerText, closerText, writeHandoff } from '../serve/steering.mjs';
+import { openerText, closerText, steerText, writeHandoff, parkItem, clearParking } from '../serve/steering.mjs';
 import { renderNoteDiff } from '../use/diff.mjs';
 import { toon } from '../notes/toon.mjs';
 
@@ -68,7 +68,8 @@ const HELP = `zz — your repo's Project (envelopes, queried/run/grown, human-ga
   zz code [dir] / web           launch OpenCode (bundled host) · the workbench
   zz digest                     the session-start brief (agent-facing)
   zz start                      the recommended session opener (paste as your first message)
-  zz wrap [--note <text>]       the recommended session closer; --note saves a handoff`;
+  zz wrap [--note <text>]       the recommended session closer; --note saves a handoff
+  zz steer [--park <item>]      stay on scope: drift signals · parking lot · guidance to pin`;
 
 export async function run(argv, io = {}) {
   const log = io.log ?? console.log;
@@ -352,6 +353,14 @@ export async function run(argv, io = {}) {
         if (args.note) writeHandoff(open(cwd).home, args.note);
         log(closerText(cwd) || '(no Project — run `zz init`)');
         if (args.note) log('\n(handoff saved — `zz start` will surface it next session)');
+        return 0;
+      }
+
+      case 'steer': {
+        const home = open(cwd).home;
+        if (args.clear) { clearParking(home); log('parking lot cleared'); return 0; }
+        if (args.park) { parkItem(home, args.park); log(`parked: ${args.park}`); return 0; }
+        log(steerText(cwd));
         return 0;
       }
 
