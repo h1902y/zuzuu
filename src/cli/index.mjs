@@ -46,6 +46,8 @@ const HELP = `zz — your repo's Project (envelopes, queried/run/grown, human-ga
   zz enable / disable           install/remove the lifecycle + guardrails hooks
   zz query <module> [text]      search  (--from <addr> walk · --to <addr> backlinks · --tag t · --full)
   zz act <module> <id> [--k v]  run a runnable note
+  zz view <module> <id>         read a note body windowed (--offset n · --limit n)
+  zz patch <m> <id> <key> <v>   set one frontmatter field  ·  zz append <m> <id> <text>
   zz check [module]             integrity — broken links · orphans · stale
   zz observe                    mine real sessions → staged changes (the cold-start)
   zz review [module]            list staged changes awaiting the gate
@@ -182,6 +184,34 @@ export async function run(argv, io = {}) {
         for (const mod of mods) for (const p of zz.staged(mod)) rows.push({ module: mod, id: p.target ?? p.id, op: p.op, score: p.score ?? 0 });
         rows.sort((a, b) => b.score - a.score);
         log(toon('pending', rows, ['module', 'id', 'op', 'score'], rows.length ? ['zz review approve <m> <id>', 'zz review reject <m> <id>'] : []));
+        return 0;
+      }
+
+      case 'view': {
+        const [m, id] = args._;
+        if (!m || !id) return fail(log, 'usage: zz view <module> <id> [--offset n] [--limit n]');
+        const r = open(cwd).view(m, id, { offset: Number(args.offset) || 0, limit: Number(args.limit) || 0 });
+        if (!r.ok) return fail(log, r.error);
+        log(toon('view', [{ addr: r.addr, title: r.title ?? '', lines: r.total, shown: `${r.offset}–${r.offset + r.shown}${r.partial ? ' (PARTIAL)' : ''}` }], ['addr', 'title', 'lines', 'shown']));
+        if (r.body) log(r.body);
+        return 0;
+      }
+
+      case 'patch': {
+        const [m, id, key, ...rest] = args._;
+        if (!m || !id || !key || !rest.length) return fail(log, 'usage: zz patch <module> <id> <key> <value>');
+        const r = open(cwd).patch(m, id, key, rest.join(' '));
+        if (!r.ok) return fail(log, r.error);
+        log(`patched ${m}:${id} ${key}`);
+        return 0;
+      }
+
+      case 'append': {
+        const [m, id, ...rest] = args._;
+        if (!m || !id || !rest.length) return fail(log, 'usage: zz append <module> <id> <text>');
+        const r = open(cwd).append(m, id, rest.join(' '));
+        if (!r.ok) return fail(log, r.error);
+        log(`appended to ${m}:${id}`);
         return 0;
       }
 

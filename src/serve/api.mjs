@@ -19,6 +19,8 @@ import { stageChange, listStaged } from '../grow/stage.mjs';
 import { approve, reject } from '../grow/review.mjs';
 import { planFor, applyPlan } from '../grow/plan.mjs';
 import { renameNote, mergeNotes, refactorField } from '../grow/refactor.mjs';
+import { patchNote, appendNote } from '../grow/edit.mjs';
+import { viewNote } from '../use/view.mjs';
 import { generations, rollback, diffGenerations } from '../notes/generation.mjs';
 
 /**
@@ -54,6 +56,11 @@ export function open(cwd = process.cwd()) {
     rename: (module, oldId, newId) => renameNote(home, module, oldId, newId),
     merge: (module, src, dst) => mergeNotes(home, module, src, dst),
     refactor: (module, key, from, to) => refactorField(home, module, key, from, to),
+
+    // ── scoped edits + windowed read ────────────────────────────────────────
+    patch: (module, id, key, value) => patchNote(home, module, id, key, value),
+    append: (module, id, text) => appendNote(home, module, id, text),
+    view: (module, id, opts) => viewNote(home, module, id, opts),
 
     // ── snapshots (per-module generations) ─────────────────────────────────
     generations: (module) => generations(home, module),
