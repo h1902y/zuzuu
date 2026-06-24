@@ -33,12 +33,10 @@ test('brain-sync: the generation store travels in git; ephemerals do not', () =>
   mkdirSync(join(home, 'knowledge', 'items'), { recursive: true });
   writeFileSync(join(home, 'knowledge', 'items', 'fact.md'), note('v1'));
   assert.equal(mint(home, 'knowledge').n, 1);
-  // the machine-local/derived files that must NOT travel
-  mkdirSync(join(home, '.live'), { recursive: true });
-  writeFileSync(join(home, '.live', 'digest.md'), '# digest\n');
-  mkdirSync(join(home, '.worktrees', 'abc123'), { recursive: true });
-  writeFileSync(join(home, '.worktrees', 'abc123', 'scratch.txt'), 'ephemeral');
-  writeFileSync(join(home, '.index.db'), 'binary-cache');
+  // worktrees/ is the ONE in-repo machine-local entry (live session checkouts) — ignored.
+  // The cache + run-state no longer live in .zuzuu/ at all (they moved to XDG dirs).
+  mkdirSync(join(home, 'worktrees', 'abc123'), { recursive: true });
+  writeFileSync(join(home, 'worktrees', 'abc123', 'scratch.txt'), 'ephemeral');
 
   git(['add', '-A'], cwd);
   const tracked = git(['ls-files'], cwd).split('\n').filter(Boolean);
@@ -49,10 +47,8 @@ test('brain-sync: the generation store travels in git; ephemerals do not', () =>
   assert.ok(tracked.includes('.zuzuu/knowledge/items/fact.md'), 'the note travels');
   assert.ok(tracked.includes('.zuzuu/guardrails/module.md'), 'the guardrails floor travels');
 
-  // machine-local/derived files do NOT travel
-  assert.ok(!tracked.some((f) => f.startsWith('.zuzuu/.live/')), '.live/ is ignored');
-  assert.ok(!tracked.some((f) => f.startsWith('.zuzuu/.worktrees/')), '.worktrees/ is ignored');
-  assert.ok(!tracked.includes('.zuzuu/.index.db'), '.index.db is ignored');
+  // the in-repo machine-local entry does NOT travel
+  assert.ok(!tracked.some((f) => f.startsWith('.zuzuu/worktrees/')), 'worktrees/ is ignored');
 });
 
 test('brain-sync: rollback works after a fresh clone (the store traveled)', () => {

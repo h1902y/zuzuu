@@ -59,7 +59,7 @@ test('init: writes gitignore lines and is git-citizen (no .git created)', async 
   await withRepo(({ cwd }) => {
     initHome(cwd);
     assert.equal(existsSync(join(cwd, '.git')), false, 'never git init');
-    assert.match(readFileSync(join(cwd, '.gitignore'), 'utf8'), /\.zuzuu\/\.live\//);
+    assert.match(readFileSync(join(cwd, '.gitignore'), 'utf8'), /\.zuzuu\/worktrees\//);
   });
 });
 

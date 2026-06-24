@@ -73,7 +73,7 @@ export function status(cwd, log) {
 }
 
 const TOPICS = {
-  home: 'The `.zuzuu/` home is this repo\'s Project — a directory of envelopes (markdown + frontmatter). Each subdir is a module; each items/<id>.md is a note. Tracked = the durable Project (incl. `.generations/`, which travels); only `.live/`/`.worktrees/`/`.index.db` are local/derived.',
+  home: 'The `.zuzuu/` home is this repo\'s Project — a directory of envelopes (markdown + frontmatter). Each subdir is a module; each items/<id>.md is a note. The whole tree is the durable Project (it travels in git); only `worktrees/` is local. The rebuildable index cache + run-state live outside the repo (OS cache/state dirs).',
   grow: 'observe → propose → review → evolve. zuzuu watches your sessions, suggests changes, you approve them, the Project grows (write + snapshot) — every write human-gated.',
   modules: 'knowledge (facts) · memory (episodes) · actions (runnable procedures) · instructions (steering) · guardrails (enforced tool gates). Generic — no per-module code.',
   verbs: 'query · act · check · review, plus observe · init · enable · digest · session · module · doctor.',

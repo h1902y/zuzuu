@@ -37,3 +37,6 @@ web/v2/dist/
 .zuzuu/.live/
 .zuzuu/.worktrees/
 .zuzuu/.index.db
+
+# zuzuu (ephemeral/derived)
+.zuzuu/worktrees/

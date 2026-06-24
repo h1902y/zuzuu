@@ -15,13 +15,15 @@ import { existsSync, readdirSync, statSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { parse } from './note.mjs';
-import { itemsDir } from './store.mjs';
+import { itemsDir, cacheDir } from './store.mjs';
 
 const require = createRequire(import.meta.url);
 let DatabaseSync = null;
 const sqlite = () => (DatabaseSync ??= require('node:sqlite').DatabaseSync);
 
-const dbPath = (home) => join(home, '.index.db');
+// The cache is a rebuildable derived artifact — it lives OUTSIDE the repo, in the
+// XDG cache dir keyed to this project, never in the tracked `.zuzuu/` tree.
+const dbPath = (home) => join(cacheDir(home), 'index.db');
 const str = (v) => (v == null ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v));
 
 const SCHEMA = `
@@ -126,9 +128,10 @@ export function open(home) {
     } catch { /* corrupt / unopenable → fall through to rebuild */ }
     if (db) db.close(); // stale or corrupt → drop it
   }
-  // (re)build into the file db
-  const { rmSync } = require('node:fs');
+  // (re)build into the file db — ensure the (out-of-repo) cache dir exists first
+  const { rmSync, mkdirSync } = require('node:fs');
   if (existsSync(path)) rmSync(path);
+  else mkdirSync(cacheDir(home), { recursive: true });
   return build(home, connect(path));
 }
 

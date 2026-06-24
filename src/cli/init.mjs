@@ -50,25 +50,23 @@ own manifest; each subdirectory is a *module* (its \`module.md\` is the manifest
 - **query** what's known · **act** on a runnable note · **check** integrity
 - zuzuu **observes** your sessions and **proposes** changes you **review**
 
-Tracked files are the durable Project (plain text, versioned) — **including
-\`.generations/\`** (each module's lineage + the \`.store/\` content blobs that
-\`rollback\` restores note bytes from), so the Project round-trips across machines.
-Only \`.live/\`, \`.worktrees/\`, and \`.index.db\` are machine-local/derived
-(gitignored). Inspect everything with \`zz\`.`;
+Everything in \`.zuzuu/\` is the durable Project (plain text, versioned) — notes,
+each module's \`generations.json\` lineage, and the review queue — so the Project
+round-trips across machines. Only \`worktrees/\` (live session checkouts) is
+gitignored; the rebuildable index cache + transient run-state live OUTSIDE the repo
+in your OS cache/state dirs. Inspect everything with \`zz\`.`;
 
 /** The Project manifest (`project.md`, type: project) — the top-of-hierarchy envelope
  *  that declares the Project. Title defaults to the repo's directory name. */
 const projectManifest = (root) =>
   serialize({ type: 'project', title: basename(root) || 'project', format: 'zuzuu/v2', body: PROJECT_BODY });
 
-// What must NOT travel in git — ephemeral or machine-derived. EVERYTHING else is
-// committed, INCLUDING `.generations/` (per-module lineage + the `.store/` content
-// blobs): `rollback` restores note bytes from those blobs, so they must be present
-// on every machine or rollback breaks after a clone/sync. Keep this list explicit.
+// What must NOT travel in git. With the rebuildable cache + transient run-state moved
+// OUT of the repo (XDG cache/state dirs, see notes/store.mjs), the only in-repo
+// machine-local entry left is `worktrees/` — live session checkouts with uncommitted
+// work. EVERYTHING else under `.zuzuu/` is durable, tracked Project.
 const IGNORE_LINES = [
-  '.zuzuu/.live/',        // runtime digest + live signals — regenerated each session
-  '.zuzuu/.worktrees/',   // per-session git worktrees — machine-local, ephemeral
-  '.zuzuu/.index.db',     // the node:sqlite query cache — rebuilt from the notes on staleness
+  '.zuzuu/worktrees/',    // per-session git worktrees — machine-local, ephemeral
 ];
 
 /**

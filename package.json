@@ -46,7 +46,7 @@
   ],
   "scripts": {
     "zuzuu": "node bin/zuzuu.mjs",
-    "test": "node --test 'tests/**/*.test.mjs'",
+    "test": "XDG_CACHE_HOME=\"$(mktemp -d)\" XDG_STATE_HOME=\"$(mktemp -d)\" node --test 'tests/**/*.test.mjs'",
     "playground": "node tests/playground/run.mjs",
     "prepublishOnly": "npm test",
     "build:web": "node web/scripts/build-web.mjs"
