@@ -21,6 +21,7 @@ import { runHook } from '../hosts/hook.mjs';
 import { captureSignals } from '../hosts/capture.mjs';
 import { observe } from '../grow/observe.mjs';
 import { digestText } from '../serve/digest.mjs';
+import { renderNoteDiff } from '../use/diff.mjs';
 import { toon } from '../notes/toon.mjs';
 
 
@@ -48,7 +49,9 @@ const HELP = `zz — your repo's Project (envelopes, queried/run/grown, human-ga
   zz check [module]             integrity — broken links · orphans · stale
   zz observe                    mine real sessions → staged changes (the cold-start)
   zz review [module]            list staged changes awaiting the gate
-  zz review approve <m> <id>    apply a staged change  (the human gate)
+  zz review plan <m>            preview the module's pending set as one change-set
+  zz review apply <m> [plan]    apply the set as ONE generation (all-or-nothing)
+  zz review approve <m> <id>    apply a single staged change  (the human gate)
   zz review reject  <m> <id>    archive a staged change
   zz module [list | <m> generations | <m> diff <a> <b> | <m> rollback <n>]
   zz session [status|merge|continue|discard --yes|worktree …|label]
@@ -133,6 +136,21 @@ export async function run(argv, io = {}) {
       case 'review': {
         const zz = open(cwd);
         const [sub, m, id] = args._;
+        if (sub === 'plan') {
+          if (!m) return fail(log, 'usage: zz review plan <module>');
+          const p = zz.plan(m);
+          if (!p.count) { log(`nothing staged in ${m}`); return 0; }
+          for (const mem of p.members) log(mem.error ? `! ${mem.addr}: ${mem.error}` : renderNoteDiff(mem.addr, mem.diff));
+          log(`\nplan ${p.planId} — ${p.count} change(s) → one generation. apply: zz review apply ${m} ${p.planId}`);
+          return 0;
+        }
+        if (sub === 'apply') {
+          if (!m) return fail(log, 'usage: zz review apply <module> [plan-id]');
+          const r = zz.apply(m, id);
+          if (!r.ok) return fail(log, r.error);
+          log(toon('apply', [{ module: r.module, applied: r.applied, generation: r.generation }], ['module', 'applied', 'generation']));
+          return 0;
+        }
         if (sub === 'approve' || sub === 'reject') {
           if (!m || !id) return fail(log, `usage: zz review ${sub} <module> <id>`);
           // accept the human handle (the staged change's target) OR the raw stageId

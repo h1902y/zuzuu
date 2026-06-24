@@ -17,6 +17,7 @@ import { listModules } from '../notes/module.mjs';
 import { registerAll } from './wire.mjs';
 import { stageChange, listStaged } from '../grow/stage.mjs';
 import { approve, reject } from '../grow/review.mjs';
+import { planFor, applyPlan } from '../grow/plan.mjs';
 import { generations, rollback, diffGenerations } from '../notes/generation.mjs';
 
 /**
@@ -45,6 +46,8 @@ export function open(cwd = process.cwd()) {
     staged: (module) => listStaged(home, module),
     approve: (module, id, opts) => approve(home, module, id, opts),
     reject: (module, id, reason) => reject(home, module, id, reason),
+    plan: (module) => planFor(home, module),
+    apply: (module, planId) => applyPlan(home, module, planId),
 
     // ── snapshots (per-module generations) ─────────────────────────────────
     generations: (module) => generations(home, module),
