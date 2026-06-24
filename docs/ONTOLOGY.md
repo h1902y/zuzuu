@@ -140,16 +140,41 @@ start absent.
 
 **Grows on demand.** As the loop runs, a **module** materializes the first time `observe`
 routes a proposal to it (its `module.md` minted from a template), and **notes** accumulate
-under `<module>/items/` as proposals are approved. The clean durable core stays legible:
+under `<module>/items/` as proposals are approved. A real, evolved Project — still flat and
+legible, every path a plain file you can open:
 
 ```
 .zuzuu/
-  project.md
-  <module>/   module.md · items/*.md · proposals/*.json · log.jsonl · generations.json
-  …                                                  (modules materialize as they're grown)
+  project.md                          ← the Project manifest (type: project)
+
+  guardrails/                         ← shipped at init, then grown
+    module.md
+    items/ no-root-wipe.md · no-secret-reads.md · confirm-force-push.md · ask-before-rm.md
+    log.jsonl                         ← this module's mutation + run journal
+    generations.json                 ← the n→commit ledger (git holds the bytes)
+
+  knowledge/                          ← materialized on its first proposal
+    module.md
+    items/ card-schema.md · deck-index.md · hot-file-app-tsx.md
+    proposals/ file-src-db-ts.json    ← staged, awaiting the review gate (not yet a note)
+    log.jsonl · generations.json
+
+  actions/
+    module.md
+    items/ rebuild-index.md · run-tests.md
+    log.jsonl · generations.json
+
+  instructions/
+    module.md
+    items/ always-run-tests-first.md
+    log.jsonl · generations.json
+
+  .live/  ·  .worktrees/  ·  .index.db     ← gitignored, ephemeral (rebuildable)
 ```
 
-That tree is the *whole* durable Project — there is no deeper fan-out. **Generations are
+Each module is the *same five things* — `module.md` + `items/` + (optional) `proposals/` +
+`log.jsonl` + `generations.json` — so the directory stays uniform however many modules grow.
+That uniformity is the *whole* durable Project; there is no deeper fan-out. **Generations are
 git-native, not a parallel store.** A module's history *is* its git history: every approve
 writes the note and makes a **path-scoped commit** to `.zuzuu/`, so a **generation = that
 commit** and **rollback = `git restore`** from a past one. The tiny `generations.json` ledger
