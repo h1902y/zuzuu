@@ -2,8 +2,10 @@
 // Each toast is dismissible; errors carry the danger tone, everything else is calm.
 // Composes ds primitives; the positioning frame uses static utilities (no inline
 // styles / arbitrary values — the ds-no-inline guard).
+import { X } from "lucide-react";
 import { useToasts } from "../../state/toast.js";
 import { Box, Inline, Text } from "../primitives/index.js";
+import { Icon } from "./Icon.js";
 
 export function Toaster() {
   const toasts = useToasts((s) => s.toasts);
@@ -15,7 +17,7 @@ export function Toaster() {
         <Box key={t.id} bg="elevated" border="hairline" radius="ui" pad="sm">
           <Inline gap="md">
             <Text size="ui" tone={t.tone === "error" ? "danger" : "default"}>{t.message}</Text>
-            <Text as="button" interactive size="meta" tone="muted" onClick={() => dismiss(t.id)}>✕</Text>
+            <Text as="button" interactive tone="muted" onClick={() => dismiss(t.id)}><Icon icon={X} size={13} /></Text>
           </Inline>
         </Box>
       ))}

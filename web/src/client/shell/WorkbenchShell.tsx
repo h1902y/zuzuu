@@ -22,10 +22,11 @@ import { Record } from "./stage/Record.js";
 import { ReviewQueue } from "./review/ReviewQueue.js";
 import { Form } from "./wing/Form.js";
 import { Schema } from "./wing/Schema.js";
+import { Table2, Clock } from "lucide-react";
 import { Palette } from "../palette/Palette.js";
 import { Loading, ThemeToggle } from "../ds/index.js";
 import { useReview } from "../state/review.js";
-import { Stack, Text } from "../ds/index.js";
+import { Stack, Inline, Text, Icon } from "../ds/index.js";
 import { NavTree } from "./NavTree.js";
 import { Ribbon } from "./Ribbon.js";
 
@@ -55,10 +56,13 @@ function Overview({ modules, onPick }: { modules: ModuleOverviewEntry[]; onPick:
               onClick={() => onPick(m.id)}
               className="flex flex-col gap-1 rounded-ui border border-border bg-elevated p-3 text-left transition-colors hover:border-accent-dim"
             >
-              <Text weight="medium">▦ {m.title}</Text>
-              <Text size="meta" tone="muted">
-                {m.counts?.items ?? 0} rows{m.counts?.pending ? ` · ◷ ${m.counts.pending}` : ""}
-              </Text>
+              <Inline gap="xs"><Icon icon={Table2} size={14} /><Text weight="medium">{m.title}</Text></Inline>
+              <Inline gap="xs">
+                <Text size="meta" tone="muted">{m.counts?.items ?? 0} rows</Text>
+                {m.counts?.pending ? (
+                  <><Text size="meta" tone="muted">·</Text><Icon icon={Clock} size={11} /><Text size="meta" tone="muted">{m.counts.pending}</Text></>
+                ) : null}
+              </Inline>
             </button>
           ))}
           {!modules.length && <Text size="ui" tone="muted">no tables yet — zuzuu grows them as you work</Text>}

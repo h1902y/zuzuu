@@ -1,7 +1,9 @@
 // shell/NavTree.tsx — ONE nav tree, sessions + modules as siblings (no modes, R2).
 // Sessions show liveness (● owner / • other-live / ○ idle); modules show pending.
 // Selecting a node drives the stage/wing. Composed from ds primitives.
+import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Circle, Table2, Flag } from "lucide-react";
 import { api } from "../lib/api.js";
 import { useWorkbench } from "../state/store.js";
 import { useWorld } from "./world-state.js";
@@ -9,18 +11,18 @@ import { mostRecentlyActive } from "./shell-state.js";
 import { shouldShowSetupNode } from "./project-home-state.js";
 import { Switcher } from "./switcher/Switcher.js";
 import { NewSessionMenu } from "./session/NewSessionMenu.js";
-import { Stack, Text } from "../ds/index.js";
+import { Stack, Inline, Text, Icon } from "../ds/index.js";
 
-function NavRow({ active, dot, label, badge, onClick }: {
-  active: boolean; dot: string; label: string; badge?: number; onClick: () => void;
+function NavRow({ active, icon, label, badge, onClick }: {
+  active: boolean; icon: ReactNode; label: string; badge?: number; onClick: () => void;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`flex w-full items-center gap-2 rounded-ui px-2 py-1 text-left transition-colors ${active ? "bg-selected text-ink-100" : "text-subtle hover:bg-hover hover:text-ink-100"}`}
+      className={`flex h-8 w-full items-center gap-2 rounded-ui px-2 text-left transition-colors ${active ? "bg-selected text-ink-100" : "text-subtle hover:bg-hover hover:text-ink-100"}`}
     >
-      <Text size="meta" tone={active ? "accent" : "muted"}>{dot}</Text>
+      <span className="flex shrink-0 items-center">{icon}</span>
       <span className="min-w-0 flex-1 truncate text-ui">{label}</span>
       {badge ? <Text size="meta" tone="accent">{badge}</Text> : null}
     </button>
@@ -43,7 +45,7 @@ export function NavTree() {
       <Switcher />
       {showSetup && (
         <Text as="button" interactive size="meta" tone="accent" weight="semibold" onClick={() => select(null)}>
-          ⚑ Set up this Project
+          <Inline gap="xs"><Icon icon={Flag} size={12} /> Set up this Project</Inline>
         </Text>
       )}
 
@@ -53,7 +55,9 @@ export function NavTree() {
           <NavRow
             key={s.id}
             active={selected?.kind === "session" && selected.id === s.id}
-            dot={s.alive ? (s.id === owner ? "●" : "•") : "○"}
+            icon={<Text tone={s.alive ? (s.id === owner ? "accent" : "subtle") : "muted"}>
+              <Icon icon={Circle} size={9} fill={s.alive ? "currentColor" : "none"} />
+            </Text>}
             label={s.title || s.id}
             onClick={() => select({ kind: "session", id: s.id })}
           />
@@ -68,7 +72,9 @@ export function NavTree() {
           <NavRow
             key={m.id}
             active={selected?.kind === "module" && selected.id === m.id}
-            dot="▦"
+            icon={<Text tone={selected?.kind === "module" && selected.id === m.id ? "accent" : "muted"}>
+              <Icon icon={Table2} size={14} />
+            </Text>}
             label={m.title}
             badge={m.counts?.pending || undefined}
             onClick={() => select({ kind: "module", id: m.id })}

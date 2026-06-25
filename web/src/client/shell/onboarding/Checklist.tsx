@@ -5,8 +5,9 @@
 // completes when the first proposal lands (the ribbon carries it). Notion-calm:
 // color marks state only. Composes only from ds primitives + kit.
 import type { ProjectStateKind } from "#shared/index.js";
+import { Check, Circle, CircleDot, type LucideIcon } from "lucide-react";
 import { RUNGS, rungStatus, type RungId } from "../project-home-state.js";
-import { Stack, Inline, Text, Button } from "../../ds/index.js";
+import { Stack, Inline, Text, Button, Icon } from "../../ds/index.js";
 
 const META: Record<RungId, { label: string; why: string; cta?: string }> = {
   "git-init": { label: "Make this folder a repository", why: "a session is a git branch", cta: "git init" },
@@ -16,7 +17,7 @@ const META: Record<RungId, { label: string; why: string; cta?: string }> = {
   review: { label: "Review your first proposal", why: "nothing is written without your yes" },
 };
 
-const MARK: Record<"done" | "current" | "upcoming", string> = { done: "✓", current: "◆", upcoming: "○" };
+const MARK: Record<"done" | "current" | "upcoming", LucideIcon> = { done: Check, current: CircleDot, upcoming: Circle };
 
 export function Checklist({ state, onRung, busy }: {
   state: ProjectStateKind;
@@ -36,7 +37,7 @@ export function Checklist({ state, onRung, busy }: {
             const meta = META[r];
             return (
               <Inline key={r} gap="sm" align="start">
-                <Text size="ui" tone={st === "done" ? "accent" : st === "current" ? "default" : "muted"}>{MARK[st]}</Text>
+                <Text tone={st === "done" ? "accent" : st === "current" ? "default" : "muted"}><Icon icon={MARK[st]} size={15} /></Text>
                 <Stack gap="xs">
                   <Text size="ui" weight={st === "current" ? "medium" : "normal"} tone={st === "upcoming" ? "muted" : "default"}>
                     {meta.label}

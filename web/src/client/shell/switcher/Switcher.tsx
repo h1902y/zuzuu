@@ -7,9 +7,10 @@
 import { useEffect, useReducer, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../lib/api.js";
+import { Database, ChevronDown, CornerDownRight } from "lucide-react";
 import { pickerRows, openFolderReducer, initialOpenFolder } from "../switcher-model.js";
 import { toast } from "../../state/toast.js";
-import { Stack, Inline, Text } from "../../ds/index.js";
+import { Stack, Inline, Text, Icon } from "../../ds/index.js";
 
 export function Switcher() {
   const [open, setOpen] = useState(false);
@@ -46,7 +47,7 @@ export function Switcher() {
   return (
     <div className="relative">
       <Text as="button" interactive size="meta" tone="muted" weight="semibold" onClick={() => setOpen((v) => !v)}>
-        ⌂ {name}
+        <Inline gap="xs"><Icon icon={Database} size={13} /> {name} <Icon icon={ChevronDown} size={12} /></Inline>
       </Text>
       {open && (
         <>
@@ -93,7 +94,7 @@ export function Switcher() {
                         onClick={() => dispatch({ type: "applyAt", index: i })}
                         className={`flex items-center rounded-ui px-2 py-1 text-left text-meta transition-colors hover:bg-hover ${i === folder.highlighted ? "bg-selected text-ink-100" : "text-subtle"}`}
                       >
-                        <Inline gap="xs"><Text size="meta" tone="muted">⤷</Text> {d}/</Inline>
+                        <Inline gap="xs"><Icon icon={CornerDownRight} size={11} /> {d}/</Inline>
                       </button>
                     ))}
                   </Stack>

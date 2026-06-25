@@ -1,17 +1,18 @@
-// ds/kit/ThemeToggle.tsx — cycles the warm theme: Light → Dark → Auto. Token-bound,
-// theme-agnostic (it just drives the preference). U3 swaps the text label for a
-// Sun/Moon/Monitor icon.
+// ds/kit/ThemeToggle.tsx — cycles the warm theme: Light → Dark → Auto, shown as a
+// Sun / Moon / Monitor icon. Token-bound; the icon inherits the muted text color.
+import { Sun, Moon, Monitor, type LucideIcon } from "lucide-react";
 import { useTheme, type ThemePref } from "../../state/theme.js";
 import { Text } from "../primitives/index.js";
+import { Icon } from "./Icon.js";
 
-const LABEL: Record<ThemePref, string> = { light: "Light", dark: "Dark", system: "Auto" };
+const ICON: Record<ThemePref, LucideIcon> = { light: Sun, dark: Moon, system: Monitor };
 
 export function ThemeToggle() {
   const pref = useTheme((s) => s.pref);
   const cycle = useTheme((s) => s.cycle);
   return (
-    <Text as="button" interactive size="meta" tone="muted" onClick={cycle} title="Toggle theme">
-      {LABEL[pref]}
+    <Text as="button" interactive tone="muted" onClick={cycle} title={`Theme: ${pref}`}>
+      <Icon icon={ICON[pref]} size={16} />
     </Text>
   );
 }

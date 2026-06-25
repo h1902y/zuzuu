@@ -37,6 +37,7 @@
     "archiver": "^8.0.0",
     "chokidar": "^5.0.0",
     "hono": "^4.12.25",
+    "lucide-react": "^1.21.0",
     "ws": "^8.21.0"
   },
   "comment:devDependencies": "CLIENT (bundled into dist/web) + build/test tooling. @zuzuu-web/protocol is gone — the protocol is now src/shared, imported via the #shared/* subpath.",

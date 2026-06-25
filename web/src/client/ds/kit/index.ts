@@ -7,3 +7,4 @@ export type { ButtonProps } from "./Button.js";
 export { Toaster } from "./Toaster.js";
 export { Loading, Empty } from "./Loading.js";
 export { ThemeToggle } from "./ThemeToggle.js";
+export { Icon } from "./Icon.js";

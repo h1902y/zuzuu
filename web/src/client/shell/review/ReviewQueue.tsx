@@ -3,14 +3,15 @@
 // session wing and in the global review overlay (the R key / the ribbon). Calm
 // "all caught up" empty state. Static utilities only.
 import { useReviewQueue } from "./use-review-queue.js";
+import { Check } from "lucide-react";
 import { ProposalCard } from "./ProposalCard.js";
-import { Stack, Text } from "../../ds/index.js";
+import { Stack, Inline, Text, Icon } from "../../ds/index.js";
 
 export function ReviewQueue() {
   const { grouped, total, loading, approve, reject } = useReviewQueue();
 
   if (loading) return <div className="grid h-full place-items-center"><Text tone="muted">loading…</Text></div>;
-  if (!total) return <div className="grid h-full place-items-center"><Text tone="muted">✓ all caught up</Text></div>;
+  if (!total) return <div className="grid h-full place-items-center"><Inline gap="xs"><Icon icon={Check} size={14} /><Text tone="muted">all caught up</Text></Inline></div>;
 
   return (
     <div className="h-full overflow-y-auto p-4">
