@@ -53,6 +53,8 @@ export const textRecipe = tv({
     weight: { normal: "font-normal", medium: "font-medium", semibold: "font-semibold" },
     mono: { true: "font-mono" },
     truncate: { true: "truncate" },
+    // a Text-as-button affordance: hover/focus feedback so clickable text reads as clickable
+    interactive: { true: "cursor-pointer transition-colors hover:text-ink-100 focus-visible:underline focus-visible:outline-none" },
   },
   defaultVariants: { size: "ui", tone: "default" },
 }, cfg);

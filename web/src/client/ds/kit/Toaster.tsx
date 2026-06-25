@@ -15,7 +15,7 @@ export function Toaster() {
         <Box key={t.id} bg="elevated" border="hairline" radius="ui" pad="sm">
           <Inline gap="md">
             <Text size="ui" tone={t.tone === "error" ? "danger" : "default"}>{t.message}</Text>
-            <Text as="button" size="meta" tone="muted" onClick={() => dismiss(t.id)}>✕</Text>
+            <Text as="button" interactive size="meta" tone="muted" onClick={() => dismiss(t.id)}>✕</Text>
           </Inline>
         </Box>
       ))}

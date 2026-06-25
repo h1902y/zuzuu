@@ -125,8 +125,8 @@ export function WorkbenchShell() {
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-8 shrink-0 items-center gap-2 border-b border-border bg-surface px-3">
-        <Text as="button" size="meta" tone="muted" onClick={() => setPalette(true)}>⌘K</Text>
-        <Text as="button" size="meta" tone="subtle" onClick={() => select(null)}>{sel.crumb.length ? sel.crumb.join(" › ") : "the database"}</Text>
+        <Text as="button" interactive size="meta" tone="muted" onClick={() => setPalette(true)}>⌘K</Text>
+        <Text as="button" interactive size="meta" tone="subtle" onClick={() => select(null)}>{sel.crumb.length ? sel.crumb.join(" › ") : "the database"}</Text>
       </div>
 
       <div className="flex min-h-0 flex-1">

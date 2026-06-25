@@ -16,7 +16,7 @@ export function NewSessionMenu() {
 
   return (
     <div className="relative">
-      <Text as="button" size="meta" tone="muted" onClick={() => setOpen((o) => !o)}>+ new session</Text>
+      <Text as="button" interactive size="meta" tone="muted" onClick={() => setOpen((o) => !o)}>+ new session</Text>
       {open && (
         <>
           <button type="button" aria-label="close" onClick={() => setOpen(false)} className="fixed inset-0 z-10 cursor-default" />

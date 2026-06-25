@@ -20,7 +20,7 @@ export function Ribbon({
         </Text>
       </Inline>
       {!r.allCaughtUp && onReview && (
-        <Text as="button" size="meta" tone="accent" onClick={onReview}>
+        <Text as="button" interactive size="meta" tone="accent" onClick={onReview}>
           press R to review
         </Text>
       )}

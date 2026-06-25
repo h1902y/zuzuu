@@ -42,7 +42,7 @@ export function NavTree() {
     <nav className="flex h-full w-60 shrink-0 flex-col gap-4 overflow-y-auto border-r border-border bg-surface p-2">
       <Switcher />
       {showSetup && (
-        <Text as="button" size="meta" tone="accent" weight="semibold" onClick={() => select(null)}>
+        <Text as="button" interactive size="meta" tone="accent" weight="semibold" onClick={() => select(null)}>
           ⚑ Set up this Project
         </Text>
       )}

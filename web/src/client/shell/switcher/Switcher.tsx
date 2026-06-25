@@ -45,7 +45,7 @@ export function Switcher() {
 
   return (
     <div className="relative">
-      <Text as="button" size="meta" tone="muted" weight="semibold" onClick={() => setOpen((v) => !v)}>
+      <Text as="button" interactive size="meta" tone="muted" weight="semibold" onClick={() => setOpen((v) => !v)}>
         ⌂ {name}
       </Text>
       {open && (
