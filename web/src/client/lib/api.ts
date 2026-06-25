@@ -7,12 +7,15 @@
 import type {
   ApproveResult,
   CreateSessionRequest,
+  DirListing,
   FileListResponse,
   ListResponse,
   ModuleDetail,
   ModuleGenerationList,
   ModuleItem,
   ModuleOverviewResponse,
+  ProjectState,
+  RecentsList,
   RejectResult,
   RollbackResult,
   SearchResponse,
@@ -20,6 +23,9 @@ import type {
   StagedChange,
   WorkspaceInfo,
 } from "#shared/index.js";
+
+/** A setup verb's response — the CLI JSON the daemon passes through (shape varies). */
+type SetupResult = { ok?: boolean } & Record<string, unknown>;
 
 export class ApiError extends Error {
   constructor(readonly status: number, message: string) {
@@ -47,6 +53,20 @@ const json = (body: unknown): RequestInit => ({
 
 export const api = {
   workspace: () => request<WorkspaceInfo>("/api/workspace"),
+  // in-place re-root (the switcher; D1) — the daemon tears down sessions + rebuilds.
+  switchWorkspace: (path: string) => request<{ ok: true; root: string }>("/api/workspace/switch", json({ path })),
+
+  // the Project layer — switching (machine-global) + onboarding setup verbs.
+  projects: {
+    recents: () => request<RecentsList>("/api/projects/recents"),
+    dir: (prefix: string) => request<DirListing>(`/api/projects/dir?prefix=${encodeURIComponent(prefix)}`),
+  },
+  setup: {
+    init: () => request<SetupResult>("/api/zuzuu/setup/init", json({})),
+    enable: () => request<SetupResult>("/api/zuzuu/setup/enable", json({})),
+    observe: () => request<SetupResult>("/api/zuzuu/setup/observe", json({})),
+    gitInit: () => request<SetupResult>("/api/zuzuu/setup/git-init", json({ confirm: true })),
+  },
 
   // sessions
   listSessions: () => request<SessionInfo[]>("/api/sessions"),
@@ -76,6 +96,7 @@ export const api = {
   // CLI-shelled by the daemon; the client only ever reads + posts intents.
   zuzuu: {
     overview: () => request<ModuleOverviewResponse>("/api/zuzuu/overview"),
+    projectState: () => request<ProjectState>("/api/zuzuu/project-state"),
     module: (key: string) => request<ModuleDetail>(`/api/zuzuu/module/${key}`),
     item: (key: string, id: string) => request<ModuleItem>(`/api/zuzuu/module/${key}/item/${id}`),
     generations: (key: string) => request<ModuleGenerationList>(`/api/zuzuu/module/${key}/generations`),
