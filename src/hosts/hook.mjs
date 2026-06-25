@@ -20,6 +20,7 @@ import { inSessionWorktree } from '../sessions/session-worktree.mjs';
 import { observe } from '../grow/observe.mjs';
 import { captureSignals } from './capture.mjs';
 import { digestText } from '../serve/digest.mjs';
+import { open as apiOpen } from '../serve/api.mjs';
 
 // Host event vocabularies, mapped to one path (verified per-host wire data):
 // Claude SessionStart/Stop/SessionEnd · OpenCode session.created/idle/deleted
@@ -78,6 +79,7 @@ export function handleHook({ event, payload = {}, cwd = process.cwd(), host = 'c
   if (OPEN.has(event)) {
     // In a daemon-owned worktree the agent is already on its branch — defer.
     try { if (id && sessionGitEnabled(cwd) && !inSessionWorktree(cwd)) openSession(cwd, id); } catch { /* git trouble never blocks grounding */ }
+    try { apiOpen(cwd).registry.touch(); } catch { /* auto-track is best-effort, never blocks the host */ }
     writeDigest(cwd);
   } else if (TURN.has(event)) {
     try { if (sessionGitEnabled(cwd)) checkpoint(cwd); } catch { /* fail-open — commits only on the session branch */ }

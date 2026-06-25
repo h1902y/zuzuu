@@ -106,6 +106,18 @@ export function open(cwd = process.cwd()) {
         if (!h) throw new Error('no active registry — run `zz registry init` first');
         return syncRegistry(h);
       },
+      // auto-track (U5): idempotently upsert THIS project as a `tracked: auto` ref in
+      // the active registry. No-op when no registry, or when this project IS the
+      // registry (never add the registry to itself). Never commits (sync does);
+      // never downgrades a `pinned` ref. Called at the session-open boundary.
+      touch: (projectPath = root) => {
+        const h = activeRegistryPath();
+        if (!h) return { touched: false };
+        const projectRoot = repoRoot(projectPath);
+        if (homeDir(projectRoot) === h) return { touched: false, self: true };
+        return { touched: true, handle: addProject(h, projectRoot, { tracked: 'auto' }) };
+      },
+
       // a status summary (U4).
       status: () => {
         const h = activeRegistryPath();
