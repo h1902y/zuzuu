@@ -19,6 +19,7 @@ research. **Read `05` first**; the rest is its evidence base. Generated 2026-06-
 | 04 | [`04-query-layer.md`](04-query-layer.md) | filesystem/bash → DB-query equivalents (recutils · Dataview DQL · SQL-over-files · graph/GRIP) + the workbench query UX | keep `node:sqlite`; native filter-chips + saved views; GRIP isn't a real query language |
 | 06 | [`06-crud-app-inspiration.md`](06-crud-app-inspiration.md) | Refine.dev + open-source CRUD-to-app / DB-as-app / headless-CMS / internal-tool projects, mapped to our build | Refine `DataProvider` over the `zz` CLI; writes resolve to a *pending proposal* (the gate); one `FieldType` registry drives grid+form |
 | 07 | [`07-ui-component-foundation.md`](07-ui-component-foundation.md) | the React UI foundation — headless primitives (shadcn/Radix/React-Aria) vs batteries libs; how React-Admin/dashboards are structured | own a copy-owned shadcn/Radix kit (no batteries lib); ListContext pull-model + one `<WorkbenchShell>` per world |
+| 08 | [`08-design-system.md`](08-design-system.md) | the elegant minimal design system — tokens → primitives → recipes → data-bound components — that composes the workbench with near-zero inline styling | 4 layers from one token source; `FieldType` registry is the joint; zero-inline enforced by `@theme` reset + no-`className` prop types + `tv()` slots |
 
 ## How to use this for the build phase
 
