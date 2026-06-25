@@ -7,7 +7,9 @@ import type { ModuleItem } from "#shared/index.js";
 
 export interface GridColumn { name: string; label: string; type: string; align: "left" | "right" }
 
-const SKIP = new Set(["module", "body"]); // not shown as columns (module is implicit; body is the record)
+// not shown as columns: module is implicit, body is the record, provenance/payload
+// are nested objects (they'd render "[object Object]" — surfaced in the record, not the grid)
+const SKIP = new Set(["module", "body", "provenance", "payload"]);
 const titleCase = (s: string) => s.replace(/[_-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
 /** Union of displayable keys across the notes (schemaless inference). */

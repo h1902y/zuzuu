@@ -17,6 +17,7 @@ import { homeMode, currentRung, type RungId } from "./project-home-state.js";
 import { useStartSession } from "./session/use-start-session.js";
 import { toast } from "../state/toast.js";
 import { Checklist } from "./onboarding/Checklist.js";
+import { Grid } from "./stage/Grid.js";
 import { Stack, Text } from "../ds/index.js";
 import { NavTree } from "./NavTree.js";
 import { Ribbon } from "./Ribbon.js";
@@ -112,8 +113,8 @@ export function WorkbenchShell() {
               <div className="min-h-0 flex-1"><TermView key={sessionNode.id} sessionId={sessionNode.id} /></div>
               {activeSession?.type === "agent" && <Composer key={sessionNode.id} sessionId={sessionNode.id} />}
             </>
-          ) : sel.stage === "grid" ? (
-            <Placeholder label={`grid · ${sessionNode ? "" : selected?.kind === "module" ? selected.id : ""} (U5)`} />
+          ) : sel.stage === "grid" && selected?.kind === "module" ? (
+            <Grid module={selected.id} />
           ) : sel.stage === "record" ? (
             <Placeholder label="record (U6)" />
           ) : onboarding && pState ? (
