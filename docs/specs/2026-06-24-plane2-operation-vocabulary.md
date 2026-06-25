@@ -23,7 +23,7 @@ prune/retention + pin (git history *is* retention) · vector/semantic search
 
 > **What this is.** The complete, prior-art-grounded set of operations an agent (and the
 > human gate) performs on a Project, rationalized into six families over a tiny reused
-> primitive set. Produced by maturing `ONTOLOGY.md` Plane 2 from a bullet list into a real
+> primitive set. Produced by maturing the README's Plane 2 ([The model](../../README.md#the-model)) from a bullet list into a real
 > decomposition (the action→command tree), then fanning out **five parallel researchers** to
 > pressure-test exhaustiveness against filesystem / VCS / DB / search / note-graph prior art.
 > This is the reference we build Plane 2 toward; nothing here is shipped yet.

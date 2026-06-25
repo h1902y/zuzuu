@@ -4,7 +4,7 @@
 > same word means different things in different files, and mixing them up causes real
 > confusion. This page pins the **overloaded** ones (same word, two meanings) + the
 > renames. For the **full entity map + relations** — every load-bearing term, organized
-> by layer — see [`../ONTOLOGY.md`](../ONTOLOGY.md); this page is its *disambiguator*.
+> by plane — see [The model](../../README.md#the-model) in the README; this page is its *disambiguator*.
 
 ## Overloaded terms — disambiguated
 
@@ -52,7 +52,7 @@ The **whole long-lived local process** that binds `127.0.0.1`, owns the PTYs and
 
 ## Load-bearing terms
 
-The product-level entities — *a **Project** (the `.zuzuu/` home) · envelope · note · module · generation · proposal · observe · **evolve** · the **review gate** vs the **tool (guardrails) gate***  — are defined once in [`../ONTOLOGY.md`](../ONTOLOGY.md) with their relations. This page no longer repeats them; what remains below is **web-internal** vocabulary the ontology doesn't cover.
+The product-level entities — *a **Project** (the `.zuzuu/` home) · envelope · note · module · generation · staged change · observe · **evolve** · the **review gate** vs the **tool (guardrails) gate***  — are defined once in [The model](../../README.md#the-model) (the README) with their relations. This page no longer repeats them; what remains below is **web-internal** vocabulary the model doesn't cover.
 
 ### Web-specific (the workbench)
 
