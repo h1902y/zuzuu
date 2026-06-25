@@ -99,7 +99,7 @@ export function WorkbenchShell() {
     <div className="flex h-full flex-col">
       <div className="flex h-8 shrink-0 items-center gap-2 border-b border-border bg-surface px-3">
         <Text size="meta" tone="muted">⌘K</Text>
-        <Text size="meta" tone="subtle">{sel.crumb.length ? sel.crumb.join(" › ") : "the database"}</Text>
+        <Text as="button" size="meta" tone="subtle" onClick={() => select(null)}>{sel.crumb.length ? sel.crumb.join(" › ") : "the database"}</Text>
       </div>
 
       <div className="flex min-h-0 flex-1">

@@ -7,6 +7,7 @@ import { useWorkbench } from "../state/store.js";
 import { useWorld } from "./world-state.js";
 import { mostRecentlyActive } from "./shell-state.js";
 import { shouldShowSetupNode } from "./project-home-state.js";
+import { Switcher } from "./switcher/Switcher.js";
 import { Stack, Text } from "../ds/index.js";
 
 function NavRow({ active, dot, label, badge, onClick }: {
@@ -39,9 +40,7 @@ export function NavTree() {
 
   return (
     <nav className="flex h-full w-60 shrink-0 flex-col gap-4 overflow-y-auto border-r border-border bg-surface p-2">
-      <Text as="button" size="meta" tone="muted" weight="semibold" onClick={() => select(null)}>
-        ⌂ {overview.data ? "the database" : "…"}
-      </Text>
+      <Switcher />
       {showSetup && (
         <Text as="button" size="meta" tone="accent" weight="semibold" onClick={() => select(null)}>
           ⚑ Set up this Project
