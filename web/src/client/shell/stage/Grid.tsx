@@ -6,9 +6,11 @@ import { useQuery } from "@tanstack/react-query";
 import { NotesListProvider, useList } from "../../data/ListContext.js";
 import { gridColumns, cellValue } from "./grid-columns.js";
 import { fieldsFromSchema } from "./schema-fields.js";
+import { emptyCopy } from "../empty-copy.js";
 import { api } from "../../lib/api.js";
 import { useWorld } from "../world-state.js";
-import { Text } from "../../ds/index.js";
+import { Table2 } from "lucide-react";
+import { Text, EmptyState } from "../../ds/index.js";
 
 function GridInner() {
   const { module, rows, total, loading, state, dispatch } = useList();
@@ -33,7 +35,7 @@ function GridInner() {
         {loading ? (
           <div className="grid h-full place-items-center"><Text tone="muted">loading…</Text></div>
         ) : !rows.length ? (
-          <div className="grid h-full place-items-center"><Text tone="muted">{state.text ? "no matching rows" : "no rows yet"}</Text></div>
+          <EmptyState icon={Table2} {...emptyCopy(state.text ? "grid-filter" : "grid-empty")} />
         ) : (
           <table className="w-full border-collapse text-ui">
             <thead>

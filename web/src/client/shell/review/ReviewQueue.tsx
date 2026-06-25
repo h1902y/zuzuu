@@ -8,7 +8,8 @@ import { useReviewQueue } from "./use-review-queue.js";
 import { clampFocus, moveFocus, focusedId } from "./review-flow.js";
 import { Check } from "lucide-react";
 import { ProposalCard } from "./ProposalCard.js";
-import { Stack, Inline, Text, Icon } from "../../ds/index.js";
+import { emptyCopy } from "../empty-copy.js";
+import { Stack, Inline, Text, EmptyState } from "../../ds/index.js";
 
 export function ReviewQueue({ keyboard }: { keyboard?: boolean } = {}) {
   const { queue, grouped, total, loading, approve, reject } = useReviewQueue();
@@ -39,11 +40,8 @@ export function ReviewQueue({ keyboard }: { keyboard?: boolean } = {}) {
 
   if (loading) return <div className="grid h-full place-items-center"><Text tone="muted">loading…</Text></div>;
   if (!total) {
-    return (
-      <div className="grid h-full place-items-center">
-        <Inline gap="xs"><Icon icon={Check} size={14} /><Text tone="muted">{decided ? `all caught up · ${decided} reviewed` : "all caught up"}</Text></Inline>
-      </div>
-    );
+    const copy = emptyCopy("review");
+    return <EmptyState icon={Check} title={copy.title} hint={decided ? `${decided} reviewed this round. ${copy.hint}` : copy.hint} />;
   }
 
   const rejectAndCount = (id: string, module: string, reason: string) => { setDecided((n) => n + 1); reject(id, module, reason); };
