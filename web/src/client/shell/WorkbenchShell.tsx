@@ -6,7 +6,7 @@
 // composes from ds primitives.
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ModuleOverviewEntry, ProjectStateKind } from "#shared/index.js";
+import type { ProjectStateKind } from "#shared/index.js";
 import { TermView } from "../term/TermView.js";
 import { Composer } from "../composer/Composer.js";
 import { api } from "../lib/api.js";
@@ -17,16 +17,16 @@ import { homeMode, currentRung, type RungId } from "./project-home-state.js";
 import { useStartSession } from "./session/use-start-session.js";
 import { toast } from "../state/toast.js";
 import { Checklist } from "./onboarding/Checklist.js";
+import { Overview } from "./overview/Overview.js";
 import { Grid } from "./stage/Grid.js";
 import { Record } from "./stage/Record.js";
 import { ReviewQueue } from "./review/ReviewQueue.js";
 import { Form } from "./wing/Form.js";
 import { Schema } from "./wing/Schema.js";
-import { Table2, Clock } from "lucide-react";
 import { Palette } from "../palette/Palette.js";
 import { Loading, ThemeToggle } from "../ds/index.js";
 import { useReview } from "../state/review.js";
-import { Stack, Inline, Text, Icon } from "../ds/index.js";
+import { Text } from "../ds/index.js";
 import { NavTree } from "./NavTree.js";
 import { Ribbon } from "./Ribbon.js";
 
@@ -43,41 +43,13 @@ function Placeholder({ label }: { label: string }) {
   return <div className="grid h-full place-items-center"><Text tone="muted">{label}</Text></div>;
 }
 
-function Overview({ modules, onPick }: { modules: ModuleOverviewEntry[]; onPick: (id: string) => void }) {
-  return (
-    <div className="h-full overflow-y-auto p-10">
-      <Stack gap="xl">
-        <Text size="xl" font="display">The database</Text>
-        <div className="grid grid-cols-3 gap-5">
-          {modules.map((m) => (
-            <button
-              key={m.id}
-              type="button"
-              onClick={() => onPick(m.id)}
-              className="flex flex-col gap-2 rounded-lg border border-border bg-elevated p-5 text-left transition-colors hover:border-accent-dim"
-            >
-              <Inline gap="xs"><Icon icon={Table2} size={14} /><Text weight="medium">{m.title}</Text></Inline>
-              <Inline gap="xs">
-                <Text size="meta" tone="muted">{m.counts?.items ?? 0} rows</Text>
-                {m.counts?.pending ? (
-                  <><Text size="meta" tone="muted">·</Text><Icon icon={Clock} size={11} /><Text size="meta" tone="muted">{m.counts.pending}</Text></>
-                ) : null}
-              </Inline>
-            </button>
-          ))}
-          {!modules.length && <Text size="ui" tone="muted">no tables yet — zuzuu grows them as you work</Text>}
-        </div>
-      </Stack>
-    </div>
-  );
-}
-
 export function WorkbenchShell() {
   const sessions = useWorkbench((s) => s.sessions);
   const refresh = useWorkbench((s) => s.refresh);
   const selected = useWorld((s) => s.selected);
   const select = useWorld((s) => s.select);
   const startSession = useStartSession();
+  const workspace = useQuery({ queryKey: ["workspace"], queryFn: api.workspace });
   const overview = useQuery({ queryKey: ["zuzuu", "overview"], queryFn: api.zuzuu.overview });
   const projectState = useQuery({ queryKey: ["zuzuu", "project-state"], queryFn: api.zuzuu.projectState });
   const qc = useQueryClient();
@@ -152,7 +124,17 @@ export function WorkbenchShell() {
           ) : projectState.isLoading || overview.isLoading ? (
             <Loading />
           ) : (
-            <Overview modules={modules} onPick={(id) => select({ kind: "module", id })} />
+            <Overview
+              name={workspace.data?.name ?? "this project"}
+              path={workspace.data?.root ?? ""}
+              enabled={projectState.data?.host.enabled ?? false}
+              modules={modules}
+              sessions={sessions}
+              onPickModule={(id) => select({ kind: "module", id })}
+              onPickSession={(id) => select({ kind: "session", id })}
+              onStartSession={() => void startSession()}
+              onReview={() => setReview(true)}
+            />
           )}
         </main>
 

@@ -3,7 +3,7 @@
 // Selecting a node drives the stage/wing. Composed from ds primitives.
 import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Circle, Table2, Flag } from "lucide-react";
+import { Circle, Table2, Flag, Home } from "lucide-react";
 import { api } from "../lib/api.js";
 import { useWorkbench } from "../state/store.js";
 import { useWorld } from "./world-state.js";
@@ -43,6 +43,12 @@ export function NavTree() {
   return (
     <nav className="flex h-full w-64 shrink-0 flex-col gap-7 overflow-y-auto border-r border-border bg-surface p-4">
       <Switcher />
+      <NavRow
+        active={selected === null || selected.kind === "overview"}
+        icon={<Icon icon={Home} size={14} />}
+        label="Overview"
+        onClick={() => select({ kind: "overview" })}
+      />
       {showSetup && (
         <Text as="button" interactive size="meta" tone="accent" weight="semibold" onClick={() => select(null)}>
           <Inline gap="xs"><Icon icon={Flag} size={12} /> Set up this Project</Inline>
