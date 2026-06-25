@@ -188,7 +188,7 @@ export function WorkbenchShell() {
         <>
           <button type="button" aria-label="close review" onClick={() => setReview(false)} className="animate-fade fixed inset-0 z-40 bg-scrim" />
           <div className="animate-pop fixed inset-x-0 top-12 z-50 mx-auto flex max-h-96 w-96 flex-col overflow-hidden rounded-lg border border-border bg-elevated shadow-overlay">
-            <ReviewQueue />
+            <ReviewQueue keyboard />
           </div>
         </>
       )}

@@ -1,19 +1,30 @@
 // shell/review/ProposalCard.tsx — one staged proposal at the gate. Approve lands it
-// (→ evolve); Reject opens the reason taxonomy (the gate that teaches). Composes ds
+// (→ evolve); Reject opens the reason taxonomy (the gate that teaches). When `focused`
+// (the keyboard decision flow, P2.4) the card rings + scrolls into view. Composes ds
 // primitives + the kit Button.
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { StagedSummary } from "#shared/index.js";
 import { REJECT_REASONS } from "./review-model.js";
-import { Box, Stack, Inline, Text, Button } from "../../ds/index.js";
+import { Stack, Inline, Text, Button } from "../../ds/index.js";
 
-export function ProposalCard({ item, onApprove, onReject }: {
+export function ProposalCard({ item, focused, onApprove, onReject }: {
   item: StagedSummary;
+  focused?: boolean;
   onApprove: (id: string, module: string) => void;
   onReject: (id: string, module: string, reason: string) => void;
 }) {
   const [rejecting, setRejecting] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (focused) ref.current?.scrollIntoView({ block: "nearest" });
+  }, [focused]);
+
   return (
-    <Box border="hairline" radius="ui" pad="sm" bg="surface">
+    <div
+      ref={ref}
+      className={`rounded-ui border bg-surface p-2 transition-colors ${focused ? "border-accent ring-1 ring-inset ring-focus" : "border-border"}`}
+    >
       <Stack gap="xs">
         <Text size="ui" weight="medium">{item.title}</Text>
         {item.preview && <Text size="meta" tone="muted">{item.preview}</Text>}
@@ -32,6 +43,6 @@ export function ProposalCard({ item, onApprove, onReject }: {
           </Inline>
         )}
       </Stack>
-    </Box>
+    </div>
   );
 }

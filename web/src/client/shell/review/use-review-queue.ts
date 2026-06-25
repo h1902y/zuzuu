@@ -37,5 +37,5 @@ export function useReviewQueue() {
     finally { invalidate(); }
   };
 
-  return { grouped, total: queue.length, loading: q.isLoading, approve, reject };
+  return { queue, grouped, total: queue.length, loading: q.isLoading, approve, reject };
 }
