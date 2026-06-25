@@ -24,6 +24,7 @@ import { Record } from "./stage/Record.js";
 import { ModuleGraph } from "./stage/ModuleGraph.js";
 import { BrainGraph } from "./graph/BrainGraph.js";
 import { Search } from "./search/Search.js";
+import { Settings } from "./settings/Settings.js";
 import { StageHeader } from "./stage/StageHeader.js";
 import { stageHeaderModel, newNoteId, resolveTab, type StageTab } from "./stage/stage-header.js";
 import { ReviewQueue } from "./review/ReviewQueue.js";
@@ -173,6 +174,8 @@ export function WorkbenchShell() {
               <BrainGraph />
             ) : sel.stage === "search" ? (
               <Search />
+            ) : sel.stage === "settings" ? (
+              <Settings />
             ) : onboarding && pState ? (
               <Checklist state={pState} onRung={onRung} busy={busy} />
             ) : projectState.isLoading || overview.isLoading ? (
