@@ -14,6 +14,7 @@ import { Hono } from "hono";
 import { PathError } from "./safe-path.js";
 import { createZuzuuReadApi } from "./zuzuu-read.js";
 import { createZuzuuWriteApi } from "./zuzuu-write.js";
+import { createZuzuuSetupApi } from "./zuzuu-setup.js";
 
 interface ApiOpts { binary?: string; }
 
@@ -25,5 +26,6 @@ export function createZuzuuApi(getRoot: () => string, opts: ApiOpts = {}): Hono 
   });
   app.route("/", createZuzuuReadApi(getRoot, opts.binary));
   app.route("/", createZuzuuWriteApi(getRoot, opts.binary));
+  app.route("/", createZuzuuSetupApi(getRoot, opts.binary)); // onboarding setup verbs (root-scoped)
   return app;
 }

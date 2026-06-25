@@ -89,8 +89,9 @@ export async function run(argv, io = {}) {
 
       case 'init': {
         const r = initHome(cwd);
-        log(toon('init', [{ home: r.home, created: r.created.length, skipped: r.skipped.length }], ['home', 'created', 'skipped']));
-        if (r.created.length) log(`created: ${r.created.join(', ')}`);
+        emit(log, json, { ok: true, home: r.home, created: r.created, skipped: r.skipped },
+          ['init', [{ home: r.home, created: r.created.length, skipped: r.skipped.length }], ['home', 'created', 'skipped']]);
+        if (r.created.length && !json) log(`created: ${r.created.join(', ')}`);
         return 0;
       }
 
@@ -172,8 +173,10 @@ export async function run(argv, io = {}) {
         const zz = open(cwd);
         const sessions = captureSignals({ cwd, scope: args.scope || 'all' });
         const r = observe(zz.home, { cwd, sessions });
-        log(toon('observe', [{ mined: r.sessionsMined, candidates: r.candidates, proposed: r.proposed }], ['mined', 'candidates', 'proposed']));
-        if (r.staged.length) log(toon('staged', r.staged.map((p) => ({ module: p.module, id: p.target, score: p.score })), ['module', 'id', 'score'], ['zz review <module>']));
+        const staged = r.staged.map((p) => ({ module: p.module, id: p.target, score: p.score }));
+        emit(log, json, { ok: true, mined: r.sessionsMined, candidates: r.candidates, proposed: r.proposed, staged },
+          ['observe', [{ mined: r.sessionsMined, candidates: r.candidates, proposed: r.proposed }], ['mined', 'candidates', 'proposed']]);
+        if (r.staged.length && !json) log(toon('staged', staged, ['module', 'id', 'score'], ['zz review <module>']));
         return 0;
       }
 
@@ -395,12 +398,14 @@ export async function run(argv, io = {}) {
 
       case 'enable': {
         const r = enable(cwd);
-        log(toon('enable', [{ path: r.path, installed: r.installed }], ['path', 'installed']));
+        emit(log, json, { ok: true, path: r.path, installed: r.installed },
+          ['enable', [{ path: r.path, installed: r.installed }], ['path', 'installed']]);
         return 0;
       }
       case 'disable': {
         const r = disable(cwd);
-        log(toon('disable', [{ path: r.path, removed: r.removed }], ['path', 'removed']));
+        emit(log, json, { ok: true, path: r.path, removed: r.removed },
+          ['disable', [{ path: r.path, removed: r.removed }], ['path', 'removed']]);
         return 0;
       }
       case 'hook': {
