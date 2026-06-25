@@ -44,4 +44,13 @@ describe("openFolderReducer", () => {
     const before = { prefix: "~/zzz", dirs: [], highlighted: 0 };
     expect(openFolderReducer(before, { type: "applyHighlighted" })).toEqual(before);
   });
+  it("a click applies its OWN row, not the highlighted one", () => {
+    // highlighted is row 0, but the user clicks row 1 → row 1 applies
+    const s = openFolderReducer({ prefix: "/a/D", dirs: ["Docs", "Downloads"], highlighted: 0 }, { type: "applyAt", index: 1 });
+    expect(s.prefix).toBe("/a/Downloads/");
+  });
+  it("applyAt out of range is a no-op", () => {
+    const before = { prefix: "/a/D", dirs: ["Docs"], highlighted: 0 };
+    expect(openFolderReducer(before, { type: "applyAt", index: 5 })).toEqual(before);
+  });
 });

@@ -90,7 +90,7 @@ export function Switcher() {
                       <button
                         key={d}
                         type="button"
-                        onClick={() => dispatch({ type: "applyHighlighted" })}
+                        onClick={() => dispatch({ type: "applyAt", index: i })}
                         className={`flex items-center rounded-ui px-2 py-1 text-left text-meta transition-colors hover:bg-hover ${i === folder.highlighted ? "bg-selected text-ink-100" : "text-subtle"}`}
                       >
                         <Inline gap="xs"><Text size="meta" tone="muted">⤷</Text> {d}/</Inline>

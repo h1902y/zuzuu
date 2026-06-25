@@ -43,10 +43,20 @@ export type OpenFolderEvent =
   | { type: "setPrefix"; prefix: string }
   | { type: "setDirs"; dirs: string[] }
   | { type: "moveHighlight"; delta: number }
-  | { type: "applyHighlighted" };
+  | { type: "applyHighlighted" }
+  | { type: "applyAt"; index: number };
+
+/** Apply the dir at `index` to the prefix (the keyboard ⏎ uses `highlighted`, a
+ *  mouse click uses its own row index). Out-of-range / empty → no-op. */
+function applyIndex(s: OpenFolderState, index: number): OpenFolderState {
+  if (index < 0 || index >= s.dirs.length) return s;
+  const dir = s.dirs[index]!;
+  const base = s.prefix.endsWith("/") ? s.prefix : s.prefix.slice(0, s.prefix.lastIndexOf("/") + 1);
+  return { ...s, prefix: base + dir + "/", dirs: [], highlighted: 0 };
+}
 
 /** Reducer for the path field: typing resets the highlight, ↑/↓ wrap, ⏎ applies the
- *  highlighted dir to the prefix (a no-op when there are no suggestions). */
+ *  highlighted dir, a click applies its own row (a no-op when there are no suggestions). */
 export function openFolderReducer(s: OpenFolderState, e: OpenFolderEvent): OpenFolderState {
   switch (e.type) {
     case "setPrefix":
@@ -58,11 +68,9 @@ export function openFolderReducer(s: OpenFolderState, e: OpenFolderEvent): OpenF
       const n = s.dirs.length;
       return { ...s, highlighted: (((s.highlighted + e.delta) % n) + n) % n };
     }
-    case "applyHighlighted": {
-      if (!s.dirs.length) return s;
-      const dir = s.dirs[s.highlighted]!;
-      const base = s.prefix.endsWith("/") ? s.prefix : s.prefix.slice(0, s.prefix.lastIndexOf("/") + 1);
-      return { ...s, prefix: base + dir + "/", dirs: [], highlighted: 0 };
-    }
+    case "applyHighlighted":
+      return applyIndex(s, s.highlighted);
+    case "applyAt":
+      return applyIndex(s, e.index);
   }
 }
