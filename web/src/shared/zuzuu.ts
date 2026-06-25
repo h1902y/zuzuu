@@ -116,6 +116,20 @@ export interface RollbackResult {
   active: string;
 }
 
+/** POST /module/:key/stage — the write entry-door. A create/update resolves to a
+ *  PENDING proposal (a staged change), NOT a landed row: it surfaces in the review
+ *  queue and lands only on approve. The handle the DataProvider returns from a write. */
+export interface StagedChange {
+  id: string;
+  op: "create" | "update" | "delete" | "relate" | "deprecate";
+  module: string;
+  target: string | null;
+  status: "pending";
+  score: number;
+  /** true = an identical change was already staged (content-hash dedup — idempotent) */
+  duplicate?: boolean;
+}
+
 // ── Session-git (the invisible session branch: agent session = zz/session-*) ──
 
 /** `zuzuu session merge --json` (also the agent-exit auto-merge). */

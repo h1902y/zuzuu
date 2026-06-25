@@ -36,10 +36,11 @@ test('module items <key> --json → notes as id/type/title/status/body', async (
     out.length = 0;
     assert.equal(await run(['module', 'items', 'knowledge', '--json'], io), 0);
     assert.equal(out.length, 1, 'single JSON line');
-    const items = JSON.parse(out[0]);
-    assert.equal(items.length, 2);
-    const a = items.find((x) => x.id === 'a');
-    assert.deepEqual({ id: a.id, type: a.type, title: a.title, status: a.status, body: a.body }, { id: 'a', type: 'knowledge', title: 'A', status: 'active', body: 'Alpha' });
+    const res = JSON.parse(out[0]); // { items, errors } — the daemon's ModuleDetail contract
+    assert.ok(Array.isArray(res.items) && Array.isArray(res.errors));
+    assert.equal(res.items.length, 2);
+    const a = res.items.find((x) => x.id === 'a');
+    assert.deepEqual({ id: a.id, kind: a.kind, title: a.title, status: a.status, body: a.body }, { id: 'a', kind: 'knowledge', title: 'A', status: 'active', body: 'Alpha' });
   });
 });
 

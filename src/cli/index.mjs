@@ -327,8 +327,10 @@ export async function run(argv, io = {}) {
           if (!b) return fail(log, 'usage: zz module items <key>', json);
           const r = zz.query(b, { text: '', full: true, limit: 10000 });
           if (!r.ok) return fail(log, r.error, json);
-          const items = (r.value.rows ?? []).map((row) => ({ id: row.addr.split(':').pop(), module: b, type: row.type, title: row.title ?? '', status: row.status ?? '', body: row.body ?? '' }));
-          emit(log, json, items, ['items', items, ['id', 'type', 'title', 'status']]);
+          const items = (r.value.rows ?? []).map((row) => ({ id: row.addr.split(':').pop(), module: b, kind: row.type, title: row.title ?? '', status: row.status ?? '', body: row.body ?? '' }));
+          // shape: { items, errors } + `kind` — the daemon's moduleEnvelopeItems passes this
+          // straight through as the shared ModuleItem[] (otherwise it degrades to peek)
+          emit(log, json, { items, errors: [] }, ['items', items, ['id', 'kind', 'title', 'status']]);
           return 0;
         }
         if (a === 'item') {
@@ -337,8 +339,8 @@ export async function run(argv, io = {}) {
           if (!r.ok) return fail(log, r.error, json);
           const row = (r.value.rows ?? []).find((x) => x.addr.split(':').pop() === c);
           if (!row) return fail(log, `no note '${c}' in ${b}`, json);
-          const item = { id: c, module: b, type: row.type, title: row.title ?? '', status: row.status ?? '', body: row.body ?? '' };
-          emit(log, json, item, ['item', [{ id: c, type: row.type, title: row.title ?? '' }], ['id', 'type', 'title']]);
+          const item = { id: c, module: b, kind: row.type, title: row.title ?? '', status: row.status ?? '', body: row.body ?? '' };
+          emit(log, json, item, ['item', [{ id: c, kind: row.type, title: row.title ?? '' }], ['id', 'kind', 'title']]);
           return 0;
         }
         if (a === 'schema') {

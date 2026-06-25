@@ -10,6 +10,7 @@ import { resolveSafe } from "./safe-path.js";
 import { runZuzuu } from "./zuzuu-cli.js";
 import {
   SAFE_SLUG,
+  SAFE_ID,
   listModuleDirs,
   moduleEnvelopeItems,
   peekModuleItems,
@@ -54,6 +55,17 @@ export function createZuzuuReadApi(getRoot: () => string, binary?: string): Hono
     const { items, errors, degraded } = await moduleEnvelopeItems(root, home, key, binary);
     const staged = (await stagedOf(home, key)).map((p) => stagedSummary(p, key));
     return c.json({ key, items, staged, errors, ...(degraded ? { degraded: true } : {}) });
+  });
+
+  // One record (getOne) — CLI `zz module item <key> <id>`. Absent/unknown → 404.
+  app.get("/module/:key/item/:id", async (c) => {
+    const key = c.req.param("key");
+    const id = c.req.param("id");
+    if (!SAFE_SLUG.test(key)) return c.json({ error: "unknown module" }, 404);
+    if (!SAFE_ID.test(id)) return c.json({ error: "bad id" }, 400);
+    const viaCli = await runZuzuu(getRoot(), ["module", "item", key, id], { binary });
+    if (viaCli) return c.json(viaCli);
+    return c.json({ error: "not found" }, 404);
   });
 
   app.get("/module/:key/schema", async (c) => {

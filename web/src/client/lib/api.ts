@@ -11,11 +11,13 @@ import type {
   ListResponse,
   ModuleDetail,
   ModuleGenerationList,
+  ModuleItem,
   ModuleOverviewResponse,
   RejectResult,
   RollbackResult,
   SearchResponse,
   SessionInfo,
+  StagedChange,
   WorkspaceInfo,
 } from "#shared/index.js";
 
@@ -75,7 +77,12 @@ export const api = {
   zuzuu: {
     overview: () => request<ModuleOverviewResponse>("/api/zuzuu/overview"),
     module: (key: string) => request<ModuleDetail>(`/api/zuzuu/module/${key}`),
+    item: (key: string, id: string) => request<ModuleItem>(`/api/zuzuu/module/${key}/item/${id}`),
     generations: (key: string) => request<ModuleGenerationList>(`/api/zuzuu/module/${key}/generations`),
+    // a write resolves to a PENDING proposal (a staged change), not a landed row — it
+    // surfaces in the review queue and lands only on approve (the gate, as data-provider semantics).
+    stage: (key: string, body: { op: "create" | "update"; target: string; change: Record<string, unknown> }) =>
+      request<StagedChange>(`/api/zuzuu/module/${key}/stage`, json(body)),
     // the daemon route requires { module } in the body (it 400s without it) — the
     // mutation request body isn't in #shared, so this contract is enforced by hand.
     approve: (id: string, module: string) =>
