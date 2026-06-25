@@ -19,6 +19,8 @@ import { toast } from "../state/toast.js";
 import { Checklist } from "./onboarding/Checklist.js";
 import { Grid } from "./stage/Grid.js";
 import { Record } from "./stage/Record.js";
+import { ReviewQueue } from "./review/ReviewQueue.js";
+import { useReview } from "../state/review.js";
 import { Stack, Text } from "../ds/index.js";
 import { NavTree } from "./NavTree.js";
 import { Ribbon } from "./Ribbon.js";
@@ -72,8 +74,23 @@ export function WorkbenchShell() {
   const projectState = useQuery({ queryKey: ["zuzuu", "project-state"], queryFn: api.zuzuu.projectState });
   const qc = useQueryClient();
   const [busy, setBusy] = useState<RungId | null>(null);
+  const reviewOpen = useReview((s) => s.open);
+  const setReview = useReview((s) => s.setOpen);
 
   useEffect(() => { void refresh(); }, [refresh]); // load sessions; home is the database (no auto-open)
+
+  // The gate's global shortcut: R toggles the review overlay (unless typing / in a terminal).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const el = e.target as HTMLElement;
+      if (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable) return;
+      if (e.key === "r" || e.key === "R") { e.preventDefault(); setReview(!useReview.getState().open); }
+      else if (e.key === "Escape") setReview(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [setReview]);
 
   // Fire a real setup verb, then refetch so the home advances on TRUE state (D4).
   async function onRung(r: RungId) {
@@ -127,12 +144,25 @@ export function WorkbenchShell() {
 
         {sel.wing !== "none" && (
           <aside className="hidden w-80 shrink-0 flex-col border-l border-border bg-surface xl:flex">
-            <Placeholder label={sel.wing === "review" ? "review queue (U7)" : sel.wing === "form" ? "form (U6)" : "schema + generations"} />
+            {sel.wing === "review" ? (
+              <ReviewQueue />
+            ) : (
+              <Placeholder label={sel.wing === "form" ? "form (U6)" : "schema + generations"} />
+            )}
           </aside>
         )}
       </div>
 
-      <Ribbon sessions={sessionsLite} pendingByModule={pendingByModule} setupHint={setupHint} />
+      <Ribbon sessions={sessionsLite} pendingByModule={pendingByModule} setupHint={setupHint} onReview={() => setReview(true)} />
+
+      {reviewOpen && (
+        <>
+          <button type="button" aria-label="close review" onClick={() => setReview(false)} className="fixed inset-0 z-40 bg-app/60" />
+          <div className="fixed inset-x-0 top-12 z-50 mx-auto flex max-h-96 w-96 flex-col overflow-hidden rounded-lg border border-border bg-elevated shadow-xl">
+            <ReviewQueue />
+          </div>
+        </>
+      )}
     </div>
   );
 }
