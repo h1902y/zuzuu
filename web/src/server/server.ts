@@ -167,7 +167,7 @@ export class WebcodeServer {
     });
 
     app.route("/api/fs", createFsApi(() => this.root));
-    app.route("/api/zuzuu", createZuzuuApi(() => this.root, { binary: cfg.zuzuuBinary }));
+    app.route("/api/zuzuu", createZuzuuApi(() => this.root, { binary: cfg.zuzuuBinary, liveSessions: () => this.sessions.list().length }));
     app.route("/api/projects", createProjectsApi(() => this.root)); // machine-global: recents + dir autocomplete
 
     // Static SPA (index.html fallback for client-side routes)

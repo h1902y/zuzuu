@@ -54,4 +54,15 @@ describe("gatherProjectState — assembles the DTO", () => {
     expect(s.host).toEqual({ kind: null, enabled: false });
     expect(s.counts).toEqual({ modules: 0, pending: 0, sessions: 0 });
   });
+  it("reports the live daemon session count (not a phantom .zuzuu/sessions.json)", async () => {
+    const s = await gatherProjectState(root, undefined, 2);
+    expect(s.counts.sessions).toBe(2);
+  });
+});
+
+describe("deriveState — live sessions count as activity", () => {
+  it("an enabled Project flips to steady once a live session exists", () => {
+    expect(deriveState({ git: true, zuzuu: true, hooksEnabled: true, hasActivity: false })).toBe("no-activity");
+    expect(deriveState({ git: true, zuzuu: true, hooksEnabled: true, hasActivity: true })).toBe("steady");
+  });
 });

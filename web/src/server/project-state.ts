@@ -43,20 +43,14 @@ export function detectHost(root: string): HostInfo {
   return { kind: "claude", enabled };
 }
 
-/** Count sessions from the Project's sessions index (best-effort). */
-function countSessions(root: string): number {
-  try {
-    const raw = JSON.parse(readFileSync(path.join(root, ".zuzuu", "sessions.json"), "utf8")) as { sessions?: unknown[] };
-    return Array.isArray(raw.sessions) ? raw.sessions.length : 0;
-  } catch { return 0; }
-}
-
 interface OverviewEntry { key: string; pending?: number }
 
 /** Gather the live ProjectState for `root`: fs facts + the CLI module overview
  *  (best-effort — CLI absent degrades counts to 0, the state still derives from
- *  git/.zuzuu/hooks). */
-export async function gatherProjectState(root: string, binary?: string): Promise<ProjectState> {
+ *  git/.zuzuu/hooks). `liveSessions` is the daemon's live PTY count — the honest
+ *  "has the user started working" signal (zuzuu records sessions as git branches,
+ *  not a JSON index, so there is no on-disk session count to read here). */
+export async function gatherProjectState(root: string, binary?: string, liveSessions = 0): Promise<ProjectState> {
   const git = existsSync(path.join(root, ".git"));
   const zuzuu = existsSync(path.join(root, ".zuzuu"));
   const host = detectHost(root);
@@ -64,7 +58,6 @@ export async function gatherProjectState(root: string, binary?: string): Promise
   let modules = 0;
   let pending = 0;
   let contentful = false;
-  let sessions = 0;
   if (zuzuu) {
     const ov = (await runZuzuu(root, ["module", "overview"], binary ? { binary } : {})) as OverviewEntry[] | null;
     if (Array.isArray(ov)) {
@@ -72,13 +65,12 @@ export async function gatherProjectState(root: string, binary?: string): Promise
       pending = ov.reduce((n, e) => n + (e.pending ?? 0), 0);
       contentful = ov.some((e) => e.key !== "guardrails"); // a content module materialized
     }
-    sessions = countSessions(root);
   }
 
-  const hasActivity = pending > 0 || sessions > 0 || contentful;
+  const hasActivity = pending > 0 || liveSessions > 0 || contentful;
   return {
     state: deriveState({ git, zuzuu, hooksEnabled: host.enabled, hasActivity }),
     host,
-    counts: { modules, pending, sessions },
+    counts: { modules, pending, sessions: liveSessions },
   };
 }
