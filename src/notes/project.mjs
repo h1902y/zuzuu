@@ -30,5 +30,7 @@ export function readProject(home) {
   const { ok, note } = parse(readFileSync(path, 'utf8'), { id: 'project' });
   if (!ok || !note) return { ...fallback, manifestError: 'unparseable project.md' };
   const steering = note.steering && typeof note.steering === 'object' && !Array.isArray(note.steering) ? note.steering : {};
-  return { type: 'project', title: note.title ?? null, format: note.format ?? null, steering, body: note.body ?? '' };
+  // `role` distinguishes an ordinary Project from a `role: registry` repo (the OSS
+  // registry — a binding manifest + module library, never an aggregate brain).
+  return { type: 'project', title: note.title ?? null, format: note.format ?? null, role: note.role ?? null, steering, body: note.body ?? '' };
 }
