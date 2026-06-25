@@ -389,6 +389,17 @@ export async function run(argv, io = {}) {
       case 'registry':
         return registryCommand(args, cwd, log);
 
+      case 'subscribe': {
+        const m = args._[0];
+        if (!m) return fail(log, 'usage: zz subscribe <module>', json);
+        try {
+          const r = open(cwd).registry.subscribe(m);
+          if (!r.ok) return fail(log, r.error, json);
+          emit(log, json, r, ['subscribe', [{ module: r.module, staged: r.staged }], ['module', 'staged']]);
+          return 0;
+        } catch (e) { return fail(log, e.message, json); }
+      }
+
       case 'doctor':
         return doctor(cwd, log);
       case 'status':

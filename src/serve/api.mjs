@@ -27,6 +27,8 @@ import { generations, rollback, diffGenerations, notesAsOf } from '../notes/gene
 import { timeline } from './timeline.mjs';
 import { readProjectRefs, readLibraryModules, registryIdentity, mintRegistry, newIdentity, addProject, syncRegistry } from '../notes/registry.mjs';
 import { activeRegistryPath, setActiveRegistry } from '../notes/registry-pointer.mjs';
+import { subscribeModule } from '../grow/subscribe.mjs';
+import { generationCommit } from '../notes/generation.mjs';
 
 /**
  * Open the Project rooted at `cwd` (git-citizen: the `.zuzuu/` at the repo root).
@@ -116,6 +118,18 @@ export function open(cwd = process.cwd()) {
         const projectRoot = repoRoot(projectPath);
         if (homeDir(projectRoot) === h) return { touched: false, self: true };
         return { touched: true, handle: addProject(h, projectRoot, { tracked: 'auto' }) };
+      },
+
+      // subscribe a library module into THIS project as a gated proposal + pin (U6).
+      subscribe: (module) => {
+        const rh = activeRegistryPath();
+        if (!rh) throw new Error('no active registry — run `zz registry init` first');
+        let generation = 0, sha = null;
+        try {
+          const gens = generations(rh, module);
+          if (gens && gens.length) { generation = gens[gens.length - 1].n; sha = generationCommit(rh, module, generation); }
+        } catch { /* a hand-authored library module may have no generations — digest is the pin */ }
+        return subscribeModule(home, { registryHome: rh, registryIdentity: registryIdentity(rh), module, generation, sha });
       },
 
       // a status summary (U4).
