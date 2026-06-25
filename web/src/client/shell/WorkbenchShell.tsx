@@ -15,6 +15,7 @@ import { useWorld } from "./world-state.js";
 import { selectActors } from "./shell-state.js";
 import { homeMode, currentRung, type RungId } from "./project-home-state.js";
 import { useStartSession } from "./session/use-start-session.js";
+import { sessionTabs } from "./session/session-tabs.js";
 import { toast } from "../state/toast.js";
 import { Checklist } from "./onboarding/Checklist.js";
 import { Overview } from "./overview/Overview.js";
@@ -60,6 +61,7 @@ export function WorkbenchShell() {
   const qc = useQueryClient();
   const [busy, setBusy] = useState<RungId | null>(null);
   const [moduleView, setModuleView] = useState<string>("table"); // the module stage's Table·Graph tab (P2.7)
+  const [sessionView, setSessionView] = useState<string>("terminal"); // the session stage's Terminal·Changes tab (P2.8)
   const reviewOpen = useReview((s) => s.open);
   const setReview = useReview((s) => s.setOpen);
   const setPalette = useWorld((s) => s.setPalette);
@@ -126,10 +128,15 @@ export function WorkbenchShell() {
     header.primary?.key === "new-note" && selected?.kind === "module"
       ? { label: "New note", icon: Plus, onClick: () => void onNewNote(selected.id) }
       : null;
-  // the module stage's Table·Graph tabs (P2.7); the session stage's tabs are P2.8.
+  // the stage tab strips: a module's Table·Graph (P2.7), a session's Terminal·Changes (P2.8).
   const MODULE_TABS: StageTab[] = [{ key: "table", label: "Table" }, { key: "graph", label: "Graph" }];
-  const stageTabs = selected?.kind === "module" ? MODULE_TABS : undefined;
+  const totalPending = Object.values(pendingByModule).reduce((n, v) => n + v, 0);
+  const SESSION_TABS = sessionTabs(totalPending);
   const activeModuleTab = resolveTab(MODULE_TABS, moduleView);
+  const activeSessionTab = resolveTab(SESSION_TABS, sessionView);
+  const stageTabs = selected?.kind === "module" ? MODULE_TABS : selected?.kind === "session" ? SESSION_TABS : undefined;
+  const activeTab = selected?.kind === "module" ? activeModuleTab : selected?.kind === "session" ? activeSessionTab : undefined;
+  const onTab = selected?.kind === "module" ? setModuleView : selected?.kind === "session" ? setSessionView : undefined;
 
   return (
     <div className="flex h-full flex-col">
@@ -143,14 +150,19 @@ export function WorkbenchShell() {
 
         <main className="flex min-w-0 flex-1 flex-col bg-app">
           {header.show && (
-            <StageHeader crumb={stageCrumb} primary={stagePrimary} tabs={stageTabs} activeTab={activeModuleTab} onTab={setModuleView} />
+            <StageHeader crumb={stageCrumb} primary={stagePrimary} tabs={stageTabs} activeTab={activeTab} onTab={onTab} />
           )}
           <div className="flex min-h-0 flex-1 flex-col">
             {sel.stage === "terminal" && sessionNode ? (
-              <>
-                <div className="min-h-0 flex-1"><TermView key={sessionNode.id} sessionId={sessionNode.id} /></div>
-                {activeSession?.type === "agent" && <Composer key={sessionNode.id} sessionId={sessionNode.id} />}
-              </>
+              activeSessionTab === "changes" ? (
+                // the brain proposals this work is staging (click-driven; the overlay owns keyboard)
+                <ReviewQueue />
+              ) : (
+                <>
+                  <div className="min-h-0 flex-1"><TermView key={sessionNode.id} sessionId={sessionNode.id} /></div>
+                  {activeSession?.type === "agent" && <Composer key={sessionNode.id} sessionId={sessionNode.id} />}
+                </>
+              )
             ) : sel.stage === "grid" && selected?.kind === "module" ? (
               activeModuleTab === "graph" ? <ModuleGraph module={selected.id} /> : <Grid module={selected.id} />
             ) : sel.stage === "record" && selected?.kind === "row" ? (
