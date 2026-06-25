@@ -15,6 +15,7 @@ import type {
   ModuleItem,
   ModuleOverviewResponse,
   ProjectState,
+  ProjectsList,
   RecentsList,
   RejectResult,
   RollbackResult,
@@ -59,6 +60,7 @@ export const api = {
   // the Project layer — switching (machine-global) + onboarding setup verbs.
   projects: {
     recents: () => request<RecentsList>("/api/projects/recents"),
+    list: () => request<ProjectsList>("/api/projects/list"),
     dir: (prefix: string) => request<DirListing>(`/api/projects/dir?prefix=${encodeURIComponent(prefix)}`),
   },
   setup: {

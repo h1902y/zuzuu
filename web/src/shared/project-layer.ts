@@ -46,6 +46,24 @@ export interface RecentsList {
   recents: RecentProject[];
 }
 
+/** One row of the Projects Home — a recent project + its health read from disk
+ *  (no daemon running). GET /api/projects/list. */
+export interface ProjectSummary {
+  path: string;
+  name: string;
+  current: boolean;
+  modules: number;
+  notes: number;
+  pending: number;
+  guarded: boolean;
+  /** newest .zuzuu mtime (ms epoch), 0 when unknown. */
+  lastActivityMs: number;
+}
+
+export interface ProjectsList {
+  projects: ProjectSummary[];
+}
+
 /** GET /api/projects/dir — names-only directory autocomplete for "Open a folder…".
  *  `dirs` are child directory names under `prefix` (never files, never contents). */
 export interface DirListing {
