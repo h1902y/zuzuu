@@ -63,7 +63,7 @@ const HELP = `zz — your repo's Project (envelopes, queried/run/grown, human-ga
   zz rename <m> <old> <new>     rename a note + rewrite every inbound link
   zz merge <m> <src> <dst>      merge two notes (re-point referrers to dst)
   zz refactor <m> --field k --from v --to v   rewrite a field across the module
-  zz module [list | <m> generations | <m> diff <a> <b> | <m> rollback <n>]
+  zz module [list | overview | items <k> | item <k> <id> | schema <k> | <m> generations | <m> diff <a> <b> | <m> rollback <n>]
   zz session [status|merge|continue|discard --yes|worktree …|label]
   zz doctor / status / explain  health · inventory · porcelain
   zz code [dir] / web           launch OpenCode (bundled host) · the workbench
@@ -311,9 +311,49 @@ export async function run(argv, io = {}) {
 
       case 'module': {
         const zz = open(cwd);
+        const [a, b, c] = args._;
+
+        // subcommand-first reads (what the web daemon shells): overview · items <key> · item <key> <id> · schema <key>
+        if (a === 'overview') {
+          const rows = zz.modules().map((mod) => ({
+            key: mod.id, title: mod.title ?? mod.id, note_type: mod.note_type ?? '',
+            items: (zz.query(mod.id, { text: '', limit: 10000 }).value?.rows ?? []).length,
+            pending: zz.staged(mod.id).length, capabilities: mod.capabilities ?? [],
+          }));
+          emit(log, json, rows, ['overview', rows, ['key', 'items', 'pending']]);
+          return 0;
+        }
+        if (a === 'items') {
+          if (!b) return fail(log, 'usage: zz module items <key>', json);
+          const r = zz.query(b, { text: '', full: true, limit: 10000 });
+          if (!r.ok) return fail(log, r.error, json);
+          const items = (r.value.rows ?? []).map((row) => ({ id: row.addr.split(':').pop(), module: b, type: row.type, title: row.title ?? '', status: row.status ?? '', body: row.body ?? '' }));
+          emit(log, json, items, ['items', items, ['id', 'type', 'title', 'status']]);
+          return 0;
+        }
+        if (a === 'item') {
+          if (!b || !c) return fail(log, 'usage: zz module item <key> <id>', json);
+          const r = zz.query(b, { text: '', full: true, limit: 10000 });
+          if (!r.ok) return fail(log, r.error, json);
+          const row = (r.value.rows ?? []).find((x) => x.addr.split(':').pop() === c);
+          if (!row) return fail(log, `no note '${c}' in ${b}`, json);
+          const item = { id: c, module: b, type: row.type, title: row.title ?? '', status: row.status ?? '', body: row.body ?? '' };
+          emit(log, json, item, ['item', [{ id: c, type: row.type, title: row.title ?? '' }], ['id', 'type', 'title']]);
+          return 0;
+        }
+        if (a === 'schema') {
+          if (!b) return fail(log, 'usage: zz module schema <key>', json);
+          const mod = zz.modules().find((x) => x.id === b);
+          const fields = Array.isArray(mod?.fields) ? mod.fields : [];  // U10 surfaces a module.md `fields` block here; absent ⇒ schemaless
+          emit(log, json, { key: b, fields }, ['schema', fields, ['name', 'type']]);
+          return 0;
+        }
+
+        // key-first (existing): list | <m> generations | <m> diff <a> <b> | <m> rollback <n>
         const [m, action, n] = args._;
         if (!m || m === 'list') {
-          log(toon('modules', zz.modules().map((x) => ({ id: x.id, type: x.note_type ?? '', capabilities: (x.capabilities || []).join('|') })), ['id', 'type', 'capabilities']));
+          const rows = zz.modules().map((x) => ({ id: x.id, type: x.note_type ?? '', capabilities: (x.capabilities || []).join('|') }));
+          emit(log, json, rows, ['modules', rows, ['id', 'type', 'capabilities']]);
           return 0;
         }
         if (action === 'generations') {
@@ -324,17 +364,17 @@ export async function run(argv, io = {}) {
         }
         if (action === 'rollback') {
           const r = zz.rollback(m, Number(n));
-          if (!r.ok) return fail(log, r.error || 'rollback failed');
-          log(`rolled ${m} back to generation ${n}`);
+          if (!r.ok) return fail(log, r.error || 'rollback failed', json);
+          emit(log, json, { module: m, rolledTo: Number(n), ok: true }, ['rollback', [{ module: m, generation: n }], ['module', 'generation']]);
           return 0;
         }
         if (action === 'diff') {
           const r = zz.diff(m, Number(n), Number(args._[3]));
-          if (!r.ok) return fail(log, r.error || 'diff failed');
-          log(toon('diff', r.changes, ['status', 'id']));
+          if (!r.ok) return fail(log, r.error || 'diff failed', json);
+          emit(log, json, r.changes, ['diff', r.changes, ['status', 'id']]);
           return 0;
         }
-        return fail(log, 'usage: zz module [list | <m> generations | <m> diff <a> <b> | <m> rollback <n>]');
+        return fail(log, 'usage: zz module [list | overview | items <k> | item <k> <id> | schema <k> | <m> generations | <m> diff <a> <b> | <m> rollback <n>]', json);
       }
 
       case 'session':
