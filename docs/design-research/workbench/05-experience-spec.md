@@ -277,6 +277,24 @@ the field has converged:
 
 ## 8. Build mapping — what this means for `web/src/client`
 
+**The spine — write this first** (from [`06`](06-crud-app-inspiration.md)). Two foundations
+everything else composes over:
+
+- **A `DataProvider` over the `zz` CLI** — the Refine.dev interface
+  (`getList / getOne / getMany / create / update`); the daemon shells gated `zz`, the SPA is built
+  against the provider (backend-agnostic, every surface reuses it). **The inversion that encodes the
+  gate:** writes are **pessimistic and resolve to a _pending proposal_, not a completed mutation** —
+  `create`/`update` → `zz` stages it → returns a *staged change* the Review queue shows; the row is
+  not "done" until approved. The review gate falls out of the data-provider contract instead of
+  being bolted on. (`getMany` reference-batching renders `relations:` with no N+1.)
+- **One `Map<FieldType, FieldConfig>` registry** — each field type a 3-part split (Baserow): a cell
+  renderer · a field-config form · a record input. The **same registry drives the grid, the record
+  form, and schema graduation** (column inference = Refine's Inferencer over sample rows → a
+  `module.md` write; render a linked note's `title`, not its id — Mathesar's record-summary).
+
+This pair — the proposal-returning data provider + the field registry — is the first code to write;
+the worlds and surfaces below hang off it.
+
 Today (`app/App.tsx`): a 3-pane shell — `Sidebar (files) | SessionTabs + TermView + Composer |
 RightPanel (editor ⇆ modules dashboard)`. The evolution:
 
@@ -304,6 +322,8 @@ the initial bundle):
 | rendered body | **react-markdown** (+ remark-gfm) |
 | record form | generated from the module schema (react-hook-form) |
 | query | the existing `node:sqlite` index (no new dep) |
+| data layer | a custom **`zz`-CLI `DataProvider`** (proposal-returning writes) + a **`FieldType` registry** (one map → grid + form + graduation) |
+| grid (alt) | `@supabase/react-data-grid` — MIT, headless, virtualized — if TanStack Table's headless boilerplate is heavier than wanted |
 
 ---
 
