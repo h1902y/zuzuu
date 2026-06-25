@@ -99,7 +99,6 @@ export function WorkbenchShell() {
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-8 shrink-0 items-center gap-2 border-b border-border bg-surface px-3">
-        <Text size="meta" tone="muted">⌘K</Text>
         <Text as="button" size="meta" tone="subtle" onClick={() => select(null)}>{sel.crumb.length ? sel.crumb.join(" › ") : "the database"}</Text>
       </div>
 
@@ -130,7 +129,7 @@ export function WorkbenchShell() {
         )}
       </div>
 
-      <Ribbon sessions={sessionsLite} pendingByModule={pendingByModule} setupHint={setupHint} onReview={() => { /* U7: open the queue */ }} />
+      <Ribbon sessions={sessionsLite} pendingByModule={pendingByModule} setupHint={setupHint} />
     </div>
   );
 }

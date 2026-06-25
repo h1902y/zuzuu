@@ -6,7 +6,7 @@ import { Inline, Text } from "../ds/index.js";
 
 export function Ribbon({
   sessions, pendingByModule, onReview, setupHint,
-}: { sessions: SessionLite[]; pendingByModule: Record<string, number>; onReview: () => void; setupHint?: string }) {
+}: { sessions: SessionLite[]; pendingByModule: Record<string, number>; onReview?: () => void; setupHint?: string }) {
   const r = ribbonState(sessions, pendingByModule);
   return (
     <div className="flex h-8 shrink-0 items-center justify-between border-t border-border bg-app px-3">
@@ -19,7 +19,7 @@ export function Ribbon({
           {r.allCaughtUp ? "✓ all caught up" : `◷ ${r.pending} pending`}
         </Text>
       </Inline>
-      {!r.allCaughtUp && (
+      {!r.allCaughtUp && onReview && (
         <Text as="button" size="meta" tone="accent" onClick={onReview}>
           press R to review
         </Text>
