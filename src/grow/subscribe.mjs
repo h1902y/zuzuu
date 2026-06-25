@@ -11,34 +11,12 @@
 //       The manifest write is structural (like a module mint); the ITEMS are gated.
 
 import { join } from 'node:path';
-import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { createHash } from 'node:crypto';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { parse, serialize } from '../notes/note.mjs';
 import { stageChange } from './stage.mjs';
+import { moduleContent } from '../notes/registry.mjs';
 
-const itemsDirOf = (home, module) => join(home, module, 'items');
 const manifestOf = (home, module) => join(home, module, 'module.md');
-
-/** A deterministic content digest of a module's item notes (order-independent). */
-export function contentDigest(items) {
-  const h = createHash('sha256');
-  for (const it of [...items].sort((a, b) => a.id.localeCompare(b.id))) h.update(it.id + '\0' + serialize(it.note));
-  return 'sha256:' + h.digest('hex').slice(0, 16);
-}
-
-/** Read a module's item notes (parsed) from a home + their content digest. */
-export function moduleContent(home, module) {
-  const dir = itemsDirOf(home, module);
-  const items = [];
-  if (existsSync(dir)) {
-    for (const f of readdirSync(dir).filter((x) => x.endsWith('.md')).sort()) {
-      const id = f.replace(/\.md$/, '');
-      const { ok, note } = parse(readFileSync(join(dir, f), 'utf8'), { id });
-      if (ok) items.push({ id, note });
-    }
-  }
-  return { items, digest: contentDigest(items) };
-}
 
 /** Write the consuming project's module manifest carrying the `source:` pin
  *  (structural). Seeds from the library manifest so title/fields carry over. */
@@ -81,10 +59,5 @@ export function subscribeModule(currentHome, { registryHome, registryIdentity, m
   return { ok: true, module, staged, pin };
 }
 
-/** Read a consuming project's `source:` pin for a module (null when not subscribed). */
-export function readSourcePin(home, module) {
-  const path = manifestOf(home, module);
-  if (!existsSync(path)) return null;
-  const { ok, note } = parse(readFileSync(path, 'utf8'), { id: module });
-  return ok && note.source && typeof note.source === 'object' ? note.source : null;
-}
+// readSourcePin + moduleContent live in notes/registry.mjs (shared with use/check).
+export { readSourcePin } from '../notes/registry.mjs';

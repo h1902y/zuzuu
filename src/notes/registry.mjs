@@ -14,7 +14,7 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync, rmSync, statSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, createHash } from 'node:crypto';
 import { parse, serialize, idFromPath, slugify } from './note.mjs';
 import { listModules } from './module.mjs';
 import { homeDir } from './store.mjs';
@@ -85,6 +85,42 @@ export function findRefByPath(refs, path) {
  *  `refs/` carries no module.md, so it's never counted here. */
 export function readLibraryModules(home) {
   return listModules(home);
+}
+
+// ── vendored-module content + the source: pin (shared by grow/subscribe + use/check) ──
+
+const itemsOf = (home, module) => join(home, module, 'items');
+const moduleManifestOf = (home, module) => join(home, module, 'module.md');
+
+/** A deterministic, order-independent content digest of a module's item notes. */
+export function contentDigest(items) {
+  const h = createHash('sha256');
+  for (const it of [...items].sort((a, b) => a.id.localeCompare(b.id))) h.update(it.id + '\0' + serialize(it.note));
+  return 'sha256:' + h.digest('hex').slice(0, 16);
+}
+
+/** Read a module's item notes (parsed) from a home + their content digest. */
+export function moduleContent(home, module) {
+  const dir = itemsOf(home, module);
+  const items = [];
+  if (existsSync(dir)) {
+    for (const f of readdirSync(dir).filter((x) => x.endsWith('.md')).sort()) {
+      const id = f.replace(/\.md$/, '');
+      const { ok, note } = parse(readFileSync(join(dir, f), 'utf8'), { id });
+      if (ok) items.push({ id, note });
+    }
+  }
+  return { items, digest: contentDigest(items) };
+}
+
+/** Read a consuming project's `source:` pin for a module (null when not subscribed). */
+export function readSourcePin(home, module) {
+  const path = moduleManifestOf(home, module);
+  if (!existsSync(path)) return null;
+  try {
+    const { ok, note } = parse(readFileSync(path, 'utf8'), { id: module });
+    return ok && note.source && typeof note.source === 'object' ? note.source : null;
+  } catch { return null; }
 }
 
 // ── registry identity (project.md role:registry + identity) ───────────────────
