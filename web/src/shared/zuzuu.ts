@@ -67,6 +67,15 @@ export interface ModuleGenerationList {
   generations: GenerationSummary[];
 }
 
+/** GET /module/:key/schema — the module's declared typed-column schema. `schema` is
+ *  the CLI's `{ key, fields:[{name,type}] }` (source "cli") or the seeded home
+ *  schema.json (source "home") or null (absent); the client reads it tolerantly. */
+export interface ModuleSchema {
+  key: string;
+  schema: unknown;
+  source?: string;
+}
+
 // ── Module overview (ONE call for the whole panel root) ───────────────────────
 
 /** One module in GET /overview. The peek fallback (CLI absent) omits

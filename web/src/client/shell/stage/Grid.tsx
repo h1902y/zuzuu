@@ -2,15 +2,21 @@
 // the grid-columns core over the ListContext pull-model; a filter input + sortable
 // headers drive the list-state reducer; clicking a row selects it (→ the record stage).
 // Thin: all derivation is in grid-columns.ts / list-state.ts. Static utilities only.
+import { useQuery } from "@tanstack/react-query";
 import { NotesListProvider, useList } from "../../data/ListContext.js";
 import { gridColumns, cellValue } from "./grid-columns.js";
+import { fieldsFromSchema } from "./schema-fields.js";
+import { api } from "../../lib/api.js";
 import { useWorld } from "../world-state.js";
 import { Text } from "../../ds/index.js";
 
 function GridInner() {
   const { module, rows, total, loading, state, dispatch } = useList();
   const select = useWorld((s) => s.select);
-  const cols = gridColumns([], rows); // schemaless inference for v1 (declared fields → T2.5)
+  const schema = useQuery({ queryKey: ["zuzuu", "schema", module], queryFn: () => api.zuzuu.schema(module) });
+  // schema-aware (P2.2): declared module.md `fields` drive typed columns + ordering;
+  // a schemaless module (no fields) falls back to inferred columns from the rows.
+  const cols = gridColumns(fieldsFromSchema(schema.data?.schema), rows);
 
   return (
     <div className="flex h-full flex-col">

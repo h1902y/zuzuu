@@ -14,6 +14,7 @@ import type {
   ModuleGenerationList,
   ModuleItem,
   ModuleOverviewResponse,
+  ModuleSchema,
   ProjectState,
   ProjectsList,
   RecentsList,
@@ -101,6 +102,7 @@ export const api = {
     projectState: () => request<ProjectState>("/api/zuzuu/project-state"),
     module: (key: string) => request<ModuleDetail>(`/api/zuzuu/module/${key}`),
     item: (key: string, id: string) => request<ModuleItem>(`/api/zuzuu/module/${key}/item/${id}`),
+    schema: (key: string) => request<ModuleSchema>(`/api/zuzuu/module/${key}/schema`),
     generations: (key: string) => request<ModuleGenerationList>(`/api/zuzuu/module/${key}/generations`),
     // a write resolves to a PENDING proposal (a staged change), not a landed row — it
     // surfaces in the review queue and lands only on approve (the gate, as data-provider semantics).
