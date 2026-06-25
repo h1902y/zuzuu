@@ -23,6 +23,7 @@ import { Grid } from "./stage/Grid.js";
 import { Record } from "./stage/Record.js";
 import { ModuleGraph } from "./stage/ModuleGraph.js";
 import { BrainGraph } from "./graph/BrainGraph.js";
+import { Search } from "./search/Search.js";
 import { StageHeader } from "./stage/StageHeader.js";
 import { stageHeaderModel, newNoteId, resolveTab, type StageTab } from "./stage/stage-header.js";
 import { ReviewQueue } from "./review/ReviewQueue.js";
@@ -170,6 +171,8 @@ export function WorkbenchShell() {
               <Record module={selected.module} id={selected.id} />
             ) : sel.stage === "graph" ? (
               <BrainGraph />
+            ) : sel.stage === "search" ? (
+              <Search />
             ) : onboarding && pState ? (
               <Checklist state={pState} onRung={onRung} busy={busy} />
             ) : projectState.isLoading || overview.isLoading ? (
