@@ -52,7 +52,7 @@ export function Switcher() {
       {open && (
         <>
           <button type="button" aria-label="close" onClick={() => setOpen(false)} className="fixed inset-0 z-10 cursor-default" />
-          <div className="absolute left-0 top-full z-20 mt-1 w-72 rounded-ui border border-border bg-elevated p-2 shadow-lg">
+          <div className="animate-pop absolute left-0 top-full z-20 mt-1 w-72 rounded-ui border border-border bg-elevated p-2 shadow-overlay">
             <Stack gap="xs">
               <Text size="meta" tone="subtle" weight="semibold">SWITCH PROJECT</Text>
               {rows.map((row) => (
@@ -61,7 +61,7 @@ export function Switcher() {
                   type="button"
                   disabled={row.current}
                   onClick={() => switchTo(row.path)}
-                  className="flex w-full items-center justify-between gap-2 rounded-ui px-2 py-1 text-left text-ui text-subtle transition-colors hover:bg-hover hover:text-ink-100 disabled:cursor-default disabled:opacity-50"
+                  className="flex w-full items-center justify-between gap-2 rounded-ui px-2 py-1 text-left text-ui text-subtle transition-colors hover:bg-hover hover:text-ink-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-focus disabled:cursor-default disabled:opacity-50"
                 >
                   <span className="min-w-0 flex-1 truncate">{row.name}</span>
                   {row.current && <Text size="meta" tone="muted">current</Text>}

@@ -20,13 +20,13 @@ export function NewSessionMenu() {
       {open && (
         <>
           <button type="button" aria-label="close" onClick={() => setOpen(false)} className="fixed inset-0 z-10 cursor-default" />
-          <div className="absolute left-0 top-full z-20 mt-1 w-44 rounded-ui border border-border bg-elevated py-1 shadow-lg">
+          <div className="animate-pop absolute left-0 top-full z-20 mt-1 w-44 rounded-ui border border-border bg-elevated py-1 shadow-overlay">
             {items.map((it) => (
               <button
                 key={it.key}
                 type="button"
                 onClick={() => { void start(it.type, it.host); setOpen(false); }}
-                className="block w-full px-3 py-1.5 text-left text-ui text-subtle transition-colors hover:bg-hover hover:text-ink-100"
+                className="block w-full px-3 py-1.5 text-left text-ui text-subtle transition-colors hover:bg-hover hover:text-ink-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-focus"
               >
                 {it.label}
               </button>

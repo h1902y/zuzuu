@@ -20,7 +20,7 @@ function NavRow({ active, icon, label, badge, onClick }: {
     <button
       type="button"
       onClick={onClick}
-      className={`flex h-8 w-full items-center gap-2 rounded-ui px-2 text-left transition-colors ${active ? "bg-selected text-ink-100" : "text-subtle hover:bg-hover hover:text-ink-100"}`}
+      className={`flex h-8 w-full items-center gap-2 rounded-ui px-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-focus ${active ? "bg-selected text-ink-100" : "text-subtle hover:bg-hover hover:text-ink-100"}`}
     >
       <span className="flex shrink-0 items-center">{icon}</span>
       <span className="min-w-0 flex-1 truncate text-ui">{label}</span>

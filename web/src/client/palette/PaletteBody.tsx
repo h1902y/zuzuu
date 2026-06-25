@@ -30,7 +30,7 @@ export default function PaletteBody() {
       <Command
         label="Command palette"
         filter={(value, search) => { const s = fuzzyScore(search, value); return s === null ? 0 : 1 / (1 + s); }}
-        className="h-fit w-[560px] max-w-[90vw] overflow-hidden rounded-ui border border-border bg-elevated shadow-2xl"
+        className="animate-pop h-fit w-[560px] max-w-[90vw] overflow-hidden rounded-ui border border-border bg-elevated shadow-overlay"
         onClick={(e) => e.stopPropagation()}
       >
         <Command.Input
