@@ -3,7 +3,13 @@
 // (docs/brainstorms/2026-06-25-workbench-shell-requirements.md). The frame lives in
 // shell/WorkbenchShell; this is just the mount point.
 import { WorkbenchShell } from "../shell/WorkbenchShell.js";
+import { Toaster } from "../ds/index.js";
 
 export function App() {
-  return <WorkbenchShell />;
+  return (
+    <>
+      <WorkbenchShell />
+      <Toaster />
+    </>
+  );
 }

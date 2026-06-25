@@ -8,6 +8,7 @@ import { useEffect, useReducer, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../lib/api.js";
 import { pickerRows, openFolderReducer, initialOpenFolder } from "../switcher-model.js";
+import { toast } from "../../state/toast.js";
 import { Stack, Inline, Text } from "../../ds/index.js";
 
 export function Switcher() {
@@ -36,7 +37,7 @@ export function Switcher() {
 
   async function switchTo(path: string) {
     try { await api.switchWorkspace(path); window.location.reload(); } // in-place re-root → reload re-fetches all
-    catch { /* calm — stay put if the path was invalid */ }
+    catch { toast(`Couldn't open ${path}`, "error"); } // stay put on an invalid path
   }
 
   const rows = pickerRows(recents.data?.recents ?? []);

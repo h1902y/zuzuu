@@ -4,3 +4,4 @@
 // deleted in Phase D, alongside its old-client callers.
 export { Button } from "./Button.js";
 export type { ButtonProps } from "./Button.js";
+export { Toaster } from "./Toaster.js";

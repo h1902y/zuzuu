@@ -15,6 +15,7 @@ import { useWorld } from "./world-state.js";
 import { selectActors } from "./shell-state.js";
 import { homeMode, currentRung, type RungId } from "./project-home-state.js";
 import { useStartSession } from "./session/use-start-session.js";
+import { toast } from "../state/toast.js";
 import { Checklist } from "./onboarding/Checklist.js";
 import { Stack, Text } from "../ds/index.js";
 import { NavTree } from "./NavTree.js";
@@ -81,7 +82,7 @@ export function WorkbenchShell() {
       else if (r === "enable") await api.setup.enable();
       else if (r === "session") await startSession();
       // review: the by-doing handoff — the first proposal lands in the ribbon (R7)
-    } catch { /* calm: the next refetch reflects true state */ }
+    } catch { toast(`Couldn't ${r}`, "error"); }
     finally { setBusy(null); void qc.invalidateQueries({ queryKey: ["zuzuu"] }); }
   }
 

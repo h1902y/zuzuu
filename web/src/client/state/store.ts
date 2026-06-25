@@ -8,6 +8,7 @@
 import { create } from "zustand";
 import type { SessionInfo } from "#shared/index.js";
 import { api } from "../lib/api.js";
+import { toast } from "./toast.js";
 
 export type ConnStatus = "connecting" | "open" | "reconnecting" | "closed";
 
@@ -44,6 +45,7 @@ export const useWorkbench = create<WorkbenchState>((set, get) => ({
     const body = type === "agent" && host ? { type, command: host, host } : { type };
     const created = await api.createSession(body).catch(() => null);
     if (created) set((s) => ({ sessions: [...s.sessions, created], activeId: created.id }));
+    else toast(host ? `Couldn't start ${host}` : "Couldn't start a session", "error");
     return created;
   },
 
