@@ -14,7 +14,7 @@ export function ReviewQueue() {
   if (!total) return <div className="grid h-full place-items-center"><Inline gap="xs"><Icon icon={Check} size={14} /><Text tone="muted">all caught up</Text></Inline></div>;
 
   return (
-    <div className="h-full overflow-y-auto p-4">
+    <div className="h-full overflow-y-auto p-6">
       <Stack gap="md">
         <Text size="meta" tone="subtle" weight="semibold">REVIEW · {total} pending</Text>
         {Object.entries(grouped).map(([module, items]) => (

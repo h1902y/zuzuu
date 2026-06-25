@@ -14,7 +14,7 @@ function GridInner() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-2">
+      <div className="flex shrink-0 items-center gap-3 border-b border-border px-6 py-3">
         <input
           value={state.text}
           onChange={(e) => dispatch({ type: "setText", text: e.target.value })}
@@ -33,7 +33,7 @@ function GridInner() {
             <thead>
               <tr className="border-b border-border">
                 {cols.map((c) => (
-                  <th key={c.name} className={`px-4 py-2 ${c.align === "right" ? "text-right" : "text-left"}`}>
+                  <th key={c.name} className={`px-6 py-3 ${c.align === "right" ? "text-right" : "text-left"}`}>
                     <button
                       type="button"
                       onClick={() => dispatch({ type: "toggleSort", key: c.name })}
@@ -53,7 +53,7 @@ function GridInner() {
                   className="cursor-pointer border-b border-border transition-colors hover:bg-hover"
                 >
                   {cols.map((c) => (
-                    <td key={c.name} className={`max-w-xs truncate px-4 py-2 text-subtle ${c.align === "right" ? "text-right" : "text-left"}`}>
+                    <td key={c.name} className={`max-w-xs truncate px-6 py-3 text-subtle ${c.align === "right" ? "text-right" : "text-left"}`}>
                       {cellValue(row, c)}
                     </td>
                   ))}

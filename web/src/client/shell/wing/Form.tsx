@@ -47,7 +47,7 @@ function FormInner({ module, id, item }: { module: string; id: string; item: Mod
   }
 
   return (
-    <div className="h-full overflow-y-auto p-4">
+    <div className="h-full overflow-y-auto p-6">
       <Stack gap="md">
         <Text size="meta" tone="subtle" weight="semibold">EDIT</Text>
         <Stack gap="sm">

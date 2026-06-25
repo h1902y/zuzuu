@@ -25,10 +25,10 @@ export function Checklist({ state, onRung, busy }: {
   busy: RungId | null;
 }) {
   return (
-    <div className="h-full overflow-y-auto p-6">
-      <Stack gap="lg">
+    <div className="h-full overflow-y-auto p-10">
+      <Stack gap="xl">
         <Stack gap="xs">
-          <Text size="lg" font="display">Set up this Project</Text>
+          <Text size="xl" font="display">Set up this Project</Text>
           <Text size="ui" tone="muted">zuzuu grows a brain for this folder from how you work — every change human-gated.</Text>
         </Stack>
         <Stack gap="md">

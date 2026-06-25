@@ -20,8 +20,8 @@ export function Record({ module, id }: { module: string; id: string }) {
   const fields = Object.keys(rec).filter((k) => !HIDE.has(k) && rec[k] != null && typeof rec[k] !== "object");
 
   return (
-    <div className="h-full overflow-y-auto p-6">
-      <Stack gap="lg">
+    <div className="h-full overflow-y-auto p-10">
+      <Stack gap="xl">
         <Stack gap="xs">
           <Inline gap="sm">
             <Text size="meta" tone="muted">{item.kind}</Text>

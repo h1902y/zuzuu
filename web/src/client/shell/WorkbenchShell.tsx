@@ -45,16 +45,16 @@ function Placeholder({ label }: { label: string }) {
 
 function Overview({ modules, onPick }: { modules: ModuleOverviewEntry[]; onPick: (id: string) => void }) {
   return (
-    <div className="h-full overflow-y-auto p-6">
-      <Stack gap="md">
-        <Text size="lg" font="display">The database</Text>
-        <div className="grid grid-cols-3 gap-3">
+    <div className="h-full overflow-y-auto p-10">
+      <Stack gap="xl">
+        <Text size="xl" font="display">The database</Text>
+        <div className="grid grid-cols-3 gap-5">
           {modules.map((m) => (
             <button
               key={m.id}
               type="button"
               onClick={() => onPick(m.id)}
-              className="flex flex-col gap-1 rounded-ui border border-border bg-elevated p-3 text-left transition-colors hover:border-accent-dim"
+              className="flex flex-col gap-2 rounded-lg border border-border bg-elevated p-5 text-left transition-colors hover:border-accent-dim"
             >
               <Inline gap="xs"><Icon icon={Table2} size={14} /><Text weight="medium">{m.title}</Text></Inline>
               <Inline gap="xs">
@@ -128,7 +128,7 @@ export function WorkbenchShell() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-8 shrink-0 items-center gap-2 border-b border-border bg-surface px-3">
+      <div className="flex h-12 shrink-0 items-center gap-3 border-b border-border bg-surface px-5">
         <Text as="button" interactive size="meta" tone="muted" onClick={() => setPalette(true)}>⌘K</Text>
         <Text as="button" interactive size="meta" tone="subtle" onClick={() => select(null)}>{sel.crumb.length ? sel.crumb.join(" › ") : "the database"}</Text>
         <div className="ml-auto"><ThemeToggle /></div>
@@ -157,7 +157,7 @@ export function WorkbenchShell() {
         </main>
 
         {sel.wing !== "none" && (
-          <aside className="hidden w-80 shrink-0 flex-col border-l border-border bg-surface xl:flex">
+          <aside className="hidden w-96 shrink-0 flex-col border-l border-border bg-surface xl:flex">
             {sel.wing === "review" ? (
               <ReviewQueue />
             ) : sel.wing === "form" && selected?.kind === "row" ? (

@@ -23,7 +23,7 @@ export function Schema({ module }: { module: string }) {
   const data = q.data;
 
   return (
-    <div className="h-full overflow-y-auto p-4">
+    <div className="h-full overflow-y-auto p-6">
       <Stack gap="md">
         <Text size="meta" tone="subtle" weight="semibold">GENERATIONS</Text>
         {!data || !data.generations.length ? (

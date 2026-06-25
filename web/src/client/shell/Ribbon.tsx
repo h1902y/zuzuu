@@ -12,7 +12,7 @@ export function Ribbon({
   const liveTone = setupHint ? "subtle" : r.liveness ? "accent" : "muted";
   const pendTone = r.pending ? "default" : "muted";
   return (
-    <div className="flex h-8 shrink-0 items-center justify-between border-t border-border bg-app px-3">
+    <div className="flex h-10 shrink-0 items-center justify-between border-t border-border bg-app px-5">
       <Inline gap="sm">
         <Inline gap="xs">
           <Text tone={liveTone}><Icon icon={Circle} size={11} fill={r.liveness && !setupHint ? "currentColor" : "none"} /></Text>

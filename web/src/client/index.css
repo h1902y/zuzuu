@@ -62,16 +62,16 @@
   --color-mod-instructions: #879a39; /* sage  */
   --color-mod-guardrails: #da702c;   /* terracotta */
 
-  /* the type scale — dense tiers (meta/ui/body) + real headings (sm…2xl). Weight is
-     the primary hierarchy lever; size carries the rest. */
-  --text-meta: 0.6875rem; /* 11px — labels, captions */
-  --text-ui: 0.75rem; /* 12px — dense UI / table cells */
-  --text-body: 0.8125rem; /* 13px — body */
-  --text-sm: 0.875rem; /* 14px */
-  --text-base: 1rem; /* 16px — section titles */
-  --text-lg: 1.25rem; /* 20px — headings */
-  --text-xl: 1.5rem; /* 24px */
-  --text-2xl: 1.875rem; /* 30px — hero/display */
+  /* the type scale — GENEROUS / editorial (MARVIN). Bigger, confident tiers; weight
+     is the primary hierarchy lever, size carries the rest. */
+  --text-meta: 0.75rem; /* 12px — labels, captions */
+  --text-ui: 0.875rem; /* 14px — UI / rows / table cells */
+  --text-body: 0.9375rem; /* 15px — body */
+  --text-sm: 1rem; /* 16px */
+  --text-base: 1.125rem; /* 18px — section titles */
+  --text-lg: 1.375rem; /* 22px — headings */
+  --text-xl: 1.75rem; /* 28px */
+  --text-2xl: 2.25rem; /* 36px — hero/display */
 
   --radius-sm: 4px;
   --radius-ui: 6px;
