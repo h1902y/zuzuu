@@ -1,7 +1,6 @@
-// shell/session/use-start-session.ts — start a session AND land in it. This is the
-// missing bridge: store.open() creates the session and sets `activeId` (which the
-// Stage+Wings shell never reads), but the stage is driven by useWorld.selected. So
-// after open() resolves we select the new session, so the user is redirected into it.
+// shell/session/use-start-session.ts — start a session AND land in it. store.open()
+// only appends to the session list; the stage is driven by useWorld.selected. So
+// after open() resolves we select the new session, redirecting the user into it.
 import { useCallback } from "react";
 import type { SessionInfo } from "#shared/index.js";
 import { useWorkbench } from "../../state/store.js";
