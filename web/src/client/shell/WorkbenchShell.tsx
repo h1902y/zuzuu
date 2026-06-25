@@ -23,7 +23,7 @@ import { ReviewQueue } from "./review/ReviewQueue.js";
 import { Form } from "./wing/Form.js";
 import { Schema } from "./wing/Schema.js";
 import { Palette } from "../palette/Palette.js";
-import { Loading } from "../ds/index.js";
+import { Loading, ThemeToggle } from "../ds/index.js";
 import { useReview } from "../state/review.js";
 import { Stack, Text } from "../ds/index.js";
 import { NavTree } from "./NavTree.js";
@@ -127,6 +127,7 @@ export function WorkbenchShell() {
       <div className="flex h-8 shrink-0 items-center gap-2 border-b border-border bg-surface px-3">
         <Text as="button" interactive size="meta" tone="muted" onClick={() => setPalette(true)}>⌘K</Text>
         <Text as="button" interactive size="meta" tone="subtle" onClick={() => select(null)}>{sel.crumb.length ? sel.crumb.join(" › ") : "the database"}</Text>
+        <div className="ml-auto"><ThemeToggle /></div>
       </div>
 
       <div className="flex min-h-0 flex-1">
