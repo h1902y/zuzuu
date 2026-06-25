@@ -25,8 +25,8 @@ import { validateProject } from '../use/check.mjs';
 import { runWorkflow } from '../use/workflow.mjs';
 import { generations, rollback, diffGenerations, notesAsOf } from '../notes/generation.mjs';
 import { timeline } from './timeline.mjs';
-import { readProjectRefs, readLibraryModules, registryIdentity } from '../notes/registry.mjs';
-import { activeRegistryPath } from '../notes/registry-pointer.mjs';
+import { readProjectRefs, readLibraryModules, registryIdentity, mintRegistry, newIdentity, addProject, syncRegistry } from '../notes/registry.mjs';
+import { activeRegistryPath, setActiveRegistry } from '../notes/registry-pointer.mjs';
 
 /**
  * Open the Project rooted at `cwd` (git-citizen: the `.zuzuu/` at the repo root).
@@ -86,6 +86,33 @@ export function open(cwd = process.cwd()) {
       refs: () => { const h = activeRegistryPath(); return h ? readProjectRefs(h) : []; },
       library: () => { const h = activeRegistryPath(); return h ? readLibraryModules(h) : []; },
       identity: () => { const h = activeRegistryPath(); return h ? registryIdentity(h) : null; },
+
+      // make THIS project's repo a registry + set it active (U4).
+      init: ({ title } = {}) => {
+        const id = newIdentity();
+        mintRegistry(home, id, title ? { title } : {});
+        setActiveRegistry(id, home);
+        return { identity: id, home };
+      },
+      // add a project (at `path`) to the active registry; dedupe by remote (U4).
+      add: (path) => {
+        const h = activeRegistryPath();
+        if (!h) throw new Error('no active registry — run `zz registry init` first');
+        return { handle: addProject(h, path) };
+      },
+      // refresh health stamps + commit the registry repo (U4).
+      sync: () => {
+        const h = activeRegistryPath();
+        if (!h) throw new Error('no active registry — run `zz registry init` first');
+        return syncRegistry(h);
+      },
+      // a status summary (U4).
+      status: () => {
+        const h = activeRegistryPath();
+        if (!h) return { configured: false, identity: null, projects: 0, refs: [] };
+        const refs = readProjectRefs(h);
+        return { configured: true, identity: registryIdentity(h), home: h, projects: refs.length, refs };
+      },
     },
   };
 }
