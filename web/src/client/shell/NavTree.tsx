@@ -8,6 +8,7 @@ import { useWorld } from "./world-state.js";
 import { mostRecentlyActive } from "./shell-state.js";
 import { shouldShowSetupNode } from "./project-home-state.js";
 import { Switcher } from "./switcher/Switcher.js";
+import { NewSessionMenu } from "./session/NewSessionMenu.js";
 import { Stack, Text } from "../ds/index.js";
 
 function NavRow({ active, dot, label, badge, onClick }: {
@@ -28,7 +29,6 @@ function NavRow({ active, dot, label, badge, onClick }: {
 
 export function NavTree() {
   const sessions = useWorkbench((s) => s.sessions);
-  const open = useWorkbench((s) => s.open);
   const selected = useWorld((s) => s.selected);
   const select = useWorld((s) => s.select);
   const overview = useQuery({ queryKey: ["zuzuu", "overview"], queryFn: api.zuzuu.overview });
@@ -58,7 +58,7 @@ export function NavTree() {
             onClick={() => select({ kind: "session", id: s.id })}
           />
         ))}
-        <Text as="button" size="meta" tone="muted" onClick={() => void open("shell")}>+ new session</Text>
+        <NewSessionMenu />
       </Stack>
 
       <Stack gap="xs">

@@ -14,6 +14,7 @@ import { useWorkbench } from "../state/store.js";
 import { useWorld } from "./world-state.js";
 import { selectActors } from "./shell-state.js";
 import { homeMode, currentRung, type RungId } from "./project-home-state.js";
+import { useStartSession } from "./session/use-start-session.js";
 import { Checklist } from "./onboarding/Checklist.js";
 import { Stack, Text } from "../ds/index.js";
 import { NavTree } from "./NavTree.js";
@@ -63,7 +64,7 @@ export function WorkbenchShell() {
   const refresh = useWorkbench((s) => s.refresh);
   const selected = useWorld((s) => s.selected);
   const select = useWorld((s) => s.select);
-  const open = useWorkbench((s) => s.open);
+  const startSession = useStartSession();
   const overview = useQuery({ queryKey: ["zuzuu", "overview"], queryFn: api.zuzuu.overview });
   const projectState = useQuery({ queryKey: ["zuzuu", "project-state"], queryFn: api.zuzuu.projectState });
   const qc = useQueryClient();
@@ -78,7 +79,7 @@ export function WorkbenchShell() {
       if (r === "git-init") await api.setup.gitInit();
       else if (r === "init") await api.setup.init();
       else if (r === "enable") await api.setup.enable();
-      else if (r === "session") await open();
+      else if (r === "session") await startSession();
       // review: the by-doing handoff — the first proposal lands in the ribbon (R7)
     } catch { /* calm: the next refetch reflects true state */ }
     finally { setBusy(null); void qc.invalidateQueries({ queryKey: ["zuzuu"] }); }
