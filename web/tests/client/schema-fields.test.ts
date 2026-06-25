@@ -21,9 +21,23 @@ describe("fieldsFromSchema", () => {
       { name: "ok", type: "date" },
     ]);
   });
-  it("a non-fields schema → [] (schemaless fallback)", () => {
+  it("reads a home JSON-Schema's properties → typed FieldDefs", () => {
+    const jsonSchema = {
+      type: "object",
+      properties: { title: { type: "string" }, weight: { type: "integer" }, done: { type: "boolean" }, tags: { type: "array" } },
+      required: ["title"],
+    };
+    expect(fieldsFromSchema(jsonSchema)).toEqual([
+      { name: "title", type: "text", required: true },
+      { name: "weight", type: "number" },
+      { name: "done", type: "bool" },
+      { name: "tags", type: "multi" },
+    ]);
+  });
+  it("a schema with neither fields nor properties → [] (schemaless fallback)", () => {
     expect(fieldsFromSchema(null)).toEqual([]);
     expect(fieldsFromSchema({ type: "object", properties: {} })).toEqual([]);
+    expect(fieldsFromSchema({ type: "string" })).toEqual([]);
     expect(fieldsFromSchema(undefined)).toEqual([]);
   });
 });
