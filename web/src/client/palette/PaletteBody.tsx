@@ -26,7 +26,7 @@ export default function PaletteBody() {
   const run = (fn: () => void) => () => { fn(); close(); };
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-center bg-black/40 pt-[12vh]" onClick={close}>
+    <div className="animate-fade fixed inset-0 z-50 flex justify-center bg-scrim pt-[12vh]" onClick={close}>
       <Command
         label="Command palette"
         filter={(value, search) => { const s = fuzzyScore(search, value); return s === null ? 0 : 1 / (1 + s); }}

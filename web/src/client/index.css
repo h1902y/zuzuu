@@ -79,6 +79,8 @@
 
   /* subtle lift for overlays (dialogs/popovers) — warm, never a pure-black shadow */
   --shadow-overlay: 0 8px 30px -8px rgb(0 0 0 / 0.45);
+  /* a warm-dark scrim behind modals — SAME in both themes (dims light + dark content) */
+  --color-scrim: rgb(28 27 26 / 0.55);
   --height-bar: 34px;
 }
 
