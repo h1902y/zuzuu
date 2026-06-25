@@ -19,11 +19,11 @@ const UNIVERSAL = ['query', 'check'];
 /**
  * Read a module's manifest. Fail-soft: a missing/broken manifest yields a
  * minimal default (id only), never throws.
- * @returns {{ id, title, note_type, goal, policy, capabilities }}
+ * @returns {{ id, title, note_type, goal, policy, capabilities, fields }}
  */
 export function readManifest(home, module) {
   const path = manifestPath(home, module);
-  const fallback = { id: module, title: module, note_type: null, goal: null, policy: null, capabilities: UNIVERSAL.slice() };
+  const fallback = { id: module, title: module, note_type: null, goal: null, policy: null, capabilities: UNIVERSAL.slice(), fields: [] };
   if (!existsSync(path)) return fallback;
   const { ok, note } = parse(readFileSync(path, 'utf8'), { id: module });
   if (!ok || !note) return { ...fallback, manifestError: 'unparseable module.md' };
@@ -35,6 +35,9 @@ export function readManifest(home, module) {
     goal: note.goal ?? note.enhance?.goal ?? null,
     policy: note.policy ?? null,
     capabilities: capabilitiesOf(note),
+    // the optional typed-column schema (KTD5): absent ⇒ [] (schemaless cards);
+    // present ⇒ a typed table. Tolerant — the parser holds it round-trip-exact.
+    fields: Array.isArray(note.fields) ? note.fields : [],
   };
 }
 
