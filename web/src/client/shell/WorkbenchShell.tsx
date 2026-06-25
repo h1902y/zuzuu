@@ -20,8 +20,9 @@ import { Checklist } from "./onboarding/Checklist.js";
 import { Overview } from "./overview/Overview.js";
 import { Grid } from "./stage/Grid.js";
 import { Record } from "./stage/Record.js";
+import { ModuleGraph } from "./stage/ModuleGraph.js";
 import { StageHeader } from "./stage/StageHeader.js";
-import { stageHeaderModel, newNoteId } from "./stage/stage-header.js";
+import { stageHeaderModel, newNoteId, resolveTab, type StageTab } from "./stage/stage-header.js";
 import { ReviewQueue } from "./review/ReviewQueue.js";
 import { Form } from "./wing/Form.js";
 import { Schema } from "./wing/Schema.js";
@@ -58,6 +59,7 @@ export function WorkbenchShell() {
   const projectState = useQuery({ queryKey: ["zuzuu", "project-state"], queryFn: api.zuzuu.projectState });
   const qc = useQueryClient();
   const [busy, setBusy] = useState<RungId | null>(null);
+  const [moduleView, setModuleView] = useState<string>("table"); // the module stage's Table·Graph tab (P2.7)
   const reviewOpen = useReview((s) => s.open);
   const setReview = useReview((s) => s.setOpen);
   const setPalette = useWorld((s) => s.setPalette);
@@ -124,6 +126,10 @@ export function WorkbenchShell() {
     header.primary?.key === "new-note" && selected?.kind === "module"
       ? { label: "New note", icon: Plus, onClick: () => void onNewNote(selected.id) }
       : null;
+  // the module stage's Table·Graph tabs (P2.7); the session stage's tabs are P2.8.
+  const MODULE_TABS: StageTab[] = [{ key: "table", label: "Table" }, { key: "graph", label: "Graph" }];
+  const stageTabs = selected?.kind === "module" ? MODULE_TABS : undefined;
+  const activeModuleTab = resolveTab(MODULE_TABS, moduleView);
 
   return (
     <div className="flex h-full flex-col">
@@ -136,7 +142,9 @@ export function WorkbenchShell() {
         <NavTree />
 
         <main className="flex min-w-0 flex-1 flex-col bg-app">
-          {header.show && <StageHeader crumb={stageCrumb} primary={stagePrimary} />}
+          {header.show && (
+            <StageHeader crumb={stageCrumb} primary={stagePrimary} tabs={stageTabs} activeTab={activeModuleTab} onTab={setModuleView} />
+          )}
           <div className="flex min-h-0 flex-1 flex-col">
             {sel.stage === "terminal" && sessionNode ? (
               <>
@@ -144,7 +152,7 @@ export function WorkbenchShell() {
                 {activeSession?.type === "agent" && <Composer key={sessionNode.id} sessionId={sessionNode.id} />}
               </>
             ) : sel.stage === "grid" && selected?.kind === "module" ? (
-              <Grid module={selected.id} />
+              activeModuleTab === "graph" ? <ModuleGraph module={selected.id} /> : <Grid module={selected.id} />
             ) : sel.stage === "record" && selected?.kind === "row" ? (
               <Record module={selected.module} id={selected.id} />
             ) : onboarding && pState ? (
