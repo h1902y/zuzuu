@@ -71,6 +71,13 @@ export function WorkbenchShell() {
 
   useEffect(() => { void refresh(); }, [refresh]); // load sessions; home is the database (no auto-open)
 
+  // Reset each stage's tab when the SELECTION changes, so a tab choice (Graph /
+  // Changes) never leaks to the next module/session (it's a per-node view, not global).
+  const moduleId = selected?.kind === "module" ? selected.id : null;
+  const sessionId = selected?.kind === "session" ? selected.id : null;
+  useEffect(() => { setModuleView("table"); }, [moduleId]);
+  useEffect(() => { setSessionView("terminal"); }, [sessionId]);
+
   // Global shortcuts: ⌘K opens the omnibar; R toggles the review gate (unless typing / in a terminal).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
