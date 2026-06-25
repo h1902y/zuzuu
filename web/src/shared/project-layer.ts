@@ -58,9 +58,22 @@ export interface ProjectSummary {
   guarded: boolean;
   /** newest .zuzuu mtime (ms epoch), 0 when unknown. */
   lastActivityMs: number;
+  // ── registry-backed rows (the durable index; absent on recents-backed rows) ──
+  /** how this row was sourced — the daemon's fallback ladder. */
+  source?: "registry" | "recents";
+  /** committed group/workspace tags (registry-backed rows only). */
+  groups?: string[];
+  /** 'auto' (opened) vs 'pinned' (explicitly added) — registry-backed rows. */
+  tracked?: "auto" | "pinned";
+  /** the bound git remote (cloneable), absent for local-only projects. */
+  remote?: string;
+  /** false for a local-only project that won't travel when the registry is cloned. */
+  portable?: boolean;
 }
 
 export interface ProjectsList {
+  /** which source the daemon's fallback ladder selected (registry → recents). */
+  source: "registry" | "recents";
   projects: ProjectSummary[];
 }
 

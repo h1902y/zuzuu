@@ -37,9 +37,10 @@ export function registryCommand(args, cwd, log) {
     }
     case 'status': {
       const s = zz.registry.status();
+      // JSON carries the FULL refs (the daemon consumes them); TOON shows a slim view.
       const rows = s.refs.map((r) => ({ handle: r.id, tracked: r.tracked ?? 'auto', remote: r.remote ?? '(local)' }));
       emit(
-        { configured: s.configured, identity: s.identity, projects: s.projects, refs: rows },
+        s, // { configured, identity, home, projects, refs: full[] }
         'registry',
         rows.length ? rows : [{ configured: s.configured, projects: s.projects }],
         rows.length ? ['handle', 'tracked', 'remote'] : ['configured', 'projects'],

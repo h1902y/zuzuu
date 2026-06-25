@@ -102,7 +102,8 @@ test('local-only project (no remote) → portable false; add without init → so
     const local = td('zz-local-'); // a plain dir, no git, no remote
     await zz(['registry', 'add', local, '--json'], reg);
     const st = JSON.parse((await zz(['registry', 'status', '--json'], reg)).out);
-    assert.equal(st.refs[0].remote, '(local)'); // status renders no-remote as (local)
+    assert.equal(st.refs[0].remote, undefined); // full ref: local-only has no remote
+    assert.equal(st.refs[0].portable, false);   // and won't travel
     rmSync(reg, { recursive: true, force: true });
     rmSync(local, { recursive: true, force: true });
   });
