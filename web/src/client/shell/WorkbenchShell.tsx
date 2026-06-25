@@ -22,6 +22,7 @@ import { Record } from "./stage/Record.js";
 import { ReviewQueue } from "./review/ReviewQueue.js";
 import { Form } from "./wing/Form.js";
 import { Schema } from "./wing/Schema.js";
+import { Palette } from "../palette/Palette.js";
 import { useReview } from "../state/review.js";
 import { Stack, Text } from "../ds/index.js";
 import { NavTree } from "./NavTree.js";
@@ -78,12 +79,14 @@ export function WorkbenchShell() {
   const [busy, setBusy] = useState<RungId | null>(null);
   const reviewOpen = useReview((s) => s.open);
   const setReview = useReview((s) => s.setOpen);
+  const setPalette = useWorld((s) => s.setPalette);
 
   useEffect(() => { void refresh(); }, [refresh]); // load sessions; home is the database (no auto-open)
 
-  // The gate's global shortcut: R toggles the review overlay (unless typing / in a terminal).
+  // Global shortcuts: ⌘K opens the omnibar; R toggles the review gate (unless typing / in a terminal).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setPalette(true); return; }
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const el = e.target as HTMLElement;
       if (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable) return;
@@ -92,7 +95,7 @@ export function WorkbenchShell() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [setReview]);
+  }, [setReview, setPalette]);
 
   // Fire a real setup verb, then refetch so the home advances on TRUE state (D4).
   async function onRung(r: RungId) {
@@ -121,6 +124,7 @@ export function WorkbenchShell() {
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-8 shrink-0 items-center gap-2 border-b border-border bg-surface px-3">
+        <Text as="button" size="meta" tone="muted" onClick={() => setPalette(true)}>⌘K</Text>
         <Text as="button" size="meta" tone="subtle" onClick={() => select(null)}>{sel.crumb.length ? sel.crumb.join(" › ") : "the database"}</Text>
       </div>
 
@@ -169,6 +173,8 @@ export function WorkbenchShell() {
           </div>
         </>
       )}
+
+      <Palette />
     </div>
   );
 }
