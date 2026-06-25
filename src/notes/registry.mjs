@@ -83,3 +83,43 @@ export function findRefByPath(refs, path) {
 export function readLibraryModules(home) {
   return listModules(home);
 }
+
+// ── registry identity (project.md role:registry + identity) ───────────────────
+
+const registryManifestPath = (home) => join(home, 'project.md');
+
+/** Parse the registry's `project.md`, or null when absent/unparseable. Fail-soft. */
+function readRegistryManifest(home) {
+  const path = registryManifestPath(home);
+  if (!existsSync(path)) return null;
+  try {
+    const { ok, note } = parse(readFileSync(path, 'utf8'), { id: 'project' });
+    return ok ? note : null;
+  } catch { return null; }
+}
+
+/** True when `home` is a `role: registry` repo. */
+export function isRegistry(home) {
+  const m = readRegistryManifest(home);
+  return !!(m && m.role === 'registry');
+}
+
+/** The registry's stable, URL-independent identity, or null when not a registry. */
+export function registryIdentity(home) {
+  const m = readRegistryManifest(home);
+  return m && m.role === 'registry' ? (m.identity ?? null) : null;
+}
+
+/** Mint a `role: registry` `project.md` carrying `identity` (caller supplies the slug
+ *  so tests stay deterministic). Idempotent — an existing registry keeps its identity. */
+export function mintRegistry(home, identity, { title = 'Registry' } = {}) {
+  const existing = readRegistryManifest(home);
+  if (existing && existing.role === 'registry' && existing.identity) return existing.identity;
+  mkdirSync(home, { recursive: true });
+  const note = {
+    id: 'project', type: 'project', title, role: 'registry', identity,
+    body: 'A registry — a binding manifest of project refs + a library of shared modules. Not an aggregate brain.',
+  };
+  writeFileSync(registryManifestPath(home), serialize(note));
+  return identity;
+}

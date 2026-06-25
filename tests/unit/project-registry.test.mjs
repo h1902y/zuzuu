@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import {
   normalizeRemote, readProjectRefs, writeProjectRef, removeProjectRef,
   findRefByRemote, findRefByPath, readLibraryModules,
+  mintRegistry, registryIdentity, isRegistry,
 } from '../../src/notes/registry.mjs';
 import { readProject } from '../../src/notes/project.mjs';
 
@@ -106,4 +107,28 @@ test('readProject surfaces role: registry; ordinary project → role null', () =
   assert.equal(readProject(h2).role, null);
   rmSync(h, { recursive: true, force: true });
   rmSync(h2, { recursive: true, force: true });
+});
+
+// ── registry identity (mint is idempotent; caller supplies the slug) ──────────
+
+test('mintRegistry writes role:registry + identity; idempotent; readback', () => {
+  const h = home();
+  assert.equal(isRegistry(h), false);
+  const id = mintRegistry(h, 'reg-fixed-001', { title: 'My Registry' });
+  assert.equal(id, 'reg-fixed-001');
+  assert.equal(isRegistry(h), true);
+  assert.equal(registryIdentity(h), 'reg-fixed-001');
+  assert.equal(readProject(h).role, 'registry');
+  // idempotent: a second mint with a different slug keeps the original identity
+  assert.equal(mintRegistry(h, 'reg-other-999'), 'reg-fixed-001');
+  assert.equal(registryIdentity(h), 'reg-fixed-001');
+  rmSync(h, { recursive: true, force: true });
+});
+
+test('registryIdentity/isRegistry on a non-registry project → null/false', () => {
+  const h = home();
+  writeFileSync(join(h, 'project.md'), '---\ntype: project\ntitle: Plain\n---\nx');
+  assert.equal(isRegistry(h), false);
+  assert.equal(registryIdentity(h), null);
+  rmSync(h, { recursive: true, force: true });
 });
