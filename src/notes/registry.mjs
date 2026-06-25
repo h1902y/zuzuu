@@ -113,6 +113,16 @@ export function moduleContent(home, module) {
   return { items, digest: contentDigest(items) };
 }
 
+// ── the publish seam (pre-wired, inert in OSS — U10 / KTD-8) ──────────────────
+
+/** Resolve the repos a publish would fan out to, scoped by tier. The ONE seam an
+ *  Enterprise tier swaps (org membership + a GitHub App) — in OSS it resolves to
+ *  YOUR OWN repos (the registry's project-refs). Shape only; OSS publish is inert. */
+export function resolveSubscribers(registryHome, tier = 'oss') {
+  if (tier !== 'oss') throw new Error(`tier '${tier}' is Enterprise-gated`);
+  return readProjectRefs(registryHome).map((r) => r.path).filter(Boolean);
+}
+
 /** Read a consuming project's `source:` pin for a module (null when not subscribed). */
 export function readSourcePin(home, module) {
   const path = moduleManifestOf(home, module);

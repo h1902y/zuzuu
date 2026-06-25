@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { run } from '../../src/cli/index.mjs';
 import { resetCapabilities } from '../../src/serve/wire.mjs';
+import { resolveSubscribers, writeProjectRef, mintRegistry } from '../../src/notes/registry.mjs';
 
 const td = (p) => mkdtempSync(join(tmpdir(), p));
 const sh = (args, cwd) => spawnSync('git', args, { cwd, encoding: 'utf8' });
@@ -104,5 +105,28 @@ test('local-only project (no remote) → portable false; add without init → so
     assert.equal(st.refs[0].remote, '(local)'); // status renders no-remote as (local)
     rmSync(reg, { recursive: true, force: true });
     rmSync(local, { recursive: true, force: true });
+  });
+});
+
+// ── U10: the pre-wired publish seam (inert in OSS) ────────────────────────────
+
+test('resolveSubscribers(oss) → own repos; other tiers throw', () => {
+  const reg = td('zz-subs-');
+  mintRegistry(reg, 'reg-s');
+  writeProjectRef(reg, { handle: 'a', remote: 'github.com/me/a', path: '/p/a' });
+  writeProjectRef(reg, { handle: 'b', path: '/p/b' });
+  assert.deepEqual(resolveSubscribers(reg, 'oss').sort(), ['/p/a', '/p/b']);
+  assert.throws(() => resolveSubscribers(reg, 'enterprise'), /Enterprise-gated/);
+  rmSync(reg, { recursive: true, force: true });
+});
+
+test('zz registry publish → soft Enterprise-gated error (no fan-out in OSS)', async () => {
+  await withCfg(async () => {
+    const reg = gitRepo();
+    await zz(['registry', 'init', '--json'], reg);
+    const r = await zz(['registry', 'publish', 'house-style', '--json'], reg);
+    assert.equal(r.code, 1);
+    assert.match(JSON.parse(r.out).error, /Enterprise-gated/);
+    rmSync(reg, { recursive: true, force: true });
   });
 });

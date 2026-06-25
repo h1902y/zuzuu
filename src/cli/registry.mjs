@@ -46,6 +46,10 @@ export function registryCommand(args, cwd, log) {
       );
       return 0;
     }
+    case 'publish':
+      // pre-wired seam, inert in OSS (KTD-8 — the cannibalization guard). The verb +
+      // resolveSubscribers shape exist so an Enterprise tier swaps scope+auth only.
+      return fail('publish/fan-out is Enterprise-gated — not available in OSS');
     default:
       return fail('usage: zz registry [init | add <path> | sync | status]');
   }
