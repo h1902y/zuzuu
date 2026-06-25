@@ -18,6 +18,7 @@ research. **Read `05` first**; the rest is its evidence base. Generated 2026-06-
 | 03 | [`03-js-library-landscape.md`](03-js-library-landscape.md) | the full JS/TS library landscape per viz class, license + bundle + perf scored | MIT/ISC/BSD/Apache only; `React.lazy()` + Vite `manualChunks` keeps it off the initial bundle |
 | 04 | [`04-query-layer.md`](04-query-layer.md) | filesystem/bash → DB-query equivalents (recutils · Dataview DQL · SQL-over-files · graph/GRIP) + the workbench query UX | keep `node:sqlite`; native filter-chips + saved views; GRIP isn't a real query language |
 | 06 | [`06-crud-app-inspiration.md`](06-crud-app-inspiration.md) | Refine.dev + open-source CRUD-to-app / DB-as-app / headless-CMS / internal-tool projects, mapped to our build | Refine `DataProvider` over the `zz` CLI; writes resolve to a *pending proposal* (the gate); one `FieldType` registry drives grid+form |
+| 07 | [`07-ui-component-foundation.md`](07-ui-component-foundation.md) | the React UI foundation — headless primitives (shadcn/Radix/React-Aria) vs batteries libs; how React-Admin/dashboards are structured | own a copy-owned shadcn/Radix kit (no batteries lib); ListContext pull-model + one `<WorkbenchShell>` per world |
 
 ## How to use this for the build phase
 

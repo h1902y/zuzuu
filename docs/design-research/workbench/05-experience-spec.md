@@ -295,6 +295,25 @@ everything else composes over:
 This pair — the proposal-returning data provider + the field registry — is the first code to write;
 the worlds and surfaces below hang off it.
 
+**The component foundation — own a small kit** (from [`07`](07-ui-component-foundation.md)). **No
+component library as a runtime dependency** — every batteries lib (MUI / Mantine / AntD / Chakra)
+fights Tailwind v4 *and* the Notion-calm aesthetic. Seed a **copy-owned kit** from the **shadcn/ui
+CLI** over **Radix** primitives (+ **Base UI** for Radix's gaps, e.g. Combobox) — both MIT,
+Tailwind-v4 + React-19 native, `eject`-able (no package left behind). The only true npm UI deps stay
+**headless + style-free**: **TanStack Table** (+ Virtual) for the grid, **cmdk** for the palette;
+lazy-load **React Aria `Table`** on the grid route and **Recharts** behind chart routes only.
+
+**The shell composition** — adopt React-Admin/Refine *patterns in-repo* (never import them; they
+pull MUI):
+- **one `<WorkbenchShell>`** that switches *context* per world — Refine's "same layout, different
+  context" → our **Work ⇄ Brain**.
+- a **`ListContext` pull-model**: one `<NotesListProvider>` owns filter/sort/pagination; the grid,
+  filter-chips, and the record side-panel *consume* it (no prop-drilling).
+- a **ListBase / ShowBase split** (data shell → chrome shell → row iterator; the record side-panel
+  is the ShowBase analog).
+- **Resource = route + view-set** — each Brain module maps to a `module/:id` page.
+- the **command palette as a root-shell primitive** (⌘K).
+
 Today (`app/App.tsx`): a 3-pane shell — `Sidebar (files) | SessionTabs + TermView + Composer |
 RightPanel (editor ⇆ modules dashboard)`. The evolution:
 
@@ -324,6 +343,8 @@ the initial bundle):
 | query | the existing `node:sqlite` index (no new dep) |
 | data layer | a custom **`zz`-CLI `DataProvider`** (proposal-returning writes) + a **`FieldType` registry** (one map → grid + form + graduation) |
 | grid (alt) | `@supabase/react-data-grid` — MIT, headless, virtualized — if TanStack Table's headless boilerplate is heavier than wanted |
+| component kit | **own it** — shadcn/ui CLI over Radix (+ Base UI for gaps), copy-owned, no runtime dep; **avoid** every batteries lib (fights Tailwind v4 + Notion-calm) |
+| command palette | `cmdk` (root-shell primitive) |
 
 ---
 
