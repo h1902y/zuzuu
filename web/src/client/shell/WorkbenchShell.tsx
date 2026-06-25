@@ -1,0 +1,101 @@
+// shell/WorkbenchShell.tsx — the Stage + Wings frame (R1): nav · stage · wing + the
+// footer ribbon, no modes. The selection (world-state) drives which stage + wing actor
+// mounts (shell-state.selectActors). The terminal stage re-houses the proven TermView +
+// Composer unchanged; grid/record/wing are placeholders until U5–U8 fill them. The
+// frame uses static layout utilities (no inline styles / arbitrary values); content
+// composes from ds primitives.
+import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import type { ModuleOverviewEntry } from "#shared/index.js";
+import { TermView } from "../term/TermView.js";
+import { Composer } from "../composer/Composer.js";
+import { api } from "../lib/api.js";
+import { useWorkbench } from "../state/store.js";
+import { useWorld } from "./world-state.js";
+import { selectActors } from "./shell-state.js";
+import { Stack, Text } from "../ds/index.js";
+import { NavTree } from "./NavTree.js";
+import { Ribbon } from "./Ribbon.js";
+
+function Placeholder({ label }: { label: string }) {
+  return <div className="grid h-full place-items-center"><Text tone="muted">{label}</Text></div>;
+}
+
+function Overview({ modules, onPick }: { modules: ModuleOverviewEntry[]; onPick: (id: string) => void }) {
+  return (
+    <div className="h-full overflow-y-auto p-6">
+      <Stack gap="md">
+        <Text size="body" tone="subtle" weight="semibold">The database</Text>
+        <div className="grid grid-cols-3 gap-3">
+          {modules.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => onPick(m.id)}
+              className="flex flex-col gap-1 rounded-ui border border-border bg-elevated p-3 text-left transition-colors hover:border-accent-dim"
+            >
+              <Text weight="medium">▦ {m.title}</Text>
+              <Text size="meta" tone="muted">
+                {m.counts?.items ?? 0} rows{m.counts?.pending ? ` · ◷ ${m.counts.pending}` : ""}
+              </Text>
+            </button>
+          ))}
+          {!modules.length && <Text size="ui" tone="muted">no modules yet — run `zz init`</Text>}
+        </div>
+      </Stack>
+    </div>
+  );
+}
+
+export function WorkbenchShell() {
+  const sessions = useWorkbench((s) => s.sessions);
+  const refresh = useWorkbench((s) => s.refresh);
+  const selected = useWorld((s) => s.selected);
+  const select = useWorld((s) => s.select);
+  const overview = useQuery({ queryKey: ["zuzuu", "overview"], queryFn: api.zuzuu.overview });
+
+  useEffect(() => { void refresh(); }, [refresh]); // load sessions; home is the database (no auto-open)
+
+  const sel = selectActors(selected);
+  const sessionNode = selected?.kind === "session" ? selected : null;
+  const activeSession = sessionNode ? sessions.find((s) => s.id === sessionNode.id) : null;
+  const modules = overview.data?.modules ?? [];
+  const pendingByModule = Object.fromEntries(modules.map((m) => [m.id, m.counts?.pending ?? 0]));
+  const sessionsLite = sessions.map((s) => ({ id: s.id, live: s.alive, lastActiveAt: s.createdAt }));
+
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex h-8 shrink-0 items-center gap-2 border-b border-border bg-surface px-3">
+        <Text size="meta" tone="muted">⌘K</Text>
+        <Text size="meta" tone="subtle">{sel.crumb.length ? sel.crumb.join(" › ") : "the database"}</Text>
+      </div>
+
+      <div className="flex min-h-0 flex-1">
+        <NavTree />
+
+        <main className="flex min-w-0 flex-1 flex-col bg-app">
+          {sel.stage === "terminal" && sessionNode ? (
+            <>
+              <div className="min-h-0 flex-1"><TermView key={sessionNode.id} sessionId={sessionNode.id} /></div>
+              {activeSession?.type === "agent" && <Composer key={sessionNode.id} sessionId={sessionNode.id} />}
+            </>
+          ) : sel.stage === "grid" ? (
+            <Placeholder label={`grid · ${sessionNode ? "" : selected?.kind === "module" ? selected.id : ""} (U5)`} />
+          ) : sel.stage === "record" ? (
+            <Placeholder label="record (U6)" />
+          ) : (
+            <Overview modules={modules} onPick={(id) => select({ kind: "module", id })} />
+          )}
+        </main>
+
+        {sel.wing !== "none" && (
+          <aside className="hidden w-80 shrink-0 flex-col border-l border-border bg-surface xl:flex">
+            <Placeholder label={sel.wing === "review" ? "review queue (U7)" : sel.wing === "form" ? "form (U6)" : "schema + generations"} />
+          </aside>
+        )}
+      </div>
+
+      <Ribbon sessions={sessionsLite} pendingByModule={pendingByModule} onReview={() => { /* U7: open the queue */ }} />
+    </div>
+  );
+}
