@@ -20,6 +20,7 @@ import { Checklist } from "./onboarding/Checklist.js";
 import { Grid } from "./stage/Grid.js";
 import { Record } from "./stage/Record.js";
 import { ReviewQueue } from "./review/ReviewQueue.js";
+import { Form } from "./wing/Form.js";
 import { useReview } from "../state/review.js";
 import { Stack, Text } from "../ds/index.js";
 import { NavTree } from "./NavTree.js";
@@ -146,8 +147,10 @@ export function WorkbenchShell() {
           <aside className="hidden w-80 shrink-0 flex-col border-l border-border bg-surface xl:flex">
             {sel.wing === "review" ? (
               <ReviewQueue />
+            ) : sel.wing === "form" && selected?.kind === "row" ? (
+              <Form module={selected.module} id={selected.id} />
             ) : (
-              <Placeholder label={sel.wing === "form" ? "form (U6)" : "schema + generations"} />
+              <Placeholder label="schema + generations" />
             )}
           </aside>
         )}
