@@ -21,6 +21,7 @@ import { Grid } from "./stage/Grid.js";
 import { Record } from "./stage/Record.js";
 import { ReviewQueue } from "./review/ReviewQueue.js";
 import { Form } from "./wing/Form.js";
+import { Schema } from "./wing/Schema.js";
 import { useReview } from "../state/review.js";
 import { Stack, Text } from "../ds/index.js";
 import { NavTree } from "./NavTree.js";
@@ -149,8 +150,10 @@ export function WorkbenchShell() {
               <ReviewQueue />
             ) : sel.wing === "form" && selected?.kind === "row" ? (
               <Form module={selected.module} id={selected.id} />
+            ) : sel.wing === "schema" && selected?.kind === "module" ? (
+              <Schema module={selected.id} />
             ) : (
-              <Placeholder label="schema + generations" />
+              <Placeholder label="—" />
             )}
           </aside>
         )}
