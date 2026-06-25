@@ -10,6 +10,7 @@ import { Database, Clock, Shield, Plus, Search } from "lucide-react";
 import { api } from "../../lib/api.js";
 import { useEnterProject } from "../session/use-enter-project.js";
 import { projectsView, relativeTime, type ProjectSort, type ProjectGroup } from "./projects-model.js";
+import { sourceLabel } from "./registry-source.js";
 import type { ProjectSummary } from "#shared/index.js";
 import { Stack, Inline, Text, Icon, Button, ThemeToggle, Loading } from "../../ds/index.js";
 import { NewProject } from "./NewProject.js";
@@ -49,7 +50,10 @@ export function ProjectsHome() {
         <div className="mx-auto w-full max-w-4xl">
           <Stack gap="xl">
             <Stack gap="md">
-              <Text size="2xl" font="display">Projects</Text>
+              <Inline gap="sm" align="baseline">
+                <Text size="2xl" font="display">Projects</Text>
+                <Text size="meta" tone="muted">· {sourceLabel(projects.data?.source)}</Text>
+              </Inline>
               <Inline gap="md" justify="between" wrap>
                 <label className="flex min-w-0 flex-1 items-center gap-2 rounded-ui border border-border bg-surface px-3 py-2">
                   <Icon icon={Search} size={15} />
