@@ -76,6 +76,7 @@ export async function run(argv, io = {}) {
   const cwd = io.cwd ?? process.cwd();
   const [verb, ...rest] = argv;
   const args = parseArgs(rest);
+  const json = !!args.json;   // global: emit machine-readable JSON instead of TOON (the daemon JSON.parses stdout)
 
   try {
     switch (verb) {
@@ -196,14 +197,14 @@ export async function run(argv, io = {}) {
           return 0;
         }
         if (sub === 'approve' || sub === 'reject') {
-          if (!m || !id) return fail(log, `usage: zz review ${sub} <module> <id>`);
+          if (!m || !id) return fail(log, `usage: zz review ${sub} <module> <id>`, json);
           // accept the human handle (the staged change's target) OR the raw stageId
           const match = zz.staged(m).find((p) => (p.target ?? p.id) === id || p.id === id);
-          if (!match) return fail(log, `no pending staged change '${id}' in ${m}`);
+          if (!match) return fail(log, `no pending staged change '${id}' in ${m}`, json);
           const r = sub === 'approve' ? zz.approve(m, match.id) : zz.reject(m, match.id, args.reason || '');
-          if (!r.ok) return fail(log, r.error);
-          log(toon('review', [{ action: sub, module: m, id }], ['action', 'module', 'id']));
-          if (sub === 'approve') integrityNudge(zz, log);
+          if (!r.ok) return fail(log, r.error, json);
+          emit(log, json, { action: sub, module: m, id, ok: true }, ['review', [{ action: sub, module: m, id }], ['action', 'module', 'id']]);
+          if (sub === 'approve' && !json) integrityNudge(zz, log);   // a 2nd line would break the daemon's JSON.parse
           return 0;
         }
         // list pending across modules (or one)
@@ -211,7 +212,7 @@ export async function run(argv, io = {}) {
         const rows = [];
         for (const mod of mods) for (const p of zz.staged(mod)) rows.push({ module: mod, id: p.target ?? p.id, op: p.op, score: p.score ?? 0 });
         rows.sort((a, b) => b.score - a.score);
-        log(toon('pending', rows, ['module', 'id', 'op', 'score'], rows.length ? ['zz review approve <m> <id>', 'zz review reject <m> <id>'] : []));
+        emit(log, json, rows, ['pending', rows, ['module', 'id', 'op', 'score'], rows.length ? ['zz review approve <m> <id>', 'zz review reject <m> <id>'] : []]);
         return 0;
       }
 
@@ -290,7 +291,8 @@ export async function run(argv, io = {}) {
         }
         if (action === 'generations') {
           const g = zz.generations(m);
-          log(toon('generations', (g.generations ?? []).map((x) => ({ n: x.n, active: x.n === g.active, from: (x.mintedFrom || []).join('|') })), ['n', 'active', 'from']));
+          emit(log, json, { active: g.active, generations: g.generations ?? [] },
+            ['generations', (g.generations ?? []).map((x) => ({ n: x.n, active: x.n === g.active, from: (x.mintedFrom || []).join('|') })), ['n', 'active', 'from']]);
           return 0;
         }
         if (action === 'rollback') {
@@ -372,9 +374,14 @@ export async function run(argv, io = {}) {
   }
 }
 
-function fail(log, msg) {
-  log(toon('error', [{ message: msg }], ['message']));
+function fail(log, msg, json = false) {
+  log(json ? JSON.stringify({ ok: false, error: msg }) : toon('error', [{ message: msg }], ['message']));
   return 1;
+}
+
+/** Emit a value as JSON (--json, for the daemon) or as TOON. `toonArgs` = [name, rows, cols, hints?]. */
+function emit(log, json, value, toonArgs) {
+  log(json ? JSON.stringify(value) : toon(...toonArgs));
 }
 
 // post-write integrity nudge: after a gated write, surface any broken links so the
