@@ -17,6 +17,7 @@ research. **Read `05` first**; the rest is its evidence base. Generated 2026-06-
 | 02 | [`02-observability-and-audit-views.md`](02-observability-and-audit-views.md) | trace waterfalls · flame/icicle · service topology · activity feeds · JSONL log streams · version/diff timelines | TanStack Virtual + CSS bars (waterfall) · d3-hierarchy+canvas (icicle) · @xyflow/react+dagre (topology) · react-diff-viewer-continued |
 | 03 | [`03-js-library-landscape.md`](03-js-library-landscape.md) | the full JS/TS library landscape per viz class, license + bundle + perf scored | MIT/ISC/BSD/Apache only; `React.lazy()` + Vite `manualChunks` keeps it off the initial bundle |
 | 04 | [`04-query-layer.md`](04-query-layer.md) | filesystem/bash → DB-query equivalents (recutils · Dataview DQL · SQL-over-files · graph/GRIP) + the workbench query UX | keep `node:sqlite`; native filter-chips + saved views; GRIP isn't a real query language |
+| 06 | [`06-crud-app-inspiration.md`](06-crud-app-inspiration.md) | Refine.dev + open-source CRUD-to-app / DB-as-app / headless-CMS / internal-tool projects, mapped to our build | Refine `DataProvider` over the `zz` CLI; writes resolve to a *pending proposal* (the gate); one `FieldType` registry drives grid+form |
 
 ## How to use this for the build phase
 
