@@ -58,17 +58,17 @@ describe("runZuzuu", () => {
 
 describe("runZuzuuMut", () => {
   it("absent binary → {ok:false, code:'absent'}", async () => {
-    const r = await runZuzuuMut(root, ["proposals", "approve", "p1"], { binary: "definitely-not-a-real-binary-zzz" });
+    const r = await runZuzuuMut(root, ["staged", "approve", "p1"], { binary: "definitely-not-a-real-binary-zzz" });
     expect(r).toEqual({ ok: false, code: "absent" });
   });
   it("stub success → {ok:true, data} with parsed stdout JSON", async () => {
     const stub = jsonStub(root, '{"ok":true,"action":"approve","itemIds":["k2"],"warnings":[]}');
-    const r = await runZuzuuMut(root, ["proposals", "approve", "p1"], { binary: stub });
+    const r = await runZuzuuMut(root, ["staged", "approve", "p1"], { binary: stub });
     expect(r).toEqual({ ok: true, data: { ok: true, action: "approve", itemIds: ["k2"], warnings: [] } });
   });
   it("non-zero exit → {ok:false, code:'failed'} with stderr tail", async () => {
     const stub = failStub(root, "no such proposal: p9");
-    const r = await runZuzuuMut(root, ["proposals", "approve", "p9"], { binary: stub });
+    const r = await runZuzuuMut(root, ["staged", "approve", "p9"], { binary: stub });
     expect(r.ok).toBe(false);
     if (!r.ok) {
       expect(r.code).toBe("failed");

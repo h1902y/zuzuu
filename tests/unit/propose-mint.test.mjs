@@ -6,15 +6,15 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createProposal } from '../../src/grow/propose.mjs';
+import { stageChange } from '../../src/grow/stage.mjs';
 import { manifestPath, itemPath } from '../../src/notes/store.mjs';
 import { listModules, readManifest } from '../../src/notes/module.mjs';
 
 const mkHome = () => mkdtempSync(join(tmpdir(), 'zz-mint-'));
 const propose = (home, module, target = 'a-fact') =>
-  createProposal(home, module, { op: 'create', target, change: { type: 'knowledge', title: 'x', body: 'y' } });
+  stageChange(home, module, { op: 'create', target, change: { type: 'knowledge', title: 'x', body: 'y' } });
 
-test('createProposal mints a standard module manifest on first use → enumerable', () => {
+test('stageChange mints a standard module manifest on first use → enumerable', () => {
   const home = mkHome();
   assert.equal(existsSync(manifestPath(home, 'knowledge')), false);
   propose(home, 'knowledge');
@@ -23,7 +23,7 @@ test('createProposal mints a standard module manifest on first use → enumerabl
   assert.equal(listModules(home).length, 1, 'the grown module is now enumerable');
 });
 
-test('createProposal mints a generic manifest for a custom module', () => {
+test('stageChange mints a generic manifest for a custom module', () => {
   const home = mkHome();
   propose(home, 'roadmap');
   assert.equal(existsSync(manifestPath(home, 'roadmap')), true);

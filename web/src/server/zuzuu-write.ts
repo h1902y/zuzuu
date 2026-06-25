@@ -1,5 +1,5 @@
 // src/server/zuzuu-write.ts — one job: the WRITE side of /api/zuzuu/* (POST
-// mutations). proposals approve/reject · module enable/disable · module new ·
+// mutations). staged approve/reject (via `zz review`) · module enable/disable · module new ·
 // per-module generation mint/rollback · session label. EVERY mutation shells out
 // to the zz CLI (runZuzuuMut) — the daemon never reimplements module writes; CLI
 // absent → 503. Inputs are validated BEFORE the spawn; strings ride as single argv
@@ -72,15 +72,16 @@ export function createZuzuuWriteApi(getRoot: () => string, binary?: string): Hon
     return mutate(c, args);
   });
 
-  app.post("/proposals/:id/approve", async (c) => {
+  app.post("/staged/:id/approve", async (c) => {
     const id = c.req.param("id");
     if (!SAFE_ID.test(id)) return c.json({ error: "bad id" }, 400);
     const { module } = await readBody(c);
     if (!isModule(module)) return c.json({ error: "bad module" }, 400);
-    return mutate(c, ["proposals", "approve", id, "--module", module]);
+    // the real CLI verb: `zz review approve <module> <id>` (positional, no flags)
+    return mutate(c, ["review", "approve", module, id]);
   });
 
-  app.post("/proposals/:id/reject", async (c) => {
+  app.post("/staged/:id/reject", async (c) => {
     const id = c.req.param("id");
     if (!SAFE_ID.test(id)) return c.json({ error: "bad id" }, 400);
     const { module, reason } = await readBody(c);
@@ -88,7 +89,7 @@ export function createZuzuuWriteApi(getRoot: () => string, binary?: string): Hon
     if (reason !== undefined && (typeof reason !== "string" || reason.length > MAX_REASON_LEN))
       return c.json({ error: "bad reason" }, 400);
     // reason rides as ONE argv element — spawn arrays make shell-meta inert
-    return mutate(c, ["proposals", "reject", id, "--module", module, ...(reason ? ["--reason", reason] : [])]);
+    return mutate(c, ["review", "reject", module, id, ...(reason ? ["--reason", reason] : [])]);
   });
 
   for (const verb of ["approve", "reject"] as const) {

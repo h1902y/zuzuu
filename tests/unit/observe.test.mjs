@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { claudeCode } from '../../src/hosts/adapters/claude-code.mjs';
 import { aggregate, observe } from '../../src/grow/observe.mjs';
-import { listProposals } from '../../src/grow/propose.mjs';
+import { listStaged } from '../../src/grow/stage.mjs';
 
 // one transcript line per row, exactly as Claude Code writes them
 function fixtureTranscript(rows) {
@@ -95,8 +95,8 @@ test('observe: routes a command to actions (runnable) and a file to knowledge', 
   ];
   const r = observe(home, { sessions });
   assert.equal(r.proposed, 2);
-  const actions = listProposals(home, 'actions');
-  const knowledge = listProposals(home, 'knowledge');
+  const actions = listStaged(home, 'actions');
+  const knowledge = listStaged(home, 'knowledge');
   assert.equal(actions.length, 1);
   assert.equal(actions[0].change.type, 'action');
   assert.equal(actions[0].change.run, 'npm run build', 'the command became a runnable action note');
@@ -128,7 +128,7 @@ test('observe: a recurring tool failure routes a fact to knowledge', () => {
   const home = join(root, '.zuzuu');
   const sessions = Array.from({ length: 3 }, (_, i) => ({ sessionId: `s${i}`, commands: [], files: [], failures: ['Bash'] }));
   observe(home, { sessions });
-  const knowledge = listProposals(home, 'knowledge');
+  const knowledge = listStaged(home, 'knowledge');
   assert.equal(knowledge.length, 1);
   assert.equal(knowledge[0].change.type, 'knowledge');
   assert.match(knowledge[0].change.title, /Bash fails frequently/);
@@ -142,7 +142,7 @@ test('observe: a repeated destructive command routes an ASK guardrail (never aut
   const home = join(root, '.zuzuu');
   const sessions = Array.from({ length: 2 }, (_, i) => ({ sessionId: `s${i}`, commands: [], files: [], failures: [], destructiveFailures: [{ cmd: 'rm -rf /', tool: 'Bash' }] }));
   observe(home, { sessions });
-  const rules = listProposals(home, 'guardrails');
+  const rules = listStaged(home, 'guardrails');
   assert.equal(rules.length, 1);
   assert.equal(rules[0].change.type, 'rule');
   assert.equal(rules[0].change.action, 'ask', 'a mined guardrail only ASKS — the human tightens it at review');
@@ -154,7 +154,7 @@ test('observe: a correction repeated across sessions routes a standing instructi
   const home = join(root, '.zuzuu');
   const sessions = Array.from({ length: 2 }, (_, i) => ({ sessionId: `s${i}`, commands: [], files: [], failures: [], correctionTurns: [{ text: 'always run tests first' }] }));
   observe(home, { sessions });
-  const instr = listProposals(home, 'instructions');
+  const instr = listStaged(home, 'instructions');
   assert.equal(instr.length, 1);
   assert.equal(instr[0].change.type, 'instruction');
   assert.match(instr[0].change.body, /always run tests first/);
@@ -166,7 +166,7 @@ test('observe: a repeated two-step sequence routes a workflow action', () => {
   const home = join(root, '.zuzuu');
   const sessions = Array.from({ length: 3 }, (_, i) => ({ sessionId: `s${i}`, commands: [], files: [], failures: [], sequences: ['npm test && npm run build'] }));
   observe(home, { sessions });
-  assert.ok(listProposals(home, 'actions').some((p) => p.change.type === 'action' && p.change.run === 'npm test && npm run build'));
+  assert.ok(listStaged(home, 'actions').some((p) => p.change.type === 'action' && p.change.run === 'npm test && npm run build'));
   rmSync(root, { recursive: true, force: true });
 });
 

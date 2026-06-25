@@ -77,7 +77,7 @@ export async function peekModuleItems(home: string, key: string): Promise<Record
     let names: string[] = [];
     try { names = (await fsp.readdir(base)).sort(); } catch { return []; }
     for (const n of names) {
-      if (n === "inbox" || n === "proposals" || n === "_rolledback") continue;
+      if (n === "inbox" || n === "staged" || n === "_rolledback") continue;
       files.push({ id: n, file: path.join(base, n, "ACTION.md") });
     }
   } else {
@@ -126,12 +126,12 @@ export async function readJsonDir(dir: string): Promise<Record<string, unknown>[
   return out;
 }
 
-// ── proposal shaping (the read side's ProposalSummary) ──────────────────
+// ── proposal shaping (the read side's StagedSummary) ──────────────────
 
 const firstLine = (s: unknown, n = 80) => (String(s ?? "").split("\n")[0] ?? "").slice(0, n);
 
 /** A proposal's best-effort one-line title (file-read fallback; the CLI inbox uses adapters). */
-function proposalTitle(p: Record<string, unknown>): string {
+function stagedTitle(p: Record<string, unknown>): string {
   const cand = p.candidate as { body?: string } | undefined;
   const payload = p.payload as { body?: string } | undefined;
   return firstLine(cand?.body ?? payload?.body ?? p.id);
@@ -140,7 +140,7 @@ function proposalTitle(p: Record<string, unknown>): string {
 /** A short preview of the actual content being approved — the WHAT block in the
  *  review/detail card. Knowledge → the body's first lines; a guardrail rule →
  *  pattern → action; an action → its exec command. Best-effort, never throws. */
-function proposalPreview(p: Record<string, unknown>): string {
+function stagedPreview(p: Record<string, unknown>): string {
   const payload = (p.payload ?? p.candidate) as Record<string, unknown> | undefined;
   if (!payload) return "";
   // guardrail rule: pattern → action
@@ -160,15 +160,15 @@ function proposalPreview(p: Record<string, unknown>): string {
   return "";
 }
 
-/** Enrich a raw on-disk proposal into the ProposalSummary the panel renders —
+/** Enrich a raw on-disk proposal into the StagedSummary the panel renders —
  *  the title, a payload preview (the WHAT block), and the persisted confidence. */
-export function proposalSummary(p: Record<string, unknown>, key: string) {
-  const preview = proposalPreview(p);
+export function stagedSummary(p: Record<string, unknown>, key: string) {
+  const preview = stagedPreview(p);
   const score = p.score as { confidence?: string } | undefined;
   return {
     id: String(p.id ?? "?"),
     module: key,
-    title: proposalTitle(p),
+    title: stagedTitle(p),
     ...(preview ? { preview } : {}),
     ...(score?.confidence ? { confidence: score.confidence } : {}),
   };

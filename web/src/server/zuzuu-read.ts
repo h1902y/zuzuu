@@ -13,14 +13,14 @@ import {
   listModuleDirs,
   moduleEnvelopeItems,
   peekModuleItems,
-  proposalSummary,
+  stagedSummary,
   readJsonDir,
 } from "./zuzuu-peek.js";
 
 export function createZuzuuReadApi(getRoot: () => string, binary?: string): Hono {
   const app = new Hono();
   const homeDir = (root: string) => resolveSafe(root, ".zuzuu");
-  const proposalsOf = (home: string, key: string) => readJsonDir(path.join(home, key, "proposals"));
+  const stagedOf = (home: string, key: string) => readJsonDir(path.join(home, key, "staged"));
 
   // The batched module surface: ONE `zuzuu module overview --json` spawn covers
   // all modules (manifest ui descriptors + counts + top titles + pending). CLI
@@ -33,12 +33,12 @@ export function createZuzuuReadApi(getRoot: () => string, binary?: string): Hono
     const home = await homeDir(root);
     const ids = await listModuleDirs(home); // real dirs on disk, not a hardcoded list
     const modules = await Promise.all(ids.map(async (id) => {
-      const [items, proposals] = await Promise.all([peekModuleItems(home, id), proposalsOf(home, id)]);
+      const [items, staged] = await Promise.all([peekModuleItems(home, id), stagedOf(home, id)]);
       return {
         id,
         title: id.charAt(0).toUpperCase() + id.slice(1),
         enabled: true,
-        counts: { items: items.length, pending: proposals.length, errors: 0 },
+        counts: { items: items.length, pending: staged.length, errors: 0 },
         top: items.slice(0, 3).map((it) => String(it.title ?? it.id)),
         declarative: false,
       };
@@ -52,8 +52,8 @@ export function createZuzuuReadApi(getRoot: () => string, binary?: string): Hono
     const root = getRoot();
     const home = await homeDir(root);
     const { items, errors, degraded } = await moduleEnvelopeItems(root, home, key, binary);
-    const proposals = (await proposalsOf(home, key)).map((p) => proposalSummary(p, key));
-    return c.json({ key, items, proposals, errors, ...(degraded ? { degraded: true } : {}) });
+    const staged = (await stagedOf(home, key)).map((p) => stagedSummary(p, key));
+    return c.json({ key, items, staged, errors, ...(degraded ? { degraded: true } : {}) });
   });
 
   app.get("/module/:key/schema", async (c) => {

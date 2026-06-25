@@ -22,9 +22,10 @@ const commandFor = (event) => `node "${BIN}" hook ${event} || true ${SIGNATURE}`
 const LIFECYCLE = ['SessionStart', 'Stop', 'SessionEnd'];
 const GATE = ['PreToolUse'];
 const ALL = [...LIFECYCLE, ...GATE];
-// entire-style: the agent can't read its own ephemeral observability — but ONLY
-// that. The module home (knowledge/actions/…) MUST stay readable (it's served).
-const DENY_RULES = ['Read(./.zuzuu/.live/**)'];
+// The whole `.zuzuu/` is the agent's served home and stays readable. The session
+// run-state + gate log that used to need fencing now live OUTSIDE the repo (XDG
+// state dir — the agent can't reach it), so no self-deny rule is needed.
+const DENY_RULES = [];
 
 const settingsPath = (cwd) => join(repoRoot(cwd), '.claude', 'settings.json');
 const readSettings = (p) => readJson(p, {});
@@ -38,8 +39,10 @@ export function addHooks(settings) {
   const s = clone(settings);
   s.hooks ||= {};
   for (const ev of ALL) { s.hooks[ev] ||= []; if (!hasOurs(s.hooks[ev])) s.hooks[ev].push({ hooks: [{ type: 'command', command: commandFor(ev) }] }); }
-  s.permissions ||= {}; s.permissions.deny ||= [];
-  for (const r of DENY_RULES) if (!s.permissions.deny.includes(r)) s.permissions.deny.push(r);
+  if (DENY_RULES.length) { // don't write an empty permissions.deny into the user's settings
+    s.permissions ||= {}; s.permissions.deny ||= [];
+    for (const r of DENY_RULES) if (!s.permissions.deny.includes(r)) s.permissions.deny.push(r);
+  }
   return s;
 }
 

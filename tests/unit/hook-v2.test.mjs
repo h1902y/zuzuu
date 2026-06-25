@@ -8,6 +8,10 @@ import { gateDecision, handleHook, writeDigest } from '../../src/hosts/hook.mjs'
 import { addHooks, removeHooks, isInstalled } from '../../src/cli/enable.mjs';
 import { initHome } from '../../src/cli/init.mjs';
 import { resetCapabilities } from '../../src/serve/wire.mjs';
+import { homeDir, stateDir } from '../../src/notes/store.mjs';
+
+// the session digest now lives in the XDG state dir (out of the repo), not .zuzuu/.live
+const digestPath = (cwd) => join(stateDir(homeDir(cwd)), 'digest.md');
 
 function withHome(fn) {
   const cwd = mkdtempSync(join(tmpdir(), 'zuzuu-hook-'));
@@ -47,12 +51,13 @@ test('gate: rm -rf /tmp/x (a real path) is allowed through', () => {
 
 // ── lifecycle (Design B: signals, fail-open, never throws) ────────────────────
 
-test('lifecycle: OPEN writes the session-start digest to .live/digest.md', () => {
+test('lifecycle: OPEN writes the session-start digest to the XDG state dir', () => {
   withHome((cwd) => {
     const r = handleHook({ event: 'SessionStart', host: 'claude-code', cwd, payload: { session_id: 's1' } });
     assert.equal(r.event, 'SessionStart');
-    assert.ok(existsSync(join(cwd, '.zuzuu', '.live', 'digest.md')));
-    assert.match(readFileSync(join(cwd, '.zuzuu', '.live', 'digest.md'), 'utf8'), /session brief/);
+    assert.ok(existsSync(digestPath(cwd)), 'digest written out-of-repo (XDG state), not in .zuzuu/');
+    assert.match(readFileSync(digestPath(cwd), 'utf8'), /session brief/);
+    assert.ok(!existsSync(join(cwd, '.zuzuu', '.live')), '.zuzuu/.live no longer exists');
   });
 });
 
@@ -77,15 +82,15 @@ test('enable: addHooks installs all events + is idempotent; removeHooks keeps us
   assert.equal(isInstalled(once), true);
   const twice = addHooks(once);
   assert.equal(twice.hooks.PreToolUse.length, 2, 'one user + one ours, not duplicated');
-  assert.ok(twice.permissions.deny.includes('Read(./.zuzuu/.live/**)'));
   const removed = removeHooks(twice);
   assert.equal(isInstalled(removed), false);
   assert.equal(removed.hooks.PreToolUse.length, 1, 'the user hook survives');
   assert.equal(removed.hooks.PreToolUse[0].hooks[0].command, 'my-own-linter');
 });
 
-test('enable: deny rule does NOT block the served module home (only .live)', () => {
+test('enable: installs no self-deny rule — run-state lives outside the repo now', () => {
   const s = addHooks({});
-  assert.deepEqual(s.permissions.deny, ['Read(./.zuzuu/.live/**)']);
-  assert.equal(s.permissions.deny.some((r) => r.includes('.traces')), false, 'no dropped-trace-layer deny');
+  // the whole .zuzuu/ is the served home and stays readable; the old .live/** fence
+  // is gone because run-state moved to the XDG state dir (unreachable by the agent).
+  assert.equal(s.permissions, undefined, 'no permissions.deny written into user settings');
 });

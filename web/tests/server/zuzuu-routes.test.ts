@@ -22,9 +22,9 @@ describe("createZuzuuApi file routes", () => {
     expect(body.degraded).toBe(true);
     expect(body.items[0]).toMatchObject({ id: "k1", module: "knowledge", kind: "fact", title: "fact one", status: "active" });
     expect(body.items[0].payload).toBeUndefined(); // detail degrades, counts survive
-    expect(body.proposals[0].title).toMatch(/node:sqlite/);
-    // proposals enrich from disk: payload preview + persisted confidence (the rendered fields)
-    expect(body.proposals[0]).toMatchObject({
+    expect(body.staged[0].title).toMatch(/node:sqlite/);
+    // staged enrich from disk: payload preview + persisted confidence (the rendered fields)
+    expect(body.staged[0]).toMatchObject({
       id: "p1", module: "knowledge",
       preview: "use node:sqlite",
       confidence: "high",
@@ -147,8 +147,8 @@ const post = (app: ReturnType<typeof createZuzuuApi>, p: string, body?: unknown)
 
 // Every mutation route: [path, request body, stub success payload]
 const MUTATIONS: [string, unknown, Record<string, unknown>][] = [
-  ["/proposals/p1/approve", { module: "knowledge" }, { ok: true, action: "approve", itemIds: ["k2"], warnings: [] }],
-  ["/proposals/p1/reject", { module: "knowledge", reason: "dup of k1" }, { ok: true, id: "p1" }],
+  ["/staged/p1/approve", { module: "knowledge" }, { ok: true, action: "approve", itemIds: ["k2"], warnings: [] }],
+  ["/staged/p1/reject", { module: "knowledge", reason: "dup of k1" }, { ok: true, id: "p1" }],
   ["/actions/my-slug/approve", {}, { ok: true, action: "approve", slug: "my-slug" }],
   ["/actions/my-slug/reject", {}, { ok: true, action: "reject", slug: "my-slug" }],
   ["/module/knowledge/generation/mint", { from: ["p1", "p2"] }, { id: "gen_002", module: "knowledge", mintedFrom: ["p1", "p2"], forkedFrom: "gen_001" }],
@@ -187,8 +187,8 @@ describe("createZuzuuApi mutation routes", () => {
     const { stub, marker } = markerStub(root);
     const app = createZuzuuApi(() => root, { binary: stub });
     for (const route of [
-      "/proposals/..%2fx/approve",
-      "/proposals/..%2fx/reject",
+      "/staged/..%2fx/approve",
+      "/staged/..%2fx/reject",
       "/actions/..%2fx/approve",
       "/actions/..%2fx/reject",
       "/module/knowledge/generation/..%2fx/rollback",
@@ -202,7 +202,7 @@ describe("createZuzuuApi mutation routes", () => {
     fixtureHome(root);
     const { stub, marker } = markerStub(root);
     const app = createZuzuuApi(() => root, { binary: stub });
-    expect((await post(app, "/proposals/a;rm/approve", { module: "knowledge" })).status).toBe(400);
+    expect((await post(app, "/staged/a;rm/approve", { module: "knowledge" })).status).toBe(400);
     expect((await post(app, "/actions/a;rm/reject", {})).status).toBe(400);
     expect(existsSync(marker)).toBe(false);
   });
@@ -211,11 +211,11 @@ describe("createZuzuuApi mutation routes", () => {
     const { stub, marker } = markerStub(root);
     const app = createZuzuuApi(() => root, { binary: stub });
     // Missing module field → 400
-    expect((await post(app, "/proposals/p1/approve", {})).status).toBe(400);
+    expect((await post(app, "/staged/p1/approve", {})).status).toBe(400);
     // Unsafe module strings → 400 (traversal, shell meta, uppercase-only slugs starting with -)
-    expect((await post(app, "/proposals/p1/approve", { module: "../evil" })).status).toBe(400);
-    expect((await post(app, "/proposals/p1/approve", { module: "-bad" })).status).toBe(400);
-    expect((await post(app, "/proposals/p1/reject", { module: "" })).status).toBe(400);
+    expect((await post(app, "/staged/p1/approve", { module: "../evil" })).status).toBe(400);
+    expect((await post(app, "/staged/p1/approve", { module: "-bad" })).status).toBe(400);
+    expect((await post(app, "/staged/p1/reject", { module: "" })).status).toBe(400);
     // Valid slug "bogus" IS now accepted (N-module: CLI reports not-found for unknown modules)
     expect(existsSync(marker)).toBe(false); // none of the above should have spawned
   });
@@ -223,7 +223,7 @@ describe("createZuzuuApi mutation routes", () => {
     fixtureHome(root);
     const { stub, marker } = markerStub(root);
     const app = createZuzuuApi(() => root, { binary: stub });
-    const res = await post(app, "/proposals/p1/reject", { module: "knowledge", reason: "x".repeat(501) });
+    const res = await post(app, "/staged/p1/reject", { module: "knowledge", reason: "x".repeat(501) });
     expect(res.status).toBe(400);
     expect(existsSync(marker)).toBe(false);
   });
@@ -232,7 +232,7 @@ describe("createZuzuuApi mutation routes", () => {
     const { stub, marker } = markerStub(root);
     const app = createZuzuuApi(() => root, { binary: stub });
     const longId = "a".repeat(200);
-    expect((await post(app, `/proposals/${longId}/approve`, { module: "knowledge" })).status).toBe(400);
+    expect((await post(app, `/staged/${longId}/approve`, { module: "knowledge" })).status).toBe(400);
     expect(existsSync(marker)).toBe(false);
   });
   it("mint with 201-element from[] → 400 without spawn", async () => {
@@ -246,9 +246,9 @@ describe("createZuzuuApi mutation routes", () => {
   it("reject reason rides as one argv element (shell-meta inert)", async () => {
     fixtureHome(root);
     const app = createZuzuuApi(() => root, { binary: argvStub(root) });
-    const res = await post(app, "/proposals/p1/reject", { module: "knowledge", reason: "dup; $(rm -rf) of k1" });
+    const res = await post(app, "/staged/p1/reject", { module: "knowledge", reason: "dup; $(rm -rf) of k1" });
     expect(res.status).toBe(200);
-    expect((await res.json()).argv).toBe("proposals|reject|p1|--module|knowledge|--reason|dup; $(rm -rf) of k1|--json|");
+    expect((await res.json()).argv).toBe("review|reject|knowledge|p1|--reason|dup; $(rm -rf) of k1|--json|");
   });
   it("mint with a bad from-id → 400 without spawn; mint with no body → 200", async () => {
     fixtureHome(root);

@@ -10,7 +10,7 @@ import { serialize } from '../../src/notes/note.mjs';
 import { invoke } from '../../src/serve/dispatch.mjs';
 import { registerAll, resetCapabilities } from '../../src/serve/wire.mjs';
 import { gate } from '../../src/guardrails/gate.mjs';
-import { createProposal } from '../../src/grow/propose.mjs';
+import { stageChange } from '../../src/grow/stage.mjs';
 import { approve } from '../../src/grow/review.mjs';
 import { generations } from '../../src/notes/generation.mjs';
 
@@ -87,7 +87,7 @@ test('stack: check surfaces a broken link', () => {
 test('stack: propose → review writes the Project and mints a generation', () => {
   withStack(({ home }) => {
     // a human-staged proposal flows through the gate end to end
-    const p = createProposal(home, 'knowledge', {
+    const p = stageChange(home, 'knowledge', {
       op: 'create', target: 'acme-warm-ban',
       change: { type: 'knowledge', title: 'Never pitch Acme warm palettes', body: 'Hard no.' },
     });

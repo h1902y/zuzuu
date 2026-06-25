@@ -16,7 +16,7 @@ export function envelope(fields: Record<string, string>, body = ""): string {
 export function fixtureHome(r: string): string {
   const agent = path.join(r, ".zuzuu");
   for (const f of ["knowledge", "memory", "actions", "instructions", "guardrails"]) {
-    mkdirSync(path.join(agent, f, "proposals"), { recursive: true });
+    mkdirSync(path.join(agent, f, "staged"), { recursive: true });
     // A real (grown) module carries a manifest; the peek enumerates only dirs that have one.
     writeFileSync(path.join(agent, f, "module.md"),
       envelope({ type: "module", id: f, title: f.charAt(0).toUpperCase() + f.slice(1) }));
@@ -27,7 +27,7 @@ export function fixtureHome(r: string): string {
   writeFileSync(path.join(agent, "sessions.json"), JSON.stringify({ version: 1, sessions: [{ id: "s1", host: "claude-code" }] }));
   writeFileSync(path.join(agent, "knowledge", "items", "k1.md"),
     envelope({ id: "k1", module: "knowledge", kind: "fact", title: '"fact one"', status: "active", created_at: "2026-06-12T00:00:00Z" }, "fact one\n"));
-  writeFileSync(path.join(agent, "knowledge", "proposals", "p1.json"),
+  writeFileSync(path.join(agent, "knowledge", "staged", "p1.json"),
     JSON.stringify({
       id: "p1",
       payload: { type: "fact", body: "use node:sqlite" },

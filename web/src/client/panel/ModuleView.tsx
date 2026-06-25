@@ -1,6 +1,6 @@
 // src/client/panel/ModuleView.tsx — one module drilled in.
 //
-// Its pending proposals (the human gate — approve/reject, CLI-shelled by the
+// Its pending staged (the human gate — approve/reject, CLI-shelled by the
 // daemon), its items, and its per-module generation lineage (rollback to a past
 // pin). Every mutation re-reads the Project (invalidate the zuzuu query tree).
 
@@ -18,14 +18,14 @@ export function ModuleView({ module, onBack }: { module: string; onBack: () => v
   if (detail.isLoading) return <Shell module={module} onBack={onBack}><Centered>loading {module}…</Centered></Shell>;
   if (detail.isError || !detail.data) return <Shell module={module} onBack={onBack}><Centered>could not read {module}</Centered></Shell>;
 
-  const { items, proposals } = detail.data;
+  const { items, staged } = detail.data;
 
   return (
     <Shell module={module} onBack={onBack}>
       <div className="flex-1 overflow-y-auto">
-        {proposals.length > 0 && (
-          <Section label={`proposals · ${proposals.length}`}>
-            {proposals.map((p) => (
+        {staged.length > 0 && (
+          <Section label={`staged · ${staged.length}`}>
+            {staged.map((p) => (
               <div key={p.id} className="border-b border-border px-3 py-2">
                 <div className="text-ui text-ink-100">{p.title}</div>
                 {p.preview && <div className="mt-0.5 truncate text-meta text-muted">{p.preview}</div>}

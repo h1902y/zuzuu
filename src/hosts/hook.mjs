@@ -13,7 +13,7 @@
 
 import { readFileSync, writeFileSync, mkdirSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { homeDir, repoRoot, liveDir } from '../notes/store.mjs';
+import { homeDir, repoRoot, stateDir } from '../notes/store.mjs';
 import { gate, toPreToolUseDecision } from '../guardrails/gate.mjs';
 import { sessionGitEnabled, openSession, checkpoint, closeSession } from '../sessions/session-git.mjs';
 import { inSessionWorktree } from '../sessions/session-worktree.mjs';
@@ -41,23 +41,23 @@ export function gateDecision({ host = 'claude-code', payload = {}, cwd = process
     const verdict = gate({ home, module: 'guardrails' }, { tool: payload.tool_name, input: payload.tool_input });
     if (verdict) {
       try {
-        const live = liveDir(home);
-        mkdirSync(live, { recursive: true });
-        appendFileSync(join(live, safeName(payload.session_id)), JSON.stringify({ at: new Date().toISOString(), host, tool: payload.tool_name, ...verdict }) + '\n');
+        const state = stateDir(home);
+        mkdirSync(state, { recursive: true });
+        appendFileSync(join(state, safeName(payload.session_id)), JSON.stringify({ at: new Date().toISOString(), host, tool: payload.tool_name, ...verdict }) + '\n');
       } catch { /* logging must not affect the gate */ }
     }
     return toPreToolUseDecision(verdict); // null-safe
   } catch { return null; } // fail open
 }
 
-/** Write the session-start brief to .live/digest.md (every host reads it). */
+/** Write the session-start brief to the XDG state dir's digest.md (every host reads it). */
 export function writeDigest(cwd = process.cwd()) {
   try {
     const text = digestText(cwd);
     if (!text || !text.trim()) return;
-    const live = liveDir(homeDir(repoRoot(cwd)));
-    mkdirSync(live, { recursive: true });
-    writeFileSync(join(live, 'digest.md'), text);
+    const state = stateDir(homeDir(repoRoot(cwd)));
+    mkdirSync(state, { recursive: true });
+    writeFileSync(join(state, 'digest.md'), text);
   } catch { /* grounding is best-effort */ }
 }
 

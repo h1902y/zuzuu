@@ -10,8 +10,10 @@
 //       (Path resolution harvested from core/store.mjs.)
 
 import { join, dirname } from 'node:path';
+import { homedir } from 'node:os';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 
 // ── JSON files (the one convention) ───────────────────────────────────────────
 // Every dir read/wrote JSON by hand with a slightly different fallback; these are
@@ -50,17 +52,23 @@ export function homeDir(root = repoRoot()) {
   return join(root, '.zuzuu');
 }
 
-/** The ephemeral per-session state dir (git-ignored). */
-export const liveDir = (home) => join(home, '.live');
+// ── out-of-repo, machine-local dirs (XDG) ─────────────────────────────────────
+// Rebuildable cache + transient run-state do NOT belong in the tracked tree (even
+// gitignored). They live in OS dirs keyed to THIS project by a hash of its home
+// path, so `.zuzuu/` stays 100% durable — a true git citizen, like `.git`.
+const repoHash = (home) => createHash('sha256').update(home).digest('hex').slice(0, 16);
+const xdg = (envVar, ...rel) => process.env[envVar] || join(homedir(), ...rel);
+
+/** The project's rebuildable cache dir (XDG cache) — the sqlite index lives here. */
+export const cacheDir = (home) => join(xdg('XDG_CACHE_HOME', '.cache'), 'zuzuu', repoHash(home));
+
+/** The project's transient run-state dir (XDG state) — session digest + the gate log. */
+export const stateDir = (home) => join(xdg('XDG_STATE_HOME', '.local', 'state'), 'zuzuu', repoHash(home));
 
 /** Current commit + branch, or nulls outside a git repo. */
 export function gitInfo(cwd = process.cwd()) {
   return { commit: git(['rev-parse', 'HEAD'], cwd), branch: git(['rev-parse', '--abbrev-ref', 'HEAD'], cwd) };
 }
-
-/** The per-module generations store: `<home>/.generations/` (the layout chokepoint
- *  for snapshots — notes/generation.mjs builds its store under here). */
-export const generationsDir = (home) => join(home, '.generations');
 
 // ── addressing ──────────────────────────────────────────────────────────────
 

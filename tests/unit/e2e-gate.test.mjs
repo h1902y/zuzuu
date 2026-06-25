@@ -5,6 +5,13 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
+import { readFileSync, realpathSync } from 'node:fs';
+import { homeDir, stateDir } from '../../src/notes/store.mjs';
+
+// The temp project isn't a git repo, so repoRoot falls back to the path as-is; the
+// gate subprocess resolves its cwd through macOS's /var→/private/var symlink, so
+// match it by resolving the real path here too (in a real repo, git canonicalizes).
+const stateOf = (cwd) => stateDir(homeDir(realpathSync(cwd)));
 
 // Drives the REAL gate: `home hook PreToolUse` with a payload on stdin, in a
 // temp project scaffolded by the real `home init` (so the seed rules are the
@@ -81,7 +88,8 @@ test('a malformed rule note is skipped silently — seeds still enforce', () => 
 test('matched decisions are logged for the trace', () => {
   withProject((cwd) => {
     gate(cwd, { session_id: 'sess-log', tool_name: 'Bash', tool_input: { command: 'rm -rf / ' } });
-    const log = spawnSync('cat', [join(cwd, '.zuzuu', '.live', 'guardrails-sess-log.jsonl')], { encoding: 'utf8' }).stdout;
+    // the gate log now lands in the XDG state dir (out of the repo), not .zuzuu/.live
+    const log = readFileSync(join(stateOf(cwd), 'guardrails-sess-log.jsonl'), 'utf8');
     const entry = JSON.parse(log.trim().split('\n')[0]);
     assert.equal(entry.action, 'deny');
     assert.equal(entry.rule, 'no-root-wipe');

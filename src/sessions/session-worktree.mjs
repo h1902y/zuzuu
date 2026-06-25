@@ -30,16 +30,16 @@ function shortId(sessionId) {
   return String(sessionId ?? '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8) || 'unknown';
 }
 
-/** Absolute path of a session's worktree dir under the repo's `.zuzuu/.worktrees/`. */
+/** Absolute path of a session's worktree dir under the repo's `.zuzuu/worktrees/`. */
 export function worktreePath(root, sessionId) {
-  return join(root, '.zuzuu', '.worktrees', shortId(sessionId));
+  return join(root, '.zuzuu', 'worktrees', shortId(sessionId));
 }
 
 const repoRootOf = (cwd) => git(['rev-parse', '--show-toplevel'], cwd).out || null;
 
 /**
  * True if `cwd` resolves into a session worktree we created — i.e. its repo
- * toplevel sits at `<repo>/.zuzuu/.worktrees/<short-id>`. The host lifecycle
+ * toplevel sits at `<repo>/.zuzuu/worktrees/<short-id>`. The host lifecycle
  * hooks use this to DEFER in-place branch open/close to the daemon (which owns
  * the worktree's branch lifecycle) while still capturing + checkpointing.
  * Fail-soft: any git trouble → false (treat as the normal in-place model).
@@ -48,7 +48,7 @@ export function inSessionWorktree(cwd) {
   try {
     const top = repoRootOf(cwd);
     if (!top) return false;
-    return basename(dirname(top)) === '.worktrees' && basename(dirname(dirname(top))) === '.zuzuu';
+    return basename(dirname(top)) === 'worktrees' && basename(dirname(dirname(top))) === '.zuzuu';
   } catch {
     return false;
   }
