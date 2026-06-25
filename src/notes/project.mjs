@@ -18,13 +18,17 @@ const projectPath = (home) => join(home, 'project.md');
 
 /**
  * Read the Project manifest. Fail-soft: missing/unparseable → a minimal default.
- * @returns {{ type, title, format, body }}
+ * `steering` is the optional human-authored session-steering block (goals · opener ·
+ * closer · drift) — a tolerant frontmatter map; absent/garbage → `{}`, never throws.
+ * Only `goals` is consumed today (by the digest); the rest ride along round-trip-exact.
+ * @returns {{ type, title, format, steering, body }}
  */
 export function readProject(home) {
-  const fallback = { type: 'project', title: null, format: null, body: '' };
+  const fallback = { type: 'project', title: null, format: null, steering: {}, body: '' };
   const path = projectPath(home);
   if (!existsSync(path)) return fallback;
   const { ok, note } = parse(readFileSync(path, 'utf8'), { id: 'project' });
   if (!ok || !note) return { ...fallback, manifestError: 'unparseable project.md' };
-  return { type: 'project', title: note.title ?? null, format: note.format ?? null, body: note.body ?? '' };
+  const steering = note.steering && typeof note.steering === 'object' && !Array.isArray(note.steering) ? note.steering : {};
+  return { type: 'project', title: note.title ?? null, format: note.format ?? null, steering, body: note.body ?? '' };
 }

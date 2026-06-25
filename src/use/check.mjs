@@ -14,6 +14,7 @@ import { parse } from '../notes/note.mjs';
 import { itemsDir } from '../notes/store.mjs';
 import { brokenLinks } from '../notes/index.mjs';
 import { listModules } from '../notes/module.mjs';
+import { validateNote } from '../notes/validate.mjs';
 
 /** Every note across all modules, parsed: [{ addr, note }]. */
 function allNotes(home) {
@@ -63,4 +64,12 @@ function checkData(home) {
 /** The `check` capability handler (project-wide). */
 export function check(ctx) {
   return checkData(ctx.home);
+}
+
+/** Schema-validate every note (project-wide, or one module). @returns the failures only. */
+export function validateProject(home, module = '') {
+  return allNotes(home)
+    .filter(({ addr }) => !module || addr.startsWith(`${module}:`))
+    .map(({ addr, note }) => ({ addr, ...validateNote(note) }))
+    .filter((r) => !r.ok);
 }

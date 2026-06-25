@@ -33,6 +33,31 @@ function tokenize(run) {
 }
 
 /**
+ * Run ONE command under the execution gate: the guardrails gate (a deny blocks) +
+ * the run.allow allowlist (allowlisted command OR a repo-local script). The shared
+ * primitive for `act` (one note) and the workflow runner (one step). No logging here.
+ * @returns {{ ran, exitCode?, success?, stdout?, stderr?, denied?, error? }}
+ */
+export function runGated(home, module, command, { allow = null, inputs = {}, cwd } = {}) {
+  // the guardrails gate applies to curated runs too — a deny rule blocks them
+  const verdict = gate({ home, module: 'guardrails' }, { tool: 'Bash', input: { command } });
+  if (verdict && verdict.action === 'deny') {
+    return { ran: false, denied: true, error: `blocked by guardrail ${verdict.rule}: ${verdict.reason}` };
+  }
+  const root = cwd ?? repoRoot();
+  const [cmd, ...args] = tokenize(command);
+  // the run.allow command-axis — allowlisted, or a repo-local script. An absolute
+  // path OUTSIDE the repo (e.g. /bin/sh) does NOT bypass the allowlist.
+  if (allow && !allow.includes(cmd) && !underRepo(cmd, root)) {
+    return { ran: false, denied: true, error: `command '${cmd}' not in run.allow` };
+  }
+  const env = { ...process.env };
+  for (const [k, v] of Object.entries(inputs)) env[`ZZ_${k}`] = String(v);
+  const r = spawnSync(cmd, args, { cwd: root, env, encoding: 'utf8' });
+  return { ran: true, exitCode: r.status, success: r.status === 0, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+}
+
+/**
  * Run a note. Fail-soft return — never throws.
  * @returns {{ ok, ran, exitCode?, success?, stdout?, stderr?, error?, denied? }}
  */
@@ -46,35 +71,8 @@ export function act(ctx, id, inputs = {}) {
 
   // policy: the note's own policy narrows the module default (never widens)
   const policy = { ...(manifest.policy ?? {}), ...(note.policy ?? {}) };
-  const allow = policy.run?.allow ?? null;
-
-  // the guardrails gate applies to curated runs too — a deny rule blocks them
-  const verdict = gate({ home, module: 'guardrails' }, { tool: 'Bash', input: { command: note.run } });
-  if (verdict && verdict.action === 'deny') {
-    return { ok: false, ran: false, denied: true, error: `blocked by guardrail ${verdict.rule}: ${verdict.reason}` };
-  }
-
-  const cwd = repoRoot();
-  const [cmd, ...args] = tokenize(note.run);
-  // the run.allow command-axis — OUR layer: allowlisted, or a repo-local script.
-  // An absolute path OUTSIDE the repo (e.g. /bin/sh) does NOT bypass the allowlist.
-  if (allow && !allow.includes(cmd) && !underRepo(cmd, cwd)) {
-    return { ok: false, ran: false, denied: true, error: `command '${cmd}' not in run.allow` };
-  }
-
-  const env = { ...process.env };
-  for (const [k, v] of Object.entries(inputs)) env[`ZZ_${k}`] = String(v);
-
-  const r = spawnSync(cmd, args, { cwd, env, encoding: 'utf8' });
-
-  const result = {
-    ok: r.status === 0,
-    ran: true,
-    exitCode: r.status,
-    success: r.status === 0,
-    stdout: r.stdout ?? '',
-    stderr: r.stderr ?? '',
-  };
-  logRun(home, module, id, { inputs, exitCode: r.status, success: result.success });
-  return result;
+  const r = runGated(home, module, note.run, { allow: policy.run?.allow ?? null, inputs });
+  if (!r.ran) return { ok: false, ...r };
+  logRun(home, module, id, { inputs, exitCode: r.exitCode, success: r.success });
+  return { ok: r.success, ...r };
 }

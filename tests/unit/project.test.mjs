@@ -65,3 +65,63 @@ test('a custom Project title surfaces in the digest', () => {
     assert.match(digestText(cwd), /# My Deck Game — session brief/);
   });
 });
+
+// ── steering block (Plane 3 U2) ───────────────────────────────────────────────
+
+test('readProject returns the steering block (named fields round-trip)', () => {
+  withRepo((cwd) => {
+    const home = join(cwd, '.zuzuu');
+    mkdirSync(home, { recursive: true });
+    writeFileSync(join(home, 'project.md'), '---\ntype: project\ntitle: demo\nsteering: {"goals":"ship the deck","opener":"state Done-when","closer":"summarize","drift":"out-of-scope files"}\n---\nbody\n');
+    const p = readProject(home);
+    assert.equal(p.steering.goals, 'ship the deck');
+    assert.equal(p.steering.opener, 'state Done-when');
+    assert.equal(p.steering.drift, 'out-of-scope files');
+    assert.equal(p.title, 'demo', 'title unchanged');
+    assert.equal(p.body, 'body', 'body unchanged');
+  });
+});
+
+test('readProject: absent or partial steering is tolerant ({} / just the present keys)', () => {
+  withRepo((cwd) => {
+    const home = join(cwd, '.zuzuu');
+    mkdirSync(home, { recursive: true });
+    // no steering at all → {}
+    writeFileSync(join(home, 'project.md'), '---\ntype: project\ntitle: demo\n---\nx\n');
+    assert.deepEqual(readProject(home).steering, {}, 'missing steering → empty map, never undefined');
+    // only goals present
+    writeFileSync(join(home, 'project.md'), '---\ntype: project\ntitle: demo\nsteering: {"goals":"just goals"}\n---\nx\n');
+    assert.deepEqual(readProject(home).steering, { goals: 'just goals' });
+  });
+});
+
+test('readProject: a non-map steering value degrades to {} (never throws)', () => {
+  withRepo((cwd) => {
+    const home = join(cwd, '.zuzuu');
+    mkdirSync(home, { recursive: true });
+    writeFileSync(join(home, 'project.md'), '---\ntype: project\ntitle: demo\nsteering: oops-a-string\n---\nx\n');
+    assert.deepEqual(readProject(home).steering, {});
+  });
+});
+
+test('init seeds a steering template; it round-trips and surfaces in the digest', () => {
+  withRepo((cwd) => {
+    initHome(cwd);
+    const home = join(cwd, '.zuzuu');
+    const p = readProject(home);
+    assert.ok(p.steering.goals && p.steering.opener && p.steering.closer && p.steering.drift, 'all four keys seeded');
+    // the seeded goals render in the brief (discoverability)
+    assert.match(digestText(cwd), /## Goals\nWhat this project is for/);
+  });
+});
+
+test('init is brownfield-safe — a second init never clobbers an edited project.md', () => {
+  withRepo((cwd) => {
+    initHome(cwd);
+    const path = join(cwd, '.zuzuu', 'project.md');
+    writeFileSync(path, '---\ntype: project\ntitle: mine\nsteering: {"goals":"my real goal"}\n---\nedited\n');
+    const r2 = initHome(cwd);
+    assert.ok(r2.skipped.includes('project.md'), 'project.md skipped on re-init');
+    assert.equal(readProject(join(cwd, '.zuzuu')).steering.goals, 'my real goal', 'user edit preserved');
+  });
+});

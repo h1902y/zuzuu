@@ -17,7 +17,14 @@ import { listModules } from '../notes/module.mjs';
 import { registerAll } from './wire.mjs';
 import { stageChange, listStaged } from '../grow/stage.mjs';
 import { approve, reject } from '../grow/review.mjs';
-import { generations, rollback } from '../notes/generation.mjs';
+import { planFor, applyPlan } from '../grow/plan.mjs';
+import { renameNote, mergeNotes, refactorField } from '../grow/refactor.mjs';
+import { patchNote, appendNote } from '../grow/edit.mjs';
+import { viewNote } from '../use/view.mjs';
+import { validateProject } from '../use/check.mjs';
+import { runWorkflow } from '../use/workflow.mjs';
+import { generations, rollback, diffGenerations, notesAsOf } from '../notes/generation.mjs';
+import { timeline } from './timeline.mjs';
 
 /**
  * Open the Project rooted at `cwd` (git-citizen: the `.zuzuu/` at the repo root).
@@ -39,15 +46,32 @@ export function open(cwd = process.cwd()) {
     query: (module, opts = {}) => invoke(home, module, 'query', opts),
     check: (module, opts = {}) => invoke(home, module, 'check', opts),
     act: (module, id, inputs = {}) => invoke(home, module, 'act', id, inputs),
+    flow: (module, id, inputs = {}) => runWorkflow(home, module, id, inputs),
 
     // ── the human gate (review is interactive — not a registry verb) ────────
     stage: (module, p) => stageChange(home, module, p),
     staged: (module) => listStaged(home, module),
     approve: (module, id, opts) => approve(home, module, id, opts),
     reject: (module, id, reason) => reject(home, module, id, reason),
+    plan: (module) => planFor(home, module),
+    apply: (module, planId) => applyPlan(home, module, planId),
+
+    // ── graph-safe refactors (multi-note, link-updating) ────────────────────
+    rename: (module, oldId, newId) => renameNote(home, module, oldId, newId),
+    merge: (module, src, dst) => mergeNotes(home, module, src, dst),
+    refactor: (module, key, from, to) => refactorField(home, module, key, from, to),
+
+    // ── scoped edits + windowed read ────────────────────────────────────────
+    patch: (module, id, key, value) => patchNote(home, module, id, key, value),
+    append: (module, id, text) => appendNote(home, module, id, text),
+    view: (module, id, opts) => viewNote(home, module, id, opts),
+    validate: (module = '') => validateProject(home, module),
 
     // ── snapshots (per-module generations) ─────────────────────────────────
     generations: (module) => generations(home, module),
     rollback: (module, n) => rollback(home, module, n),
+    diff: (module, from, to, opts = {}) => diffGenerations(home, module, from, to, opts),
+    asOf: (module, n) => notesAsOf(home, module, n),
+    timeline: (opts = {}) => timeline(home, opts),
   };
 }

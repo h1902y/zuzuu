@@ -51,22 +51,37 @@ own manifest; each subdirectory is a *module* (its \`module.md\` is the manifest
 - zuzuu **observes** your sessions and **proposes** changes you **review**
 
 Everything in \`.zuzuu/\` is the durable Project (plain text, versioned) — notes,
-each module's \`generations.json\` lineage, and the review queue — so the Project
-round-trips across machines. Only \`worktrees/\` (live session checkouts) is
-gitignored; the rebuildable index cache + transient run-state live OUTSIDE the repo
-in your OS cache/state dirs. Inspect everything with \`zz\`.`;
+each module's \`generations.json\` lineage + \`log.jsonl\` mutations, and the review
+queue — so the Project round-trips across machines. The only gitignored entries are
+\`worktrees/\` (live session checkouts) and each module's \`runs.jsonl\` (local run
+telemetry); the rebuildable index cache + gate log + session run-state live OUTSIDE
+the repo in your OS cache/state dirs. Inspect everything with \`zz\`.`;
+
+// The session-steering template (Plane 3) — the human-authored, pinned contract the
+// session brief reads. Placeholder prose the operator edits; `goals` is rendered in
+// the brief today, the rest are read by the opener/closer/drift surfaces. Kept lean.
+const STEERING_TEMPLATE = {
+  goals: 'What this project is for — the standing intent (edit me).',
+  opener: 'Begin a session: state the task, the files in scope, and a Done-when signal.',
+  closer: 'End a session: summarize what shipped, the decisions made, and the next task.',
+  drift: 'Off-scope signals: touching files outside the task, or >3 turns on one error.',
+};
 
 /** The Project manifest (`project.md`, type: project) — the top-of-hierarchy envelope
- *  that declares the Project. Title defaults to the repo's directory name. */
+ *  that declares the Project. Title defaults to the repo's directory name; ships a
+ *  `steering` template the operator fills in. */
 const projectManifest = (root) =>
-  serialize({ type: 'project', title: basename(root) || 'project', format: 'zuzuu/v2', body: PROJECT_BODY });
+  serialize({ type: 'project', title: basename(root) || 'project', format: 'zuzuu/v2', steering: STEERING_TEMPLATE, body: PROJECT_BODY });
 
-// What must NOT travel in git. With the rebuildable cache + transient run-state moved
-// OUT of the repo (XDG cache/state dirs, see notes/store.mjs), the only in-repo
-// machine-local entry left is `worktrees/` — live session checkouts with uncommitted
-// work. EVERYTHING else under `.zuzuu/` is durable, tracked Project.
+// What must NOT travel in git. With the rebuildable cache + the gate log + session
+// run-state moved OUT of the repo (XDG cache/state dirs, see notes/store.mjs), two
+// in-repo machine-local entries remain: `worktrees/` (live session checkouts with
+// uncommitted work) and each module's `runs.jsonl` (per-module run telemetry — the
+// ephemeral feedback edge observe mines). The DURABLE Project — notes, the mutation
+// `log.jsonl`, and each `generations.json` lineage — stays tracked.
 const IGNORE_LINES = [
-  '.zuzuu/worktrees/',    // per-session git worktrees — machine-local, ephemeral
+  '.zuzuu/worktrees/',     // per-session git worktrees — machine-local, ephemeral
+  '.zuzuu/*/runs.jsonl',   // per-module run telemetry — local + ephemeral (mutations stay tracked)
 ];
 
 /**
