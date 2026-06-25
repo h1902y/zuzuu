@@ -32,11 +32,34 @@
   --color-muted: var(--color-ink-500);
   --color-subtle: var(--color-ink-300);
 
+  /* status — color carries STATE only (the calm-brief rule). danger existed; the rest. */
+  --color-success: #57c98a;
+  --color-warning: #e0a85f;
+  --color-info: #6ba8e0;
+
+  /* interaction-state tier */
+  --color-focus: var(--color-accent);
+  --color-selected: #16312c; /* faint accent-tinted fill for the active row */
+
+  /* the 5 standard-module hues (calm, desaturated — identity, not decoration; the
+     Rung-5 dashboard hues, promised but never added). Custom modules fall back to accent.
+     Provisional — tunable from docs/design-research/tokens-candidates.md. */
+  --color-mod-knowledge: #6ba8e0;    /* calm blue   */
+  --color-mod-memory: #b58fd6;       /* calm violet */
+  --color-mod-actions: #e0a85f;      /* calm amber  */
+  --color-mod-instructions: #57c98a; /* calm green  */
+  --color-mod-guardrails: #e08a8a;   /* calm rose   */
+
   --text-meta: 0.6875rem; /* 11px */
   --text-ui: 0.75rem; /* 12px */
   --text-body: 0.8125rem; /* 13px */
 
+  --radius-sm: 4px;
   --radius-ui: 6px;
+  --radius-lg: 10px;
+
+  /* subtle lift for overlays (dialogs/popovers) — warm, never a pure-black shadow */
+  --shadow-overlay: 0 8px 30px -8px rgb(0 0 0 / 0.55);
   --height-bar: 34px;
 }
 
