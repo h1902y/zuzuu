@@ -19,6 +19,14 @@ export function pickerRows(recents: RecentProject[]): PickerRow[] {
   return [...current, ...rest];
 }
 
+/** Live-search the picker rows by name or path (case-insensitive). A blank query
+ *  returns every row; the current-first ordering from `pickerRows` is preserved. */
+export function filterPickerRows(rows: PickerRow[], query: string): PickerRow[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return rows;
+  return rows.filter((r) => r.name.toLowerCase().includes(q) || r.path.toLowerCase().includes(q));
+}
+
 export interface SwitchAction {
   kind: "switch";
   path: string;

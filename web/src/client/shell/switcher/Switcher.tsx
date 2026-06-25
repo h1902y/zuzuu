@@ -1,22 +1,27 @@
-// shell/switcher/Switcher.tsx — the project switcher (R9–R12). The home title
-// ⌂ <project> is the trigger; ⌘O toggles it. Picking a recent (or an absolute
-// path via the open-folder autocomplete) switches IN PLACE (D1: POST /api/workspace/
-// switch, which tears down the current sessions and re-roots) — then a reload
-// re-fetches everything against the new root. Composes from ds primitives + the kit;
-// the popover frame uses static layout utilities only (no inline styles / arbitrary values).
+// shell/switcher/Switcher.tsx — the in-context fast-switch (the Projects Home is the
+// manage surface; this is the keyboard-fast jump). The home title ⌂ <project> is the
+// trigger; ⌘O toggles it. The popover carries: "← All projects" (back to the L1
+// launcher), a live-search recents list (current marked), and the "Open a folder…"
+// autocomplete. Picking a recent or a path switches IN PLACE via enterProject
+// (POST /api/workspace/switch → land on the Overview, NO page reload — app state is
+// preserved). Composes from ds primitives + the kit; static layout utilities only.
 import { useEffect, useReducer, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../lib/api.js";
-import { Database, ChevronDown, CornerDownRight } from "lucide-react";
-import { pickerRows, openFolderReducer, initialOpenFolder } from "../switcher-model.js";
-import { toast } from "../../state/toast.js";
+import { Database, ChevronDown, CornerDownRight, ArrowLeft } from "lucide-react";
+import { pickerRows, filterPickerRows, openFolderReducer, initialOpenFolder } from "../switcher-model.js";
+import { useEnterProject } from "../session/use-enter-project.js";
+import { useAppSurface } from "../../state/app-surface.js";
 import { Stack, Inline, Text, Icon } from "../../ds/index.js";
 
 export function Switcher() {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const [folder, dispatch] = useReducer(openFolderReducer, initialOpenFolder);
   const workspace = useQuery({ queryKey: ["workspace"], queryFn: api.workspace });
   const recents = useQuery({ queryKey: ["projects", "recents"], queryFn: api.projects.recents, enabled: open });
+  const enter = useEnterProject();
+  const setScreen = useAppSurface((s) => s.setScreen);
 
   // ⌘O / Ctrl-O toggles the switcher; Escape closes it.
   useEffect(() => {
@@ -36,12 +41,10 @@ export function Switcher() {
     return () => { alive = false; };
   }, [open, folder.prefix]);
 
-  async function switchTo(path: string) {
-    try { await api.switchWorkspace(path); window.location.reload(); } // in-place re-root → reload re-fetches all
-    catch { toast(`Couldn't open ${path}`, "error"); } // stay put on an invalid path
-  }
+  const switchTo = (path: string) => { setOpen(false); void enter(path); }; // in-place re-root, no reload
+  const toHome = () => { setOpen(false); setScreen("projects"); };
 
-  const rows = pickerRows(recents.data?.recents ?? []);
+  const rows = filterPickerRows(pickerRows(recents.data?.recents ?? []), query);
   const name = workspace.data?.name ?? "…";
 
   return (
@@ -52,9 +55,25 @@ export function Switcher() {
       {open && (
         <>
           <button type="button" aria-label="close" onClick={() => setOpen(false)} className="fixed inset-0 z-10 cursor-default" />
-          <div className="animate-pop absolute left-0 top-full z-20 mt-1 w-72 rounded-ui border border-border bg-elevated p-2 shadow-overlay">
+          <div className="animate-pop absolute left-0 top-full z-20 mt-1 w-80 rounded-ui border border-border bg-elevated p-2 shadow-overlay">
             <Stack gap="xs">
-              <Text size="meta" tone="subtle" weight="semibold">SWITCH PROJECT</Text>
+              <button
+                type="button"
+                onClick={toHome}
+                className="flex w-full items-center gap-2 rounded-ui px-2 py-1 text-left text-meta text-subtle transition-colors hover:bg-hover hover:text-ink-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-focus"
+              >
+                <Icon icon={ArrowLeft} size={13} /> All projects
+              </button>
+
+              <div className="border-t border-border pt-1">
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search projects…"
+                  className="w-full rounded-ui bg-app px-2 py-1 text-ui text-ink-100 outline-none placeholder:text-muted focus:bg-surface"
+                />
+              </div>
+
               {rows.map((row) => (
                 <button
                   key={row.path}
@@ -67,7 +86,7 @@ export function Switcher() {
                   {row.current && <Text size="meta" tone="muted">current</Text>}
                 </button>
               ))}
-              {!rows.length && <Text size="meta" tone="muted">no recent projects</Text>}
+              {!rows.length && <Text size="meta" tone="muted">no matching projects</Text>}
 
               <div className="mt-1 border-t border-border pt-2">
                 <Text size="meta" tone="subtle" weight="semibold">OPEN A FOLDER…</Text>
@@ -79,7 +98,7 @@ export function Switcher() {
                     else if (e.key === "ArrowUp") { e.preventDefault(); dispatch({ type: "moveHighlight", delta: -1 }); }
                     else if (e.key === "Enter") {
                       if (folder.dirs.length) { e.preventDefault(); dispatch({ type: "applyHighlighted" }); }
-                      else if (folder.prefix.startsWith("/")) void switchTo(folder.prefix);
+                      else if (folder.prefix.startsWith("/")) switchTo(folder.prefix);
                     }
                   }}
                   placeholder="/absolute/path/to/folder"

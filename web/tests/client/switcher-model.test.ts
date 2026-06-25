@@ -2,7 +2,7 @@
 // open-folder autocomplete reducer (pure; the .tsx only dispatches).
 import { describe, it, expect } from "vitest";
 import {
-  pickerRows, switchAction, openFolderReducer, initialOpenFolder,
+  pickerRows, filterPickerRows, switchAction, openFolderReducer, initialOpenFolder,
 } from "../../src/client/shell/switcher-model.js";
 import type { RecentProject } from "#shared/index.js";
 
@@ -13,6 +13,20 @@ describe("pickerRows", () => {
     const rows = pickerRows([r("/a"), r("/b", true), r("/c")]);
     expect(rows.map((x) => x.path)).toEqual(["/b", "/a", "/c"]);
     expect(rows[0]!.current).toBe(true);
+  });
+});
+
+describe("filterPickerRows", () => {
+  const rows = pickerRows([r("/a/cards"), r("/a/zuzuu", true), r("/a/blog")]);
+  it("a blank query returns every row, order preserved", () => {
+    expect(filterPickerRows(rows, "  ").map((x) => x.path)).toEqual(["/a/zuzuu", "/a/cards", "/a/blog"]);
+  });
+  it("matches name or path, case-insensitively", () => {
+    expect(filterPickerRows(rows, "CARD").map((x) => x.name)).toEqual(["cards"]);
+    expect(filterPickerRows(rows, "/a/blog").map((x) => x.name)).toEqual(["blog"]);
+  });
+  it("no match → empty", () => {
+    expect(filterPickerRows(rows, "nope")).toEqual([]);
   });
 });
 
