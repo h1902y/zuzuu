@@ -58,6 +58,7 @@ export function NavTree() {
             onClick={() => select({ kind: "session", id: s.id })}
           />
         ))}
+        {!sessions.length && <Text size="meta" tone="muted">none yet</Text>}
         <NewSessionMenu />
       </Stack>
 
@@ -73,6 +74,7 @@ export function NavTree() {
             onClick={() => select({ kind: "module", id: m.id })}
           />
         ))}
+        {!modules.length && <Text size="meta" tone="muted">{overview.isLoading ? "…" : "none yet"}</Text>}
       </Stack>
     </nav>
   );

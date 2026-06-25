@@ -23,6 +23,7 @@ import { ReviewQueue } from "./review/ReviewQueue.js";
 import { Form } from "./wing/Form.js";
 import { Schema } from "./wing/Schema.js";
 import { Palette } from "../palette/Palette.js";
+import { Loading } from "../ds/index.js";
 import { useReview } from "../state/review.js";
 import { Stack, Text } from "../ds/index.js";
 import { NavTree } from "./NavTree.js";
@@ -60,7 +61,7 @@ function Overview({ modules, onPick }: { modules: ModuleOverviewEntry[]; onPick:
               </Text>
             </button>
           ))}
-          {!modules.length && <Text size="ui" tone="muted">no modules yet — run `zz init`</Text>}
+          {!modules.length && <Text size="ui" tone="muted">no tables yet — zuzuu grows them as you work</Text>}
         </div>
       </Stack>
     </div>
@@ -143,6 +144,8 @@ export function WorkbenchShell() {
             <Record module={selected.module} id={selected.id} />
           ) : onboarding && pState ? (
             <Checklist state={pState} onRung={onRung} busy={busy} />
+          ) : projectState.isLoading || overview.isLoading ? (
+            <Loading />
           ) : (
             <Overview modules={modules} onPick={(id) => select({ kind: "module", id })} />
           )}
