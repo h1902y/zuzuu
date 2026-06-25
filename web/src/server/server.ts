@@ -11,6 +11,7 @@ import { SessionManager } from "./session-manager.js";
 import { AuthGate } from "./auth.js";
 import { createFsApi } from "./fs-api.js";
 import { createZuzuuApi } from "./zuzuu-routes.js";
+import { createProjectsApi } from "./projects-routes.js";
 import { createSessionsApi } from "./sessions-routes.js";
 import { createAgentCloser, type AgentCloser } from "./agent-close.js";
 import { serveStatic } from "./static.js";
@@ -167,6 +168,7 @@ export class WebcodeServer {
 
     app.route("/api/fs", createFsApi(() => this.root));
     app.route("/api/zuzuu", createZuzuuApi(() => this.root, { binary: cfg.zuzuuBinary }));
+    app.route("/api/projects", createProjectsApi(() => this.root)); // machine-global: recents + dir autocomplete
 
     // Static SPA (index.html fallback for client-side routes)
     app.get("*", serveStatic(cfg.webDist));
