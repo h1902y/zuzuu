@@ -20,9 +20,13 @@ import { Checklist } from "./onboarding/Checklist.js";
 import { Overview } from "./overview/Overview.js";
 import { Grid } from "./stage/Grid.js";
 import { Record } from "./stage/Record.js";
+import { StageHeader } from "./stage/StageHeader.js";
+import { stageHeaderModel, newNoteId } from "./stage/stage-header.js";
 import { ReviewQueue } from "./review/ReviewQueue.js";
 import { Form } from "./wing/Form.js";
 import { Schema } from "./wing/Schema.js";
+import { dataProvider } from "../data/provider.js";
+import { Plus } from "lucide-react";
 import { Palette } from "../palette/Palette.js";
 import { Loading, ThemeToggle } from "../ds/index.js";
 import { useReview } from "../state/review.js";
@@ -87,6 +91,16 @@ export function WorkbenchShell() {
     finally { setBusy(null); void qc.invalidateQueries({ queryKey: ["zuzuu"] }); }
   }
 
+  // "New note" (the module stage's primary): a create → a PENDING proposal (the gate),
+  // never a landed row — it surfaces in the review queue.
+  async function onNewNote(module: string) {
+    try {
+      await dataProvider.create(module, newNoteId(Date.now()), { title: "Untitled note", body: "" });
+      toast("New note staged for review");
+      void qc.invalidateQueries({ queryKey: ["zuzuu"] });
+    } catch { toast("Couldn't stage the note", "error"); }
+  }
+
   const sel = selectActors(selected);
   const sessionNode = selected?.kind === "session" ? selected : null;
   const activeSession = sessionNode ? sessions.find((s) => s.id === sessionNode.id) : null;
@@ -98,11 +112,23 @@ export function WorkbenchShell() {
   // ribbon setup nudge (R8) — only when home (the checklist) isn't the current view, so the same prompt never double-surfaces
   const setupHint = pState !== undefined && pState !== "steady" && selected !== null ? RUNG_HINT[currentRung(pState)] : undefined;
 
+  // the governed stage-header (P2.1): a friendly breadcrumb + the stage's primary action.
+  const header = stageHeaderModel(selected);
+  const moduleTitle = (id: string) => modules.find((m) => m.id === id)?.title ?? id;
+  const stageCrumb =
+    selected?.kind === "module" ? [moduleTitle(selected.id)]
+    : selected?.kind === "row" ? [moduleTitle(selected.module), selected.id]
+    : selected?.kind === "session" ? [activeSession?.title || "session"]
+    : [];
+  const stagePrimary =
+    header.primary?.key === "new-note" && selected?.kind === "module"
+      ? { label: "New note", icon: Plus, onClick: () => void onNewNote(selected.id) }
+      : null;
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-12 shrink-0 items-center gap-3 border-b border-border bg-surface px-5">
         <Text as="button" interactive size="meta" tone="muted" onClick={() => setPalette(true)}>⌘K</Text>
-        <Text as="button" interactive size="meta" tone="subtle" onClick={() => select(null)}>{sel.crumb.length ? sel.crumb.join(" › ") : "the database"}</Text>
         <div className="ml-auto"><ThemeToggle /></div>
       </div>
 
@@ -110,32 +136,35 @@ export function WorkbenchShell() {
         <NavTree />
 
         <main className="flex min-w-0 flex-1 flex-col bg-app">
-          {sel.stage === "terminal" && sessionNode ? (
-            <>
-              <div className="min-h-0 flex-1"><TermView key={sessionNode.id} sessionId={sessionNode.id} /></div>
-              {activeSession?.type === "agent" && <Composer key={sessionNode.id} sessionId={sessionNode.id} />}
-            </>
-          ) : sel.stage === "grid" && selected?.kind === "module" ? (
-            <Grid module={selected.id} />
-          ) : sel.stage === "record" && selected?.kind === "row" ? (
-            <Record module={selected.module} id={selected.id} />
-          ) : onboarding && pState ? (
-            <Checklist state={pState} onRung={onRung} busy={busy} />
-          ) : projectState.isLoading || overview.isLoading ? (
-            <Loading />
-          ) : (
-            <Overview
-              name={workspace.data?.name ?? "this project"}
-              path={workspace.data?.root ?? ""}
-              enabled={projectState.data?.host.enabled ?? false}
-              modules={modules}
-              sessions={sessions}
-              onPickModule={(id) => select({ kind: "module", id })}
-              onPickSession={(id) => select({ kind: "session", id })}
-              onStartSession={() => void startSession()}
-              onReview={() => setReview(true)}
-            />
-          )}
+          {header.show && <StageHeader crumb={stageCrumb} primary={stagePrimary} />}
+          <div className="flex min-h-0 flex-1 flex-col">
+            {sel.stage === "terminal" && sessionNode ? (
+              <>
+                <div className="min-h-0 flex-1"><TermView key={sessionNode.id} sessionId={sessionNode.id} /></div>
+                {activeSession?.type === "agent" && <Composer key={sessionNode.id} sessionId={sessionNode.id} />}
+              </>
+            ) : sel.stage === "grid" && selected?.kind === "module" ? (
+              <Grid module={selected.id} />
+            ) : sel.stage === "record" && selected?.kind === "row" ? (
+              <Record module={selected.module} id={selected.id} />
+            ) : onboarding && pState ? (
+              <Checklist state={pState} onRung={onRung} busy={busy} />
+            ) : projectState.isLoading || overview.isLoading ? (
+              <Loading />
+            ) : (
+              <Overview
+                name={workspace.data?.name ?? "this project"}
+                path={workspace.data?.root ?? ""}
+                enabled={projectState.data?.host.enabled ?? false}
+                modules={modules}
+                sessions={sessions}
+                onPickModule={(id) => select({ kind: "module", id })}
+                onPickSession={(id) => select({ kind: "session", id })}
+                onStartSession={() => void startSession()}
+                onReview={() => setReview(true)}
+              />
+            )}
+          </div>
         </main>
 
         {sel.wing !== "none" && (
