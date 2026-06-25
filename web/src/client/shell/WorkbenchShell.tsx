@@ -18,6 +18,7 @@ import { useStartSession } from "./session/use-start-session.js";
 import { toast } from "../state/toast.js";
 import { Checklist } from "./onboarding/Checklist.js";
 import { Grid } from "./stage/Grid.js";
+import { Record } from "./stage/Record.js";
 import { Stack, Text } from "../ds/index.js";
 import { NavTree } from "./NavTree.js";
 import { Ribbon } from "./Ribbon.js";
@@ -115,8 +116,8 @@ export function WorkbenchShell() {
             </>
           ) : sel.stage === "grid" && selected?.kind === "module" ? (
             <Grid module={selected.id} />
-          ) : sel.stage === "record" ? (
-            <Placeholder label="record (U6)" />
+          ) : sel.stage === "record" && selected?.kind === "row" ? (
+            <Record module={selected.module} id={selected.id} />
           ) : onboarding && pState ? (
             <Checklist state={pState} onRung={onRung} busy={busy} />
           ) : (
