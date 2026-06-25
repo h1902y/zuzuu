@@ -23,6 +23,25 @@ describe("brainGraph", () => {
   it("empty → empty", () => {
     expect(brainGraph([])).toEqual({ nodes: [], edges: [] });
   });
+  it("resolves [[bare-id]] to the source note's OWN module on collision", () => {
+    // both modules have a note id 'index'; knowledge:home links [[index]] → must
+    // resolve to knowledge:index (its own module), not memory:index.
+    const g = brainGraph([
+      { module: "knowledge", items: [
+        { id: "home", title: "Home", body: "[[index]]" },
+        { id: "index", title: "K Index", body: "" },
+      ] },
+      { module: "memory", items: [{ id: "index", title: "M Index", body: "" }] },
+    ]);
+    expect(g.edges).toEqual([{ from: "knowledge:home", to: "knowledge:index" }]);
+  });
+  it("falls back to a global lookup when the ref isn't in the source module", () => {
+    const g = brainGraph([
+      { module: "knowledge", items: [{ id: "a", title: "A", body: "[[only-in-memory]]" }] },
+      { module: "memory", items: [{ id: "only-in-memory", title: "Only In Memory", body: "" }] },
+    ]);
+    expect(g.edges).toEqual([{ from: "knowledge:a", to: "memory:only-in-memory" }]);
+  });
 });
 
 describe("splitNodeId", () => {
