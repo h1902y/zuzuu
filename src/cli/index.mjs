@@ -54,6 +54,7 @@ const HELP = `zz — your repo's Project (envelopes, queried/run/grown, human-ga
   zz check [module]             integrity — broken links · orphans · stale
   zz validate [module]          schema-check every note (type-keyed invariants)
   zz observe                    mine real sessions → staged changes (the cold-start)
+  zz stage <m> --op create|update --target <id> --field k=v   stage a change (a pending proposal)
   zz review [module]            list staged changes awaiting the gate
   zz review plan <m>            preview the module's pending set as one change-set
   zz review apply <m> [plan]    apply the set as ONE generation (all-or-nothing)
@@ -173,6 +174,32 @@ export async function run(argv, io = {}) {
         const r = observe(zz.home, { cwd, sessions });
         log(toon('observe', [{ mined: r.sessionsMined, candidates: r.candidates, proposed: r.proposed }], ['mined', 'candidates', 'proposed']));
         if (r.staged.length) log(toon('staged', r.staged.map((p) => ({ module: p.module, id: p.target, score: p.score })), ['module', 'id', 'score'], ['zz review <module>']));
+        return 0;
+      }
+
+      case 'stage': {
+        // the write entry-door: a UI (or human) stages a change → a PENDING proposal
+        // the review gate governs. A thin door over the complete grow/stage engine.
+        const zz = open(cwd);
+        const [module] = args._;
+        const op = args.op;
+        if (!module || !op) return fail(log, 'usage: zz stage <module> --op create|update --target <id> [--field k=v …] [--change <json>]', json);
+        if ((op === 'create' || op === 'update') && !args.target) return fail(log, `--target <id> is required for op '${op}'`, json);
+        // the change body: --change <json> (the machine path) OR repeated --field k=v (human sugar,
+        // scanned from raw argv so multiples accumulate — parseArgs would keep only the last)
+        let change = {};
+        if (args.change) { try { change = JSON.parse(args.change); } catch { return fail(log, 'invalid --change JSON', json); } }
+        else for (let i = 0; i < rest.length; i++) {
+          if (rest[i] === '--field' && rest[i + 1] != null) {
+            const eq = rest[i + 1].indexOf('=');
+            if (eq > 0) change[rest[i + 1].slice(0, eq)] = rest[i + 1].slice(eq + 1);
+            i++;
+          }
+        }
+        const rec = zz.stage(module, { op, target: args.target, change });
+        if (!rec) return fail(log, `invalid op '${op}' (create|update|delete|relate|deprecate)`, json);
+        const handle = { id: rec.id, op: rec.op, module: rec.module, target: rec.target, status: rec.status, score: rec.score, duplicate: !!rec.duplicate };
+        emit(log, json, handle, ['staged', [{ id: rec.id, op: rec.op, target: rec.target ?? '', status: rec.status }], ['id', 'op', 'target', 'status'], ['zz review ' + module]]);
         return 0;
       }
 
