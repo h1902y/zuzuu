@@ -25,6 +25,8 @@ import { validateProject } from '../use/check.mjs';
 import { runWorkflow } from '../use/workflow.mjs';
 import { generations, rollback, diffGenerations, notesAsOf } from '../notes/generation.mjs';
 import { timeline } from './timeline.mjs';
+import { readProjectRefs, readLibraryModules, registryIdentity } from '../notes/registry.mjs';
+import { activeRegistryPath } from '../notes/registry-pointer.mjs';
 
 /**
  * Open the Project rooted at `cwd` (git-citizen: the `.zuzuu/` at the repo root).
@@ -73,5 +75,17 @@ export function open(cwd = process.cwd()) {
     diff: (module, from, to, opts = {}) => diffGenerations(home, module, from, to, opts),
     asOf: (module, n) => notesAsOf(home, module, n),
     timeline: (opts = {}) => timeline(home, opts),
+
+    // ── the project registry (the active role:registry repo; read surface) ───
+    // The active registry is a SEPARATE repo resolved via the machine-global
+    // pointer; its `.zuzuu` home is independent of THIS project's `home`. Mutating
+    // verbs (add/sync/subscribe/check/touch) extend this handle in later units.
+    registry: {
+      home: () => activeRegistryPath(),
+      configured: () => !!activeRegistryPath(),
+      refs: () => { const h = activeRegistryPath(); return h ? readProjectRefs(h) : []; },
+      library: () => { const h = activeRegistryPath(); return h ? readLibraryModules(h) : []; },
+      identity: () => { const h = activeRegistryPath(); return h ? registryIdentity(h) : null; },
+    },
   };
 }
