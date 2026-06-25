@@ -3,7 +3,7 @@
 // Selecting a node drives the stage/wing. Composed from ds primitives.
 import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Circle, Table2, Flag, Home } from "lucide-react";
+import { Circle, Table2, Flag, Home, Share2 } from "lucide-react";
 import { api } from "../lib/api.js";
 import { useWorkbench } from "../state/store.js";
 import { useWorld } from "./world-state.js";
@@ -87,6 +87,16 @@ export function NavTree() {
           />
         ))}
         {!modules.length && <Text size="meta" tone="muted">{overview.isLoading ? "…" : "none yet"}</Text>}
+      </Stack>
+
+      <Stack gap="xs">
+        <Text size="meta" tone="subtle" weight="semibold">PROJECT</Text>
+        <NavRow
+          active={selected?.kind === "graph"}
+          icon={<Icon icon={Share2} size={14} />}
+          label="Graph"
+          onClick={() => select({ kind: "graph" })}
+        />
       </Stack>
     </nav>
   );
