@@ -9,8 +9,10 @@
 //   flow     the end-to-end flow-control watermarks (the anti-freeze)
 //   rest     the daemon's JSON REST contract (sessions/fs/search/health)
 //   zuzuu    the modules-dashboard contract (the Project surface)
+//   project-layer  onboarding + switching (the surface above the in-Project shell)
 
 export * from "./opcodes.js";
 export * from "./flow.js";
 export * from "./rest.js";
 export * from "./zuzuu.js";
+export * from "./project-layer.js";
