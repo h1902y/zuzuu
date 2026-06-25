@@ -4,18 +4,29 @@
 // Composer unchanged; grid/record/wing are placeholders until U5–U8 fill them. The
 // frame uses static layout utilities (no inline styles / arbitrary values); content
 // composes from ds primitives.
-import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
-import type { ModuleOverviewEntry } from "#shared/index.js";
+import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { ModuleOverviewEntry, ProjectStateKind } from "#shared/index.js";
 import { TermView } from "../term/TermView.js";
 import { Composer } from "../composer/Composer.js";
 import { api } from "../lib/api.js";
 import { useWorkbench } from "../state/store.js";
 import { useWorld } from "./world-state.js";
 import { selectActors } from "./shell-state.js";
+import { homeMode, currentRung, type RungId } from "./project-home-state.js";
+import { Checklist } from "./onboarding/Checklist.js";
 import { Stack, Text } from "../ds/index.js";
 import { NavTree } from "./NavTree.js";
 import { Ribbon } from "./Ribbon.js";
+
+/** Terse ribbon nudge per current rung (R8) — shown only when home isn't visible. */
+const RUNG_HINT: Record<RungId, string> = {
+  "git-init": "not a Project yet",
+  init: "initialize the Project",
+  enable: "enable your agent",
+  session: "start a session",
+  review: "review your first proposal",
+};
 
 function Placeholder({ label }: { label: string }) {
   return <div className="grid h-full place-items-center"><Text tone="muted">{label}</Text></div>;
@@ -52,9 +63,26 @@ export function WorkbenchShell() {
   const refresh = useWorkbench((s) => s.refresh);
   const selected = useWorld((s) => s.selected);
   const select = useWorld((s) => s.select);
+  const open = useWorkbench((s) => s.open);
   const overview = useQuery({ queryKey: ["zuzuu", "overview"], queryFn: api.zuzuu.overview });
+  const projectState = useQuery({ queryKey: ["zuzuu", "project-state"], queryFn: api.zuzuu.projectState });
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState<RungId | null>(null);
 
   useEffect(() => { void refresh(); }, [refresh]); // load sessions; home is the database (no auto-open)
+
+  // Fire a real setup verb, then refetch so the home advances on TRUE state (D4).
+  async function onRung(r: RungId) {
+    setBusy(r);
+    try {
+      if (r === "git-init") await api.setup.gitInit();
+      else if (r === "init") await api.setup.init();
+      else if (r === "enable") await api.setup.enable();
+      else if (r === "session") await open();
+      // review: the by-doing handoff — the first proposal lands in the ribbon (R7)
+    } catch { /* calm: the next refetch reflects true state */ }
+    finally { setBusy(null); void qc.invalidateQueries({ queryKey: ["zuzuu"] }); }
+  }
 
   const sel = selectActors(selected);
   const sessionNode = selected?.kind === "session" ? selected : null;
@@ -62,6 +90,10 @@ export function WorkbenchShell() {
   const modules = overview.data?.modules ?? [];
   const pendingByModule = Object.fromEntries(modules.map((m) => [m.id, m.counts?.pending ?? 0]));
   const sessionsLite = sessions.map((s) => ({ id: s.id, live: s.alive, lastActiveAt: s.createdAt }));
+  const pState: ProjectStateKind | undefined = projectState.data?.state;
+  const onboarding = pState !== undefined && homeMode(pState) === "onboarding";
+  // ribbon setup nudge (R8) — only when home (the checklist) isn't the current view, so the same prompt never double-surfaces
+  const setupHint = pState !== undefined && pState !== "steady" && selected !== null ? RUNG_HINT[currentRung(pState)] : undefined;
 
   return (
     <div className="flex h-full flex-col">
@@ -83,6 +115,8 @@ export function WorkbenchShell() {
             <Placeholder label={`grid · ${sessionNode ? "" : selected?.kind === "module" ? selected.id : ""} (U5)`} />
           ) : sel.stage === "record" ? (
             <Placeholder label="record (U6)" />
+          ) : onboarding && pState ? (
+            <Checklist state={pState} onRung={onRung} busy={busy} />
           ) : (
             <Overview modules={modules} onPick={(id) => select({ kind: "module", id })} />
           )}
@@ -95,7 +129,7 @@ export function WorkbenchShell() {
         )}
       </div>
 
-      <Ribbon sessions={sessionsLite} pendingByModule={pendingByModule} onReview={() => { /* U7: open the queue */ }} />
+      <Ribbon sessions={sessionsLite} pendingByModule={pendingByModule} setupHint={setupHint} onReview={() => { /* U7: open the queue */ }} />
     </div>
   );
 }

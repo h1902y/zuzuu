@@ -6,6 +6,7 @@ import { api } from "../lib/api.js";
 import { useWorkbench } from "../state/store.js";
 import { useWorld } from "./world-state.js";
 import { mostRecentlyActive } from "./shell-state.js";
+import { shouldShowSetupNode } from "./project-home-state.js";
 import { Stack, Text } from "../ds/index.js";
 
 function NavRow({ active, dot, label, badge, onClick }: {
@@ -31,14 +32,21 @@ export function NavTree() {
   const select = useWorld((s) => s.select);
   const overview = useQuery({ queryKey: ["zuzuu", "overview"], queryFn: api.zuzuu.overview });
 
+  const projectState = useQuery({ queryKey: ["zuzuu", "project-state"], queryFn: api.zuzuu.projectState });
   const owner = mostRecentlyActive(sessions.map((s) => ({ id: s.id, live: s.alive, lastActiveAt: s.createdAt })));
   const modules = overview.data?.modules ?? [];
+  const showSetup = projectState.data !== undefined && shouldShowSetupNode(projectState.data.state);
 
   return (
     <nav className="flex h-full w-60 shrink-0 flex-col gap-4 overflow-y-auto border-r border-border bg-surface p-2">
       <Text as="button" size="meta" tone="muted" weight="semibold" onClick={() => select(null)}>
         ⌂ {overview.data ? "the database" : "…"}
       </Text>
+      {showSetup && (
+        <Text as="button" size="meta" tone="accent" weight="semibold" onClick={() => select(null)}>
+          ⚑ Set up this Project
+        </Text>
+      )}
 
       <Stack gap="xs">
         <Text size="meta" tone="subtle" weight="semibold">SESSIONS</Text>

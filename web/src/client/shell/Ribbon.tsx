@@ -5,14 +5,14 @@ import { ribbonState, type SessionLite } from "./shell-state.js";
 import { Inline, Text } from "../ds/index.js";
 
 export function Ribbon({
-  sessions, pendingByModule, onReview,
-}: { sessions: SessionLite[]; pendingByModule: Record<string, number>; onReview: () => void }) {
+  sessions, pendingByModule, onReview, setupHint,
+}: { sessions: SessionLite[]; pendingByModule: Record<string, number>; onReview: () => void; setupHint?: string }) {
   const r = ribbonState(sessions, pendingByModule);
   return (
     <div className="flex h-8 shrink-0 items-center justify-between border-t border-border bg-app px-3">
       <Inline gap="sm">
-        <Text size="meta" tone={r.liveness ? "accent" : "muted"}>
-          {r.liveness ? `● ${r.liveness} live` : "○ idle"}
+        <Text size="meta" tone={setupHint ? "subtle" : r.liveness ? "accent" : "muted"}>
+          {setupHint ? `○ ${setupHint}` : r.liveness ? `● ${r.liveness} live` : "○ idle"}
         </Text>
         <Text size="meta" tone="muted">·</Text>
         <Text size="meta" tone={r.pending ? "default" : "muted"}>
