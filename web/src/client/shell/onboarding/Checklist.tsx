@@ -27,7 +27,7 @@ export function Checklist({ state, onRung, busy }: {
     <div className="h-full overflow-y-auto p-6">
       <Stack gap="lg">
         <Stack gap="xs">
-          <Text size="body" weight="semibold">Set up this Project</Text>
+          <Text size="lg" font="display">Set up this Project</Text>
           <Text size="ui" tone="muted">zuzuu grows a brain for this folder from how you work — every change human-gated.</Text>
         </Stack>
         <Stack gap="md">

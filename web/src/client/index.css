@@ -1,6 +1,11 @@
 @import "tailwindcss";
+/* the type trio (MARVIN warm-retro): Space Grotesk (UI) · Sigmar + Bagel Fat One
+   (display/logotype) · Space Mono (terminal) + JetBrains Mono (dense data). */
+@import "@fontsource-variable/space-grotesk";
+@import "@fontsource/sigmar/latin.css";
+@import "@fontsource/bagel-fat-one/latin.css";
+@import "@fontsource/space-mono/latin.css";
 @import "@fontsource-variable/jetbrains-mono";
-@import "@fontsource-variable/geist";
 @import "@xterm/xterm/css/xterm.css";
 
 /* The design tokens — WARM DUAL-THEME (MARVIN / Flexoki-based). The @theme block
@@ -10,8 +15,14 @@
    declared once here and auto-follow the ramp — no duplication per theme.
    Source of truth: docs/design-research/workbench/09-taste-redesign-direction.md §2.0. */
 @theme {
-  --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --font-sans: "Geist Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* the duotype, warmed: Space Grotesk for chrome/prose, a retro display face for
+     brand + headings, a mono split (Space Mono terminal · JetBrains Mono dense data). */
+  --font-sans: "Space Grotesk Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Sigmar", "Bagel Fat One", ui-sans-serif, system-ui; /* hero headings / empty states */
+  --font-logo: "Bagel Fat One", "Sigmar", ui-sans-serif, system-ui;    /* the brand logotype (48px+) */
+  --font-mono-display: "Space Mono", ui-monospace, SFMono-Regular, Menlo, monospace; /* the terminal */
+  --font-mono-data: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace; /* dense grids */
+  --font-mono: var(--font-mono-data); /* back-compat: existing font-mono utility = dense data */
 
   /* warm-DARK ramp (Flexoki) — the @theme fallback; [data-theme="light"] overrides below */
   --color-ink-950: #1c1b1a; /* app field — warm near-black */
@@ -51,9 +62,16 @@
   --color-mod-instructions: #879a39; /* sage  */
   --color-mod-guardrails: #da702c;   /* terracotta */
 
-  --text-meta: 0.6875rem; /* 11px */
-  --text-ui: 0.75rem; /* 12px */
-  --text-body: 0.8125rem; /* 13px */
+  /* the type scale — dense tiers (meta/ui/body) + real headings (sm…2xl). Weight is
+     the primary hierarchy lever; size carries the rest. */
+  --text-meta: 0.6875rem; /* 11px — labels, captions */
+  --text-ui: 0.75rem; /* 12px — dense UI / table cells */
+  --text-body: 0.8125rem; /* 13px — body */
+  --text-sm: 0.875rem; /* 14px */
+  --text-base: 1rem; /* 16px — section titles */
+  --text-lg: 1.25rem; /* 20px — headings */
+  --text-xl: 1.5rem; /* 24px */
+  --text-2xl: 1.875rem; /* 30px — hero/display */
 
   --radius-sm: 4px;
   --radius-ui: 6px;

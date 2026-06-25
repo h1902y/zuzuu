@@ -46,7 +46,7 @@ function Overview({ modules, onPick }: { modules: ModuleOverviewEntry[]; onPick:
   return (
     <div className="h-full overflow-y-auto p-6">
       <Stack gap="md">
-        <Text size="body" tone="subtle" weight="semibold">The database</Text>
+        <Text size="lg" font="display">The database</Text>
         <div className="grid grid-cols-3 gap-3">
           {modules.map((m) => (
             <button

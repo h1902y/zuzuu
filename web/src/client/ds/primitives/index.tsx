@@ -31,6 +31,6 @@ export function Grid({ as: As = "div", cols, gap, children, ...rest }: GridProps
 }
 
 export type TextProps = Omit<HTMLAttributes<HTMLElement>, "className" | "style"> & Poly & VariantProps<typeof textRecipe>;
-export function Text({ as: As = "span", size, tone, weight, mono, truncate, interactive, children, ...rest }: TextProps) {
-  return <As className={textRecipe({ size, tone, weight, mono, truncate, interactive })} {...rest}>{children}</As>;
+export function Text({ as: As = "span", size, tone, weight, mono, font, truncate, interactive, children, ...rest }: TextProps) {
+  return <As className={textRecipe({ size, tone, weight, mono, font, truncate, interactive })} {...rest}>{children}</As>;
 }

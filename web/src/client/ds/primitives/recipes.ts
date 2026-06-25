@@ -48,9 +48,14 @@ export const gridRecipe = tv({
 export const textRecipe = tv({
   base: "",
   variants: {
-    size: { meta: "text-meta", ui: "text-ui", body: "text-body" },
+    size: {
+      meta: "text-meta", ui: "text-ui", body: "text-body",
+      sm: "text-sm", base: "text-base", lg: "text-lg", xl: "text-xl", "2xl": "text-2xl",
+    },
     tone: { default: "text-ink-100", muted: "text-muted", subtle: "text-subtle", accent: "text-accent", danger: "text-danger" },
     weight: { normal: "font-normal", medium: "font-medium", semibold: "font-semibold" },
+    // font family: the retro display face for brand/headings, the mono split for data/terminal
+    font: { display: "font-display", logo: "font-logo", sans: "font-sans", mono: "font-mono-display", data: "font-mono-data" },
     mono: { true: "font-mono" },
     truncate: { true: "truncate" },
     // a Text-as-button affordance: hover/focus feedback so clickable text reads as clickable
