@@ -34,13 +34,34 @@ export interface ModuleItemError {
   error: string;
 }
 
+/** One piece of corroborating evidence behind a mined proposal — the array observe
+ *  writes (`evidence: [{ kind, occurrences, sessions, … }]`). The session count is
+ *  what the reason line counts; extra keys (failures, …) ride through untyped. */
+export interface StagedEvidence {
+  /** the ROUTE kind: command | entity | fact | guardrail | correction | workflow */
+  kind?: string;
+  occurrences?: number;
+  /** distinct sessions the signal corroborated across (a count today; see U4) */
+  sessions?: number;
+  [k: string]: unknown;
+}
+
 export interface StagedSummary {
   id: string;
   module: string;
   title: string;
+  /** create | update | delete | relate | deprecate — the staged op. */
+  op?: string;
   /** a short preview of the content being approved — best-effort */
   preview?: string;
-  /** the persisted confidence bucket (high|med|low), when present */
+  /** why this was proposed (observe writes the candidate body here). */
+  rationale?: string;
+  /** the corroborating evidence behind the proposal — feeds the reason line. */
+  evidence?: StagedEvidence[];
+  /** the staged change body (the note that lands on approve: type/title/body/…). */
+  change?: Record<string, unknown>;
+  /** the persisted confidence bucket, when a producer sets it (null today — never
+   *  faked from `score`, which is a number). */
   confidence?: string | null;
 }
 

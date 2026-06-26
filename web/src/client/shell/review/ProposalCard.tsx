@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { StagedSummary } from "#shared/index.js";
 import { REJECT_REASONS } from "./review-model.js";
+import { reasonLine } from "./reason-line.js";
 import { Stack, Inline, Text, Button } from "../../ds/index.js";
 
 export function ProposalCard({ item, focused, onApprove, onReject }: {
@@ -27,6 +28,7 @@ export function ProposalCard({ item, focused, onApprove, onReject }: {
     >
       <Stack gap="xs">
         <Text size="ui" weight="medium">{item.title}</Text>
+        <Text size="meta" tone="muted">{reasonLine(item.evidence?.[0]?.kind, item.evidence)}</Text>
         {item.preview && <Text size="meta" tone="muted">{item.preview}</Text>}
         <Text size="meta" tone="muted">{item.module}{item.confidence ? ` · ${item.confidence}` : ""}</Text>
         {!rejecting ? (

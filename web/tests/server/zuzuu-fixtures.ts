@@ -27,13 +27,21 @@ export function fixtureHome(r: string): string {
   writeFileSync(path.join(agent, "sessions.json"), JSON.stringify({ version: 1, sessions: [{ id: "s1", host: "claude-code" }] }));
   writeFileSync(path.join(agent, "knowledge", "items", "k1.md"),
     envelope({ id: "k1", module: "knowledge", kind: "fact", title: '"fact one"', status: "active", created_at: "2026-06-12T00:00:00Z" }, "fact one\n"));
+  // A real observe-written staged record (body under `change`, top-level numeric
+  // `score`, `confidence: null` until a producer sets it, `evidence` as an array) —
+  // matches src/grow/stage.mjs (see the golden shape pinned in zuzuu-staged-summary.test.ts).
   writeFileSync(path.join(agent, "knowledge", "staged", "p1.json"),
     JSON.stringify({
       id: "p1",
-      payload: { type: "fact", body: "use node:sqlite" },
-      evidence: { occurrences: 12, sessions: 3, failures: 0 },
-      analysis: { er: { verdict: "new" } },
-      score: { score: 0.775, confidence: "high", rationale: "recurring + cross-session" },
+      op: "create",
+      module: "knowledge",
+      target: "fact-node-sqlite",
+      change: { type: "knowledge", title: "use node:sqlite", body: "use node:sqlite" },
+      rationale: "recurring + cross-session",
+      evidence: [{ kind: "fact", occurrences: 12, sessions: 3, failures: 0 }],
+      confidence: null,
+      score: 0.775,
+      status: "pending",
     }));
   writeFileSync(path.join(agent, ".live", "digest.md"), "# zuzuu module digest\n");
   return agent;

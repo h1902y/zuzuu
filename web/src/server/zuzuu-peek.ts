@@ -130,46 +130,67 @@ export async function readJsonDir(dir: string): Promise<Record<string, unknown>[
 
 const firstLine = (s: unknown, n = 80) => (String(s ?? "").split("\n")[0] ?? "").slice(0, n);
 
-/** A proposal's best-effort one-line title (file-read fallback; the CLI inbox uses adapters). */
+/** The staged change body: observe writes it under `change` (the note that lands on
+ *  approve). `candidate`/`payload` are legacy/inbox shapes kept as fallbacks so a
+ *  differently-shaped record still degrades gracefully — never re-implemented. */
+function changeBody(p: Record<string, unknown>): Record<string, unknown> | undefined {
+  return (p.change ?? p.payload ?? p.candidate) as Record<string, unknown> | undefined;
+}
+
+/** A proposal's best-effort one-line title: the staged change's `title`, then its
+ *  body's first line, then the rationale, and only as a last resort the id. */
 function stagedTitle(p: Record<string, unknown>): string {
-  const cand = p.candidate as { body?: string } | undefined;
-  const payload = p.payload as { body?: string } | undefined;
-  return firstLine(cand?.body ?? payload?.body ?? p.id);
+  const change = changeBody(p);
+  const title = change?.title;
+  if (typeof title === "string" && title) return firstLine(title);
+  if (typeof change?.body === "string" && change.body) return firstLine(change.body);
+  if (typeof p.rationale === "string" && p.rationale) return firstLine(p.rationale);
+  return firstLine(p.id);
 }
 
 /** A short preview of the actual content being approved — the WHAT block in the
  *  review/detail card. Knowledge → the body's first lines; a guardrail rule →
- *  pattern → action; an action → its exec command. Best-effort, never throws. */
+ *  pattern → action; an action → its run/exec command. Best-effort, never throws. */
 function stagedPreview(p: Record<string, unknown>): string {
-  const payload = (p.payload ?? p.candidate) as Record<string, unknown> | undefined;
-  if (!payload) return "";
+  const change = changeBody(p);
+  if (!change) return "";
+  const attrs = change.attributes as Record<string, unknown> | undefined;
   // guardrail rule: pattern → action
-  const pattern = payload.pattern ?? (payload.attributes as Record<string, unknown> | undefined)?.pattern;
-  const action = payload.action ?? (payload.attributes as Record<string, unknown> | undefined)?.action;
+  const pattern = change.pattern ?? attrs?.pattern;
+  const action = change.action ?? attrs?.action;
   if (typeof pattern === "string" && pattern) {
     return typeof action === "string" && action ? `${pattern} → ${action}` : String(pattern);
   }
-  // action runbook/script: the exec line
-  const exec = payload.exec ?? (payload.attributes as Record<string, unknown> | undefined)?.exec;
-  if (typeof exec === "string" && exec) return exec;
+  // action: the run/exec line
+  const run = change.run ?? change.exec ?? attrs?.exec;
+  if (typeof run === "string" && run) return run;
   // default: the body's first ~3 lines
-  const body = payload.body;
+  const body = change.body;
   if (typeof body === "string" && body) {
     return body.split("\n").slice(0, 3).join("\n").slice(0, 400);
   }
   return "";
 }
 
-/** Enrich a raw on-disk proposal into the StagedSummary the panel renders —
- *  the title, a payload preview (the WHAT block), and the persisted confidence. */
-export function stagedSummary(p: Record<string, unknown>, key: string) {
+/** Enrich a raw on-disk proposal into the StagedSummary the panel renders — the
+ *  title, the change preview (the WHAT block), the rationale + evidence (the WHY,
+ *  feeding the reason line), the op + change (the diff source), and the persisted
+ *  confidence (top-level `p.confidence` — null today; NEVER faked from `score`,
+ *  which is a number). */
+export function stagedSummary(p: Record<string, unknown>, key: string): import("#shared/index.js").StagedSummary {
   const preview = stagedPreview(p);
-  const score = p.score as { confidence?: string } | undefined;
+  const change = changeBody(p);
+  const evidence = Array.isArray(p.evidence) ? (p.evidence as import("#shared/index.js").StagedEvidence[]) : undefined;
+  const confidence = typeof p.confidence === "string" ? p.confidence : null;
   return {
     id: String(p.id ?? "?"),
     module: key,
     title: stagedTitle(p),
+    ...(typeof p.op === "string" ? { op: p.op } : {}),
     ...(preview ? { preview } : {}),
-    ...(score?.confidence ? { confidence: score.confidence } : {}),
+    ...(typeof p.rationale === "string" && p.rationale ? { rationale: p.rationale } : {}),
+    ...(evidence ? { evidence } : {}),
+    ...(change ? { change } : {}),
+    confidence,
   };
 }

@@ -23,11 +23,16 @@ describe("createZuzuuApi file routes", () => {
     expect(body.items[0]).toMatchObject({ id: "k1", module: "knowledge", kind: "fact", title: "fact one", status: "active" });
     expect(body.items[0].payload).toBeUndefined(); // detail degrades, counts survive
     expect(body.staged[0].title).toMatch(/node:sqlite/);
-    // staged enrich from disk: payload preview + persisted confidence (the rendered fields)
+    // staged enrich from disk: title + preview from the change body, rationale +
+    // evidence (the WHY, feeding the reason line), and an honest confidence (null
+    // today — never faked from `score`, which is a number).
     expect(body.staged[0]).toMatchObject({
-      id: "p1", module: "knowledge",
+      id: "p1", module: "knowledge", op: "create",
+      title: "use node:sqlite",
       preview: "use node:sqlite",
-      confidence: "high",
+      rationale: "recurring + cross-session",
+      evidence: [{ kind: "fact", occurrences: 12, sessions: 3 }],
+      confidence: null,
     });
     // Any valid slug is now accepted (N-module: unknown slugs return empty results, not 404).
     // Unsafe slugs (traversal, shell meta) are still rejected.
