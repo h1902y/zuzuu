@@ -63,16 +63,18 @@
   --color-mod-instructions: #9fc27a; /* sage       */
   --color-mod-guardrails: #f25c54;   /* coral      */
 
-  /* the type scale — GENEROUS / editorial (MARVIN). Bigger, confident tiers; weight
-     is the primary hierarchy lever, size carries the rest. */
-  --text-meta: 0.75rem; /* 12px — labels, captions */
-  --text-ui: 0.875rem; /* 14px — UI / rows / table cells */
-  --text-body: 0.9375rem; /* 15px — body */
-  --text-sm: 1rem; /* 16px */
-  --text-base: 1.125rem; /* 18px — section titles */
-  --text-lg: 1.375rem; /* 22px — headings */
-  --text-xl: 1.75rem; /* 28px */
-  --text-2xl: 2.25rem; /* 36px — hero/display */
+  /* the type scale — a tight 5-step set (12 · 14 · 18 · 28 · 36): fewer sizes on
+     screen. body/sm collapse onto ui (14); lg collapses onto base (18). Hierarchy
+     leans on SIZE · CASE · TONE · FACE (Abel vs Alata), not weight (the sans faces
+     are single-weight). The four names are kept as aliases — zero component churn. */
+  --text-meta: 0.75rem; /* 12px — labels, captions, section headers */
+  --text-ui: 0.875rem;  /* 14px — the workhorse: rows, UI, body */
+  --text-body: 0.875rem; /* = ui (14px) */
+  --text-sm: 0.875rem;   /* = ui (14px) */
+  --text-base: 1.125rem; /* 18px — titles / emphasized values */
+  --text-lg: 1.125rem;   /* = base (18px) */
+  --text-xl: 1.75rem;    /* 28px — section / page headings */
+  --text-2xl: 2.25rem;   /* 36px — hero / display */
 
   --radius-sm: 4px;
   --radius-ui: 6px;
