@@ -99,14 +99,20 @@ export function WorkbenchShell() {
       if (r === "git-init") await api.setup.gitInit();
       else if (r === "init") await api.setup.init();
       else if (r === "enable") await api.setup.enable();
-      else if (r === "session") {
-        // the setup→work stitch: starting the first session drops the user into the
-        // terminal (use-start-session selects it) AND teaches the loop they just entered.
-        await startSession();
-        toast("Session started — zuzuu is watching. It proposes changes you review (press R).");
-      }
+      // the session rung is handled by onStartSession (it picks a host — see below)
       // review: the by-doing handoff — the first proposal lands in the ribbon (R7)
     } catch { toast(`Couldn't ${r}`, "error"); }
+    finally { setBusy(null); void qc.invalidateQueries({ queryKey: ["zuzuu"] }); }
+  }
+
+  // The setup→work stitch: onboarding picks a HOST (an agent session — zuzuu only
+  // observes agents), then drops into the terminal AND teaches the loop just entered.
+  async function onStartSession(type: "shell" | "agent", host?: string) {
+    setBusy("session");
+    try {
+      await startSession(type, host);
+      toast("Session started — zuzuu is watching. It proposes changes you review (press R).");
+    } catch { toast("Couldn't start a session", "error"); }
     finally { setBusy(null); void qc.invalidateQueries({ queryKey: ["zuzuu"] }); }
   }
 
@@ -194,7 +200,7 @@ export function WorkbenchShell() {
             ) : sel.stage === "settings" ? (
               <Settings />
             ) : onboarding && pState ? (
-              <Checklist projectName={workspace.data?.name ?? "this project"} state={pState} onRung={onRung} busy={busy} />
+              <Checklist projectName={workspace.data?.name ?? "this project"} state={pState} onRung={onRung} onStartSession={onStartSession} busy={busy} />
             ) : projectState.isLoading || overview.isLoading ? (
               <Loading />
             ) : (

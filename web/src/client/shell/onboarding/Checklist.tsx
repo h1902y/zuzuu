@@ -6,7 +6,8 @@
 // Thin .tsx; project-home-state is the tested logic; composes ds primitives + kit.
 import type { ProjectStateKind } from "#shared/index.js";
 import { RUNGS, rungStatus, type RungId } from "../project-home-state.js";
-import { Stack, Text, Button, Stepper, type Step } from "../../ds/index.js";
+import { HOSTS } from "../../app/hosts.js";
+import { Stack, Inline, Text, Button, Stepper, type Step } from "../../ds/index.js";
 
 const META: Record<RungId, { label: string; why: string; cta?: string }> = {
   "git-init": { label: "Make this a git repository", why: "zuzuu works on git branches — one per session.", cta: "git init" },
@@ -16,23 +17,38 @@ const META: Record<RungId, { label: string; why: string; cta?: string }> = {
   review: { label: "Review what zuzuu proposes", why: "Nothing is written without your yes. Approve to teach it, reject to correct — that's the loop." },
 };
 
-export function Checklist({ projectName, state, onRung, busy }: {
+export function Checklist({ projectName, state, onRung, onStartSession, busy }: {
   projectName: string;
   state: ProjectStateKind;
   onRung: (r: RungId) => void;
+  /** the session rung picks a host (an agent session) — zuzuu only observes agents,
+   *  so onboarding offers the host picker instead of dropping into a bare shell. */
+  onStartSession: (type: "shell" | "agent", host?: string) => void;
   busy: RungId | null;
 }) {
   const done = RUNGS.filter((r) => rungStatus(state, r) === "done").length;
+  const sessionAction = (
+    <Stack gap="xs">
+      <Inline gap="xs" wrap>
+        {HOSTS.map((h) => (
+          <Button key={h.id} variant="outline" size="sm" disabled={busy === "session"} onClick={() => onStartSession("agent", h.id)}>
+            {h.label}
+          </Button>
+        ))}
+      </Inline>
+      <Text as="button" interactive size="meta" tone="muted" onClick={() => onStartSession("shell")}>or start a plain shell</Text>
+    </Stack>
+  );
   const steps: Step[] = RUNGS.map((r) => ({
     id: r,
     label: META[r].label,
     hint: META[r].why,
     status: rungStatus(state, r),
-    action: META[r].cta ? (
-      <Button variant="primary" onClick={() => onRung(r)} disabled={busy === r}>
-        {busy === r ? "…" : META[r].cta}
-      </Button>
-    ) : undefined,
+    action: r === "session"
+      ? sessionAction
+      : META[r].cta
+        ? <Button variant="primary" onClick={() => onRung(r)} disabled={busy === r}>{busy === r ? "…" : META[r].cta}</Button>
+        : undefined,
   }));
 
   return (
