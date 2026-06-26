@@ -7,6 +7,7 @@ import type { StagedSummary } from "#shared/index.js";
 import { REJECT_REASONS } from "./review-model.js";
 import { reasonLine } from "./reason-line.js";
 import { proposalChip } from "./proposal-chip.js";
+import { provenanceOf } from "./provenance.js";
 import { DiffPreview } from "./DiffPreview.js";
 import { Stack, Inline, Text, Button, Chip } from "../../ds/index.js";
 
@@ -47,6 +48,18 @@ export function ProposalCard({ item, focused, diffOpen, onDiffOpenChange, onAppr
         <Text size="meta" tone="muted">{reasonLine(item.evidence?.[0]?.kind, item.evidence)}</Text>
         {item.preview && <Text size="meta" tone="muted">{item.preview}</Text>}
         {item.confidence && <Text size="meta" tone="muted">{item.confidence}</Text>}
+        {(() => {
+          // Provenance (U6 / R6): name the session(s) this proposal was born from —
+          // the session↔proposal cross-reference. Degrades silently when no source.
+          const prov = provenanceOf(item.source);
+          if (!prov) return null;
+          return (
+            <Inline gap="xs" wrap align="center">
+              <Text size="meta" tone="subtle">{prov.label}</Text>
+              {prov.display.map((s, i) => <Chip key={prov.sessions[i] ?? s} label={s} tone="neutral" />)}
+            </Inline>
+          );
+        })()}
         <DiffPreview item={item} open={isDiffOpen} onOpenChange={setDiffOpen} />
         {!rejecting ? (
           <Inline gap="sm">

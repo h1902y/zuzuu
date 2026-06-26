@@ -25,7 +25,22 @@ import { digestText } from '../serve/digest.mjs';
 import { openerText, closerText, steerText, writeHandoff, parkItem, clearParking } from '../serve/steering.mjs';
 import { renderNoteDiff } from '../use/diff.mjs';
 import { toon } from '../notes/toon.mjs';
+import { existsSync, readFileSync } from 'node:fs';
+import { itemPath } from '../notes/store.mjs';
+import { parse } from '../notes/note.mjs';
 
+
+/** Read a landed note's `source` provenance pointer off disk (U6 / R6) — the search
+ *  index only carries the indexed columns, so the record view's "born here" link
+ *  reads the frontmatter directly. Returns null when absent/unreadable (fail-soft). */
+function readNoteSource(home, module, id) {
+  try {
+    const p = itemPath(home, module, id);
+    if (!existsSync(p)) return null;
+    const { note } = parse(readFileSync(p, 'utf8'), { id });
+    return note?.source ?? null;
+  } catch { return null; }
+}
 
 /** Minimal flag parse: --k v / --flag → { _: positional[], k: v|true }. */
 function parseArgs(rest) {
@@ -343,7 +358,11 @@ export async function run(argv, io = {}) {
           if (!r.ok) return fail(log, r.error, json);
           const row = (r.value.rows ?? []).find((x) => x.addr.split(':').pop() === c);
           if (!row) return fail(log, `no note '${c}' in ${b}`, json);
-          const item = { id: c, module: b, kind: row.type, title: row.title ?? '', status: row.status ?? '', body: row.body ?? '' };
+          // Provenance (U6 / R6): the search row carries only the indexed columns, so
+          // lift the note's `source` pointer (where it was born — see evolve.projectChange)
+          // straight off disk so the record view can render its "born here" link.
+          const src = readNoteSource(zz.home, b, c);
+          const item = { id: c, module: b, kind: row.type, title: row.title ?? '', status: row.status ?? '', body: row.body ?? '', ...(src ? { source: src } : {}) };
           emit(log, json, item, ['item', [{ id: c, kind: row.type, title: row.title ?? '' }], ['id', 'kind', 'title']]);
           return 0;
         }

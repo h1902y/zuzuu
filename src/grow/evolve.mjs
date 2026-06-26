@@ -47,11 +47,18 @@ const lookupId = (staged, change) => staged.op === 'relate' ? change?.from : (st
  */
 export function projectChange(staged, current, edit = null) {
   const change = edit ?? staged.change ?? {};
+  // Provenance (U6 / R6): a staged change carries a `source` pointer (where it was
+  // born — the session ids observe mined it from). Carry it onto the LANDED note's
+  // frontmatter so a note links back to its origin ("born here"). Only on a create/
+  // update from the original proposal (not a hand-supplied `edit`, which is a human
+  // re-write with its own provenance); the note parser round-trips the nested object
+  // and validateNote tolerates it (unknown keys preserved).
+  const withSource = (after) => (!edit && staged.source && after && after.source === undefined ? { ...after, source: staged.source } : after);
   switch (staged.op) {
-    case 'create': return { target: staged.target ?? change.id ?? staged.id, after: { ...change } };
+    case 'create': return { target: staged.target ?? change.id ?? staged.id, after: withSource({ ...change }) };
     case 'update': {
       const target = staged.target ?? change.id ?? staged.id;
-      return { target, after: current ? mergeEdit(current, change) : { ...change } };
+      return { target, after: withSource(current ? mergeEdit(current, change) : { ...change }) };
     }
     case 'relate': {
       const { from, type, to } = change;

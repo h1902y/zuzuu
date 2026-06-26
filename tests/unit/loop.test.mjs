@@ -41,6 +41,30 @@ test('evolve: writes + mints but does NOT archive (archiving is review.approve�
   });
 });
 
+// ── provenance: a landed note links back to where it was born (U6 / R6) ──────
+
+test('evolve: carries the staged change’s `source` onto the landed note frontmatter', () => {
+  withHome((home) => {
+    const source = {
+      producer: 'observe', kind: 'entity', sessions: ['claude-code:s1', 'claude-code:s2'],
+      locator: { kind: 'session-ids', sessions: ['claude-code:s1', 'claude-code:s2'] },
+    };
+    const p = stageChange(home, 'knowledge', { op: 'create', target: 'fact', change: { type: 'knowledge', title: 'Born' }, source });
+    assert.equal(evolve(home, 'knowledge', readStaged(home, 'knowledge', p.id)).ok, true);
+    const note = readZu(home, 'knowledge', 'fact');
+    assert.deepEqual(note.source, source, 'the note frontmatter carries the provenance pointer, round-trip exact');
+    assert.deepEqual(note.source.sessions, ['claude-code:s1', 'claude-code:s2'], 'the originating session ids survive');
+  });
+});
+
+test('evolve: a change with NO source lands a note without a source key (no spurious field)', () => {
+  withHome((home) => {
+    const p = stageChange(home, 'knowledge', { op: 'create', target: 'plain', change: { type: 'knowledge', title: 'Plain' } });
+    assert.equal(evolve(home, 'knowledge', readStaged(home, 'knowledge', p.id)).ok, true);
+    assert.equal('source' in readZu(home, 'knowledge', 'plain'), false, 'no source persisted when the producer omitted it');
+  });
+});
+
 // ── gate re-entrancy + fail-soft branch coverage (loop audit gaps) ───────────
 
 test('review: approving twice is idempotent — the second finds no proposal, no double-mint', () => {

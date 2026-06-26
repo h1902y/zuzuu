@@ -182,6 +182,10 @@ export function stagedSummary(p: Record<string, unknown>, key: string): import("
   const change = changeBody(p);
   const evidence = Array.isArray(p.evidence) ? (p.evidence as import("#shared/index.js").StagedEvidence[]) : undefined;
   const confidence = typeof p.confidence === "string" ? p.confidence : null;
+  // Provenance (U6 / R6): observe persists `source` on the staged record (U4); carry
+  // it through so the card can name the session(s) the proposal was born from.
+  const source = p.source && typeof p.source === "object" && !Array.isArray(p.source)
+    ? (p.source as import("#shared/index.js").ProvenanceSource) : undefined;
   return {
     id: String(p.id ?? "?"),
     module: key,
@@ -192,6 +196,7 @@ export function stagedSummary(p: Record<string, unknown>, key: string): import("
     ...(typeof p.rationale === "string" && p.rationale ? { rationale: p.rationale } : {}),
     ...(evidence ? { evidence } : {}),
     ...(change ? { change } : {}),
+    ...(source ? { source } : {}),
     confidence,
   };
 }

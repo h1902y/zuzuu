@@ -48,6 +48,45 @@ const MINED_GUARDRAIL = {
   status: "pending",
 };
 
+// A REAL mined KNOWLEDGE record carrying provenance (golden — pasted verbatim from a
+// real `node bin/zuzuu.mjs` observe run on a 2-session hot-file signal; U6/R6).
+const MINED_KNOWLEDGE = {
+  id: "stg-e2223cb6",
+  op: "create",
+  module: "knowledge",
+  target: "file-src-app-ts",
+  change: {
+    type: "knowledge",
+    title: "Hot file: src/app.ts",
+    path: "src/app.ts",
+    body: "Hot file in this project: `src/app.ts` (touched 5× across 2 sessions).",
+  },
+  rationale: "Hot file in this project: `src/app.ts` (touched 5× across 2 sessions).",
+  evidence: [{ kind: "entity", occurrences: 5, sessions: 2, sessionIds: ["claude-code:s1", "claude-code:s2"] }],
+  confidence: null,
+  score: 5,
+  source: {
+    producer: "observe",
+    kind: "entity",
+    sessions: ["claude-code:s1", "claude-code:s2"],
+    locator: { kind: "session-ids", sessions: ["claude-code:s1", "claude-code:s2"] },
+  },
+  status: "pending",
+};
+
+describe("stagedSummary — provenance (U6 / R6)", () => {
+  it("projects `source` onto the DTO from a real mined record", () => {
+    const s = stagedSummary(MINED_KNOWLEDGE, "knowledge");
+    expect(s.source).toEqual(MINED_KNOWLEDGE.source);
+    expect(s.source?.sessions).toEqual(["claude-code:s1", "claude-code:s2"]);
+  });
+
+  it("omits `source` entirely when the record has none (a hand-authored / pre-U4 record)", () => {
+    const s = stagedSummary(MINED_ACTION, "actions");
+    expect("source" in s).toBe(false);
+  });
+});
+
 describe("stagedSummary — a real observe-written record (body under `change`)", () => {
   it("resolves the title from change.title, not a fallback to the id", () => {
     const s = stagedSummary(MINED_ACTION, "actions");

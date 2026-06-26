@@ -26,12 +26,32 @@ export interface ModuleItem {
   provenance?: Record<string, string>[];
   payload?: Record<string, unknown>;
   body?: string;
+  /** where this note was born — the session(s) it was mined from (U6 / R6). Present
+   *  only on a mined note that landed after U4 carried provenance through evolve. */
+  source?: ProvenanceSource;
 }
 
 /** An envelope file the CLI could not parse (fail-soft listing). */
 export interface ModuleItemError {
   file: string;
   error: string;
+}
+
+/** A provenance pointer (U6 / R6): where a note/proposal was BORN — the session(s)
+ *  observe mined it from. `sessions` are host-prefixed transcript session ids (e.g.
+ *  `claude-code:abc`), NOT daemon PTY ids. The locator is session-ids-only today
+ *  (no finer transcript offset is resolvable — see R-B); `locator.kind` leaves room
+ *  for a richer offset later. Absent/null when a note wasn't mined (hand-authored,
+ *  pre-U4, or a producer that omits it). */
+export interface ProvenanceSource {
+  /** what produced it — "observe" today. */
+  producer?: string;
+  /** the ROUTE kind it was mined as (command | entity | fact | guardrail | …). */
+  kind?: string;
+  /** the originating session ids (host-prefixed). */
+  sessions?: string[];
+  locator?: { kind?: string; sessions?: string[]; [k: string]: unknown };
+  [k: string]: unknown;
 }
 
 /** One piece of corroborating evidence behind a mined proposal — the array observe
@@ -66,6 +86,9 @@ export interface StagedSummary {
   /** the persisted confidence bucket, when a producer sets it (null today — never
    *  faked from `score`, which is a number). */
   confidence?: string | null;
+  /** where this proposal was born — the session(s) observe mined it from (U6 / R6).
+   *  Feeds the card's "born from N session(s)" line and the session↔proposal cross-ref. */
+  source?: ProvenanceSource;
 }
 
 export interface ModuleDetail {
