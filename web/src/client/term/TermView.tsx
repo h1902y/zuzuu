@@ -15,17 +15,19 @@ import { TermConnection } from "./connection.js";
 import { registerTermConn, unregisterTermConn } from "./connections.js";
 import { useWorkbench } from "../state/store.js";
 
-const FONT_FAMILY = '"JetBrains Mono Variable", ui-monospace, Menlo, monospace';
+// the terminal is a warm-dark island in BOTH themes (#1c1b1a, per the design tokens);
+// Space Mono for the retro character. Warm (Flexoki) ANSI palette.
+const FONT_FAMILY = '"Space Mono", "JetBrains Mono Variable", ui-monospace, Menlo, monospace';
 const THEME = {
-  background: "#0e0f12",
-  foreground: "#d6dde8",
-  cursor: "#5be6c4",
-  cursorAccent: "#0e0f12",
-  selectionBackground: "#2c4f6e80",
-  black: "#11161f", red: "#f47067", green: "#57ab5a", yellow: "#c69026",
-  blue: "#539bf5", magenta: "#b083f0", cyan: "#39c5cf", white: "#909dab",
-  brightBlack: "#545d68", brightRed: "#ff938a", brightGreen: "#6bc46d", brightYellow: "#daaa3f",
-  brightBlue: "#6cb6ff", brightMagenta: "#dcbdfb", brightCyan: "#56d4dd", brightWhite: "#cdd9e5",
+  background: "#1c1b1a",
+  foreground: "#e6e4d9",
+  cursor: "#da702c",
+  cursorAccent: "#1c1b1a",
+  selectionBackground: "#57565399",
+  black: "#100f0f", red: "#d14d41", green: "#879a39", yellow: "#d0a215",
+  blue: "#4385be", magenta: "#ce5d97", cyan: "#3aa99f", white: "#b7b5ac",
+  brightBlack: "#575653", brightRed: "#e0685c", brightGreen: "#a0b340", brightYellow: "#e0b020",
+  brightBlue: "#5a9fd4", brightMagenta: "#e07cb0", brightCyan: "#4dc4ba", brightWhite: "#e6e4d9",
 };
 
 export function TermView({ sessionId }: { sessionId: string }) {

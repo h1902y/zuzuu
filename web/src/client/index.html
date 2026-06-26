@@ -3,8 +3,21 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="color-scheme" content="dark" />
+    <meta name="color-scheme" content="light dark" />
     <title>zuzuu workbench</title>
+    <script>
+      // pre-paint: set the warm theme before React mounts (no flash). An explicit
+      // choice in localStorage wins; otherwise follow the OS. Mirrors state/theme.ts.
+      (function () {
+        try {
+          var pref = localStorage.getItem("zz-theme") || "system";
+          var dark = pref === "dark" || (pref === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
+          document.documentElement.dataset.theme = dark ? "dark" : "light";
+        } catch (e) {
+          document.documentElement.dataset.theme = "dark";
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

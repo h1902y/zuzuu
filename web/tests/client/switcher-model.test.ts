@@ -1,0 +1,70 @@
+// U7 — the switcher model: picker rows, the in-place switch descriptor, and the
+// open-folder autocomplete reducer (pure; the .tsx only dispatches).
+import { describe, it, expect } from "vitest";
+import {
+  pickerRows, filterPickerRows, switchAction, openFolderReducer, initialOpenFolder,
+} from "../../src/client/shell/switcher-model.js";
+import type { RecentProject } from "#shared/index.js";
+
+const r = (path: string, current = false): RecentProject => ({ path, name: path.split("/").pop()!, current });
+
+describe("pickerRows", () => {
+  it("puts the current Project first, preserves recency order for the rest", () => {
+    const rows = pickerRows([r("/a"), r("/b", true), r("/c")]);
+    expect(rows.map((x) => x.path)).toEqual(["/b", "/a", "/c"]);
+    expect(rows[0]!.current).toBe(true);
+  });
+});
+
+describe("filterPickerRows", () => {
+  const rows = pickerRows([r("/a/cards"), r("/a/zuzuu", true), r("/a/blog")]);
+  it("a blank query returns every row, order preserved", () => {
+    expect(filterPickerRows(rows, "  ").map((x) => x.path)).toEqual(["/a/zuzuu", "/a/cards", "/a/blog"]);
+  });
+  it("matches name or path, case-insensitively", () => {
+    expect(filterPickerRows(rows, "CARD").map((x) => x.name)).toEqual(["cards"]);
+    expect(filterPickerRows(rows, "/a/blog").map((x) => x.name)).toEqual(["blog"]);
+  });
+  it("no match → empty", () => {
+    expect(filterPickerRows(rows, "nope")).toEqual([]);
+  });
+});
+
+describe("switchAction", () => {
+  it("yields an in-place switch descriptor for a row", () => {
+    expect(switchAction({ path: "/b", name: "b", current: false })).toEqual({ kind: "switch", path: "/b" });
+  });
+});
+
+describe("openFolderReducer", () => {
+  it("typing updates the prefix and resets the highlight", () => {
+    const s = openFolderReducer({ ...initialOpenFolder, highlighted: 2 }, { type: "setPrefix", prefix: "~/Doc" });
+    expect(s.prefix).toBe("~/Doc");
+    expect(s.highlighted).toBe(0);
+  });
+  it("↓ moves the highlight, wrapping", () => {
+    let s = { prefix: "~/", dirs: ["a", "b"], highlighted: 0 };
+    s = openFolderReducer(s, { type: "moveHighlight", delta: 1 });
+    expect(s.highlighted).toBe(1);
+    s = openFolderReducer(s, { type: "moveHighlight", delta: 1 });
+    expect(s.highlighted).toBe(0); // wraps
+  });
+  it("⏎ applies the highlighted dir to the prefix", () => {
+    const s = openFolderReducer({ prefix: "~/Doc", dirs: ["Documents", "Downloads"], highlighted: 0 }, { type: "applyHighlighted" });
+    expect(s.prefix).toBe("~/Documents/");
+    expect(s.dirs).toEqual([]);
+  });
+  it("⏎ with no suggestions is a no-op", () => {
+    const before = { prefix: "~/zzz", dirs: [], highlighted: 0 };
+    expect(openFolderReducer(before, { type: "applyHighlighted" })).toEqual(before);
+  });
+  it("a click applies its OWN row, not the highlighted one", () => {
+    // highlighted is row 0, but the user clicks row 1 → row 1 applies
+    const s = openFolderReducer({ prefix: "/a/D", dirs: ["Docs", "Downloads"], highlighted: 0 }, { type: "applyAt", index: 1 });
+    expect(s.prefix).toBe("/a/Downloads/");
+  });
+  it("applyAt out of range is a no-op", () => {
+    const before = { prefix: "/a/D", dirs: ["Docs"], highlighted: 0 };
+    expect(openFolderReducer(before, { type: "applyAt", index: 5 })).toEqual(before);
+  });
+});

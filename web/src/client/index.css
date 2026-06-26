@@ -1,29 +1,44 @@
 @import "tailwindcss";
+/* the type trio (MARVIN warm-retro): Space Grotesk (UI) · Sigmar + Bagel Fat One
+   (display/logotype) · Space Mono (terminal) + JetBrains Mono (dense data). */
+@import "@fontsource-variable/space-grotesk";
+@import "@fontsource/sigmar/latin.css";
+@import "@fontsource/bagel-fat-one/latin.css";
+@import "@fontsource/space-mono/latin.css";
 @import "@fontsource-variable/jetbrains-mono";
-@import "@fontsource-variable/geist";
 @import "@xterm/xterm/css/xterm.css";
 
-/* The design tokens (reused from the v1 SPA — this is the design system, not
-   bloat). A warm-charcoal ink ramp (no blue cast), a duotype split (Geist sans
-   for chrome/prose, JetBrains Mono for data/terminal), one accent. Rung 5 adds
-   the per-module hues for the dashboard. */
+/* The design tokens — WARM DUAL-THEME (MARVIN / Flexoki-based). The @theme block
+   declares the token NAMES (so Tailwind generates the utilities) with the warm-DARK
+   values as the static fallback; the [data-theme] blocks below swap the ramp + accent
+   values at runtime. The SEMANTIC aliases (app/surface/border/muted = var(ink-*)) are
+   declared once here and auto-follow the ramp — no duplication per theme.
+   Source of truth: docs/design-research/workbench/09-taste-redesign-direction.md §2.0. */
 @theme {
-  --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --font-sans: "Geist Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* the duotype, warmed: Space Grotesk for chrome/prose, a retro display face for
+     brand + headings, a mono split (Space Mono terminal · JetBrains Mono dense data). */
+  --font-sans: "Space Grotesk Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Sigmar", "Bagel Fat One", ui-sans-serif, system-ui; /* hero headings / empty states */
+  --font-logo: "Bagel Fat One", "Sigmar", ui-sans-serif, system-ui;    /* the brand logotype (48px+) */
+  --font-mono-display: "Space Mono", ui-monospace, SFMono-Regular, Menlo, monospace; /* the terminal */
+  --font-mono-data: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace; /* dense grids */
+  --font-mono: var(--font-mono-data); /* back-compat: existing font-mono utility = dense data */
 
-  --color-ink-950: #0e0f12; /* app field — deepest */
-  --color-ink-900: #15171b; /* page panels */
-  --color-ink-850: #1b1e23; /* cards, tiles */
-  --color-ink-800: #22262c; /* hover/active row fill */
-  --color-ink-700: #2a2e35; /* hairline border */
-  --color-ink-600: #565c66; /* strong border */
-  --color-ink-500: #857f78; /* muted text — WCAG AA (4.8:1) on the app field */
-  --color-ink-300: #9a9690; /* muted text */
-  --color-ink-100: #e8e6e3; /* primary text */
-  --color-accent: #5be6c4;
-  --color-accent-dim: #2f9a80;
-  --color-danger: #f0726a;
+  /* warm-DARK ramp (Flexoki) — the @theme fallback; [data-theme="light"] overrides below */
+  --color-ink-950: #1c1b1a; /* app field — warm near-black */
+  --color-ink-900: #282726; /* page panels */
+  --color-ink-850: #343331; /* cards, tiles */
+  --color-ink-800: #403e3c; /* hover/active row fill */
+  --color-ink-700: #575653; /* hairline border */
+  --color-ink-600: #6f6e69; /* strong border */
+  --color-ink-500: #878580; /* muted text */
+  --color-ink-300: #b7b5ac; /* subtle text */
+  --color-ink-100: #e6e4d9; /* primary text — warm cream */
+  --color-accent: #da702c; /* terracotta */
+  --color-accent-dim: #bc5215;
+  --color-danger: #d14d41;
 
+  /* semantic aliases — declared ONCE, follow the ramp through every theme */
   --color-app: var(--color-ink-950);
   --color-surface: var(--color-ink-900);
   --color-elevated: var(--color-ink-850);
@@ -32,12 +47,109 @@
   --color-muted: var(--color-ink-500);
   --color-subtle: var(--color-ink-300);
 
-  --text-meta: 0.6875rem; /* 11px */
-  --text-ui: 0.75rem; /* 12px */
-  --text-body: 0.8125rem; /* 13px */
+  /* status — color carries STATE only (warm-DARK values; overridden for light) */
+  --color-success: #879a39;
+  --color-warning: #d0a215;
+  --color-info: #3aa99f;
 
+  --color-focus: var(--color-accent);
+  --color-selected: #33271f; /* faint terracotta-tinted fill for the active row (dark) */
+
+  /* the 5 module hues — small IDENTITY chips only (icon/badge), never fills (warm-DARK) */
+  --color-mod-knowledge: #3aa99f;    /* teal  */
+  --color-mod-memory: #ce5d97;       /* rose  */
+  --color-mod-actions: #d0a215;      /* gold  */
+  --color-mod-instructions: #879a39; /* sage  */
+  --color-mod-guardrails: #da702c;   /* terracotta */
+
+  /* the type scale — GENEROUS / editorial (MARVIN). Bigger, confident tiers; weight
+     is the primary hierarchy lever, size carries the rest. */
+  --text-meta: 0.75rem; /* 12px — labels, captions */
+  --text-ui: 0.875rem; /* 14px — UI / rows / table cells */
+  --text-body: 0.9375rem; /* 15px — body */
+  --text-sm: 1rem; /* 16px */
+  --text-base: 1.125rem; /* 18px — section titles */
+  --text-lg: 1.375rem; /* 22px — headings */
+  --text-xl: 1.75rem; /* 28px */
+  --text-2xl: 2.25rem; /* 36px — hero/display */
+
+  --radius-sm: 4px;
   --radius-ui: 6px;
+  --radius-lg: 10px;
+
+  /* subtle lift for overlays (dialogs/popovers) — warm, never a pure-black shadow */
+  --shadow-overlay: 0 8px 30px -8px rgb(0 0 0 / 0.45);
+  /* a warm-dark scrim behind modals — SAME in both themes (dims light + dark content) */
+  --color-scrim: rgb(28 27 26 / 0.55);
   --height-bar: 34px;
+}
+
+/* explicit warm-DARK (re-affirms the fallback so the toggle is robust) */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-ink-950: #1c1b1a;
+  --color-ink-900: #282726;
+  --color-ink-850: #343331;
+  --color-ink-800: #403e3c;
+  --color-ink-700: #575653;
+  --color-ink-600: #6f6e69;
+  --color-ink-500: #878580;
+  --color-ink-300: #b7b5ac;
+  --color-ink-100: #e6e4d9;
+  --color-accent: #da702c;
+  --color-accent-dim: #bc5215;
+  --color-danger: #d14d41;
+  --color-success: #879a39;
+  --color-warning: #d0a215;
+  --color-info: #3aa99f;
+  --color-selected: #33271f;
+  --color-mod-knowledge: #3aa99f;
+  --color-mod-memory: #ce5d97;
+  --color-mod-actions: #d0a215;
+  --color-mod-instructions: #879a39;
+  --color-mod-guardrails: #da702c;
+}
+
+/* warm-LIGHT (cream/parchment) — overrides the ramp + accents; aliases auto-follow */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --color-ink-950: #fffcf0; /* page — warm paper */
+  --color-ink-900: #f2f0e5; /* surface */
+  --color-ink-850: #e6e4d9; /* card */
+  --color-ink-800: #dad8ce; /* hover */
+  --color-ink-700: #cecdc3; /* border */
+  --color-ink-600: #b7b5ac; /* strong border */
+  --color-ink-500: #9f9d96; /* muted text */
+  --color-ink-300: #6f6e69; /* subtle text */
+  --color-ink-100: #100f0f; /* primary text — warm ink */
+  --color-accent: #bc5215; /* terracotta (darker for light contrast) */
+  --color-accent-dim: #9e4413;
+  --color-danger: #af3029;
+  --color-success: #66800b;
+  --color-warning: #ad8301;
+  --color-info: #24837b;
+  --color-selected: #f7e4d6; /* faint terracotta-tinted fill for the active row (light) */
+  --color-mod-knowledge: #24837b;
+  --color-mod-memory: #a02f6f;
+  --color-mod-actions: #ad8301;
+  --color-mod-instructions: #66800b;
+  --color-mod-guardrails: #bc5215;
+}
+
+/* motion — calm micro-transitions + a gentle spring for pop-ins (menus, overlays,
+   the palette). Reduced-motion users get none. */
+@keyframes zz-pop {
+  from { opacity: 0; transform: scale(0.97) translateY(2px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes zz-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-pop { animation: zz-pop 160ms cubic-bezier(0.34, 1.4, 0.64, 1); }
+.animate-fade { animation: zz-fade 120ms ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .animate-pop, .animate-fade { animation: none; }
 }
 
 html,

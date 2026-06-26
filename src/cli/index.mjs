@@ -54,6 +54,7 @@ const HELP = `zz — your repo's Project (envelopes, queried/run/grown, human-ga
   zz check [module]             integrity — broken links · orphans · stale
   zz validate [module]          schema-check every note (type-keyed invariants)
   zz observe                    mine real sessions → staged changes (the cold-start)
+  zz stage <m> --op create|update --target <id> --field k=v   stage a change (a pending proposal)
   zz review [module]            list staged changes awaiting the gate
   zz review plan <m>            preview the module's pending set as one change-set
   zz review apply <m> [plan]    apply the set as ONE generation (all-or-nothing)
@@ -62,7 +63,7 @@ const HELP = `zz — your repo's Project (envelopes, queried/run/grown, human-ga
   zz rename <m> <old> <new>     rename a note + rewrite every inbound link
   zz merge <m> <src> <dst>      merge two notes (re-point referrers to dst)
   zz refactor <m> --field k --from v --to v   rewrite a field across the module
-  zz module [list | <m> generations | <m> diff <a> <b> | <m> rollback <n>]
+  zz module [list | overview | items <k> | item <k> <id> | schema <k> | <m> generations | <m> diff <a> <b> | <m> rollback <n>]
   zz session [status|merge|continue|discard --yes|worktree …|label]
   zz doctor / status / explain  health · inventory · porcelain
   zz code [dir] / web           launch OpenCode (bundled host) · the workbench
@@ -76,6 +77,7 @@ export async function run(argv, io = {}) {
   const cwd = io.cwd ?? process.cwd();
   const [verb, ...rest] = argv;
   const args = parseArgs(rest);
+  const json = !!args.json;   // global: emit machine-readable JSON instead of TOON (the daemon JSON.parses stdout)
 
   try {
     switch (verb) {
@@ -87,8 +89,9 @@ export async function run(argv, io = {}) {
 
       case 'init': {
         const r = initHome(cwd);
-        log(toon('init', [{ home: r.home, created: r.created.length, skipped: r.skipped.length }], ['home', 'created', 'skipped']));
-        if (r.created.length) log(`created: ${r.created.join(', ')}`);
+        emit(log, json, { ok: true, home: r.home, created: r.created, skipped: r.skipped },
+          ['init', [{ home: r.home, created: r.created.length, skipped: r.skipped.length }], ['home', 'created', 'skipped']]);
+        if (r.created.length && !json) log(`created: ${r.created.join(', ')}`);
         return 0;
       }
 
@@ -170,8 +173,36 @@ export async function run(argv, io = {}) {
         const zz = open(cwd);
         const sessions = captureSignals({ cwd, scope: args.scope || 'all' });
         const r = observe(zz.home, { cwd, sessions });
-        log(toon('observe', [{ mined: r.sessionsMined, candidates: r.candidates, proposed: r.proposed }], ['mined', 'candidates', 'proposed']));
-        if (r.staged.length) log(toon('staged', r.staged.map((p) => ({ module: p.module, id: p.target, score: p.score })), ['module', 'id', 'score'], ['zz review <module>']));
+        const staged = r.staged.map((p) => ({ module: p.module, id: p.target, score: p.score }));
+        emit(log, json, { ok: true, mined: r.sessionsMined, candidates: r.candidates, proposed: r.proposed, staged },
+          ['observe', [{ mined: r.sessionsMined, candidates: r.candidates, proposed: r.proposed }], ['mined', 'candidates', 'proposed']]);
+        if (r.staged.length && !json) log(toon('staged', staged, ['module', 'id', 'score'], ['zz review <module>']));
+        return 0;
+      }
+
+      case 'stage': {
+        // the write entry-door: a UI (or human) stages a change → a PENDING proposal
+        // the review gate governs. A thin door over the complete grow/stage engine.
+        const zz = open(cwd);
+        const [module] = args._;
+        const op = args.op;
+        if (!module || !op) return fail(log, 'usage: zz stage <module> --op create|update --target <id> [--field k=v …] [--change <json>]', json);
+        if ((op === 'create' || op === 'update') && !args.target) return fail(log, `--target <id> is required for op '${op}'`, json);
+        // the change body: --change <json> (the machine path) OR repeated --field k=v (human sugar,
+        // scanned from raw argv so multiples accumulate — parseArgs would keep only the last)
+        let change = {};
+        if (args.change) { try { change = JSON.parse(args.change); } catch { return fail(log, 'invalid --change JSON', json); } }
+        else for (let i = 0; i < rest.length; i++) {
+          if (rest[i] === '--field' && rest[i + 1] != null) {
+            const eq = rest[i + 1].indexOf('=');
+            if (eq > 0) change[rest[i + 1].slice(0, eq)] = rest[i + 1].slice(eq + 1);
+            i++;
+          }
+        }
+        const rec = zz.stage(module, { op, target: args.target, change });
+        if (!rec) return fail(log, `invalid op '${op}' (create|update|delete|relate|deprecate)`, json);
+        const handle = { id: rec.id, op: rec.op, module: rec.module, target: rec.target, status: rec.status, score: rec.score, duplicate: !!rec.duplicate };
+        emit(log, json, handle, ['staged', [{ id: rec.id, op: rec.op, target: rec.target ?? '', status: rec.status }], ['id', 'op', 'target', 'status'], ['zz review ' + module]]);
         return 0;
       }
 
@@ -196,14 +227,14 @@ export async function run(argv, io = {}) {
           return 0;
         }
         if (sub === 'approve' || sub === 'reject') {
-          if (!m || !id) return fail(log, `usage: zz review ${sub} <module> <id>`);
+          if (!m || !id) return fail(log, `usage: zz review ${sub} <module> <id>`, json);
           // accept the human handle (the staged change's target) OR the raw stageId
           const match = zz.staged(m).find((p) => (p.target ?? p.id) === id || p.id === id);
-          if (!match) return fail(log, `no pending staged change '${id}' in ${m}`);
+          if (!match) return fail(log, `no pending staged change '${id}' in ${m}`, json);
           const r = sub === 'approve' ? zz.approve(m, match.id) : zz.reject(m, match.id, args.reason || '');
-          if (!r.ok) return fail(log, r.error);
-          log(toon('review', [{ action: sub, module: m, id }], ['action', 'module', 'id']));
-          if (sub === 'approve') integrityNudge(zz, log);
+          if (!r.ok) return fail(log, r.error, json);
+          emit(log, json, { action: sub, module: m, id, ok: true }, ['review', [{ action: sub, module: m, id }], ['action', 'module', 'id']]);
+          if (sub === 'approve' && !json) integrityNudge(zz, log);   // a 2nd line would break the daemon's JSON.parse
           return 0;
         }
         // list pending across modules (or one)
@@ -211,7 +242,7 @@ export async function run(argv, io = {}) {
         const rows = [];
         for (const mod of mods) for (const p of zz.staged(mod)) rows.push({ module: mod, id: p.target ?? p.id, op: p.op, score: p.score ?? 0 });
         rows.sort((a, b) => b.score - a.score);
-        log(toon('pending', rows, ['module', 'id', 'op', 'score'], rows.length ? ['zz review approve <m> <id>', 'zz review reject <m> <id>'] : []));
+        emit(log, json, rows, ['pending', rows, ['module', 'id', 'op', 'score'], rows.length ? ['zz review approve <m> <id>', 'zz review reject <m> <id>'] : []]);
         return 0;
       }
 
@@ -283,29 +314,72 @@ export async function run(argv, io = {}) {
 
       case 'module': {
         const zz = open(cwd);
+        const [a, b, c] = args._;
+
+        // subcommand-first reads (what the web daemon shells): overview · items <key> · item <key> <id> · schema <key>
+        if (a === 'overview') {
+          const rows = zz.modules().map((mod) => ({
+            key: mod.id, title: mod.title ?? mod.id, note_type: mod.note_type ?? '',
+            items: (zz.query(mod.id, { text: '', limit: 10000 }).value?.rows ?? []).length,
+            pending: zz.staged(mod.id).length, capabilities: mod.capabilities ?? [],
+          }));
+          emit(log, json, rows, ['overview', rows, ['key', 'items', 'pending']]);
+          return 0;
+        }
+        if (a === 'items') {
+          if (!b) return fail(log, 'usage: zz module items <key>', json);
+          const r = zz.query(b, { text: '', full: true, limit: 10000 });
+          if (!r.ok) return fail(log, r.error, json);
+          const items = (r.value.rows ?? []).map((row) => ({ id: row.addr.split(':').pop(), module: b, kind: row.type, title: row.title ?? '', status: row.status ?? '', body: row.body ?? '' }));
+          // shape: { items, errors } + `kind` — the daemon's moduleEnvelopeItems passes this
+          // straight through as the shared ModuleItem[] (otherwise it degrades to peek)
+          emit(log, json, { items, errors: [] }, ['items', items, ['id', 'kind', 'title', 'status']]);
+          return 0;
+        }
+        if (a === 'item') {
+          if (!b || !c) return fail(log, 'usage: zz module item <key> <id>', json);
+          const r = zz.query(b, { text: '', full: true, limit: 10000 });
+          if (!r.ok) return fail(log, r.error, json);
+          const row = (r.value.rows ?? []).find((x) => x.addr.split(':').pop() === c);
+          if (!row) return fail(log, `no note '${c}' in ${b}`, json);
+          const item = { id: c, module: b, kind: row.type, title: row.title ?? '', status: row.status ?? '', body: row.body ?? '' };
+          emit(log, json, item, ['item', [{ id: c, kind: row.type, title: row.title ?? '' }], ['id', 'kind', 'title']]);
+          return 0;
+        }
+        if (a === 'schema') {
+          if (!b) return fail(log, 'usage: zz module schema <key>', json);
+          const mod = zz.modules().find((x) => x.id === b);
+          const fields = Array.isArray(mod?.fields) ? mod.fields : [];  // U10 surfaces a module.md `fields` block here; absent ⇒ schemaless
+          emit(log, json, { key: b, fields }, ['schema', fields, ['name', 'type']]);
+          return 0;
+        }
+
+        // key-first (existing): list | <m> generations | <m> diff <a> <b> | <m> rollback <n>
         const [m, action, n] = args._;
         if (!m || m === 'list') {
-          log(toon('modules', zz.modules().map((x) => ({ id: x.id, type: x.note_type ?? '', capabilities: (x.capabilities || []).join('|') })), ['id', 'type', 'capabilities']));
+          const rows = zz.modules().map((x) => ({ id: x.id, type: x.note_type ?? '', capabilities: (x.capabilities || []).join('|') }));
+          emit(log, json, rows, ['modules', rows, ['id', 'type', 'capabilities']]);
           return 0;
         }
         if (action === 'generations') {
           const g = zz.generations(m);
-          log(toon('generations', (g.generations ?? []).map((x) => ({ n: x.n, active: x.n === g.active, from: (x.mintedFrom || []).join('|') })), ['n', 'active', 'from']));
+          emit(log, json, { active: g.active, generations: g.generations ?? [] },
+            ['generations', (g.generations ?? []).map((x) => ({ n: x.n, active: x.n === g.active, from: (x.mintedFrom || []).join('|') })), ['n', 'active', 'from']]);
           return 0;
         }
         if (action === 'rollback') {
           const r = zz.rollback(m, Number(n));
-          if (!r.ok) return fail(log, r.error || 'rollback failed');
-          log(`rolled ${m} back to generation ${n}`);
+          if (!r.ok) return fail(log, r.error || 'rollback failed', json);
+          emit(log, json, { module: m, rolledTo: Number(n), ok: true }, ['rollback', [{ module: m, generation: n }], ['module', 'generation']]);
           return 0;
         }
         if (action === 'diff') {
           const r = zz.diff(m, Number(n), Number(args._[3]));
-          if (!r.ok) return fail(log, r.error || 'diff failed');
-          log(toon('diff', r.changes, ['status', 'id']));
+          if (!r.ok) return fail(log, r.error || 'diff failed', json);
+          emit(log, json, r.changes, ['diff', r.changes, ['status', 'id']]);
           return 0;
         }
-        return fail(log, 'usage: zz module [list | <m> generations | <m> diff <a> <b> | <m> rollback <n>]');
+        return fail(log, 'usage: zz module [list | overview | items <k> | item <k> <id> | schema <k> | <m> generations | <m> diff <a> <b> | <m> rollback <n>]', json);
       }
 
       case 'session':
@@ -324,12 +398,14 @@ export async function run(argv, io = {}) {
 
       case 'enable': {
         const r = enable(cwd);
-        log(toon('enable', [{ path: r.path, installed: r.installed }], ['path', 'installed']));
+        emit(log, json, { ok: true, path: r.path, installed: r.installed },
+          ['enable', [{ path: r.path, installed: r.installed }], ['path', 'installed']]);
         return 0;
       }
       case 'disable': {
         const r = disable(cwd);
-        log(toon('disable', [{ path: r.path, removed: r.removed }], ['path', 'removed']));
+        emit(log, json, { ok: true, path: r.path, removed: r.removed },
+          ['disable', [{ path: r.path, removed: r.removed }], ['path', 'removed']]);
         return 0;
       }
       case 'hook': {
@@ -372,9 +448,14 @@ export async function run(argv, io = {}) {
   }
 }
 
-function fail(log, msg) {
-  log(toon('error', [{ message: msg }], ['message']));
+function fail(log, msg, json = false) {
+  log(json ? JSON.stringify({ ok: false, error: msg }) : toon('error', [{ message: msg }], ['message']));
   return 1;
+}
+
+/** Emit a value as JSON (--json, for the daemon) or as TOON. `toonArgs` = [name, rows, cols, hints?]. */
+function emit(log, json, value, toonArgs) {
+  log(json ? JSON.stringify(value) : toon(...toonArgs));
 }
 
 // post-write integrity nudge: after a gated write, surface any broken links so the

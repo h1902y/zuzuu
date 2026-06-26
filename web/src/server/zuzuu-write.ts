@@ -92,6 +92,27 @@ export function createZuzuuWriteApi(getRoot: () => string, binary?: string): Hon
     return mutate(c, ["review", "reject", module, id, ...(reason ? ["--reason", reason] : [])]);
   });
 
+  // The write entry-door: stage a create/update as a PENDING proposal (the review
+  // gate governs it; it lands only on approve). Body: { op, target, change }.
+  // Returns the StagedChange handle. The `change` rides as ONE --change <json> argv.
+  app.post("/module/:key/stage", async (c) => {
+    const key = c.req.param("key");
+    if (!isModule(key)) return c.json({ error: "bad module" }, 400);
+    const body = await readBody(c);
+    const op = body.op;
+    if (op !== "create" && op !== "update" && op !== "delete" && op !== "relate" && op !== "deprecate")
+      return c.json({ error: "op must be create|update|delete|relate|deprecate" }, 400);
+    const { target, change } = body;
+    if ((op === "create" || op === "update") && (typeof target !== "string" || !SAFE_ID.test(target)))
+      return c.json({ error: "create/update need a valid target id" }, 400);
+    if (change !== undefined && (typeof change !== "object" || change === null || Array.isArray(change)))
+      return c.json({ error: "change must be an object" }, 400);
+    const args = ["stage", key, "--op", op];
+    if (typeof target === "string") args.push("--target", target);
+    args.push("--change", JSON.stringify(change ?? {}));
+    return mutate(c, args);
+  });
+
   for (const verb of ["approve", "reject"] as const) {
     app.post(`/actions/:slug/${verb}`, async (c) => {
       const slug = c.req.param("slug");
@@ -118,7 +139,9 @@ export function createZuzuuWriteApi(getRoot: () => string, binary?: string): Hon
     if (!isModule(key)) return c.json({ error: "bad module" }, 400);
     const id = c.req.param("id");
     if (!SAFE_ID.test(id)) return c.json({ error: "bad id" }, 400);
-    return mutate(c, ["module", key, "generation", "rollback", id]);
+    // reconcile the drift: the real CLI verb is `zz module <key> rollback <n>`
+    // (no `generation` subword; <n> is the generation number)
+    return mutate(c, ["module", key, "rollback", id]);
   });
 
   return app;

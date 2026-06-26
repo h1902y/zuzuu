@@ -40,3 +40,6 @@ web/v2/dist/
 
 # zuzuu (ephemeral/derived)
 .zuzuu/worktrees/
+
+# zuzuu (ephemeral/derived)
+.zuzuu/*/runs.jsonl

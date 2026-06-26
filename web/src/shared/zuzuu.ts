@@ -67,6 +67,15 @@ export interface ModuleGenerationList {
   generations: GenerationSummary[];
 }
 
+/** GET /module/:key/schema — the module's declared typed-column schema. `schema` is
+ *  the CLI's `{ key, fields:[{name,type}] }` (source "cli") or the seeded home
+ *  schema.json (source "home") or null (absent); the client reads it tolerantly. */
+export interface ModuleSchema {
+  key: string;
+  schema: unknown;
+  source?: string;
+}
+
 // ── Module overview (ONE call for the whole panel root) ───────────────────────
 
 /** One module in GET /overview. The peek fallback (CLI absent) omits
@@ -114,6 +123,20 @@ export interface RollbackResult {
   module?: string;
   restored: number;
   active: string;
+}
+
+/** POST /module/:key/stage — the write entry-door. A create/update resolves to a
+ *  PENDING proposal (a staged change), NOT a landed row: it surfaces in the review
+ *  queue and lands only on approve. The handle the DataProvider returns from a write. */
+export interface StagedChange {
+  id: string;
+  op: "create" | "update" | "delete" | "relate" | "deprecate";
+  module: string;
+  target: string | null;
+  status: "pending";
+  score: number;
+  /** true = an identical change was already staged (content-hash dedup — idempotent) */
+  duplicate?: boolean;
 }
 
 // ── Session-git (the invisible session branch: agent session = zz/session-*) ──

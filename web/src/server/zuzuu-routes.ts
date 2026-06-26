@@ -14,8 +14,14 @@ import { Hono } from "hono";
 import { PathError } from "./safe-path.js";
 import { createZuzuuReadApi } from "./zuzuu-read.js";
 import { createZuzuuWriteApi } from "./zuzuu-write.js";
+import { createZuzuuSetupApi } from "./zuzuu-setup.js";
+import { gatherProjectState } from "./project-state.js";
 
-interface ApiOpts { binary?: string; }
+interface ApiOpts {
+  binary?: string;
+  /** the daemon's live PTY-session count, for the home-envelope activity signal (R15). */
+  liveSessions?: () => number;
+}
 
 export function createZuzuuApi(getRoot: () => string, opts: ApiOpts = {}): Hono {
   const app = new Hono();
@@ -25,5 +31,7 @@ export function createZuzuuApi(getRoot: () => string, opts: ApiOpts = {}): Hono 
   });
   app.route("/", createZuzuuReadApi(getRoot, opts.binary));
   app.route("/", createZuzuuWriteApi(getRoot, opts.binary));
+  app.route("/", createZuzuuSetupApi(getRoot, opts.binary)); // onboarding setup verbs (root-scoped)
+  app.get("/project-state", (c) => gatherProjectState(getRoot(), opts.binary, opts.liveSessions?.() ?? 0).then((s) => c.json(s))); // the home-envelope state (R15)
   return app;
 }

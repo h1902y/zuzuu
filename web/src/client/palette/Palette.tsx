@@ -6,12 +6,12 @@
 // palette today, so it stays inert until the omnibar drives it.
 
 import { lazy, Suspense } from "react";
-import { usePanel } from "../state/panel.js";
+import { useWorld } from "../shell/world-state.js";
 
 const PaletteBody = lazy(() => import("./PaletteBody.js"));
 
 export function Palette() {
-  const paletteOpen = usePanel((s) => s.paletteOpen);
+  const paletteOpen = useWorld((s) => s.paletteOpen);
 
   if (!paletteOpen) return null;
   return (

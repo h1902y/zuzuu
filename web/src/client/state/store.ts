@@ -1,41 +1,35 @@
 // src/client/state/store.ts — the workbench's lean client state (zustand).
 //
-// Rung 4 keeps it small on purpose: the open sessions + which one is active,
-// and the live terminal connection status (for the footer). The file tree and
-// search own their own local React state; React Query owns server data. Rung 5
-// grows the right-panel/modules state alongside this.
+// The open sessions + the live terminal connection status (for the footer). The
+// STAGE selection lives in shell/world-state (useWorld.selected) — this store only
+// owns the session list + status; React Query owns server data.
 
 import { create } from "zustand";
 import type { SessionInfo } from "#shared/index.js";
 import { api } from "../lib/api.js";
+import { toast } from "./toast.js";
 
 export type ConnStatus = "connecting" | "open" | "reconnecting" | "closed";
 
 interface WorkbenchState {
   sessions: SessionInfo[];
-  activeId: string | null;
   status: ConnStatus;
 
   refresh: () => Promise<void>;
-  /** Create a shell, or an agent session running a host CLI, and make it active. */
+  /** Create a shell, or an agent session running a host CLI. Selecting it into the
+   *  stage is the caller's job (useStartSession bridges open → useWorld.select). */
   open: (type?: "shell" | "agent", host?: string) => Promise<SessionInfo | null>;
-  setActive: (id: string) => void;
   close: (id: string) => Promise<void>;
   setStatus: (status: ConnStatus) => void;
 }
 
-export const useWorkbench = create<WorkbenchState>((set, get) => ({
+export const useWorkbench = create<WorkbenchState>((set) => ({
   sessions: [],
-  activeId: null,
   status: "connecting",
 
   refresh: async () => {
     const sessions = await api.listSessions().catch(() => []);
-    set((s) => ({
-      sessions,
-      // keep the active session if it still exists, else fall back to the first
-      activeId: sessions.some((x) => x.id === s.activeId) ? s.activeId : (sessions[0]?.id ?? null),
-    }));
+    set({ sessions });
   },
 
   open: async (type = "shell", host) => {
@@ -43,18 +37,14 @@ export const useWorkbench = create<WorkbenchState>((set, get) => ({
     // the daemon allowlists the command and gives it its own git worktree.
     const body = type === "agent" && host ? { type, command: host, host } : { type };
     const created = await api.createSession(body).catch(() => null);
-    if (created) set((s) => ({ sessions: [...s.sessions, created], activeId: created.id }));
+    if (created) set((s) => ({ sessions: [...s.sessions, created] }));
+    else toast(host ? `Couldn't start ${host}` : "Couldn't start a session", "error");
     return created;
   },
 
-  setActive: (id) => set({ activeId: id }),
-
   close: async (id) => {
     await api.closeSession(id).catch(() => {});
-    set((s) => {
-      const sessions = s.sessions.filter((x) => x.id !== id);
-      return { sessions, activeId: s.activeId === id ? (sessions[0]?.id ?? null) : s.activeId };
-    });
+    set((s) => ({ sessions: s.sessions.filter((x) => x.id !== id) }));
   },
 
   setStatus: (status) => set({ status }),
