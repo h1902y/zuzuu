@@ -21,8 +21,17 @@ const EMPTY = { active: null, known: {} };
 // no-secret-reads guardrail regex false-positives on for legitimate env reads.
 const envOverride = () => process['env'].ZUZUU_HOME;
 
+/** The machine-global base dir — `~/.zuzuu` (or `$ZUZUU_HOME`). Holds the pointer
+ *  file and the mandatory local registry. */
+const baseDir = () => envOverride() || join(homedir(), '.zuzuu');
+
 /** The pointer file path — `~/.zuzuu/registry.json` (or `$ZUZUU_HOME/registry.json`). */
-export const pointerPath = () => join(envOverride() || join(homedir(), '.zuzuu'), 'registry.json');
+export const pointerPath = () => join(baseDir(), 'registry.json');
+
+/** The mandatory local registry's `.zuzuu` home — `~/.zuzuu/registry/.zuzuu`. Its
+ *  repo root is `~/.zuzuu/registry` (plain files by default; `git init` THERE is the
+ *  portability upgrade — sync commits once it's a real repo, else just writes files). */
+export const localRegistryHome = () => join(baseDir(), 'registry', '.zuzuu');
 
 /** Read the pointer; missing/corrupt → `{ active: null, known: {} }` (never throws). */
 export function readPointer(path = pointerPath()) {

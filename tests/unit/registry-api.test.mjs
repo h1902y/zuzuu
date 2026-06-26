@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { open } from '../../src/serve/api.mjs';
 import { writeProjectRef, mintRegistry, readProjectRefs } from '../../src/notes/registry.mjs';
-import { setActiveRegistry } from '../../src/notes/registry-pointer.mjs';
+import { setActiveRegistry, localRegistryHome } from '../../src/notes/registry-pointer.mjs';
 import { homeDir } from '../../src/notes/store.mjs';
 
 const td = (p) => mkdtempSync(join(tmpdir(), p));
@@ -53,21 +53,31 @@ test('api.registry reads the active registry; no registry → empty/null', () =>
   }
 });
 
-test('registry.touch: no registry → no-op; adds the project as tracked:auto', () => {
+test('registry.touch: no registry → auto-creates the local registry + tracks the project', () => {
   withCfg(() => {
     const cwd = td('zz-proj-');
-    assert.deepEqual(open(cwd).registry.touch(), { touched: false }); // no active registry
-
-    const regHome = td('zz-reg-');
-    mintRegistry(regHome, 'reg-t1');
-    setActiveRegistry('reg-t1', regHome);
+    // mandatory-local: touching with NO configured registry mints the local one
     const r = open(cwd).registry.touch();
     assert.equal(r.touched, true);
-    const refs = readProjectRefs(regHome);
+    assert.equal(open(cwd).registry.configured(), true);
+    const refs = readProjectRefs(localRegistryHome());
     assert.equal(refs.length, 1);
     assert.equal(refs[0].tracked, 'auto'); // auto-tracked, not pinned
     rmSync(cwd, { recursive: true, force: true });
-    rmSync(regHome, { recursive: true, force: true });
+  });
+});
+
+test('registry.ensure: idempotent — first call mints, second is a no-op', () => {
+  withCfg(() => {
+    const cwd = td('zz-ens-');
+    const first = open(cwd).registry.ensure();
+    assert.equal(first.created, true);
+    assert.match(first.identity, /^reg-/);
+    assert.equal(first.home, localRegistryHome());
+    const second = open(cwd).registry.ensure();
+    assert.equal(second.created, false);
+    assert.equal(second.identity, first.identity); // same registry, unchanged
+    rmSync(cwd, { recursive: true, force: true });
   });
 });
 

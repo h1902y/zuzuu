@@ -90,22 +90,47 @@ test('add dedupes by normalized remote (same remote, two paths → one ref)', as
   });
 });
 
-test('local-only project (no remote) → portable false; add without init → soft error', async () => {
+test('local-only project (no remote) → portable false; add auto-ensures the local registry', async () => {
   await withCfg(async () => {
-    // no init yet → add fails soft
-    const reg = gitRepo();
-    const bad = await zz(['registry', 'add', reg, '--json'], reg);
-    assert.equal(bad.code, 1);
-    assert.match(JSON.parse(bad.out).error, /no active registry/);
+    // no explicit `registry init` → `add` still works: it auto-creates the MANDATORY
+    // local registry (the mandatory-local rule), no dead-end on "no registry".
+    const proj = gitRepo(); // a git repo with NO remote → local-only
+    const added = await zz(['registry', 'add', proj, '--json'], proj);
+    assert.equal(added.code, 0);
+    assert.match(JSON.parse(added.out).handle, /\S/);
 
-    await zz(['registry', 'init', '--json'], reg);
-    const local = td('zz-local-'); // a plain dir, no git, no remote
-    await zz(['registry', 'add', local, '--json'], reg);
-    const st = JSON.parse((await zz(['registry', 'status', '--json'], reg)).out);
-    assert.equal(st.refs[0].remote, undefined); // full ref: local-only has no remote
-    assert.equal(st.refs[0].portable, false);   // and won't travel
-    rmSync(reg, { recursive: true, force: true });
-    rmSync(local, { recursive: true, force: true });
+    const st = JSON.parse((await zz(['registry', 'status', '--json'], proj)).out);
+    assert.equal(st.configured, true);           // a local registry now exists
+    assert.equal(st.refs.length, 1);
+    assert.equal(st.refs[0].remote, undefined);  // full ref: local-only has no remote
+    assert.equal(st.refs[0].portable, false);    // and won't travel
+    rmSync(proj, { recursive: true, force: true });
+  });
+});
+
+test('registry ensure: mandatory-local — auto-creates + seeds recents (no init)', async () => {
+  await withCfg(async () => {
+    const a = gitRepo('git@github.com:me/a.git');
+    const b = gitRepo('git@github.com:me/b.git');
+    const cwd = gitRepo(); // run from anywhere — ensure resolves the active registry via the pointer
+
+    // seed two project paths positionally (the daemon pours its recents in like this)
+    const r = await zz(['registry', 'ensure', a, b, '--json'], cwd);
+    assert.equal(r.code, 0);
+    const out = JSON.parse(r.out);
+    assert.equal(out.created, true);   // first ensure mints the local registry
+    assert.equal(out.seeded, 2);
+    assert.equal(out.configured, true);
+    assert.equal(out.projects, 2);
+    assert.deepEqual(out.refs.map((x) => x.tracked).sort(), ['auto', 'auto']);
+
+    // idempotent: a second ensure with the same seeds re-tracks, never duplicates
+    const r2 = JSON.parse((await zz(['registry', 'ensure', a, b, '--json'], cwd)).out);
+    assert.equal(r2.created, false);   // already configured
+    assert.equal(r2.projects, 2);      // deduped by remote
+    rmSync(a, { recursive: true, force: true });
+    rmSync(b, { recursive: true, force: true });
+    rmSync(cwd, { recursive: true, force: true });
   });
 });
 

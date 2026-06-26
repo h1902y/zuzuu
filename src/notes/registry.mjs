@@ -18,6 +18,7 @@ import { randomBytes, createHash } from 'node:crypto';
 import { parse, serialize, idFromPath, slugify } from './note.mjs';
 import { listModules } from './module.mjs';
 import { homeDir } from './store.mjs';
+import { activeRegistryPath, setActiveRegistry, localRegistryHome } from './registry-pointer.mjs';
 
 const refsDir = (home) => join(home, 'refs');
 const refPath = (home, handle) => join(refsDir(home), `${handle}.md`);
@@ -177,6 +178,21 @@ export function mintRegistry(home, identity, { title = 'Registry' } = {}) {
  *  slug to `mintRegistry` directly when a deterministic value is needed (tests). */
 export function newIdentity() {
   return `reg-${randomBytes(6).toString('hex')}`;
+}
+
+/** Guarantee a registry is active — the MANDATORY-local rule. If the machine-global
+ *  pointer already names an active registry, return it untouched. Otherwise mint a
+ *  plain local registry at `~/.zuzuu/registry/.zuzuu` and set it active. The local
+ *  registry is just files (NOT a git repo): `git init` there is the portability
+ *  upgrade — `syncRegistry` commits once it's a repo, else just writes the refs.
+ *  Idempotent + zero-dep; the one place "is there a registry?" becomes "yes". */
+export function ensureLocalRegistry({ title = 'Local registry' } = {}) {
+  const active = activeRegistryPath();
+  if (active) return { home: active, identity: registryIdentity(active), created: false };
+  const home = localRegistryHome();
+  const identity = mintRegistry(home, newIdentity(), { title });
+  setActiveRegistry(identity, home);
+  return { home, identity, created: true };
 }
 
 // ── git helpers + cold-disk health (the per-ref stamp) ────────────────────────
