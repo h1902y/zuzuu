@@ -31,9 +31,18 @@ const THEME = {
   brightBlue: "#a8aee4", brightMagenta: "#ccc0dd", brightCyan: "#b9d79a", brightWhite: "#eafdcf",
 };
 
-export function TermView({ sessionId }: { sessionId: string }) {
+export function TermView({ sessionId, active = true }: { sessionId: string; active?: boolean }) {
   const hostRef = useRef<HTMLDivElement>(null);
+  const termRef = useRef<Terminal | null>(null);
   const setStatus = useWorkbench((s) => s.setStatus);
+
+  // Focus the terminal when this pane becomes the active session. Panes are kept
+  // MOUNTED across session switches (the shell stacks one per session and toggles
+  // visibility) — so a switch never reattaches/replays (no flicker, no lost
+  // alt-screen TUI). Focus therefore follows selection, not mount.
+  useEffect(() => {
+    if (active) termRef.current?.focus();
+  }, [active]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -94,7 +103,8 @@ export function TermView({ sessionId }: { sessionId: string }) {
 
     conn.connect();
     registerTermConn(sessionId, conn); // so the composer can send to this session's PTY
-    term.focus();
+    termRef.current = term;
+    if (active) term.focus(); // focus on mount only when this is the visible pane
 
     return () => {
       webglDisposed = true;
@@ -103,6 +113,7 @@ export function TermView({ sessionId }: { sessionId: string }) {
       inputSub.dispose();
       conn.dispose();
       term.dispose();
+      termRef.current = null;
     };
   }, [sessionId, setStatus]);
 

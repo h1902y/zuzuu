@@ -190,7 +190,21 @@ export function WorkbenchShell() {
                 <ReviewQueue />
               ) : (
                 <>
-                  <div className="min-h-0 flex-1"><TermView key={sessionNode.id} sessionId={sessionNode.id} /></div>
+                  {/* One terminal pane PER session, kept mounted — only the active is
+                      visible. Switching toggles visibility, never remounts, so a switch
+                      never reattaches/replays (no flicker, and the live alt-screen TUI
+                      is preserved instead of replayed-without-alt-buffer). */}
+                  <div className="relative min-h-0 flex-1">
+                    {sessions.map((s) => (
+                      <div
+                        key={s.id}
+                        aria-hidden={s.id !== sessionNode.id}
+                        className={s.id === sessionNode.id ? "absolute inset-0 z-10" : "invisible absolute inset-0"}
+                      >
+                        <TermView sessionId={s.id} active={s.id === sessionNode.id} />
+                      </div>
+                    ))}
+                  </div>
                   {activeSession?.type === "agent" && <Composer key={sessionNode.id} sessionId={sessionNode.id} />}
                 </>
               )
