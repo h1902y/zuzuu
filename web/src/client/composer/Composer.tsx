@@ -21,6 +21,7 @@ import { PromptInput } from "./PromptInput.js";
 import { HostPill } from "./HostPill.js";
 import { inputFrames, isReady, SUBMIT_DELAY_MS, type InputOpts } from "./composer-logic.js";
 import { composerStatus } from "./composer-status.js";
+import { kickoffMessage, shouldFireKickoff, isKickoffPending, takeKickoff } from "./session-kickoff.js";
 import { hostInputProfile } from "./host-input.js";
 import { getTermConn } from "../term/connections.js";
 import { useWorkbench } from "../state/store.js";
@@ -68,13 +69,24 @@ export function Composer({ sessionId }: { sessionId: string }) {
     const tick = () => {
       const conn = getTermConn(sessionId);
       conn?.onActivity(onAct);
-      setTuiActive(conn?.isAltScreen?.() ?? false); // optional-call: tolerate a stale conn (HMR/version skew)
+      const altNow = conn?.isAltScreen?.() ?? false; // optional-call: tolerate a stale conn (HMR/version skew)
+      setTuiActive(altNow);
       const r = readyNow();
       setReady(r);
-      // Drain ONE queued message per tick: sending body+submit for each makes the
-      // agent busy again, so the next flush waits for the next ready edge — natural
-      // backpressure, and no interleaving of bodies/submits across messages.
-      if (r && queue.current.length) deliverTo(sessionId, queue.current.shift()!, profileRef.current);
+      // Session-start kickoff: once the agent CLI is up (alt-screen on, or it has
+      // emitted output) AND idle, deliver the ONE kickoff message, then consume it.
+      // Exclusive with the queue drain this tick so the two body+submit pairs never
+      // fuse (the kickoff makes the agent busy → the queue waits for the next edge).
+      const agentUp = altNow || lastOutputAt.current > 0;
+      if (conn && shouldFireKickoff({ ready: r, agentUp, pending: isKickoffPending(sessionId) })) {
+        takeKickoff(sessionId);
+        deliverTo(sessionId, kickoffMessage(), profileRef.current);
+      } else if (r && queue.current.length) {
+        // Drain ONE queued message per tick: sending body+submit for each makes the
+        // agent busy again, so the next flush waits for the next ready edge — natural
+        // backpressure, and no interleaving of bodies/submits across messages.
+        deliverTo(sessionId, queue.current.shift()!, profileRef.current);
+      }
       setQueued(queue.current.length);
     };
     const id = setInterval(tick, 200);
@@ -82,6 +94,7 @@ export function Composer({ sessionId }: { sessionId: string }) {
   }, [sessionId]);
 
   const submit = (text: string) => {
+    takeKickoff(sessionId); // the user is driving — cancel any pending auto-kickoff
     // The terminal IS the transcript — the host TUI echoes the submitted message,
     // so the composer renders no echo of its own (no duplicate, no pile-up).
     if (readyNow()) deliverTo(sessionId, text, profile);

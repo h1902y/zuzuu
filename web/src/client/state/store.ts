@@ -8,6 +8,7 @@ import { create } from "zustand";
 import type { SessionCloseResult, SessionInfo } from "#shared/index.js";
 import { api } from "../lib/api.js";
 import { toast } from "./toast.js";
+import { requestKickoff } from "../composer/session-kickoff.js";
 
 export type ConnStatus = "connecting" | "open" | "reconnecting" | "closed";
 
@@ -39,8 +40,12 @@ export const useWorkbench = create<WorkbenchState>((set) => ({
     // the daemon allowlists the command and gives it its own git worktree.
     const body = type === "agent" && host ? { type, command: host, host } : { type };
     const created = await api.createSession(body).catch(() => null);
-    if (created) set((s) => ({ sessions: [...s.sessions, created] }));
-    else toast(host ? `Couldn't start ${host}` : "Couldn't start a session", "error");
+    if (created) {
+      set((s) => ({ sessions: [...s.sessions, created] }));
+      // a freshly-started AGENT gets the session-start kickoff (its Composer delivers
+      // it once the CLI is up). Only here — reattached sessions are never kicked.
+      if (type === "agent") requestKickoff(created.id);
+    } else toast(host ? `Couldn't start ${host}` : "Couldn't start a session", "error");
     return created;
   },
 
