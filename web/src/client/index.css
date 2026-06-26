@@ -1,11 +1,11 @@
 @import "tailwindcss";
-/* the type trio (MARVIN warm-retro): Space Grotesk (UI) · Sigmar + Bagel Fat One
-   (display/logotype) · Space Mono (terminal) + JetBrains Mono (dense data). */
-@import "@fontsource-variable/space-grotesk";
-@import "@fontsource/sigmar/latin.css";
-@import "@fontsource/bagel-fat-one/latin.css";
-@import "@fontsource/space-mono/latin.css";
-@import "@fontsource-variable/jetbrains-mono";
+/* the type system: Alata (UI/body) · Abel (display/headings) · Anonymous Pro
+   (terminal + dense data). All single-weight except the mono — hierarchy comes from
+   size · case · tone · face-contrast, not weight. The logotype face (Train One)
+   loads via the Google Fonts CDN <link> in index.html. */
+@import "@fontsource/alata";
+@import "@fontsource/abel";
+@import "@fontsource/anonymous-pro";
 @import "@xterm/xterm/css/xterm.css";
 
 /* The design tokens — WARM DUAL-THEME (MARVIN / Flexoki-based). The @theme block
@@ -17,26 +17,27 @@
 @theme {
   /* the duotype, warmed: Space Grotesk for chrome/prose, a retro display face for
      brand + headings, a mono split (Space Mono terminal · JetBrains Mono dense data). */
-  --font-sans: "Space Grotesk Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-display: "Sigmar", "Bagel Fat One", ui-sans-serif, system-ui; /* hero headings / empty states */
-  --font-logo: "Bagel Fat One", "Sigmar", ui-sans-serif, system-ui;    /* the brand logotype (48px+) */
-  --font-mono-display: "Space Mono", ui-monospace, SFMono-Regular, Menlo, monospace; /* the terminal */
-  --font-mono-data: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace; /* dense grids */
+  --font-sans: "Alata", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; /* UI + body (single weight) */
+  --font-display: "Abel", "Alata", ui-sans-serif, system-ui; /* headings / empty states (condensed, single weight) */
+  --font-logo: "Train One", ui-sans-serif, system-ui; /* the brand logotype (Train One via Google Fonts CDN) */
+  --font-mono-display: "Anonymous Pro", ui-monospace, SFMono-Regular, Menlo, monospace; /* the terminal */
+  --font-mono-data: "Anonymous Pro", ui-monospace, SFMono-Regular, Menlo, monospace; /* dense grids */
   --font-mono: var(--font-mono-data); /* back-compat: existing font-mono utility = dense data */
 
-  /* warm-DARK ramp (Flexoki) — the @theme fallback; [data-theme="light"] overrides below */
-  --color-ink-950: #1c1b1a; /* app field — warm near-black */
-  --color-ink-900: #282726; /* page panels */
-  --color-ink-850: #343331; /* cards, tiles */
-  --color-ink-800: #403e3c; /* hover/active row fill */
-  --color-ink-700: #575653; /* hairline border */
-  --color-ink-600: #6f6e69; /* strong border */
-  --color-ink-500: #878580; /* muted text */
-  --color-ink-300: #b7b5ac; /* subtle text */
-  --color-ink-100: #e6e4d9; /* primary text — warm cream */
-  --color-accent: #da702c; /* terracotta */
-  --color-accent-dim: #bc5215;
-  --color-danger: #d14d41;
+  /* DARK ramp (deep ebony → frosted-mint ink) — the @theme fallback; [data-theme="light"] overrides below */
+  --color-ink-950: #14170f; /* app field — deep ebony */
+  --color-ink-900: #292e22; /* page panels */
+  --color-ink-850: #3b4032; /* cards, tiles */
+  --color-ink-800: #4e5543; /* hover/active row fill */
+  --color-ink-700: #6e7860; /* hairline border */
+  --color-ink-600: #94a182; /* strong border */
+  --color-ink-500: #b2c19d; /* muted text */
+  --color-ink-300: #ccddb4; /* subtle text */
+  --color-ink-100: #eafdcf; /* primary text — frosted mint */
+  /* the FIXED coral accent — declared ONCE, never swapped between themes (L≈59, the midpoint) */
+  --color-accent: #f25c54;
+  --color-accent-dim: #d8453d;
+  --color-danger: #ef5350;
 
   /* semantic aliases — declared ONCE, follow the ramp through every theme */
   --color-app: var(--color-ink-950);
@@ -47,20 +48,20 @@
   --color-muted: var(--color-ink-500);
   --color-subtle: var(--color-ink-300);
 
-  /* status — color carries STATE only (warm-DARK values; overridden for light) */
-  --color-success: #879a39;
-  --color-warning: #d0a215;
-  --color-info: #3aa99f;
+  /* status — color carries STATE only (DARK values; overridden for light) */
+  --color-success: #7fb069;
+  --color-warning: #e0a83c;
+  --color-info: #8e95d8; /* periwinkle (dark complement) */
 
   --color-focus: var(--color-accent);
-  --color-selected: #33271f; /* faint terracotta-tinted fill for the active row (dark) */
+  --color-selected: #33211d; /* faint coral-tinted fill for the active row (dark) */
 
-  /* the 5 module hues — small IDENTITY chips only (icon/badge), never fills (warm-DARK) */
-  --color-mod-knowledge: #3aa99f;    /* teal  */
-  --color-mod-memory: #ce5d97;       /* rose  */
-  --color-mod-actions: #d0a215;      /* gold  */
-  --color-mod-instructions: #879a39; /* sage  */
-  --color-mod-guardrails: #da702c;   /* terracotta */
+  /* the 5 module hues — small IDENTITY chips only (icon/badge), never fills (DARK) */
+  --color-mod-knowledge: #8e95d8;    /* periwinkle */
+  --color-mod-memory: #b6a9c9;       /* lilac      */
+  --color-mod-actions: #e0a83c;      /* amber      */
+  --color-mod-instructions: #9fc27a; /* sage       */
+  --color-mod-guardrails: #f25c54;   /* coral      */
 
   /* the type scale — GENEROUS / editorial (MARVIN). Bigger, confident tiers; weight
      is the primary hierarchy lever, size carries the rest. */
@@ -79,61 +80,59 @@
 
   /* subtle lift for overlays (dialogs/popovers) — warm, never a pure-black shadow */
   --shadow-overlay: 0 8px 30px -8px rgb(0 0 0 / 0.45);
-  /* a warm-dark scrim behind modals — SAME in both themes (dims light + dark content) */
-  --color-scrim: rgb(28 27 26 / 0.55);
+  /* a deep-ebony scrim behind modals — SAME in both themes (dims light + dark content) */
+  --color-scrim: rgb(20 23 15 / 0.55);
   --height-bar: 34px;
 }
 
-/* explicit warm-DARK (re-affirms the fallback so the toggle is robust) */
+/* explicit DARK (re-affirms the fallback so the toggle is robust). Accent is FIXED
+   (declared once in @theme) — deliberately NOT re-declared here, so coral never swaps. */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --color-ink-950: #1c1b1a;
-  --color-ink-900: #282726;
-  --color-ink-850: #343331;
-  --color-ink-800: #403e3c;
-  --color-ink-700: #575653;
-  --color-ink-600: #6f6e69;
-  --color-ink-500: #878580;
-  --color-ink-300: #b7b5ac;
-  --color-ink-100: #e6e4d9;
-  --color-accent: #da702c;
-  --color-accent-dim: #bc5215;
-  --color-danger: #d14d41;
-  --color-success: #879a39;
-  --color-warning: #d0a215;
-  --color-info: #3aa99f;
-  --color-selected: #33271f;
-  --color-mod-knowledge: #3aa99f;
-  --color-mod-memory: #ce5d97;
-  --color-mod-actions: #d0a215;
-  --color-mod-instructions: #879a39;
-  --color-mod-guardrails: #da702c;
+  --color-ink-950: #14170f;
+  --color-ink-900: #292e22;
+  --color-ink-850: #3b4032;
+  --color-ink-800: #4e5543;
+  --color-ink-700: #6e7860;
+  --color-ink-600: #94a182;
+  --color-ink-500: #b2c19d;
+  --color-ink-300: #ccddb4;
+  --color-ink-100: #eafdcf;
+  --color-danger: #ef5350;
+  --color-success: #7fb069;
+  --color-warning: #e0a83c;
+  --color-info: #8e95d8;
+  --color-selected: #33211d;
+  --color-mod-knowledge: #8e95d8;
+  --color-mod-memory: #b6a9c9;
+  --color-mod-actions: #e0a83c;
+  --color-mod-instructions: #9fc27a;
+  --color-mod-guardrails: #f25c54;
 }
 
-/* warm-LIGHT (cream/parchment) — overrides the ramp + accents; aliases auto-follow */
+/* LIGHT (frosted-mint paper → ebony ink) — overrides the ramp; aliases auto-follow.
+   Accent is FIXED (the coral from @theme) — NOT re-declared, so coral never swaps. */
 :root[data-theme="light"] {
   color-scheme: light;
-  --color-ink-950: #fffcf0; /* page — warm paper */
-  --color-ink-900: #f2f0e5; /* surface */
-  --color-ink-850: #e6e4d9; /* card */
-  --color-ink-800: #dad8ce; /* hover */
-  --color-ink-700: #cecdc3; /* border */
-  --color-ink-600: #b7b5ac; /* strong border */
-  --color-ink-500: #9f9d96; /* muted text */
-  --color-ink-300: #6f6e69; /* subtle text */
-  --color-ink-100: #100f0f; /* primary text — warm ink */
-  --color-accent: #bc5215; /* terracotta (darker for light contrast) */
-  --color-accent-dim: #9e4413;
-  --color-danger: #af3029;
-  --color-success: #66800b;
-  --color-warning: #ad8301;
-  --color-info: #24837b;
-  --color-selected: #f7e4d6; /* faint terracotta-tinted fill for the active row (light) */
-  --color-mod-knowledge: #24837b;
-  --color-mod-memory: #a02f6f;
-  --color-mod-actions: #ad8301;
-  --color-mod-instructions: #66800b;
-  --color-mod-guardrails: #bc5215;
+  --color-ink-950: #f4fde6; /* page — palest mint paper */
+  --color-ink-900: #e2ebd5; /* surface */
+  --color-ink-850: #d4ddc7; /* card */
+  --color-ink-800: #c4cdb7; /* hover */
+  --color-ink-700: #aab29d; /* border */
+  --color-ink-600: #8a927e; /* strong border */
+  --color-ink-500: #717966; /* muted text */
+  --color-ink-300: #5c6451; /* subtle text */
+  --color-ink-100: #434b39; /* primary text — soft ebony ink */
+  --color-danger: #c0362c;
+  --color-success: #4f8a35;
+  --color-warning: #b5821a;
+  --color-info: #5b63b8; /* periwinkle (darker for light contrast) */
+  --color-selected: #fbe1dc; /* faint coral-tinted fill for the active row (light) */
+  --color-mod-knowledge: #5b63b8; /* periwinkle */
+  --color-mod-memory: #7a6e92;    /* lilac      */
+  --color-mod-actions: #b5821a;   /* amber      */
+  --color-mod-instructions: #5a8038; /* sage    */
+  --color-mod-guardrails: #d8453d; /* coral (darkened for a legible chip on light) */
 }
 
 /* motion — calm micro-transitions + a gentle spring for pop-ins (menus, overlays,

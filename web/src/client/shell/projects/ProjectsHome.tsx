@@ -12,7 +12,7 @@ import { useEnterProject } from "../session/use-enter-project.js";
 import { projectsView, relativeTime, type ProjectSort, type ProjectGroup } from "./projects-model.js";
 import { sourceLabel } from "./registry-source.js";
 import type { ProjectSummary } from "#shared/index.js";
-import { Stack, Inline, Text, Icon, Button, ThemeToggle, Loading } from "../../ds/index.js";
+import { Stack, Inline, Text, Icon, Button, ThemeToggle, Loading, Brand } from "../../ds/index.js";
 import { NewProject } from "./NewProject.js";
 
 const SORTS: { key: ProjectSort; label: string }[] = [
@@ -37,7 +37,7 @@ export function ProjectsHome() {
     <div className="flex h-full flex-col bg-app">
       {/* the brand bar — the logotype gets its big moment here */}
       <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-surface px-8">
-        <Text size="xl" font="logo" tone="default">zuzuu</Text>
+        <Brand variant="lockup" size="md" />
         <Inline gap="md">
           <Button variant="primary" size="sm" onClick={() => setNewOpen(true)}>
             <Icon icon={Plus} size={15} /> New project

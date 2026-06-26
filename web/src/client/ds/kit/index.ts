@@ -9,3 +9,5 @@ export { Loading, Empty } from "./Loading.js";
 export { EmptyState } from "./EmptyState.js";
 export { ThemeToggle } from "./ThemeToggle.js";
 export { Icon } from "./Icon.js";
+export { Brand } from "./Brand.js";
+export type { BrandVariant, BrandSize } from "./Brand.js";

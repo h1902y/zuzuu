@@ -15,19 +15,19 @@ import { TermConnection } from "./connection.js";
 import { registerTermConn, unregisterTermConn } from "./connections.js";
 import { useWorkbench } from "../state/store.js";
 
-// the terminal is a warm-dark island in BOTH themes (#1c1b1a, per the design tokens);
-// Space Mono for the retro character. Warm (Flexoki) ANSI palette.
-const FONT_FAMILY = '"Space Mono", "JetBrains Mono Variable", ui-monospace, Menlo, monospace';
+// the terminal is a deep-ebony island in BOTH themes (#14170f, per the design tokens);
+// Anonymous Pro for the coder character. ANSI palette tuned to the mint/coral system.
+const FONT_FAMILY = '"Anonymous Pro", ui-monospace, SFMono-Regular, Menlo, monospace';
 const THEME = {
-  background: "#1c1b1a",
-  foreground: "#e6e4d9",
-  cursor: "#da702c",
-  cursorAccent: "#1c1b1a",
-  selectionBackground: "#57565399",
-  black: "#100f0f", red: "#d14d41", green: "#879a39", yellow: "#d0a215",
-  blue: "#4385be", magenta: "#ce5d97", cyan: "#3aa99f", white: "#b7b5ac",
-  brightBlack: "#575653", brightRed: "#e0685c", brightGreen: "#a0b340", brightYellow: "#e0b020",
-  brightBlue: "#5a9fd4", brightMagenta: "#e07cb0", brightCyan: "#4dc4ba", brightWhite: "#e6e4d9",
+  background: "#14170f",
+  foreground: "#eafdcf",
+  cursor: "#f25c54",
+  cursorAccent: "#14170f",
+  selectionBackground: "#4e554399",
+  black: "#1b1f15", red: "#ef5350", green: "#7fb069", yellow: "#e0a83c",
+  blue: "#8e95d8", magenta: "#b6a9c9", cyan: "#9fc27a", white: "#ccddb4",
+  brightBlack: "#6e7860", brightRed: "#f25c54", brightGreen: "#9fc27a", brightYellow: "#ecc36a",
+  brightBlue: "#a8aee4", brightMagenta: "#ccc0dd", brightCyan: "#b9d79a", brightWhite: "#eafdcf",
 };
 
 export function TermView({ sessionId }: { sessionId: string }) {
