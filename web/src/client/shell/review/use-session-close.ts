@@ -12,6 +12,19 @@ import { api } from "../../lib/api.js";
 import { useSessionClose } from "../../state/session-close.js";
 import { closeCardFired, markCloseCardFired, shouldFireCloseCard } from "./session-close-card.js";
 
+/** Fire the "what this session taught" card from a close result we already hold —
+ *  the explicit-end path (the nav ✕ → DELETE awaits the merge and returns it), so it
+ *  doesn't need the detector's poll. Same dedup as the natural-exit path, so a session
+ *  ended this way won't double-fire if its TermView also reports the exit. No-ops for
+ *  a shell / a merge with nothing staged. Best-effort: a failed staged read → no card. */
+export async function showCloseCardFromResult(sessionId: string, result: SessionCloseResult | null): Promise<void> {
+  const pending = pendingOf(result ?? undefined);
+  if (pending === null || !shouldFireCloseCard(sessionId, pending, closeCardFired(sessionId))) return;
+  markCloseCardFired(sessionId); // before show → a TermView remount won't double-fire
+  const staged = await loadStaged().catch(() => [] as StagedSummary[]);
+  useSessionClose.getState().show({ sessionId, pending, staged });
+}
+
 /** The post-close pending count, or null when the close result doesn't carry one
  *  (CLI absent / merge failed → no meaningful count → no card). */
 function pendingOf(result: SessionCloseResult | undefined): number | null {

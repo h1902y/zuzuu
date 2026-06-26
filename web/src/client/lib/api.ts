@@ -21,6 +21,7 @@ import type {
   RejectResult,
   RollbackResult,
   SearchResponse,
+  SessionCloseResult,
   SessionDetail,
   SessionInfo,
   StagedChange,
@@ -82,7 +83,10 @@ export const api = {
   // read one session, awaiting any pending agent-exit close hook — carries
   // `closeResult` (the auto-merge outcome + the post-close pending count, U5).
   sessionDetail: (id: string) => request<SessionDetail>(`/api/sessions/${id}`),
-  closeSession: (id: string) => request<{ ok: true }>(`/api/sessions/${id}`, { method: "DELETE" }),
+  // ending a session resolves only AFTER the daemon's squash-merge close hook
+  // settles (agents) — the close result carries the merge + post-close pending count.
+  closeSession: (id: string) =>
+    request<{ ok: true; closeResult?: SessionCloseResult }>(`/api/sessions/${id}`, { method: "DELETE" }),
 
   // filesystem
   listDir: (path: string) => request<ListResponse>(`/api/fs/list?path=${encodeURIComponent(path)}`),

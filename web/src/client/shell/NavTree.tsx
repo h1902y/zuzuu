@@ -11,6 +11,7 @@ import { useWorld } from "./world-state.js";
 import { mostRecentlyActive } from "./shell-state.js";
 import { shouldShowSetupNode } from "./project-home-state.js";
 import { NewSessionMenu } from "./session/NewSessionMenu.js";
+import { showCloseCardFromResult } from "./review/use-session-close.js";
 import { Stack, Inline, Text, Icon } from "../ds/index.js";
 
 function NavRow({ active, icon, label, badge, onClick }: {
@@ -104,7 +105,11 @@ export function NavTree() {
             active={selected?.kind === "session" && selected.id === s.id}
             owner={owner}
             onSelect={() => select({ kind: "session", id: s.id })}
-            onEnd={() => { if (selected?.kind === "session" && selected.id === s.id) select({ kind: "overview" }); void endSession(s.id); }}
+            onEnd={() => {
+              if (selected?.kind === "session" && selected.id === s.id) select({ kind: "overview" });
+              // end resolves after the daemon's squash-merge; surface what it taught.
+              void endSession(s.id).then((result) => showCloseCardFromResult(s.id, result));
+            }}
           />
         ))}
         {!sessions.length && <Text size="meta" tone="muted">none yet</Text>}

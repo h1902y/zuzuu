@@ -5,7 +5,7 @@
 // owns the session list + status; React Query owns server data.
 
 import { create } from "zustand";
-import type { SessionInfo } from "#shared/index.js";
+import type { SessionCloseResult, SessionInfo } from "#shared/index.js";
 import { api } from "../lib/api.js";
 import { toast } from "./toast.js";
 
@@ -19,7 +19,9 @@ interface WorkbenchState {
   /** Create a shell, or an agent session running a host CLI. Selecting it into the
    *  stage is the caller's job (useStartSession bridges open → useWorld.select). */
   open: (type?: "shell" | "agent", host?: string) => Promise<SessionInfo | null>;
-  close: (id: string) => Promise<void>;
+  /** End a session. Resolves with the agent close result (merge + post-close pending
+   *  count) once the daemon's squash-merge settles, or null for a shell. */
+  close: (id: string) => Promise<SessionCloseResult | null>;
   setStatus: (status: ConnStatus) => void;
 }
 
@@ -43,8 +45,9 @@ export const useWorkbench = create<WorkbenchState>((set) => ({
   },
 
   close: async (id) => {
-    await api.closeSession(id).catch(() => {});
+    const res = await api.closeSession(id).catch(() => null);
     set((s) => ({ sessions: s.sessions.filter((x) => x.id !== id) }));
+    return res?.closeResult ?? null;
   },
 
   setStatus: (status) => set({ status }),

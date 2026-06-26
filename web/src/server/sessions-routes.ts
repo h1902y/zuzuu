@@ -105,9 +105,17 @@ export function createSessionsApi(deps: SessionsApiDeps): Hono {
     return c.json(body);
   });
 
-  app.delete("/:id", (c) => {
-    const ok = deps.sessions().close(c.req.param("id"));
-    return ok ? c.json({ ok: true }) : c.json({ error: "no such session" }, 404);
+  // End a session. For an AGENT this AWAITS the squash-merge close hook (+ the
+  // close-time observe) so the end is as complete as a natural exit, and returns
+  // the close result (merge outcome + post-close pending count) for the close card.
+  // A shell ends instantly (null result). The session is dropped after the merge.
+  app.delete("/:id", async (c) => {
+    const mgr = deps.sessions();
+    const session = mgr.get(c.req.param("id"));
+    if (!session) return c.json({ error: "no such session" }, 404);
+    const closeResult = await session.endGraceful();
+    mgr.drop(session.id);
+    return c.json({ ok: true, ...(closeResult ? { closeResult: closeResult as SessionCloseResult } : {}) });
   });
 
   return app;
