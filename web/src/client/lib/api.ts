@@ -21,6 +21,7 @@ import type {
   RejectResult,
   RollbackResult,
   SearchResponse,
+  SessionDetail,
   SessionInfo,
   StagedChange,
   WorkspaceInfo,
@@ -78,6 +79,9 @@ export const api = {
   // sessions
   listSessions: () => request<SessionInfo[]>("/api/sessions"),
   createSession: (body: CreateSessionRequest = {}) => request<SessionInfo>("/api/sessions", json(body)),
+  // read one session, awaiting any pending agent-exit close hook — carries
+  // `closeResult` (the auto-merge outcome + the post-close pending count, U5).
+  sessionDetail: (id: string) => request<SessionDetail>(`/api/sessions/${id}`),
   closeSession: (id: string) => request<{ ok: true }>(`/api/sessions/${id}`, { method: "DELETE" }),
 
   // filesystem

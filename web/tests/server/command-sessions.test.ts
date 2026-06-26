@@ -264,15 +264,20 @@ describe("agent exit → session-git merge", () => {
       return detail.closeResult !== undefined;
     });
     expect(detail.alive).toBe(false);
+    // U5/KTD5: the close result now also carries `pending` — the post-close staged
+    // count read off the (empty temp) `.zuzuu` after the close-time `zz observe` ran.
     expect(detail.closeResult).toEqual({
       ok: true,
       merge: { ok: true, mergedAs: "abc12345", mergedTo: "main", commits: 2, branch: "zz/session-x" },
+      pending: 0,
     });
 
     await sleep(300); // give any would-be duplicate merge a beat
     const calls = readFileSync(marker, "utf8").trim().split("\n");
-    expect(calls).toHaveLength(1);
-    expect(calls[0]).toContain("session merge");
+    // EXACTLY ONE merge (no duplicate) + the close-time observe (U5) — two CLI calls.
+    expect(calls).toHaveLength(2);
+    expect(calls.filter((c) => c.includes("session merge"))).toHaveLength(1);
+    expect(calls.some((c) => /(^|\s)observe(\s|$)/.test(c))).toBe(true);
     server.stop();
   });
 
@@ -366,11 +371,15 @@ describe("Wave B: worktree-backed agent sessions", () => {
       detail = await (await server.app.request(`/api/sessions/${created.id}`, { headers })).json();
       return detail.closeResult !== undefined;
     });
+    // U5/KTD5: `pending` (the post-close staged count, 0 on this empty temp `.zuzuu`)
+    // now rides the result after the close-time `zz observe`.
     expect(detail.closeResult).toEqual({
       ok: true,
       merge: { ok: true, mergedAs: "deadbeef", mergedTo: "main", commits: 1 },
+      pending: 0,
     });
     await sleep(200);
+    // the worktree stub doesn't log `observe` (no marker arm) → still one logged call.
     const calls = readFileSync(marker, "utf8").trim().split("\n");
     expect(calls).toHaveLength(1);
     expect(calls[0]).toContain(`session worktree close ${created.id}`);

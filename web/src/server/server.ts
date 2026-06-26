@@ -66,7 +66,7 @@ export class WebcodeServer {
   constructor(private readonly cfg: ServerConfig) {
     this.root = cfg.root;
     this.commandAllowlist = new Set(cfg.commandAllowlist ?? DEFAULT_COMMAND_ALLOWLIST);
-    this.agentCloser = createAgentCloser(() => this.root, cfg.zuzuuBinary);
+    this.agentCloser = createAgentCloser(() => this.root, { ...(cfg.zuzuuBinary !== undefined ? { binary: cfg.zuzuuBinary } : {}) });
     this.sessions = new SessionManager(cfg.root);
     this.auth = new AuthGate({
       port: cfg.port,

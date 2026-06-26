@@ -182,8 +182,12 @@ export interface SessionMergeResult {
 }
 
 /** Stored on a daemon session after the agent-exit auto-merge ran; read via
- *  GET /api/sessions/:id. */
+ *  GET /api/sessions/:id. `pending` is the count of staged proposals AFTER the
+ *  close-time `zz observe` ran (U5/KTD5) — the signal the "what this session
+ *  taught" close card keys off (`pending > 0` → fire once). Present only on the
+ *  success arm (a merge ran → observe ran → the count is meaningful); absent when
+ *  the CLI was absent or the merge failed. */
 export type SessionCloseResult =
   | { cliAbsent: true }
-  | { ok: true; merge: SessionMergeResult }
+  | { ok: true; merge: SessionMergeResult; pending?: number }
   | { ok: false; stderr?: string; refusal?: Record<string, unknown> };

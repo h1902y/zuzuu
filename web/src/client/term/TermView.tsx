@@ -14,6 +14,7 @@ import { ClipboardAddon } from "@xterm/addon-clipboard";
 import { TermConnection } from "./connection.js";
 import { registerTermConn, unregisterTermConn } from "./connections.js";
 import { useWorkbench } from "../state/store.js";
+import { reportAgentExit } from "../state/session-close.js";
 
 // the terminal is a deep-ebony island in BOTH themes (#14170f, per the design tokens);
 // Anonymous Pro for the coder character. ANSI palette tuned to the mint/coral system.
@@ -70,7 +71,13 @@ export function TermView({ sessionId }: { sessionId: string }) {
     const conn = new TermConnection(sessionId, term, {
       onStatus: setStatus,
       onTitle: () => {},
-      onExit: () => {},
+      // Agent PTY exit = the reflective moment (U5): report it so the close-card
+      // detector can poll the close result. Read the type at exit-time from the
+      // store (the session list is authoritative); a shell exit is a no-op.
+      onExit: () => {
+        const session = useWorkbench.getState().sessions.find((s) => s.id === sessionId);
+        if (session?.type === "agent") reportAgentExit(sessionId);
+      },
       onCwd: () => {},
     });
     const inputSub = term.onData((d) => conn.sendInput(d));
