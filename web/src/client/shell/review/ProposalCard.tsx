@@ -6,7 +6,8 @@ import { useEffect, useRef, useState } from "react";
 import type { StagedSummary } from "#shared/index.js";
 import { REJECT_REASONS } from "./review-model.js";
 import { reasonLine } from "./reason-line.js";
-import { Stack, Inline, Text, Button } from "../../ds/index.js";
+import { proposalChip } from "./proposal-chip.js";
+import { Stack, Inline, Text, Button, Chip } from "../../ds/index.js";
 
 export function ProposalCard({ item, focused, onApprove, onReject }: {
   item: StagedSummary;
@@ -27,10 +28,13 @@ export function ProposalCard({ item, focused, onApprove, onReject }: {
       className={`rounded-ui border bg-surface p-2 transition-colors ${focused ? "border-accent ring-1 ring-inset ring-focus" : "border-border"}`}
     >
       <Stack gap="xs">
-        <Text size="ui" weight="medium">{item.title}</Text>
+        <Inline gap="sm" align="center">
+          {(() => { const c = proposalChip(item.change?.type, item.module); return <Chip label={c.label} tone={c.tone} />; })()}
+          <Text size="ui" weight="medium" truncate>{item.title}</Text>
+        </Inline>
         <Text size="meta" tone="muted">{reasonLine(item.evidence?.[0]?.kind, item.evidence)}</Text>
         {item.preview && <Text size="meta" tone="muted">{item.preview}</Text>}
-        <Text size="meta" tone="muted">{item.module}{item.confidence ? ` · ${item.confidence}` : ""}</Text>
+        {item.confidence && <Text size="meta" tone="muted">{item.confidence}</Text>}
         {!rejecting ? (
           <Inline gap="sm">
             <Button variant="primary" size="sm" onClick={() => onApprove(item.id, item.module)}>Approve</Button>

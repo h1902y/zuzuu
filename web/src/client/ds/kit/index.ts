@@ -17,3 +17,5 @@ export { ListCard } from "./ListCard.js";
 export { EmojiPicker } from "./EmojiPicker.js";
 export { Stepper } from "./Stepper.js";
 export type { Step, StepStatus } from "./Stepper.js";
+export { Chip } from "./Chip.js";
+export type { ChipTone } from "./Chip.js";
