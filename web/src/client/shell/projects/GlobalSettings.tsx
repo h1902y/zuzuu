@@ -38,7 +38,7 @@ export function GlobalSettings({ onClose }: { onClose: () => void }) {
             <Text size="meta" tone="subtle" weight="semibold">REGISTRY</Text>
             <div className="rounded-lg border border-border bg-surface p-5">
               <Stack gap="sm">
-                <Text size="meta" tone="muted">The master registry coordinates all your projects — a git-native, portable index.</Text>
+                <Text size="meta" tone="muted">The registry coordinates all your projects. It's created automatically as a local index — <Text as="span" mono tone="default">git init</Text> its folder to make it portable across machines.</Text>
                 {registry ? (
                   <Stack gap="sm">
                     <Row label="Master location"><Text size="ui" truncate>{registry.home}</Text></Row>
@@ -47,9 +47,8 @@ export function GlobalSettings({ onClose }: { onClose: () => void }) {
                   </Stack>
                 ) : (
                   <Text size="ui" tone="muted">
-                    No registry yet — projects come from recent folders. Create one with
-                    {" "}<Text as="span" mono tone="default">zz registry init</Text>{" "}in a git repo, then add projects with
-                    {" "}<Text as="span" mono tone="default">zz registry add</Text>.
+                    Registry unavailable — falling back to recent folders. Make sure the zuzuu CLI is installed, or run
+                    {" "}<Text as="span" mono tone="default">zz registry ensure</Text>{" "}to create the local registry.
                   </Text>
                 )}
               </Stack>

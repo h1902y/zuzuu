@@ -1,10 +1,12 @@
 // src/server/registry-read.ts — the daemon's view of the active project registry.
 //
-// The Projects Home reads the durable registry when one is configured, else falls
-// back to ~/.webcode recents (the fallback ladder). The registry is machine-global,
-// so we read it via the bundled CLI (`zz registry status --json`) — the same engine
-// the CLI tests pin. The mapping + the ladder are pure (unit-tested); only the shell
-// read is side-effecting. Best-effort: a missing/absent registry degrades to recents.
+// The registry is now MANDATORY-local: the daemon ensures + seeds one at boot (see
+// cli.ts), so Projects Home normally resolves to the durable registry. The
+// ~/.webcode recents pass remains as a DEFENSIVE fallback rung — used only if the
+// boot ensure failed (e.g. the bundled CLI was absent). The registry is
+// machine-global, so we read it via the bundled CLI (`zz registry status --json`) —
+// the same engine the CLI tests pin. The mapping + the ladder are pure (unit-tested);
+// only the shell read is side-effecting. A read is best-effort, never throws.
 
 import path from "node:path";
 import type { ProjectSummary } from "#shared/index.js";

@@ -13,9 +13,9 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import crypto from "node:crypto";
 import { createDaemon } from "./index.js";
-import { addRecent } from "./config.js";
+import { addRecent, load as loadConfig } from "./config.js";
 import { writeInstanceFile, removeInstanceFile, ensurePersistentToken } from "./instance-file.js";
-import { resolveBundledCli } from "./zuzuu-cli.js";
+import { resolveBundledCli, runZuzuu } from "./zuzuu-cli.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 // The package root is two levels up whether running from src/server (tsx/dev) or
@@ -161,6 +161,20 @@ async function main(): Promise<void> {
   // SHIPPED with — an explicit --zuzuu-bin from `zz web` (authoritative), else
   // self-resolved relative to the daemon — over a stale PATH global.
   const zuzuuBinary = args.zuzuuBin || resolveBundledCli(HERE) || undefined;
+
+  // Mandatory-local registry: on a local daemon, guarantee a registry exists and
+  // pour the recents into it ONCE at boot (the bootstrap). `zz registry ensure`
+  // creates a plain local registry at ~/.zuzuu/registry when none, seeds the given
+  // paths (auto-tracked), and persists — so Projects Home always resolves to the
+  // registry, not the ephemeral recents pass. Best-effort; never blocks startup.
+  // (Live tracking thereafter is the session-open hook's registry.touch(), not a
+  // per-request re-seed — so /list stays a pure read with no commit churn.)
+  if (!hosted) {
+    try {
+      const cfg = await loadConfig();
+      await runZuzuu(root, ["registry", "ensure", ...cfg.recent], { binary: zuzuuBinary });
+    } catch { /* the registry is best-effort at boot */ }
+  }
 
   const publicHost = process.env.WEBCODE_PUBLIC_HOST; // e.g. "myapp.fly.dev"
   const extraOrigins = [

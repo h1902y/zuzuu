@@ -70,7 +70,9 @@ export function ProjectsHome() {
                   </Inline>
                 </Text>
               ) : (
-                <Text size="meta" tone="muted">no master registry — set one up in global settings</Text>
+                <Text as="button" interactive size="meta" tone="muted" onClick={() => setGlobalOpen(true)}>
+                  registry unavailable — showing recent folders · open global settings
+                </Text>
               )}
               <Inline gap="md" justify="between" wrap>
                 <label className="flex min-w-0 flex-1 items-center gap-2 rounded-ui border border-border bg-surface px-3 py-2">
