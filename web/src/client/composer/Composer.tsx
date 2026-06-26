@@ -16,12 +16,15 @@
 // Rendered only for type:"agent" sessions; shell sessions keep the raw terminal.
 
 import { useEffect, useRef, useState } from "react";
+import { Circle } from "lucide-react";
 import { PromptInput } from "./PromptInput.js";
 import { HostPill } from "./HostPill.js";
 import { inputFrames, isReady, SUBMIT_DELAY_MS, type InputOpts } from "./composer-logic.js";
+import { composerStatus } from "./composer-status.js";
 import { hostInputProfile } from "./host-input.js";
 import { getTermConn } from "../term/connections.js";
 import { useWorkbench } from "../state/store.js";
+import { Inline, Text, Icon, Button } from "../ds/index.js";
 
 /** Deliver one message to the session's PTY as a remote keyboard: the body now,
  *  then the submit key after a settle delay (re-looked-up so a dispose mid-delay is
@@ -87,6 +90,9 @@ export function Composer({ sessionId }: { sessionId: string }) {
 
   const clearQueue = () => { queue.current = []; setQueued(0); };
 
+  // What the user SEES: Ready · Working… · N queued, with a dot that warms while busy.
+  const status = composerStatus(ready, queued);
+
   return (
     <PromptInput
       onSubmit={submit}
@@ -95,37 +101,25 @@ export function Composer({ sessionId }: { sessionId: string }) {
       footer={
         <>
           <HostPill sessionId={sessionId} />
-          <span
-            className={`text-meta ${ready && queued === 0 ? "text-muted" : "text-accent"}`}
+          {/* status: a passive dot + label (warms to accent while the agent works) —
+              kept visually distinct from the controls so it never reads as a button. */}
+          <Inline
+            gap="xs"
+            align="center"
             aria-live="polite"
             title={profile.verified ? undefined : `input timing not yet verified for ${host ?? "this host"} — using defaults`}
           >
-            {!ready ? (queued > 0 ? `working… · ${queued} queued` : "working…") : queued > 0 ? `${queued} queued` : "ready"}
-            {!profile.verified && " · ?"}
-          </span>
+            <Text tone={status.busy ? "accent" : "muted"}><Icon icon={Circle} size={8} fill="currentColor" /></Text>
+            <Text size="meta" tone="muted">{status.label}{!profile.verified && " · ?"}</Text>
+          </Inline>
           {queued > 0 && (
-            <button
-              onClick={clearQueue}
-              title="discard queued messages"
-              className="rounded-ui px-2 py-1 text-meta text-muted hover:text-danger"
-            >
-              clear
-            </button>
+            <Button variant="ghost" size="sm" onClick={clearQueue} title="discard queued messages">Clear</Button>
           )}
-          <button
-            onClick={() => send("\x03")}
-            title="interrupt the agent (Ctrl-C)"
-            className="rounded-ui px-2 py-1 text-meta text-muted hover:text-danger"
-          >
-            Stop
-          </button>
-          <button
-            onClick={() => send("\x1b")}
-            title="send Escape"
-            className="rounded-ui px-2 py-1 text-meta text-muted hover:text-subtle"
-          >
-            Esc
-          </button>
+          {/* Stop only matters mid-turn — surface it while busy, so the calm state stays calm. */}
+          {status.busy && (
+            <Button variant="ghost" size="sm" onClick={() => send("\x03")} title="interrupt the agent (Ctrl-C)">Stop</Button>
+          )}
+          <Button variant="ghost" size="sm" onClick={() => send("\x1b")} title="send Escape — answer a prompt or close a menu">Esc</Button>
         </>
       }
     />
