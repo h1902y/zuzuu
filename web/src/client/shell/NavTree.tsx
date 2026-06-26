@@ -3,11 +3,10 @@
 // Selecting a node drives the stage/wing. Composed from ds primitives.
 import { type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Circle, Table2, Flag, Home, Share2, Search, Settings as SettingsIcon, X } from "lucide-react";
+import { Circle, Table2, Flag, Home, Share2, Search, Settings as SettingsIcon } from "lucide-react";
 import type { SessionInfo } from "#shared/index.js";
 import { api } from "../lib/api.js";
 import { useWorkbench } from "../state/store.js";
-import { useEndSession } from "../state/end-session.js";
 import { useWorld } from "./world-state.js";
 import { mostRecentlyActive } from "./shell-state.js";
 import { shouldShowSetupNode } from "./project-home-state.js";
@@ -30,36 +29,28 @@ function NavRow({ active, icon, label, badge, onClick }: {
   );
 }
 
-/** A session row: a select button + an end-session ✕ (sibling, not nested). The ✕
- *  shows on hover and opens the shared End-session confirm dialog (EndSessionDialog),
- *  which states the stakes (an agent squash-merges on close) and runs the merge — the
- *  same dialog the stage-header "End session" button opens. */
-function SessionRow({ s, active, owner, onSelect, onEnd }: {
-  s: SessionInfo; active: boolean; owner: string | null; onSelect: () => void; onEnd: () => void;
+/** A session row: select-only. Ending a session is the stage header's single "End
+ *  session" button (the canonical, where-you-work affordance) — there's deliberately
+ *  no per-row ✕, so there's exactly one way to end a session. */
+function SessionRow({ s, active, owner, onSelect }: {
+  s: SessionInfo; active: boolean; owner: string | null; onSelect: () => void;
 }) {
   return (
-    <div className="group flex items-center gap-1">
-      <button
-        type="button"
-        onClick={onSelect}
-        className={`flex h-10 min-w-0 flex-1 items-center gap-3 rounded-ui px-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-focus ${active ? "bg-selected text-ink-100" : "text-subtle hover:bg-hover hover:text-ink-100"}`}
-      >
-        <Text tone={s.alive ? (s.id === owner ? "accent" : "subtle") : "muted"}>
-          <Icon icon={Circle} size={9} fill={s.alive ? "currentColor" : "none"} />
-        </Text>
-        <span className="min-w-0 flex-1 truncate text-ui">{s.title || s.id}</span>
-      </button>
-      <button type="button" aria-label="end session" title="End session" onClick={onEnd}
-        className="grid h-6 w-6 shrink-0 place-items-center rounded-ui text-muted opacity-0 transition hover:bg-hover hover:text-ink-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-focus group-hover:opacity-100">
-        <Icon icon={X} size={12} />
-      </button>
-    </div>
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`flex h-10 w-full items-center gap-3 rounded-ui px-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-focus ${active ? "bg-selected text-ink-100" : "text-subtle hover:bg-hover hover:text-ink-100"}`}
+    >
+      <Text tone={s.alive ? (s.id === owner ? "accent" : "subtle") : "muted"}>
+        <Icon icon={Circle} size={9} fill={s.alive ? "currentColor" : "none"} />
+      </Text>
+      <span className="min-w-0 flex-1 truncate text-ui">{s.title || s.id}</span>
+    </button>
   );
 }
 
 export function NavTree() {
   const sessions = useWorkbench((s) => s.sessions);
-  const requestEnd = useEndSession((s) => s.request);
   const selected = useWorld((s) => s.selected);
   const select = useWorld((s) => s.select);
   const overview = useQuery({ queryKey: ["zuzuu", "overview"], queryFn: api.zuzuu.overview });
@@ -92,7 +83,6 @@ export function NavTree() {
             active={selected?.kind === "session" && selected.id === s.id}
             owner={owner}
             onSelect={() => select({ kind: "session", id: s.id })}
-            onEnd={() => requestEnd(s)}
           />
         ))}
         {!sessions.length && <Text size="meta" tone="muted">none yet</Text>}
