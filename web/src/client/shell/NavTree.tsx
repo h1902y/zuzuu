@@ -1,17 +1,17 @@
 // shell/NavTree.tsx — ONE nav tree, sessions + modules as siblings (no modes, R2).
 // Sessions show liveness (● owner / • other-live / ○ idle); modules show pending.
 // Selecting a node drives the stage/wing. Composed from ds primitives.
-import { useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Circle, Table2, Flag, Home, Share2, Search, Settings as SettingsIcon, X, Check } from "lucide-react";
+import { Circle, Table2, Flag, Home, Share2, Search, Settings as SettingsIcon, X } from "lucide-react";
 import type { SessionInfo } from "#shared/index.js";
 import { api } from "../lib/api.js";
 import { useWorkbench } from "../state/store.js";
+import { useEndSession } from "../state/end-session.js";
 import { useWorld } from "./world-state.js";
 import { mostRecentlyActive } from "./shell-state.js";
 import { shouldShowSetupNode } from "./project-home-state.js";
 import { NewSessionMenu } from "./session/NewSessionMenu.js";
-import { showCloseCardFromResult } from "./review/use-session-close.js";
 import { Stack, Inline, Text, Icon } from "../ds/index.js";
 
 function NavRow({ active, icon, label, badge, onClick }: {
@@ -31,12 +31,12 @@ function NavRow({ active, icon, label, badge, onClick }: {
 }
 
 /** A session row: a select button + an end-session ✕ (sibling, not nested). The ✕
- *  shows on hover and confirms inline — an agent session squash-merges on close, so
- *  the second tap (the ✓) is the deliberate end. */
+ *  shows on hover and opens the shared End-session confirm dialog (EndSessionDialog),
+ *  which states the stakes (an agent squash-merges on close) and runs the merge — the
+ *  same dialog the stage-header "End session" button opens. */
 function SessionRow({ s, active, owner, onSelect, onEnd }: {
   s: SessionInfo; active: boolean; owner: string | null; onSelect: () => void; onEnd: () => void;
 }) {
-  const [confirming, setConfirming] = useState(false);
   return (
     <div className="group flex items-center gap-1">
       <button
@@ -49,30 +49,17 @@ function SessionRow({ s, active, owner, onSelect, onEnd }: {
         </Text>
         <span className="min-w-0 flex-1 truncate text-ui">{s.title || s.id}</span>
       </button>
-      {confirming ? (
-        <Inline gap="xs">
-          <button type="button" aria-label="confirm end session" title="End session" onClick={() => { onEnd(); setConfirming(false); }}
-            className="grid h-6 w-6 place-items-center rounded-ui text-danger transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-focus">
-            <Icon icon={Check} size={13} />
-          </button>
-          <button type="button" aria-label="cancel" title="Keep session" onClick={() => setConfirming(false)}
-            className="grid h-6 w-6 place-items-center rounded-ui text-muted transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-focus">
-            <Icon icon={X} size={13} />
-          </button>
-        </Inline>
-      ) : (
-        <button type="button" aria-label="end session" title="End session" onClick={() => setConfirming(true)}
-          className="grid h-6 w-6 shrink-0 place-items-center rounded-ui text-muted opacity-0 transition hover:bg-hover hover:text-ink-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-focus group-hover:opacity-100">
-          <Icon icon={X} size={12} />
-        </button>
-      )}
+      <button type="button" aria-label="end session" title="End session" onClick={onEnd}
+        className="grid h-6 w-6 shrink-0 place-items-center rounded-ui text-muted opacity-0 transition hover:bg-hover hover:text-ink-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-focus group-hover:opacity-100">
+        <Icon icon={X} size={12} />
+      </button>
     </div>
   );
 }
 
 export function NavTree() {
   const sessions = useWorkbench((s) => s.sessions);
-  const endSession = useWorkbench((s) => s.close);
+  const requestEnd = useEndSession((s) => s.request);
   const selected = useWorld((s) => s.selected);
   const select = useWorld((s) => s.select);
   const overview = useQuery({ queryKey: ["zuzuu", "overview"], queryFn: api.zuzuu.overview });
@@ -105,11 +92,7 @@ export function NavTree() {
             active={selected?.kind === "session" && selected.id === s.id}
             owner={owner}
             onSelect={() => select({ kind: "session", id: s.id })}
-            onEnd={() => {
-              if (selected?.kind === "session" && selected.id === s.id) select({ kind: "overview" });
-              // end resolves after the daemon's squash-merge; surface what it taught.
-              void endSession(s.id).then((result) => showCloseCardFromResult(s.id, result));
-            }}
+            onEnd={() => requestEnd(s)}
           />
         ))}
         {!sessions.length && <Text size="meta" tone="muted">none yet</Text>}

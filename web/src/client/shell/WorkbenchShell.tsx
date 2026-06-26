@@ -31,8 +31,10 @@ import { ReviewQueue } from "./review/ReviewQueue.js";
 import { Form } from "./wing/Form.js";
 import { Schema } from "./wing/Schema.js";
 import { dataProvider } from "../data/provider.js";
-import { Plus } from "lucide-react";
+import { Plus, Power } from "lucide-react";
 import { Palette } from "../palette/Palette.js";
+import { useEndSession } from "../state/end-session.js";
+import { EndSessionDialog } from "./session/EndSessionDialog.js";
 import { Loading, ThemeToggle, AppHeader, Text } from "../ds/index.js";
 import { useReview } from "../state/review.js";
 import { NavTree } from "./NavTree.js";
@@ -68,6 +70,7 @@ export function WorkbenchShell() {
   const reviewOpen = useReview((s) => s.open);
   const setReview = useReview((s) => s.setOpen);
   const setPalette = useWorld((s) => s.setPalette);
+  const requestEnd = useEndSession((s) => s.request);
 
   useEffect(() => { void refresh(); }, [refresh]); // load sessions; home is the database (no auto-open)
 
@@ -148,7 +151,9 @@ export function WorkbenchShell() {
   const stagePrimary =
     header.primary?.key === "new-note" && selected?.kind === "module"
       ? { label: "New note", icon: Plus, onClick: () => void onNewNote(selected.id) }
-      : null;
+      : header.primary?.key === "end-session" && activeSession
+        ? { label: "End session", icon: Power, variant: "outline" as const, onClick: () => requestEnd(activeSession) }
+        : null;
   // the stage tab strips: a module's Table·Graph (P2.7), a session's Terminal·Changes (P2.8).
   const MODULE_TABS: StageTab[] = [{ key: "table", label: "Table" }, { key: "graph", label: "Graph" }];
   const totalPending = Object.values(pendingByModule).reduce((n, v) => n + v, 0);
@@ -246,6 +251,7 @@ export function WorkbenchShell() {
       )}
 
       <Palette />
+      <EndSessionDialog />
     </div>
   );
 }
