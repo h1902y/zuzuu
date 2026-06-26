@@ -15,6 +15,8 @@ import { itemsDir } from '../notes/store.mjs';
 import { brokenLinks } from '../notes/index.mjs';
 import { listModules } from '../notes/module.mjs';
 import { validateNote } from '../notes/validate.mjs';
+import { moduleContent, readSourcePin } from '../notes/registry.mjs';
+import { resolveRegistryPath } from '../notes/registry-pointer.mjs';
 
 /** Every note across all modules, parsed: [{ addr, note }]. */
 function allNotes(home) {
@@ -32,8 +34,26 @@ function allNotes(home) {
   return out;
 }
 
+/** Subscribed modules whose vendored content has drifted from their `source:` pin
+ *  (a local edit, or the registry advanced upstream). Pending (not-yet-landed)
+ *  subscriptions and an unreachable registry are reported honestly, never crash. */
+function driftFindings(home) {
+  const out = [];
+  for (const m of listModules(home)) {
+    const pin = readSourcePin(home, m.id);
+    if (!pin) continue; // not a subscribed module
+    const local = moduleContent(home, m.id);
+    if (!local.items.length) continue; // staged but not yet approved — pending, not drift
+    if (local.digest !== pin.digest) { out.push({ module: m.id, why: 'local edit — vendored copy diverged from the pin' }); continue; }
+    const regHome = pin.registry ? resolveRegistryPath(pin.registry) : null;
+    if (!regHome || !existsSync(regHome)) { out.push({ module: m.id, why: `pin unresolved — registry ${pin.registry} not found` }); continue; }
+    if (moduleContent(regHome, m.id).digest !== pin.digest) out.push({ module: m.id, why: 'upstream advanced — the registry has a newer version' });
+  }
+  return out;
+}
+
 /**
- * @returns {{ broken: Array, orphans: string[], stale: Array }}
+ * @returns {{ broken: Array, orphans: string[], stale: Array, drifted: Array }}
  */
 function checkData(home) {
   const broken = (() => { try { return brokenLinks(home); } catch { return []; } })();
@@ -58,7 +78,8 @@ function checkData(home) {
     .filter(({ note }) => note.superseded_by || note.status === 'deprecated')
     .map(({ addr, note }) => ({ addr, why: note.superseded_by ? `superseded_by ${note.superseded_by}` : 'deprecated' }));
 
-  return { broken, orphans, stale };
+  const drifted = (() => { try { return driftFindings(home); } catch { return []; } })();
+  return { broken, orphans, stale, drifted };
 }
 
 /** The `check` capability handler (project-wide). */

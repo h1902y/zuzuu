@@ -13,6 +13,7 @@
 import { open } from '../serve/api.mjs';
 import { initHome } from './init.mjs';
 import { sessionCommand } from './session.mjs';
+import { registryCommand } from './registry.mjs';
 import { enable, disable } from './enable.mjs';
 import { doctor, status, explain } from './doctor.mjs';
 import { code } from './code.mjs';
@@ -384,6 +385,20 @@ export async function run(argv, io = {}) {
 
       case 'session':
         return sessionCommand(args, cwd, log);
+
+      case 'registry':
+        return registryCommand(args, cwd, log);
+
+      case 'subscribe': {
+        const m = args._[0];
+        if (!m) return fail(log, 'usage: zz subscribe <module>', json);
+        try {
+          const r = open(cwd).registry.subscribe(m);
+          if (!r.ok) return fail(log, r.error, json);
+          emit(log, json, r, ['subscribe', [{ module: r.module, staged: r.staged }], ['module', 'staged']]);
+          return 0;
+        } catch (e) { return fail(log, e.message, json); }
+      }
 
       case 'doctor':
         return doctor(cwd, log);

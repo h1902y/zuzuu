@@ -62,8 +62,13 @@ function haystackFor(input) {
   return parts.join('\n').slice(0, MAX_HAYSTACK);
 }
 
-/** Load + compile the guardrails module's rule notes, cached on the dir signature. */
-export function loadRules(home, module = 'guardrails') {
+// The modules the gate enforces rule-notes from. `instructions` is the prepacked
+// default (rules + best-practice guidance live together); `guardrails` is kept for
+// back-compat so EXISTING projects (seeded before the rename) stay protected.
+export const RULE_MODULES = ['instructions', 'guardrails'];
+
+/** Load + compile a module's rule notes, cached on the dir signature. */
+export function loadRules(home, module = 'instructions') {
   const dir = itemsDir(home, module);
   if (!existsSync(dir)) return [];
   const files = readdirSync(dir).filter((f) => f.endsWith('.md'));
@@ -93,16 +98,20 @@ export function evaluate(rules, { tool, input }) {
     if (!toolMatches(r.tool, tool)) continue;
     if (!r.re.test(haystack)) continue;
     if (!winner || SEVERITY[r.action] > SEVERITY[winner.action]) {
-      winner = { action: r.action, rule: r.id, reason: r.reason || `matched guardrail ${r.id}` };
+      winner = { action: r.action, rule: r.id, reason: r.reason || `matched rule ${r.id}` };
     }
   }
   return winner;
 }
 
-/** The `gate` capability handler: evaluate a call against the home's rules. */
+/** The `gate` capability handler: evaluate a call against the home's rules. An explicit
+ *  `ctx.module` scopes to one module (tests); otherwise rules from BOTH the new
+ *  `instructions` default AND the legacy `guardrails` module are enforced (migration). */
 export function gate(ctx, call) {
   try {
-    return evaluate(loadRules(ctx.home, ctx.module), call);
+    const modules = ctx.module ? [ctx.module] : RULE_MODULES;
+    const rules = modules.flatMap((m) => loadRules(ctx.home, m));
+    return evaluate(rules, call);
   } catch {
     return null; // fail-open: an engine error never blocks
   }
@@ -115,7 +124,7 @@ export function toPreToolUseDecision(verdict) {
     hookSpecificOutput: {
       hookEventName: 'PreToolUse',
       permissionDecision: verdict.action,
-      permissionDecisionReason: `guardrail ${verdict.rule}: ${verdict.reason}`,
+      permissionDecisionReason: `rule ${verdict.rule}: ${verdict.reason}`,
     },
   };
 }

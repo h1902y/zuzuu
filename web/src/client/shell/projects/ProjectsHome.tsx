@@ -1,18 +1,20 @@
 // shell/projects/ProjectsHome.tsx — the launcher (L1, the decided launch landing).
 // A warm, editorial table of every recent Project with its health read from disk
-// (no daemon running): notes · tables · ◷ pending-review · guardrails · last activity.
+// (no daemon running): notes · tables · ◷ pending-review · protected · last activity.
 // Search + sort + group-by facets; the Bagel Fat One logotype; "New / Open a folder".
 // Opening a row hands off to useEnterProject (switchTo → land on the Overview, no
 // reload). Thin .tsx — projects-model is the tested logic; static utilities only.
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Database, Clock, Shield, Plus, Search } from "lucide-react";
+import { Database, Clock, Shield, Plus, Search, Settings } from "lucide-react";
 import { api } from "../../lib/api.js";
 import { useEnterProject } from "../session/use-enter-project.js";
 import { projectsView, relativeTime, type ProjectSort, type ProjectGroup } from "./projects-model.js";
+import { sourceLabel } from "./registry-source.js";
 import type { ProjectSummary } from "#shared/index.js";
-import { Stack, Inline, Text, Icon, Button, ThemeToggle, Loading } from "../../ds/index.js";
+import { Stack, Inline, Text, Icon, Button, ThemeToggle, Loading, Brand } from "../../ds/index.js";
 import { NewProject } from "./NewProject.js";
+import { GlobalSettings } from "./GlobalSettings.js";
 
 const SORTS: { key: ProjectSort; label: string }[] = [
   { key: "recent", label: "Recent" },
@@ -27,20 +29,25 @@ export function ProjectsHome() {
   const [sort, setSort] = useState<ProjectSort>("recent");
   const [group, setGroup] = useState<ProjectGroup>("none");
   const [newOpen, setNewOpen] = useState(false);
+  const [globalOpen, setGlobalOpen] = useState(false);
 
   const rows = projects.data?.projects ?? [];
   const sections = projectsView(rows, { search, sort, group });
+  const registry = projects.data?.registry ?? null;
   const now = Date.now();
 
   return (
     <div className="flex h-full flex-col bg-app">
       {/* the brand bar — the logotype gets its big moment here */}
       <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-surface px-8">
-        <Text size="xl" font="logo" tone="default">zuzuu</Text>
+        <Brand variant="lockup" size="md" />
         <Inline gap="md">
           <Button variant="primary" size="sm" onClick={() => setNewOpen(true)}>
             <Icon icon={Plus} size={15} /> New project
           </Button>
+          <Text as="button" interactive tone="muted" onClick={() => setGlobalOpen(true)} title="Global settings">
+            <Icon icon={Settings} size={16} />
+          </Text>
           <ThemeToggle />
         </Inline>
       </header>
@@ -49,7 +56,24 @@ export function ProjectsHome() {
         <div className="mx-auto w-full max-w-4xl">
           <Stack gap="xl">
             <Stack gap="md">
-              <Text size="2xl" font="display">Projects</Text>
+              <Inline gap="sm" align="baseline">
+                <Text size="2xl" font="display">Projects</Text>
+                <Text size="meta" tone="muted">· {sourceLabel(projects.data?.source)}</Text>
+              </Inline>
+              {registry ? (
+                <Text as="button" interactive size="meta" tone="muted" onClick={() => setGlobalOpen(true)}>
+                  <Inline gap="xs" align="center">
+                    <Icon icon={Database} size={12} />
+                    <span>coordinated by the registry · </span>
+                    <Text as="span" mono tone="subtle" truncate>{registry.home}</Text>
+                    <span> · {registry.projects} projects</span>
+                  </Inline>
+                </Text>
+              ) : (
+                <Text as="button" interactive size="meta" tone="muted" onClick={() => setGlobalOpen(true)}>
+                  registry unavailable — showing recent folders · open global settings
+                </Text>
+              )}
               <Inline gap="md" justify="between" wrap>
                 <label className="flex min-w-0 flex-1 items-center gap-2 rounded-ui border border-border bg-surface px-3 py-2">
                   <Icon icon={Search} size={15} />
@@ -97,6 +121,7 @@ export function ProjectsHome() {
       </div>
 
       {newOpen && <NewProject onClose={() => setNewOpen(false)} />}
+      {globalOpen && <GlobalSettings onClose={() => setGlobalOpen(false)} />}
     </div>
   );
 }

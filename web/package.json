@@ -27,6 +27,9 @@
   "comment:dependencies": "DAEMON runtime deps only — these become @zuzuucodes/cli optionalDependencies. The client deps are build-time (the SPA ships as pre-built static assets), so they live in devDependencies.",
   "dependencies": {
     "@fontsource-variable/space-grotesk": "^5.2.10",
+    "@fontsource/abel": "^5.2.7",
+    "@fontsource/alata": "^5.2.8",
+    "@fontsource/anonymous-pro": "^5.2.8",
     "@fontsource/bagel-fat-one": "^5.2.7",
     "@fontsource/sigmar": "^5.2.7",
     "@fontsource/space-mono": "^5.2.9",

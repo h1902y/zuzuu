@@ -35,7 +35,7 @@ export interface ProjectGroupView {
 }
 
 /** Group the (already filtered + sorted) rows into sections. "none" → one untitled
- *  section; "guarded" → "Enabled" (guardrails present) then "Not yet enabled". Empty
+ *  section; "guarded" → "Enabled" (the instructions safety floor present) then "Not yet enabled". Empty
  *  sections are dropped so the surface never renders a hollow header. */
 export function groupProjects(projects: ProjectSummary[], group: ProjectGroup): ProjectGroupView[] {
   if (group !== "guarded") return projects.length ? [{ key: "all", label: "", projects }] : [];

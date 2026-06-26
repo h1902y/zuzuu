@@ -72,7 +72,7 @@ test('module overview --json → each module with items + pending; custom module
     assert.equal(k.items, 2);
     assert.equal(k.pending, 1);
     assert.ok(rows.some((r) => r.key === 'roadmap'), 'a custom module surfaces (no hardcoded ITEM_DIRS gap on the CLI path)');
-    assert.ok(rows.some((r) => r.key === 'guardrails'), 'the shipped guardrails module is listed');
+    assert.ok(rows.some((r) => r.key === 'instructions'), 'the shipped instructions module is listed');
   });
 });
 

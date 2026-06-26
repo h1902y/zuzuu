@@ -44,7 +44,7 @@ export function Overview(props: OverviewProps) {
             <Stat icon={ListChecks} label="notes" value={String(health.notes)} />
             <Stat icon={Table2} label="tables" value={String(health.tables)} />
             <Stat icon={Clock} label="pending review" value={String(health.pending)} accent={health.pending > 0} />
-            <Stat icon={Shield} label={enabled ? "guardrails on" : "not enabled"} value="" />
+            <Stat icon={Shield} label={enabled ? "protected" : "not enabled"} value="" />
             <Stat icon={Circle} label="last activity" value={relativeTime(lastActive, now)} />
           </Inline>
 

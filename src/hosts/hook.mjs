@@ -20,6 +20,7 @@ import { inSessionWorktree } from '../sessions/session-worktree.mjs';
 import { observe } from '../grow/observe.mjs';
 import { captureSignals } from './capture.mjs';
 import { digestText } from '../serve/digest.mjs';
+import { open as apiOpen } from '../serve/api.mjs';
 
 // Host event vocabularies, mapped to one path (verified per-host wire data):
 // Claude SessionStart/Stop/SessionEnd · OpenCode session.created/idle/deleted
@@ -29,7 +30,7 @@ const TURN = new Set(['Stop', 'session.idle', 'AfterAgent', 'UserPromptSubmit', 
 const END = new Set(['SessionEnd', 'session.deleted', 'session_shutdown']);
 const GATE = new Set(['PreToolUse', 'BeforeTool']);
 
-const safeName = (id) => `guardrails-${String(id || 'unknown').replace(/[^A-Za-z0-9._-]/g, '_').slice(-120) || 'unknown'}.jsonl`;
+const safeName = (id) => `gate-${String(id || 'unknown').replace(/[^A-Za-z0-9._-]/g, '_').slice(-120) || 'unknown'}.jsonl`;
 
 /**
  * The guardrails gate. Returns the host's block decision, or null = fail-open
@@ -38,7 +39,8 @@ const safeName = (id) => `guardrails-${String(id || 'unknown').replace(/[^A-Za-z
 export function gateDecision({ host = 'claude-code', payload = {}, cwd = process.cwd() } = {}) {
   try {
     const home = homeDir(repoRoot(cwd));
-    const verdict = gate({ home, module: 'guardrails' }, { tool: payload.tool_name, input: payload.tool_input });
+    // no explicit module → the gate enforces both `instructions` (new) + `guardrails` (legacy).
+    const verdict = gate({ home }, { tool: payload.tool_name, input: payload.tool_input });
     if (verdict) {
       try {
         const state = stateDir(home);
@@ -78,6 +80,7 @@ export function handleHook({ event, payload = {}, cwd = process.cwd(), host = 'c
   if (OPEN.has(event)) {
     // In a daemon-owned worktree the agent is already on its branch — defer.
     try { if (id && sessionGitEnabled(cwd) && !inSessionWorktree(cwd)) openSession(cwd, id); } catch { /* git trouble never blocks grounding */ }
+    try { apiOpen(cwd).registry.touch(); } catch { /* auto-track is best-effort, never blocks the host */ }
     writeDigest(cwd);
   } else if (TURN.has(event)) {
     try { if (sessionGitEnabled(cwd)) checkpoint(cwd); } catch { /* fail-open — commits only on the session branch */ }

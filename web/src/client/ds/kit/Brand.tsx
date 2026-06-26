@@ -1,0 +1,37 @@
+// ds/kit/Brand.tsx — the zuzuu brand lockup. Three variants:
+//   "mark"   → the logo only (the glitch-Z mark, /z.png — the real brand asset)
+//   "lockup" → the mark + the "zuzuu" wordmark   (logo + text)
+//   "full"   → the mark + the "zuzuucodes" wordmark (logo + full text)
+// The mark is the actual brand image (never reinvented); the wordmark is Train One
+// (--font-logo, via the Google Fonts CDN link in index.html). Composed from static,
+// token-bound utilities only (guard-safe — no inline styles / arbitrary values).
+//
+// Vertical centering: Train One carries heavy top-side bearing, so the wordmark gets a
+// small per-size optical lift to align its center with the square mark.
+
+export type BrandVariant = "mark" | "lockup" | "full";
+export type BrandSize = "sm" | "md" | "lg";
+
+const SIZE: Record<BrandSize, { mark: string; word: string; lift: string }> = {
+  sm: { mark: "h-7 w-7", word: "text-lg", lift: "-translate-y-px" },
+  md: { mark: "h-9 w-9", word: "text-2xl", lift: "-translate-y-0.5" },
+  lg: { mark: "h-12 w-12", word: "text-2xl", lift: "-translate-y-0.5" },
+};
+
+const WORD: Record<Exclude<BrandVariant, "mark">, string> = {
+  lockup: "zuzuu",
+  full: "zuzuucodes",
+};
+
+export function Brand({ variant = "lockup", size = "md" }: { variant?: BrandVariant; size?: BrandSize }) {
+  const s = SIZE[size];
+  return (
+    <span className="inline-flex select-none items-center gap-2">
+      <img src="/z.png" alt="" aria-hidden className={`shrink-0 rounded-ui ${s.mark}`} />
+      {variant !== "mark" && (
+        <span className={`font-logo leading-none text-ink-100 ${s.word} ${s.lift}`}>{WORD[variant]}</span>
+      )}
+      <span className="sr-only">zuzuu</span>
+    </span>
+  );
+}

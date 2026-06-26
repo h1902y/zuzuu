@@ -41,7 +41,7 @@ export function readProjectHealth(root: string): ProjectHealth {
     if (!st.isDirectory()) continue;
     if (!existsSync(path.join(dir, "module.md"))) continue; // only real (grown) modules
     modules++;
-    if (name === "guardrails") guarded = true;
+    if (name === "instructions" || name === "guardrails") guarded = true; // the enforced safety floor (instructions = new default, guardrails = legacy)
     notes += countDir(path.join(dir, "items"), ".md");
     pending += countDir(path.join(dir, "staged"));
     last = Math.max(last, mtimeMs(dir));

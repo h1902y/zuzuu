@@ -63,6 +63,8 @@ export const api = {
     recents: () => request<RecentsList>("/api/projects/recents"),
     list: () => request<ProjectsList>("/api/projects/list"),
     dir: (prefix: string) => request<DirListing>(`/api/projects/dir?prefix=${encodeURIComponent(prefix)}`),
+    // open the OS-native folder picker (local daemon) → the chosen absolute path.
+    pick: () => request<{ path?: string; cancelled?: boolean; unsupported?: boolean; error?: string }>("/api/projects/pick"),
   },
   setup: {
     init: () => request<SetupResult>("/api/zuzuu/setup/init", json({})),

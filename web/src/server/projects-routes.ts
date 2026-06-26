@@ -6,20 +6,23 @@
 // current row. Switching itself reuses the daemon's existing POST /api/workspace/switch.
 
 import { Hono } from "hono";
-import path from "node:path";
 import * as config from "./config.js";
 import { reconcileRecents } from "./recents.js";
 import { listDirs } from "./dir-complete.js";
-import { readProjectHealth } from "./project-health.js";
+import { readRegistry, chooseSource, registrySummary, type RegistryStatus } from "./registry-read.js";
+import { pickFolder } from "./pick-folder.js";
 
 interface ProjectsOpts {
   /** injectable for tests; defaults to the real ~/.webcode/config.json loader. */
   load?: () => Promise<{ recent: string[] }>;
+  /** injectable for tests; defaults to reading the active registry via the CLI. */
+  registry?: (root: string) => Promise<RegistryStatus | null>;
 }
 
 export function createProjectsApi(getRoot: () => string, opts: ProjectsOpts = {}): Hono {
   const app = new Hono();
   const load = opts.load ?? config.load;
+  const registry = opts.registry ?? readRegistry;
 
   // GET /recents — recents (most-recent-first), current marked (R16).
   app.get("/recents", async (c) => {
@@ -32,18 +35,19 @@ export function createProjectsApi(getRoot: () => string, opts: ProjectsOpts = {}
   app.get("/list", async (c) => {
     const cfg = await load();
     const root = getRoot();
-    const projects = cfg.recent.map((p) => ({
-      path: p,
-      name: path.basename(p) || p,
-      current: p === root,
-      ...readProjectHealth(p),
-    }));
-    return c.json({ projects });
+    // the fallback ladder: a configured registry wins; else the recents pass.
+    const reg = await registry(root).catch(() => null);
+    const { source, projects } = chooseSource(reg, cfg.recent, root);
+    return c.json({ source, projects, registry: registrySummary(reg) });
   });
 
   // GET /dir?prefix= — names-only directory autocomplete for "Open a folder…" (R17).
   // The one deliberately out-of-jail read (see dir-complete.ts) — never throws.
   app.get("/dir", async (c) => c.json(await listDirs(c.req.query("prefix") ?? "")));
+
+  // GET /pick — open the OS-native folder picker (local daemon only) → the chosen
+  // absolute path. Falls back to the manual path field when unsupported/cancelled.
+  app.get("/pick", (c) => c.json(pickFolder()));
 
   return app;
 }

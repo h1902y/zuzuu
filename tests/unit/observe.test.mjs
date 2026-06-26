@@ -142,7 +142,7 @@ test('observe: a repeated destructive command routes an ASK guardrail (never aut
   const home = join(root, '.zuzuu');
   const sessions = Array.from({ length: 2 }, (_, i) => ({ sessionId: `s${i}`, commands: [], files: [], failures: [], destructiveFailures: [{ cmd: 'rm -rf /', tool: 'Bash' }] }));
   observe(home, { sessions });
-  const rules = listStaged(home, 'guardrails');
+  const rules = listStaged(home, 'instructions');
   assert.equal(rules.length, 1);
   assert.equal(rules[0].change.type, 'rule');
   assert.equal(rules[0].change.action, 'ask', 'a mined guardrail only ASKS — the human tightens it at review');
