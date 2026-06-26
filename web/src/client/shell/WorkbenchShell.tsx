@@ -211,6 +211,7 @@ export function WorkbenchShell() {
             ) : (
               <Overview
                 name={workspace.data?.name ?? "this project"}
+                emoji={workspace.data?.emoji}
                 path={workspace.data?.root ?? ""}
                 enabled={projectState.data?.host.enabled ?? false}
                 modules={modules}
