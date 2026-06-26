@@ -1,66 +1,58 @@
-// shell/onboarding/Checklist.tsx — the in-canvas onboarding (R4–R7), as a guided
-// Stepper. The real setup verbs are the current step's CTA, advancing on TRUE state
-// (the daemon-observed ProjectState → rungStatus). The copy reframes the tail: once
-// the agent is connected, the remaining steps ARE the work — starting a session and
-// reviewing what zuzuu proposes — so setup flows straight into the project experience.
-// Thin .tsx; project-home-state is the tested logic; composes ds primitives + kit.
+// shell/onboarding/Checklist.tsx — the in-canvas onboarding, streamlined. The
+// mechanical prep (git-init → init → enable) runs AUTOMATICALLY when a folder is
+// opened (WorkbenchShell's auto-prep effect advances the ProjectState), so this
+// surface has just two faces: a brief "Setting up…" while prep runs, then the ONE
+// decision — pick a host and the first session starts. The old five-step Stepper
+// (manual git/init/enable/review clicks) is gone. Thin .tsx; HOSTS is the data.
 import type { ProjectStateKind } from "#shared/index.js";
-import { RUNGS, rungStatus, type RungId } from "../project-home-state.js";
 import { HOSTS } from "../../app/hosts.js";
-import { Stack, Inline, Text, Button, Stepper, type Step } from "../../ds/index.js";
+import { Stack, Inline, Text, Button } from "../../ds/index.js";
 
-const META: Record<RungId, { label: string; why: string; cta?: string }> = {
-  "git-init": { label: "Make this a git repository", why: "zuzuu works on git branches — one per session.", cta: "git init" },
-  init: { label: "Create the Project", why: "Plants .zuzuu/ — the project's memory, with the safety instructions.", cta: "Initialize" },
-  enable: { label: "Connect your agent", why: "Wires your coding agent's hooks so zuzuu can observe and propose.", cta: "Enable" },
-  session: { label: "Start working", why: "Begin a session — zuzuu watches it and learns. This is where setup becomes work.", cta: "Start a session" },
-  review: { label: "Review what zuzuu proposes", why: "Nothing is written without your yes. Approve to teach it, reject to correct — that's the loop." },
-};
+// the prep states the auto-prep effect drives through before the project is ready;
+// `no-activity` (prepped, no session yet) is where the user picks a host.
+const PREP_STATES = new Set<ProjectStateKind>(["not-a-repo", "no-project", "hooks-off"]);
 
-export function Checklist({ projectName, state, onRung, onStartSession, busy }: {
+export function Checklist({ projectName, state, onStartSession, starting }: {
   projectName: string;
   state: ProjectStateKind;
-  onRung: (r: RungId) => void;
-  /** the session rung picks a host (an agent session) — zuzuu only observes agents,
-   *  so onboarding offers the host picker instead of dropping into a bare shell. */
+  /** pick a host (an agent session — zuzuu only observes agents) or a plain shell. */
   onStartSession: (type: "shell" | "agent", host?: string) => void;
-  busy: RungId | null;
+  /** a session is being started (the host picker is disabled while it spins up). */
+  starting: boolean;
 }) {
-  const done = RUNGS.filter((r) => rungStatus(state, r) === "done").length;
-  const sessionAction = (
-    <Stack gap="xs">
-      <Inline gap="xs" wrap>
-        {HOSTS.map((h) => (
-          <Button key={h.id} variant="outline" size="sm" disabled={busy === "session"} onClick={() => onStartSession("agent", h.id)}>
-            {h.label}
-          </Button>
-        ))}
-      </Inline>
-      <Text as="button" interactive size="meta" tone="muted" onClick={() => onStartSession("shell")}>or start a plain shell</Text>
-    </Stack>
-  );
-  const steps: Step[] = RUNGS.map((r) => ({
-    id: r,
-    label: META[r].label,
-    hint: META[r].why,
-    status: rungStatus(state, r),
-    action: r === "session"
-      ? sessionAction
-      : META[r].cta
-        ? <Button variant="primary" onClick={() => onRung(r)} disabled={busy === r}>{busy === r ? "…" : META[r].cta}</Button>
-        : undefined,
-  }));
+  const preparing = PREP_STATES.has(state);
 
   return (
     <div className="h-full overflow-y-auto p-10">
       <div className="mx-auto w-full max-w-lg">
         <Stack gap="xl">
           <Stack gap="sm">
-            <Text size="meta" tone="subtle" weight="semibold">SETTING UP · {done} of {RUNGS.length}</Text>
-            <Text size="2xl" font="display">Set up {projectName}</Text>
-            <Text size="ui" tone="muted">zuzuu grows a brain for this folder from how you work — every change human-gated. The last steps are the work itself.</Text>
+            <Text size="2xl" font="display">
+              {preparing ? `Setting up ${projectName}…` : `Start working on ${projectName}`}
+            </Text>
+            <Text size="ui" tone="muted">
+              {preparing
+                ? "Preparing the project — git, the brain (.zuzuu/), and your agent's hooks. One moment."
+                : "Everything's set up. Pick your coding agent to begin — zuzuu watches the session and proposes changes you review, every one human-gated."}
+            </Text>
           </Stack>
-          <Stepper steps={steps} />
+
+          {preparing ? (
+            <Text size="ui" tone="subtle">setting up…</Text>
+          ) : (
+            <Stack gap="sm">
+              <Inline gap="xs" wrap>
+                {HOSTS.map((h) => (
+                  <Button key={h.id} variant="outline" size="md" disabled={starting} onClick={() => onStartSession("agent", h.id)}>
+                    {h.label}
+                  </Button>
+                ))}
+              </Inline>
+              <Text as="button" interactive size="meta" tone="muted" onClick={() => onStartSession("shell")}>
+                or start a plain shell
+              </Text>
+            </Stack>
+          )}
         </Stack>
       </div>
     </div>

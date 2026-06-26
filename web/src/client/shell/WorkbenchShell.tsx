@@ -4,7 +4,7 @@
 // Composer unchanged; grid/record/wing are placeholders until U5–U8 fill them. The
 // frame uses static layout utilities (no inline styles / arbitrary values); content
 // composes from ds primitives.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ProjectStateKind } from "#shared/index.js";
 import { TermView } from "../term/TermView.js";
@@ -95,19 +95,6 @@ export function WorkbenchShell() {
     return () => window.removeEventListener("keydown", onKey);
   }, [setReview, setPalette]);
 
-  // Fire a real setup verb, then refetch so the home advances on TRUE state (D4).
-  async function onRung(r: RungId) {
-    setBusy(r);
-    try {
-      if (r === "git-init") await api.setup.gitInit();
-      else if (r === "init") await api.setup.init();
-      else if (r === "enable") await api.setup.enable();
-      // the session rung is handled by onStartSession (it picks a host — see below)
-      // review: the by-doing handoff — the first proposal lands in the ribbon (R7)
-    } catch { toast(`Couldn't ${r}`, "error"); }
-    finally { setBusy(null); void qc.invalidateQueries({ queryKey: ["zuzuu"] }); }
-  }
-
   // The setup→work stitch: onboarding picks a HOST (an agent session — zuzuu only
   // observes agents), then drops into the terminal AND teaches the loop just entered.
   async function onStartSession(type: "shell" | "agent", host?: string) {
@@ -139,6 +126,30 @@ export function WorkbenchShell() {
   const onboarding = pState !== undefined && homeMode(pState) === "onboarding";
   // ribbon setup nudge (R8) — only when home (the checklist) isn't the current view, so the same prompt never double-surfaces
   const setupHint = pState !== undefined && pState !== "steady" && selected !== null ? RUNG_HINT[currentRung(pState)] : undefined;
+
+  // Auto-prep: the mechanical setup steps (git-init → init → enable) run automatically
+  // when a folder is opened — they're plumbing, not decisions. The ONLY thing the user
+  // does is pick a host (no-activity → the Checklist's host picker). Each verb advances
+  // the state; the effect re-fires for the next until the Project is prepped. A ref
+  // guards re-entry; a failed step toasts and stops (no spin).
+  const prepping = useRef(false);
+  useEffect(() => {
+    if (prepping.current) return;
+    const verb = pState === "not-a-repo" ? api.setup.gitInit
+      : pState === "no-project" ? api.setup.init
+      : pState === "hooks-off" ? api.setup.enable
+      : null;
+    if (!verb) return;
+    prepping.current = true;
+    void (async () => {
+      try { await verb(); }
+      catch { toast("A setup step failed — see Settings", "error"); }
+      finally {
+        prepping.current = false;
+        await qc.invalidateQueries({ queryKey: ["zuzuu", "project-state"] });
+      }
+    })();
+  }, [pState, qc]);
 
   // the governed stage-header (P2.1): a friendly breadcrumb + the stage's primary action.
   const header = stageHeaderModel(selected);
@@ -219,7 +230,7 @@ export function WorkbenchShell() {
             ) : sel.stage === "settings" ? (
               <Settings />
             ) : onboarding && pState ? (
-              <Checklist projectName={workspace.data?.name ?? "this project"} state={pState} onRung={onRung} onStartSession={onStartSession} busy={busy} />
+              <Checklist projectName={workspace.data?.name ?? "this project"} state={pState} onStartSession={onStartSession} starting={busy === "session"} />
             ) : projectState.isLoading || overview.isLoading ? (
               <Loading />
             ) : (
