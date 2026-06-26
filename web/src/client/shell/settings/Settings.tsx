@@ -75,7 +75,7 @@ export function Settings() {
                 </Button>
               </Row>
               <Text size="meta" tone="muted">
-                When on, starting an agent session sends it a first message — the readiness brief (zz doctor + digest) and a short orientation — so the agent confirms the workspace is in place before your first task.
+                When on, starting an agent session sends it a first message — a short orientation plus a readiness line (the zz doctor verdict + pending-review count) — so the agent confirms the workspace is in place before your first task.
               </Text>
             </Stack>
           </Section>

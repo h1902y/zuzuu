@@ -25,32 +25,46 @@ export function shouldFireKickoff(o: { ready: boolean; agentUp: boolean; pending
   return o.pending && o.ready && o.agentUp;
 }
 
-/** The pre-fetched readiness brief embedded in the kickoff — `zz doctor` + `zz digest`
- *  raw text (either null when the CLI is absent). */
+/** The pre-fetched readiness inputs — `zz doctor` + `zz digest` raw text (either null
+ *  when the CLI is absent). We distil them down to a verdict + pending count. */
 export interface Readiness { doctor?: string | null; digest?: string | null }
+
+/** The one-line health VERDICT from `zz doctor` output — the `✓ healthy (N warnings)`
+ *  / `✗ N problem(s)` summary line (the digit guard skips the per-problem `✗ …` lines). */
+export function doctorVerdict(doctor?: string | null): string | null {
+  if (!doctor) return null;
+  const lines = doctor.split("\n").map((l) => l.trim());
+  return lines.find((l) => /^✓ healthy/.test(l) || /^✗ \d+ problem/.test(l)) || null;
+}
+
+/** Pending-review count parsed from the digest brief (0 when it shows none, null when
+ *  there's no digest at all). */
+export function pendingFromDigest(digest?: string | null): number | null {
+  if (!digest) return null;
+  const m = digest.match(/(\d+)\s+proposal\(s\)\s+awaiting\s+review/);
+  return m ? Number(m[1]) : 0;
+}
 
 /**
  * The kickoff message delivered to the host agent as the session's first turn.
  *
- * With readiness (the workbench already ran the checks): a multi-line brief embedding
- * the digest + doctor output — delivered via bracketed paste, so inner newlines are
- * content, not submits. The agent skims a verified picture instead of running the
- * checks itself. Without readiness (CLI absent): a single-line fallback that asks the
- * agent to self-check.
+ * With readiness (the workbench already ran the checks): a single line carrying the
+ * distilled verdict + pending count — the agent gets a verified picture without a wall
+ * of pasted output. Without readiness (CLI absent): a fallback that asks the agent to
+ * self-check. Single line either way → no premature-submit risk.
  */
 export function kickoffMessage(opts: { projectName?: string; readiness?: Readiness } = {}): string {
   const where = opts.projectName ? ` in ${opts.projectName}` : "";
   const intro =
     `Session start — a new zuzuu-managed session${where}. You're running inside zuzuu: it observes this session and proposes brain changes I review (every change is human-gated).`;
 
-  const doctor = opts.readiness?.doctor?.trim();
-  const digest = opts.readiness?.digest?.trim();
-  if (doctor || digest) {
-    const parts = [intro, "", "I've already run the readiness checks — here's where the project stands and its health:"];
-    if (digest) parts.push("", "── zz digest ──", digest);
-    if (doctor) parts.push("", "── zz doctor ──", doctor);
-    parts.push("", "Skim the above, confirm you're oriented, and flag anything that looks off — then wait for my first task.");
-    return parts.join("\n");
+  const verdict = doctorVerdict(opts.readiness?.doctor);
+  const pending = pendingFromDigest(opts.readiness?.digest);
+  if (verdict || pending !== null) {
+    const bits: string[] = [];
+    if (verdict) bits.push(verdict);
+    if (pending !== null) bits.push(`${pending} pending review`);
+    return `${intro} Readiness (already checked): ${bits.join(" · ")}. Confirm you're oriented and flag anything that looks off, then wait for my first task.`;
   }
   // fallback — no readiness (the `zz` CLI is absent): have the agent self-check.
   return (
