@@ -4,7 +4,7 @@ import type { ProjectSummary } from "../../src/shared/index.js";
 import { sectionByGroup, isRegistrySource, sourceLabel, hasGroups } from "../../src/client/shell/projects/registry-source.js";
 
 const p = (over: Partial<ProjectSummary>): ProjectSummary => ({
-  path: "/p", name: "p", current: false, modules: 0, notes: 0, pending: 0, guarded: false, lastActivityMs: 0, ...over,
+  path: "/p", name: "p", current: false, modules: 0, notes: 0, pending: 0, guarded: false, lastActivityMs: 0, emoji: "🚀", ...over,
 });
 
 describe("sectionByGroup", () => {

@@ -10,6 +10,7 @@
 
 import path from "node:path";
 import type { ProjectSummary } from "#shared/index.js";
+import { emojiForProject } from "#shared/project-emoji.js";
 import { runZuzuu } from "./zuzuu-cli.js";
 import { readProjectHealth } from "./project-health.js";
 
@@ -52,7 +53,7 @@ const EMPTY_HEALTH: HealthStamp = { modules: 0, notes: 0, pending: 0, guarded: f
 /** Map a registry project-ref → a Projects Home row. Refreshes health from cold disk
  *  when the project is present locally; otherwise uses the committed stamp (so a
  *  cloned-elsewhere registry still renders its list). */
-export function refToSummary(ref: RegistryRef, root: string): ProjectSummary {
+export function refToSummary(ref: RegistryRef, root: string, emojis: Record<string, string> = {}): ProjectSummary {
   const p = ref.path ?? "";
   const live = p ? readProjectHealth(p) : null;
   const h = live && live.lastActivityMs ? live : (ref.health ?? EMPTY_HEALTH);
@@ -62,6 +63,7 @@ export function refToSummary(ref: RegistryRef, root: string): ProjectSummary {
     current: !!p && p === root,
     source: "registry",
     modules: h.modules, notes: h.notes, pending: h.pending, guarded: h.guarded, lastActivityMs: h.lastActivityMs,
+    emoji: emojiForProject(p, emojis[p]),
     groups: ref.groups ?? [],
     tracked: ref.tracked ?? "auto",
     remote: ref.remote,
@@ -69,19 +71,22 @@ export function refToSummary(ref: RegistryRef, root: string): ProjectSummary {
   };
 }
 
-/** The fallback ladder: a configured registry with refs wins; else the recents pass. */
+/** The fallback ladder: a configured registry with refs wins; else the recents pass.
+ *  `emojis` are the per-path overrides (the default is derived from the path). */
 export function chooseSource(
   registry: RegistryStatus | null,
   recents: string[],
   root: string,
+  emojis: Record<string, string> = {},
 ): { source: "registry" | "recents"; projects: ProjectSummary[] } {
   if (registry?.configured && registry.refs && registry.refs.length) {
-    return { source: "registry", projects: registry.refs.map((r) => refToSummary(r, root)) };
+    return { source: "registry", projects: registry.refs.map((r) => refToSummary(r, root, emojis)) };
   }
   return {
     source: "recents",
     projects: recents.map((p) => ({
       path: p, name: path.basename(p) || p, current: p === root, source: "recents" as const,
+      emoji: emojiForProject(p, emojis[p]),
       ...readProjectHealth(p),
     })),
   };

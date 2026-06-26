@@ -13,9 +13,9 @@ export type BrandVariant = "mark" | "lockup" | "full";
 export type BrandSize = "sm" | "md" | "lg";
 
 const SIZE: Record<BrandSize, { mark: string; word: string; lift: string }> = {
-  sm: { mark: "h-7 w-7", word: "text-lg", lift: "-translate-y-px" },
-  md: { mark: "h-9 w-9", word: "text-2xl", lift: "-translate-y-0.5" },
-  lg: { mark: "h-12 w-12", word: "text-2xl", lift: "-translate-y-0.5" },
+  sm: { mark: "h-7 w-7", word: "text-sm", lift: "-translate-y-1" },
+  md: { mark: "h-9 w-9", word: "text-xl", lift: "-translate-y-1.5" },
+  lg: { mark: "h-12 w-12", word: "text-xl", lift: "-translate-y-1.5" },
 };
 
 const WORD: Record<Exclude<BrandVariant, "mark">, string> = {

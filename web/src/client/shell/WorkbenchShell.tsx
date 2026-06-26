@@ -33,10 +33,10 @@ import { Schema } from "./wing/Schema.js";
 import { dataProvider } from "../data/provider.js";
 import { Plus } from "lucide-react";
 import { Palette } from "../palette/Palette.js";
-import { Loading, ThemeToggle } from "../ds/index.js";
+import { Loading, ThemeToggle, AppHeader, Text } from "../ds/index.js";
 import { useReview } from "../state/review.js";
-import { Text } from "../ds/index.js";
 import { NavTree } from "./NavTree.js";
+import { Switcher } from "./switcher/Switcher.js";
 import { Ribbon } from "./Ribbon.js";
 
 /** Terse ribbon nudge per current rung (R8) — shown only when home isn't visible. */
@@ -99,7 +99,12 @@ export function WorkbenchShell() {
       if (r === "git-init") await api.setup.gitInit();
       else if (r === "init") await api.setup.init();
       else if (r === "enable") await api.setup.enable();
-      else if (r === "session") await startSession();
+      else if (r === "session") {
+        // the setup→work stitch: starting the first session drops the user into the
+        // terminal (use-start-session selects it) AND teaches the loop they just entered.
+        await startSession();
+        toast("Session started — zuzuu is watching. It proposes changes you review (press R).");
+      }
       // review: the by-doing handoff — the first proposal lands in the ribbon (R7)
     } catch { toast(`Couldn't ${r}`, "error"); }
     finally { setBusy(null); void qc.invalidateQueries({ queryKey: ["zuzuu"] }); }
@@ -150,10 +155,15 @@ export function WorkbenchShell() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-12 shrink-0 items-center gap-3 border-b border-border bg-surface px-5">
-        <Text as="button" interactive size="meta" tone="muted" onClick={() => setPalette(true)}>⌘K</Text>
-        <div className="ml-auto"><ThemeToggle /></div>
-      </div>
+      <AppHeader
+        leading={<Switcher />}
+        actions={
+          <>
+            <Text as="button" interactive size="meta" tone="muted" onClick={() => setPalette(true)}>⌘K</Text>
+            <ThemeToggle />
+          </>
+        }
+      />
 
       <div className="flex min-h-0 flex-1">
         <NavTree />
@@ -184,7 +194,7 @@ export function WorkbenchShell() {
             ) : sel.stage === "settings" ? (
               <Settings />
             ) : onboarding && pState ? (
-              <Checklist state={pState} onRung={onRung} busy={busy} />
+              <Checklist projectName={workspace.data?.name ?? "this project"} state={pState} onRung={onRung} busy={busy} />
             ) : projectState.isLoading || overview.isLoading ? (
               <Loading />
             ) : (

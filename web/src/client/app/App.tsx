@@ -7,10 +7,12 @@
 import { WorkbenchShell } from "../shell/WorkbenchShell.js";
 import { ProjectsHome } from "../shell/projects/ProjectsHome.js";
 import { useAppSurface } from "../state/app-surface.js";
+import { useSurfaceHistory } from "./use-surface-history.js";
 import { Toaster } from "../ds/index.js";
 
 export function App() {
   const screen = useAppSurface((s) => s.screen);
+  useSurfaceHistory(); // tie browser Back/Forward to the home↔project surface
   return (
     <>
       {screen === "projects" ? <ProjectsHome /> : <WorkbenchShell />}

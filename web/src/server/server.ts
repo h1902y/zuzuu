@@ -7,6 +7,7 @@ import { serve } from "@hono/node-server";
 import type { ServerType } from "@hono/node-server";
 import { WebSocketServer } from "ws";
 import type { WorkspaceInfo } from "#shared/index.js";
+import { emojiForProject } from "#shared/project-emoji.js";
 import { SessionManager } from "./session-manager.js";
 import { AuthGate } from "./auth.js";
 import { createFsApi } from "./fs-api.js";
@@ -101,11 +102,13 @@ export class WebcodeServer {
     app.use("*", this.auth.gate());
     app.use("/api/*", this.auth.requireAuth());
 
-    app.get("/api/workspace", (c) => {
+    app.get("/api/workspace", async (c) => {
+      const overrides = (await config.load()).emojis;
       const body: WorkspaceInfo = {
         root: this.root,
         name: path.basename(this.root) || this.root,
         version: cfg.version,
+        emoji: emojiForProject(this.root, overrides[this.root]),
       };
       return c.json(body);
     });

@@ -1,29 +1,43 @@
-// shell/switcher/Switcher.tsx — the in-context fast-switch (the Projects Home is the
-// manage surface; this is the keyboard-fast jump). The home title ⌂ <project> is the
-// trigger; ⌘O toggles it. The popover carries: "← All projects" (back to the L1
-// launcher), a live-search recents list (current marked), and the "Open a folder…"
-// autocomplete. Picking a recent or a path switches IN PLACE via enterProject
-// (POST /api/workspace/switch → land on the Overview, NO page reload — app state is
-// preserved). Composes from ds primitives + the kit; static layout utilities only.
+// shell/switcher/Switcher.tsx — the project picker, lives in the project page header.
+// The trigger IS the page title (the project name) + a dropdown; ⌘O toggles it. The
+// popover carries: "← All projects" (back to the L1 launcher), a live-search recents
+// list (current marked), and "Open a folder…" — the OS-native picker (same Finder
+// dialog as the Projects Home "New project"), with a manual-path fallback. Picking a
+// recent or a folder switches IN PLACE via enterProject (no page reload). Composes ds
+// primitives + the kit; static layout utilities only.
 import { useEffect, useReducer, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/api.js";
-import { Database, ChevronDown, CornerDownRight, ArrowLeft } from "lucide-react";
+import { ChevronDown, CornerDownRight, ArrowLeft, FolderOpen } from "lucide-react";
 import { pickerRows, filterPickerRows, openFolderReducer, initialOpenFolder } from "../switcher-model.js";
 import { useEnterProject } from "../session/use-enter-project.js";
 import { useAppSurface } from "../../state/app-surface.js";
-import { Stack, Inline, Text, Icon } from "../../ds/index.js";
+import { toast } from "../../state/toast.js";
+import { Stack, Inline, Text, Icon, Button, EmojiPicker } from "../../ds/index.js";
 
 export function Switcher() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [folder, dispatch] = useReducer(openFolderReducer, initialOpenFolder);
+  const [picking, setPicking] = useState(false);
+  const [manual, setManual] = useState(false);
   const workspace = useQuery({ queryKey: ["workspace"], queryFn: api.workspace });
   const recents = useQuery({ queryKey: ["projects", "recents"], queryFn: api.projects.recents, enabled: open });
   const enter = useEnterProject();
-  const setScreen = useAppSurface((s) => s.setScreen);
+  const goHome = useAppSurface((s) => s.home);
+  const qc = useQueryClient();
 
-  // ⌘O / Ctrl-O toggles the switcher; Escape closes it.
+  async function onSetEmoji(emoji: string) {
+    const root = workspace.data?.root;
+    if (!root) return;
+    try {
+      await api.projects.setEmoji(root, emoji);
+      void qc.invalidateQueries({ queryKey: ["workspace"] });
+      void qc.invalidateQueries({ queryKey: ["projects", "list"] });
+    } catch { toast("Couldn't set the emoji", "error"); }
+  }
+
+  // ⌘O / Ctrl-O toggles the picker; Escape closes it.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "o") { e.preventDefault(); setOpen((v) => !v); }
@@ -33,25 +47,49 @@ export function Switcher() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // Live directory autocomplete — only for absolute paths (keeps the built path absolute).
+  // Manual fallback only: live directory autocomplete for absolute paths.
   useEffect(() => {
-    if (!open || !folder.prefix.startsWith("/")) return;
+    if (!open || !manual || !folder.prefix.startsWith("/")) return;
     let alive = true;
     void api.projects.dir(folder.prefix).then((d) => { if (alive) dispatch({ type: "setDirs", dirs: d.dirs }); });
     return () => { alive = false; };
-  }, [open, folder.prefix]);
+  }, [open, manual, folder.prefix]);
 
   const switchTo = (path: string) => { setOpen(false); void enter(path); }; // in-place re-root, no reload
-  const toHome = () => { setOpen(false); setScreen("projects"); };
+  const toHome = () => { setOpen(false); goHome(); };
+
+  // The OS-native folder picker (the same experience as the Projects Home "New project").
+  async function nativePick() {
+    setPicking(true);
+    try {
+      const r = await api.projects.pick();
+      if (r.path) { switchTo(r.path); return; }
+      if (r.unsupported) { setManual(true); toast("Native picker unavailable — enter a path", "default"); return; }
+      if (r.error) { toast(r.error, "error"); setManual(true); }
+      // cancelled → no-op
+    } catch { setManual(true); }
+    finally { setPicking(false); }
+  }
 
   const rows = filterPickerRows(pickerRows(recents.data?.recents ?? []), query);
   const name = workspace.data?.name ?? "…";
 
   return (
-    <div className="relative">
-      <Text as="button" interactive size="meta" tone="muted" weight="semibold" onClick={() => setOpen((v) => !v)}>
-        <Inline gap="xs"><Icon icon={Database} size={13} /> {name} <Icon icon={ChevronDown} size={12} /></Inline>
-      </Text>
+    <div className="flex items-center gap-1">
+      <EmojiPicker
+        value={workspace.data?.emoji ?? "📦"}
+        onPick={(e) => void onSetEmoji(e)}
+        label="Change project emoji"
+      />
+      <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="group flex items-center gap-1.5 rounded-ui px-2 py-1 transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-focus"
+      >
+        <Text size="lg" font="display">{name}</Text>
+        <Icon icon={ChevronDown} size={14} />
+      </button>
       {open && (
         <>
           <button type="button" aria-label="close" onClick={() => setOpen(false)} className="fixed inset-0 z-10 cursor-default" />
@@ -89,40 +127,55 @@ export function Switcher() {
               {!rows.length && <Text size="meta" tone="muted">no matching projects</Text>}
 
               <div className="mt-1 border-t border-border pt-2">
-                <Text size="meta" tone="subtle" weight="semibold">OPEN A FOLDER…</Text>
-                <input
-                  value={folder.prefix}
-                  onChange={(e) => dispatch({ type: "setPrefix", prefix: e.target.value })}
-                  onKeyDown={(e) => {
-                    if (e.key === "ArrowDown") { e.preventDefault(); dispatch({ type: "moveHighlight", delta: 1 }); }
-                    else if (e.key === "ArrowUp") { e.preventDefault(); dispatch({ type: "moveHighlight", delta: -1 }); }
-                    else if (e.key === "Enter") {
-                      if (folder.dirs.length) { e.preventDefault(); dispatch({ type: "applyHighlighted" }); }
-                      else if (folder.prefix.startsWith("/")) switchTo(folder.prefix);
-                    }
-                  }}
-                  placeholder="/absolute/path/to/folder"
-                  className="mt-1 w-full rounded-ui border border-border bg-app px-2 py-1 text-ui text-ink-100 outline-none placeholder:text-muted focus:border-accent-dim"
-                />
-                {folder.dirs.length > 0 && (
-                  <Stack gap="none">
-                    {folder.dirs.map((d, i) => (
-                      <button
-                        key={d}
-                        type="button"
-                        onClick={() => dispatch({ type: "applyAt", index: i })}
-                        className={`flex items-center rounded-ui px-2 py-1 text-left text-meta transition-colors hover:bg-hover ${i === folder.highlighted ? "bg-selected text-ink-100" : "text-subtle"}`}
-                      >
-                        <Inline gap="xs"><Icon icon={CornerDownRight} size={11} /> {d}/</Inline>
-                      </button>
-                    ))}
-                  </Stack>
-                )}
+                <Stack gap="sm">
+                  <Button variant="outline" size="sm" disabled={picking} onClick={() => void nativePick()}>
+                    <Icon icon={FolderOpen} size={14} /> {picking ? "Choosing…" : "Choose a folder…"}
+                  </Button>
+
+                  {!manual ? (
+                    <Text as="button" interactive size="meta" tone="muted" onClick={() => setManual(true)}>
+                      or enter a path manually
+                    </Text>
+                  ) : (
+                    <Stack gap="none">
+                      <input
+                        autoFocus
+                        value={folder.prefix}
+                        onChange={(e) => dispatch({ type: "setPrefix", prefix: e.target.value })}
+                        onKeyDown={(e) => {
+                          if (e.key === "ArrowDown") { e.preventDefault(); dispatch({ type: "moveHighlight", delta: 1 }); }
+                          else if (e.key === "ArrowUp") { e.preventDefault(); dispatch({ type: "moveHighlight", delta: -1 }); }
+                          else if (e.key === "Enter") {
+                            if (folder.dirs.length) { e.preventDefault(); dispatch({ type: "applyHighlighted" }); }
+                            else if (folder.prefix.startsWith("/")) switchTo(folder.prefix);
+                          }
+                        }}
+                        placeholder="/absolute/path/to/folder"
+                        className="w-full rounded-ui border border-border bg-app px-2 py-1 text-ui text-ink-100 outline-none placeholder:text-muted focus:border-accent-dim"
+                      />
+                      {folder.dirs.length > 0 && (
+                        <Stack gap="none">
+                          {folder.dirs.map((d, i) => (
+                            <button
+                              key={d}
+                              type="button"
+                              onClick={() => dispatch({ type: "applyAt", index: i })}
+                              className={`flex items-center rounded-ui px-2 py-1 text-left text-meta transition-colors hover:bg-hover ${i === folder.highlighted ? "bg-selected text-ink-100" : "text-subtle"}`}
+                            >
+                              <Inline gap="xs"><Icon icon={CornerDownRight} size={11} /> {d}/</Inline>
+                            </button>
+                          ))}
+                        </Stack>
+                      )}
+                    </Stack>
+                  )}
+                </Stack>
               </div>
             </Stack>
           </div>
         </>
       )}
+      </div>
     </div>
   );
 }

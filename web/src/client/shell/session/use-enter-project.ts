@@ -15,7 +15,7 @@ export function useEnterProject() {
   const qc = useQueryClient();
   const refresh = useWorkbench((s) => s.refresh);
   const select = useWorld((s) => s.select);
-  const setScreen = useAppSurface((s) => s.setScreen);
+  const open = useAppSurface((s) => s.open);
   return useCallback(
     async (path: string) => {
       try {
@@ -23,9 +23,9 @@ export function useEnterProject() {
         select(null); // land on the Overview (home base)
         await refresh(); // the new root's sessions
         await qc.invalidateQueries(); // refetch the new root's brain
-        setScreen("project");
+        open(path); // record the active project's path (drives browser-history sync)
       } catch { toast(`Couldn’t open ${path}`, "error"); }
     },
-    [qc, refresh, select, setScreen],
+    [qc, refresh, select, open],
   );
 }

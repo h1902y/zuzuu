@@ -8,9 +8,9 @@ const RECENT_MAX = 10;
 
 export interface WebcodeConfig {
   recent: string[];
+  /** per-project emoji overrides, keyed by absolute path (absent = the default). */
+  emojis: Record<string, string>;
 }
-
-const DEFAULT: WebcodeConfig = { recent: [] };
 
 /** Load persisted config, tolerating a missing/corrupt file. */
 export async function load(): Promise<WebcodeConfig> {
@@ -19,9 +19,12 @@ export async function load(): Promise<WebcodeConfig> {
     const parsed = JSON.parse(raw) as Partial<WebcodeConfig>;
     return {
       recent: Array.isArray(parsed.recent) ? parsed.recent.filter((p) => typeof p === "string") : [],
+      emojis: parsed.emojis && typeof parsed.emojis === "object" && !Array.isArray(parsed.emojis)
+        ? Object.fromEntries(Object.entries(parsed.emojis).filter(([, v]) => typeof v === "string"))
+        : {},
     };
   } catch {
-    return { ...DEFAULT };
+    return { recent: [], emojis: {} };
   }
 }
 
@@ -34,6 +37,15 @@ async function save(cfg: WebcodeConfig): Promise<void> {
 export async function addRecent(root: string): Promise<WebcodeConfig> {
   const cfg = await load();
   cfg.recent = [root, ...cfg.recent.filter((p) => p !== root)].slice(0, RECENT_MAX);
+  await save(cfg);
+  return cfg;
+}
+
+/** Set (or clear, when emoji is empty) a project's emoji override. */
+export async function setEmoji(projectPath: string, emoji: string): Promise<WebcodeConfig> {
+  const cfg = await load();
+  if (emoji && emoji.trim()) cfg.emojis[projectPath] = emoji;
+  else delete cfg.emojis[projectPath];
   await save(cfg);
   return cfg;
 }

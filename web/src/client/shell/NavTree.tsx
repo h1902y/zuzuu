@@ -9,7 +9,6 @@ import { useWorkbench } from "../state/store.js";
 import { useWorld } from "./world-state.js";
 import { mostRecentlyActive } from "./shell-state.js";
 import { shouldShowSetupNode } from "./project-home-state.js";
-import { Switcher } from "./switcher/Switcher.js";
 import { NewSessionMenu } from "./session/NewSessionMenu.js";
 import { Stack, Inline, Text, Icon } from "../ds/index.js";
 
@@ -42,7 +41,6 @@ export function NavTree() {
 
   return (
     <nav className="flex h-full w-64 shrink-0 flex-col gap-7 overflow-y-auto border-r border-border bg-surface p-4">
-      <Switcher />
       <NavRow
         active={selected === null || selected.kind === "overview"}
         icon={<Icon icon={Home} size={14} />}

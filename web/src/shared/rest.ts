@@ -75,6 +75,8 @@ export interface WorkspaceInfo {
   root: string;
   name: string;
   version: string;
+  /** the project's emoji — its config override, else the deterministic default. */
+  emoji: string;
 }
 
 // ── Filesystem-events WS (/ws/fs) — JSON text frames ──────────────────────────

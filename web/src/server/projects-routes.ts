@@ -14,7 +14,7 @@ import { pickFolder } from "./pick-folder.js";
 
 interface ProjectsOpts {
   /** injectable for tests; defaults to the real ~/.webcode/config.json loader. */
-  load?: () => Promise<{ recent: string[] }>;
+  load?: () => Promise<{ recent: string[]; emojis?: Record<string, string> }>;
   /** injectable for tests; defaults to reading the active registry via the CLI. */
   registry?: (root: string) => Promise<RegistryStatus | null>;
 }
@@ -37,8 +37,16 @@ export function createProjectsApi(getRoot: () => string, opts: ProjectsOpts = {}
     const root = getRoot();
     // the fallback ladder: a configured registry wins; else the recents pass.
     const reg = await registry(root).catch(() => null);
-    const { source, projects } = chooseSource(reg, cfg.recent, root);
+    const { source, projects } = chooseSource(reg, cfg.recent, root, cfg.emojis ?? {});
     return c.json({ source, projects, registry: registrySummary(reg) });
+  });
+
+  // POST /emoji {path, emoji} — set (or clear, when emoji is empty) a project's emoji.
+  app.post("/emoji", async (c) => {
+    const body = await c.req.json().catch(() => ({})) as { path?: unknown; emoji?: unknown };
+    if (typeof body.path !== "string" || !body.path) return c.json({ error: "path required" }, 400);
+    await config.setEmoji(body.path, typeof body.emoji === "string" ? body.emoji : "");
+    return c.json({ ok: true });
   });
 
   // GET /dir?prefix= — names-only directory autocomplete for "Open a folder…" (R17).
