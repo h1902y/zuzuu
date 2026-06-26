@@ -21,10 +21,11 @@ import { PromptInput } from "./PromptInput.js";
 import { HostPill } from "./HostPill.js";
 import { inputFrames, isReady, SUBMIT_DELAY_MS, type InputOpts } from "./composer-logic.js";
 import { composerStatus } from "./composer-status.js";
-import { kickoffMessage, shouldFireKickoff, isKickoffPending, takeKickoff } from "./session-kickoff.js";
+import { kickoffMessage, shouldFireKickoff, isKickoffPending, takeKickoff, type Readiness } from "./session-kickoff.js";
 import { hostInputProfile } from "./host-input.js";
 import { getTermConn } from "../term/connections.js";
 import { useWorkbench } from "../state/store.js";
+import { api } from "../lib/api.js";
 import { Inline, Text, Icon, Button } from "../ds/index.js";
 
 /** Deliver one message to the session's PTY as a remote keyboard: the body now,
@@ -37,6 +38,15 @@ function deliverTo(sessionId: string, text: string, opts: InputOpts): void {
   const { body, submit } = inputFrames(text, opts);
   conn.sendInput(body);
   window.setTimeout(() => getTermConn(sessionId)?.sendInput(submit), SUBMIT_DELAY_MS);
+}
+
+/** Fetch the readiness brief (best-effort) and deliver the ONE session-start kickoff.
+ *  The kickoff is already consumed (takeKickoff) before this runs, so an in-flight
+ *  fetch can't double-fire. CLI absent / fetch failure → the self-check fallback. */
+async function deliverKickoff(sessionId: string, opts: InputOpts): Promise<void> {
+  let readiness: Readiness | undefined;
+  try { readiness = await api.zuzuu.readiness(); } catch { readiness = undefined; }
+  deliverTo(sessionId, kickoffMessage({ readiness }), opts);
 }
 
 export function Composer({ sessionId }: { sessionId: string }) {
@@ -79,8 +89,8 @@ export function Composer({ sessionId }: { sessionId: string }) {
       // fuse (the kickoff makes the agent busy → the queue waits for the next edge).
       const agentUp = altNow || lastOutputAt.current > 0;
       if (conn && shouldFireKickoff({ ready: r, agentUp, pending: isKickoffPending(sessionId) })) {
-        takeKickoff(sessionId);
-        deliverTo(sessionId, kickoffMessage(), profileRef.current);
+        takeKickoff(sessionId); // consume now → no double-fire while readiness loads
+        void deliverKickoff(sessionId, profileRef.current);
       } else if (r && queue.current.length) {
         // Drain ONE queued message per tick: sending body+submit for each makes the
         // agent busy again, so the next flush waits for the next ready edge — natural

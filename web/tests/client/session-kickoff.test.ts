@@ -9,14 +9,23 @@ import {
 } from "../../src/client/composer/session-kickoff.js";
 
 describe("kickoffMessage", () => {
-  it("orients the agent and asks it to self-check with zz doctor", () => {
-    const m = kickoffMessage("cards-game");
-    expect(m).toMatch(/zz doctor/);
+  it("with readiness: embeds the pre-run digest + doctor output, no self-check ask", () => {
+    const m = kickoffMessage({ projectName: "cards-game", readiness: { doctor: "✓ healthy", digest: "8 notes" } });
     expect(m).toMatch(/cards-game/);
-    expect(m).toMatch(/zuzuu/);
+    expect(m).toMatch(/✓ healthy/);
+    expect(m).toMatch(/8 notes/);
+    expect(m).toMatch(/already run the readiness checks/);
+    expect(m).not.toMatch(/run `zz doctor`/); // we ran it — don't ask the agent to
   });
-  it("is a single line — no embedded newline that could submit early", () => {
-    expect(kickoffMessage()).not.toMatch(/\n/);
+  it("a partial readiness (digest only) still embeds what it has", () => {
+    const m = kickoffMessage({ readiness: { digest: "where it stands", doctor: null } });
+    expect(m).toMatch(/where it stands/);
+    expect(m).not.toMatch(/── zz doctor ──/);
+  });
+  it("fallback (no readiness): single line asking the agent to self-check", () => {
+    const m = kickoffMessage();
+    expect(m).toMatch(/zz doctor/);
+    expect(m).not.toMatch(/\n/); // single line — no premature-submit risk
   });
 });
 

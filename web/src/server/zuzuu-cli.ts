@@ -64,6 +64,30 @@ export function runZuzuu(root: string, args: string[], opts: RunOpts = {}): Prom
   });
 }
 
+/** Spawn `zuzuu <args>` (NO --json) and return raw stdout text, or null on failure
+ *  (binary absent, spawn error, timeout, empty). For human-readable verbs like
+ *  `doctor`/`digest` that have no JSON mode — used to embed the readiness brief in
+ *  the session-start kickoff. Read-only + time-boxed; a non-zero exit still returns
+ *  captured stdout (doctor exits 0 with warnings, but be lenient). */
+export function runZuzuuText(root: string, args: string[], opts: RunOpts = {}): Promise<string | null> {
+  const binary = opts.binary ?? "zuzuu";
+  const timeoutMs = opts.timeoutMs ?? 5000;
+  return new Promise((resolve) => {
+    let out = "";
+    let done = false;
+    const finish = (v: string | null) => { if (!done) { done = true; resolve(v && v.trim() ? v : null); } };
+    let child;
+    try {
+      const { cmd, argv } = resolveSpawn(binary, args);
+      child = spawn(cmd, argv, { cwd: root, stdio: ["ignore", "pipe", "ignore"] });
+    } catch { finish(null); return; }
+    const timer = setTimeout(() => { try { child!.kill(); } catch { /* noop */ } finish(null); }, timeoutMs);
+    child.stdout?.on("data", (b) => { out += b.toString(); });
+    child.on("error", () => { clearTimeout(timer); finish(null); });
+    child.on("close", () => { clearTimeout(timer); finish(out); });
+  });
+}
+
 export type ZuzuuMutResult =
   | { ok: true; data: unknown }
   | { ok: false; code: "absent" | "failed"; stderr?: string; data?: unknown };

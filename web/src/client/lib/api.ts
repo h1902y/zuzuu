@@ -112,6 +112,9 @@ export const api = {
   zuzuu: {
     overview: () => request<ModuleOverviewResponse>("/api/zuzuu/overview"),
     projectState: () => request<ProjectState>("/api/zuzuu/project-state"),
+    // the session-start readiness brief — `zz doctor` + `zz digest` as raw text
+    // (either null when the CLI is absent), embedded in the agent's first turn.
+    readiness: () => request<{ doctor: string | null; digest: string | null }>("/api/zuzuu/readiness"),
     module: (key: string) => request<ModuleDetail>(`/api/zuzuu/module/${key}`),
     item: (key: string, id: string) => request<ModuleItem>(`/api/zuzuu/module/${key}/item/${id}`),
     schema: (key: string) => request<ModuleSchema>(`/api/zuzuu/module/${key}/schema`),

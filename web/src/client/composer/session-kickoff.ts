@@ -25,13 +25,37 @@ export function shouldFireKickoff(o: { ready: boolean; agentUp: boolean; pending
   return o.pending && o.ready && o.agentUp;
 }
 
-/** The kickoff message — delivered to the host agent as the session's first turn. ONE
- *  line (no embedded newlines) so the paste-then-submit never races a premature Enter. */
-export function kickoffMessage(projectName?: string): string {
-  const where = projectName ? ` in ${projectName}` : "";
+/** The pre-fetched readiness brief embedded in the kickoff — `zz doctor` + `zz digest`
+ *  raw text (either null when the CLI is absent). */
+export interface Readiness { doctor?: string | null; digest?: string | null }
+
+/**
+ * The kickoff message delivered to the host agent as the session's first turn.
+ *
+ * With readiness (the workbench already ran the checks): a multi-line brief embedding
+ * the digest + doctor output — delivered via bracketed paste, so inner newlines are
+ * content, not submits. The agent skims a verified picture instead of running the
+ * checks itself. Without readiness (CLI absent): a single-line fallback that asks the
+ * agent to self-check.
+ */
+export function kickoffMessage(opts: { projectName?: string; readiness?: Readiness } = {}): string {
+  const where = opts.projectName ? ` in ${opts.projectName}` : "";
+  const intro =
+    `Session start — a new zuzuu-managed session${where}. You're running inside zuzuu: it observes this session and proposes brain changes I review (every change is human-gated).`;
+
+  const doctor = opts.readiness?.doctor?.trim();
+  const digest = opts.readiness?.digest?.trim();
+  if (doctor || digest) {
+    const parts = [intro, "", "I've already run the readiness checks — here's where the project stands and its health:"];
+    if (digest) parts.push("", "── zz digest ──", digest);
+    if (doctor) parts.push("", "── zz doctor ──", doctor);
+    parts.push("", "Skim the above, confirm you're oriented, and flag anything that looks off — then wait for my first task.");
+    return parts.join("\n");
+  }
+  // fallback — no readiness (the `zz` CLI is absent): have the agent self-check.
   return (
-    `Session start — a new zuzuu-managed session${where}. You're running inside zuzuu: it observes this session and proposes brain changes I review (every change is human-gated). ` +
-    "Before we begin, do a quick readiness check: if the `zz` CLI is available, run `zz doctor` (and `zz status`) to confirm the Project, its modules, the guardrails, and the hooks are all in place. " +
-    "Reply with a one-line readiness summary — what's set up and anything that looks off — then wait for my first task."
+    intro +
+    " Before we begin, if the `zz` CLI is available, run `zz doctor` (and `zz status`) to confirm the Project, its modules, the guardrails, and the hooks are all in place." +
+    " Reply with a one-line readiness summary — what's set up and anything that looks off — then wait for my first task."
   );
 }

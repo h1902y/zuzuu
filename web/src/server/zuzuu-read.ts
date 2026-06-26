@@ -7,7 +7,7 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import { Hono } from "hono";
 import { resolveSafe } from "./safe-path.js";
-import { runZuzuu } from "./zuzuu-cli.js";
+import { runZuzuu, runZuzuuText } from "./zuzuu-cli.js";
 import {
   SAFE_SLUG,
   SAFE_ID,
@@ -105,6 +105,19 @@ export function createZuzuuReadApi(getRoot: () => string, binary?: string): Hono
         .sort((a, b) => (a.n as number) - (b.n as number))
         .map((g) => ({ id: String(g.n), mintedAt: (g.mintedAt as string) ?? null, mintedFrom: (g.mintedFrom as string[]) ?? [] })),
     });
+  });
+
+  // The session-start readiness brief: the human-readable `zz doctor` health check +
+  // `zz digest` (where the project stands), shelled as raw text (neither has a --json
+  // mode). The workbench embeds this in the agent's first turn (the session kickoff).
+  // Either field is null when the CLI is absent / the verb produced nothing.
+  app.get("/readiness", async (c) => {
+    const root = getRoot();
+    const [doctor, digest] = await Promise.all([
+      runZuzuuText(root, ["doctor"], { binary }),
+      runZuzuuText(root, ["digest"], { binary }),
+    ]);
+    return c.json({ doctor, digest });
   });
 
   return app;
