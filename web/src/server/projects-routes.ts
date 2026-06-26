@@ -9,7 +9,7 @@ import { Hono } from "hono";
 import * as config from "./config.js";
 import { reconcileRecents } from "./recents.js";
 import { listDirs } from "./dir-complete.js";
-import { readRegistry, chooseSource, type RegistryStatus } from "./registry-read.js";
+import { readRegistry, chooseSource, registrySummary, type RegistryStatus } from "./registry-read.js";
 import { pickFolder } from "./pick-folder.js";
 
 interface ProjectsOpts {
@@ -38,7 +38,7 @@ export function createProjectsApi(getRoot: () => string, opts: ProjectsOpts = {}
     // the fallback ladder: a configured registry wins; else the recents pass.
     const reg = await registry(root).catch(() => null);
     const { source, projects } = chooseSource(reg, cfg.recent, root);
-    return c.json({ source, projects });
+    return c.json({ source, projects, registry: registrySummary(reg) });
   });
 
   // GET /dir?prefix= — names-only directory autocomplete for "Open a folder…" (R17).

@@ -1,7 +1,7 @@
 // U8 — the daemon's registry read: ref → Projects Home row, the fallback ladder,
 // and GET /api/projects/list selecting registry vs recents (injected, no CLI shell).
 import { describe, it, expect } from "vitest";
-import { refToSummary, chooseSource, type RegistryRef } from "../../src/server/registry-read.js";
+import { refToSummary, chooseSource, registrySummary, type RegistryRef } from "../../src/server/registry-read.js";
 import { createProjectsApi } from "../../src/server/projects-routes.js";
 
 const stamp = { modules: 2, notes: 9, pending: 1, guarded: true, lastActivityMs: 123 };
@@ -44,7 +44,28 @@ describe("chooseSource — the fallback ladder", () => {
   });
 });
 
+describe("registrySummary", () => {
+  it("configured + home → the master-location summary", () => {
+    expect(registrySummary({ configured: true, identity: "reg-1", home: "/r/.zuzuu", refs: [{ id: "a" }, { id: "b" }] }))
+      .toEqual({ identity: "reg-1", home: "/r/.zuzuu", projects: 2 });
+  });
+  it("not configured / no home → null", () => {
+    expect(registrySummary(null)).toBeNull();
+    expect(registrySummary({ configured: false })).toBeNull();
+    expect(registrySummary({ configured: true })).toBeNull();
+  });
+});
+
 describe("GET /api/projects/list uses the ladder", () => {
+  it("includes the registry summary when configured", async () => {
+    const api = createProjectsApi(() => "/root", {
+      load: async () => ({ recent: [] }),
+      registry: async () => ({ configured: true, identity: "reg-x", home: "/reg/.zuzuu", refs: [{ id: "p", path: "/nope/p" }] }),
+    });
+    const body = await (await api.request("/list")).json();
+    expect(body.registry).toEqual({ identity: "reg-x", home: "/reg/.zuzuu", projects: 1 });
+  });
+
   it("registry-sourced when the registry is configured", async () => {
     const api = createProjectsApi(() => "/root", {
       load: async () => ({ recent: ["/recent/x"] }),

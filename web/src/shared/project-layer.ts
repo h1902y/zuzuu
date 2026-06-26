@@ -71,10 +71,19 @@ export interface ProjectSummary {
   portable?: boolean;
 }
 
+/** The active registry — the master location coordinating all projects (null = none). */
+export interface RegistrySummary {
+  identity: string | null;
+  home: string;
+  projects: number;
+}
+
 export interface ProjectsList {
   /** which source the daemon's fallback ladder selected (registry → recents). */
   source: "registry" | "recents";
   projects: ProjectSummary[];
+  /** the master registry coordinating projects (null when none is configured). */
+  registry: RegistrySummary | null;
 }
 
 /** GET /api/projects/dir — names-only directory autocomplete for "Open a folder…".

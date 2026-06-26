@@ -27,8 +27,22 @@ export interface RegistryRef {
 export interface RegistryStatus {
   configured: boolean;
   identity?: string | null;
+  /** the registry repo's `.zuzuu` home (the master coordination location). */
+  home?: string;
   projects?: number;
   refs?: RegistryRef[];
+}
+
+/** The registry summary the Projects Home + global settings render (null when none). */
+export interface RegistrySummary {
+  identity: string | null;
+  home: string;
+  projects: number;
+}
+
+export function registrySummary(s: RegistryStatus | null): RegistrySummary | null {
+  if (!s?.configured || !s.home) return null;
+  return { identity: s.identity ?? null, home: s.home, projects: s.refs?.length ?? s.projects ?? 0 };
 }
 
 const EMPTY_HEALTH: HealthStamp = { modules: 0, notes: 0, pending: 0, guarded: false, lastActivityMs: 0 };
