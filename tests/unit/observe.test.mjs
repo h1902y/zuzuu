@@ -174,3 +174,56 @@ test('aggregate: a single-session destructive failure is below the cross-session
   const sessions = [{ sessionId: 'a', commands: [], files: [], failures: [], destructiveFailures: [{ cmd: 'rm -rf /', tool: 'Bash' }] }];
   assert.equal(aggregate(sessions).filter((c) => c.kind === 'guardrail').length, 0, 'no guardrail from a single sighting (corroboration)');
 });
+
+// ── U4 / R6: provenance — each mined proposal records its origin sessions ─────
+//
+// Locator shape (OQ1, resolved): `capture.mjs` carries only a host-prefixed
+// `sessionId` into `aggregate` (the transcript ref is discarded before mining),
+// so the one locator every adapter can resolve is the SESSION ID itself. The
+// persisted `source` therefore pins the contributing session ids; `locator.kind`
+// is 'session-ids' so a finer offset can be added later without a shape change.
+// `evidence.sessions` stays a COUNT (the web reason line reads it as a number).
+
+test('aggregate: evidence.sessions is a count AND session ids are retained', () => {
+  const sessions = [
+    { sessionId: 'a', commands: [{ cmd: 'npm test', failed: false }], files: [], failures: [] },
+    { sessionId: 'b', commands: [{ cmd: 'npm test', failed: false }], files: [], failures: [] },
+    { sessionId: 'c', commands: [{ cmd: 'npm test', failed: false }], files: [], failures: [] },
+  ];
+  const cand = aggregate(sessions).find((c) => c.kind === 'command');
+  assert.equal(cand.evidence.sessions, 3, 'evidence.sessions remains the COUNT (web reads it as a number)');
+  // the retained ids: a NEW field, distinct from the count
+  assert.deepEqual(cand.evidence.sessionIds, ['a', 'b', 'c'], 'the contributing session ids are retained for a locator');
+});
+
+test('observe: a staged proposal persists a `source` pointer with the session ids', () => {
+  const root = mkdtempSync(join(tmpdir(), 'zuzuu-obs-src-'));
+  const home = join(root, '.zuzuu');
+  const sessions = [
+    { sessionId: 'claude-code:a', commands: [{ cmd: 'npm run build', failed: false }], files: [], failures: [] },
+    { sessionId: 'claude-code:b', commands: [{ cmd: 'npm run build', failed: false }], files: [], failures: [] },
+    { sessionId: 'claude-code:c', commands: [{ cmd: 'npm run build', failed: false }], files: [], failures: [] },
+  ];
+  observe(home, { sessions });
+  const [p] = listStaged(home, 'actions');
+  assert.ok(p.source, 'the staged record carries a source pointer (was dropped before U4)');
+  assert.equal(p.source.producer, 'observe');
+  assert.deepEqual(p.source.sessions, ['claude-code:a', 'claude-code:b', 'claude-code:c'], 'source pins the contributing session ids');
+  assert.equal(p.source.locator.kind, 'session-ids');
+  assert.deepEqual(p.source.locator.sessions, ['claude-code:a', 'claude-code:b', 'claude-code:c']);
+  // evidence.sessions stays a count (the web reason line contract)
+  assert.equal(p.evidence[0].sessions, 3);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('observe: degrades to session-ids-only — never blocks staging when no finer locator', () => {
+  // single-element session set still produces a valid source (no offset needed)
+  const root = mkdtempSync(join(tmpdir(), 'zuzuu-obs-src1-'));
+  const home = join(root, '.zuzuu');
+  const sessions = Array.from({ length: 3 }, (_, i) => ({ sessionId: `s${i}`, commands: [], files: [], failures: ['Bash'] }));
+  observe(home, { sessions });
+  const [p] = listStaged(home, 'knowledge');
+  assert.ok(p.source, 'a fact proposal still stages with a source');
+  assert.deepEqual(p.source.sessions, ['s0', 's1', 's2']);
+  rmSync(root, { recursive: true, force: true });
+});

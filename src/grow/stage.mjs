@@ -23,7 +23,9 @@ const stageId = (p) => 'stg-' + createHash('sha256').update(JSON.stringify([p.op
 
 /**
  * Stage a change. Returns the record (with id), or null if malformed.
- * @param {{op,module,target?,change,rationale?,evidence?,confidence?,score?}} p
+ * `source` is the provenance pointer (U4 / R6) — { producer, sessions, locator } —
+ * so a note can link back to where it was born; null when the producer omits it.
+ * @param {{op,module,target?,change,rationale?,evidence?,confidence?,score?,source?}} p
  */
 export function stageChange(home, module, p) {
   if (!OPS.has(p.op)) return null;
@@ -31,7 +33,8 @@ export function stageChange(home, module, p) {
   const record = {
     id, op: p.op, module, target: p.target ?? null, change: p.change ?? {},
     rationale: p.rationale ?? '', evidence: p.evidence ?? [],
-    confidence: p.confidence ?? null, score: p.score ?? 0, status: 'pending',
+    confidence: p.confidence ?? null, score: p.score ?? 0,
+    source: p.source ?? null, status: 'pending',
   };
   const file = join(stagedDir(home, module), `${id}.json`);
   if (existsSync(file)) return { ...record, duplicate: true }; // already staged — don't re-stage
