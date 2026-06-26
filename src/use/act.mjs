@@ -39,10 +39,11 @@ function tokenize(run) {
  * @returns {{ ran, exitCode?, success?, stdout?, stderr?, denied?, error? }}
  */
 export function runGated(home, module, command, { allow = null, inputs = {}, cwd } = {}) {
-  // the guardrails gate applies to curated runs too — a deny rule blocks them
-  const verdict = gate({ home, module: 'guardrails' }, { tool: 'Bash', input: { command } });
+  // the gate applies to curated runs too — a deny rule blocks them. No explicit
+  // module → it enforces both `instructions` (the default) and legacy `guardrails`.
+  const verdict = gate({ home }, { tool: 'Bash', input: { command } });
   if (verdict && verdict.action === 'deny') {
-    return { ran: false, denied: true, error: `blocked by guardrail ${verdict.rule}: ${verdict.reason}` };
+    return { ran: false, denied: true, error: `blocked by rule ${verdict.rule}: ${verdict.reason}` };
   }
   const root = cwd ?? repoRoot();
   const [cmd, ...args] = tokenize(command);

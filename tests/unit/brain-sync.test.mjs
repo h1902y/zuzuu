@@ -48,7 +48,7 @@ test('brain-sync: generations are git-native — .zuzuu/ is 100% durable, no blo
   assert.ok(tracked.includes('.zuzuu/knowledge/generations.json'), 'the generation ledger travels');
   assert.ok(tracked.includes('.zuzuu/knowledge/items/fact.md'), 'the note travels');
   assert.ok(tracked.includes('.zuzuu/knowledge/log.jsonl'), 'the mutation log travels (durable provenance)');
-  assert.ok(tracked.includes('.zuzuu/guardrails/module.md'), 'the guardrails floor travels');
+  assert.ok(tracked.includes('.zuzuu/instructions/module.md'), 'the instructions floor travels');
   // the old parallel content store is GONE — no .generations/.store/ in the tree
   assert.ok(!tracked.some((f) => f.startsWith('.zuzuu/.generations/')), 'no parallel blob store');
   // the in-repo machine-local entries do NOT travel

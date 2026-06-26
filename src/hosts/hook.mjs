@@ -30,7 +30,7 @@ const TURN = new Set(['Stop', 'session.idle', 'AfterAgent', 'UserPromptSubmit', 
 const END = new Set(['SessionEnd', 'session.deleted', 'session_shutdown']);
 const GATE = new Set(['PreToolUse', 'BeforeTool']);
 
-const safeName = (id) => `guardrails-${String(id || 'unknown').replace(/[^A-Za-z0-9._-]/g, '_').slice(-120) || 'unknown'}.jsonl`;
+const safeName = (id) => `gate-${String(id || 'unknown').replace(/[^A-Za-z0-9._-]/g, '_').slice(-120) || 'unknown'}.jsonl`;
 
 /**
  * The guardrails gate. Returns the host's block decision, or null = fail-open
@@ -39,7 +39,8 @@ const safeName = (id) => `guardrails-${String(id || 'unknown').replace(/[^A-Za-z
 export function gateDecision({ host = 'claude-code', payload = {}, cwd = process.cwd() } = {}) {
   try {
     const home = homeDir(repoRoot(cwd));
-    const verdict = gate({ home, module: 'guardrails' }, { tool: payload.tool_name, input: payload.tool_input });
+    // no explicit module → the gate enforces both `instructions` (new) + `guardrails` (legacy).
+    const verdict = gate({ home }, { tool: payload.tool_name, input: payload.tool_input });
     if (verdict) {
       try {
         const state = stateDir(home);

@@ -1,4 +1,4 @@
-// use/act.mjs + guardrails/gate.mjs + notes/log.mjs.
+// use/act.mjs + instructions/gate.mjs + notes/log.mjs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
@@ -52,9 +52,9 @@ test('log: fail-soft — a bad event is rejected, a bad line is skipped on read'
 // ── capabilities/gate ───────────────────────────────────────────────────────
 
 const seedGuardrails = (home) => {
-  writeManifest(home, 'guardrails', { note_type: 'rule', capabilities: ['gate'] });
-  writeZu(home, 'guardrails', 'no-root-wipe', { type: 'rule', action: 'deny', tool: 'Bash', pattern: 'rm\\s+-[a-z]*r[a-z]*\\s+/(?![\\w/])', reason: 'root wipe' });
-  writeZu(home, 'guardrails', 'confirm-force-push', { type: 'rule', action: 'ask', tool: 'Bash', pattern: 'git\\b.*\\bpush\\b.*--force', reason: 'history rewrite' });
+  writeManifest(home, 'instructions', { note_type: 'rule', capabilities: ['gate'] });
+  writeZu(home, 'instructions', 'no-root-wipe', { type: 'rule', action: 'deny', tool: 'Bash', pattern: 'rm\\s+-[a-z]*r[a-z]*\\s+/(?![\\w/])', reason: 'root wipe' });
+  writeZu(home, 'instructions', 'confirm-force-push', { type: 'rule', action: 'ask', tool: 'Bash', pattern: 'git\\b.*\\bpush\\b.*--force', reason: 'history rewrite' });
 };
 
 test('gate: rules load from rule notes; severity wins', () => {
@@ -81,9 +81,9 @@ test('gate: the bare `rm -rf /` is denied over JSON-wrapped input (the fix)', ()
 test('gate: fail-open — a malformed rule is skipped, never a block', () => {
   clearCache();
   withHome((home) => {
-    writeManifest(home, 'guardrails', { capabilities: ['gate'] });
-    writeZu(home, 'guardrails', 'bad', { type: 'rule', action: 'explode', pattern: 'x', reason: 'r' }); // bad action
-    writeZu(home, 'guardrails', 'good', { type: 'rule', action: 'deny', tool: 'Bash', pattern: 'danger', reason: 'r' });
+    writeManifest(home, 'instructions', { capabilities: ['gate'] });
+    writeZu(home, 'instructions', 'bad', { type: 'rule', action: 'explode', pattern: 'x', reason: 'r' }); // bad action
+    writeZu(home, 'instructions', 'good', { type: 'rule', action: 'deny', tool: 'Bash', pattern: 'danger', reason: 'r' });
   }, (home) => {
     const rules = loadRules(home);
     assert.equal(rules.length, 1, 'malformed skipped, good survives');
@@ -94,7 +94,7 @@ test('gate: fail-open — a malformed rule is skipped, never a block', () => {
 test('gate: capability handler + Claude decision shape', () => {
   clearCache();
   withHome(seedGuardrails, (home) => {
-    const ctx = { home, module: 'guardrails', manifest: readManifest(home, 'guardrails') };
+    const ctx = { home, module: 'instructions', manifest: readManifest(home, 'instructions') };
     const v = gate(ctx, { tool: 'Bash', input: { command: 'rm -rf /' } });
     assert.equal(toPreToolUseDecision(v).hookSpecificOutput.permissionDecision, 'deny');
     assert.equal(toPreToolUseDecision(null), null); // no match → normal flow

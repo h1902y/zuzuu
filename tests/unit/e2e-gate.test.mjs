@@ -56,7 +56,7 @@ test('seed rule asks on force-push; benign call stays silent (normal flow)', () 
 
 test('fail-open: garbage stdin, and projects with no rule items, never block', () => {
   withProject((cwd) => {
-    rmSync(join(cwd, '.zuzuu', 'guardrails', 'items'), { recursive: true, force: true });
+    rmSync(join(cwd, '.zuzuu', 'instructions', 'items'), { recursive: true, force: true });
     const noRules = gate(cwd, { session_id: 's1', tool_name: 'Bash', tool_input: { command: 'rm -rf / ' } });
     assert.equal(noRules.stdout, '');
     assert.equal(noRules.status, 0);
@@ -73,7 +73,7 @@ test('fail-open: garbage stdin, and projects with no rule items, never block', (
 
 test('a malformed rule note is skipped silently — seeds still enforce', () => {
   withProject((cwd) => {
-    const items = join(cwd, '.zuzuu', 'guardrails', 'items');
+    const items = join(cwd, '.zuzuu', 'instructions', 'items');
     mkdirSync(items, { recursive: true });
     // a broken envelope next to the seeds must not disarm the gate
     writeFileSync(join(items, 'broken.md'), '{ not an envelope at all');
@@ -89,7 +89,7 @@ test('matched decisions are logged for the trace', () => {
   withProject((cwd) => {
     gate(cwd, { session_id: 'sess-log', tool_name: 'Bash', tool_input: { command: 'rm -rf / ' } });
     // the gate log now lands in the XDG state dir (out of the repo), not .zuzuu/.live
-    const log = readFileSync(join(stateOf(cwd), 'guardrails-sess-log.jsonl'), 'utf8');
+    const log = readFileSync(join(stateOf(cwd), 'gate-sess-log.jsonl'), 'utf8');
     const entry = JSON.parse(log.trim().split('\n')[0]);
     assert.equal(entry.action, 'deny');
     assert.equal(entry.rule, 'no-root-wipe');

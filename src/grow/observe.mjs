@@ -149,7 +149,7 @@ const ROUTE = {
   command: (c) => ({ module: 'actions', change: { type: 'action', title: c.title, run: c.attributes.command, body: c.body } }),
   entity: (c) => ({ module: 'knowledge', change: { type: 'knowledge', title: c.title, path: c.attributes.path, body: c.body } }),
   fact: (c) => ({ module: 'knowledge', change: { type: 'knowledge', title: c.title, body: c.body } }),
-  guardrail: (c) => ({ module: 'guardrails', change: { type: 'rule', title: c.title, action: 'ask', tool: 'Bash', pattern: c.attributes.pattern, reason: 'recurring destructive command (mined)', body: c.body } }),
+  guardrail: (c) => ({ module: 'instructions', change: { type: 'rule', title: c.title, action: 'ask', tool: 'Bash', pattern: c.attributes.pattern, reason: 'recurring destructive command (mined)', body: c.body } }),
   correction: (c) => ({ module: 'instructions', change: { type: 'instruction', title: c.title, body: c.body } }),
   workflow: (c) => ({ module: 'actions', change: { type: 'action', title: c.title, run: c.attributes.command, body: c.body } }),
 };

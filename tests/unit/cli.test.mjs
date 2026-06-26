@@ -33,22 +33,22 @@ const note = (cwd, module, id, note) => {
 
 // ── init ─────────────────────────────────────────────────────────────────────
 
-test('init: scaffolds guardrails only (empty Project) + seed rules; idempotent', async () => {
+test('init: scaffolds instructions only (empty Project) + seed rules; idempotent', async () => {
   await withRepo(({ cwd }) => {
     const r = initHome(cwd);
     assert.equal(r.ok, true);
     // the protective safety floor ships
-    assert.ok(existsSync(join(cwd, '.zuzuu', 'guardrails', 'module.md')), 'guardrails/module.md exists');
-    // the four content modules do NOT — they grow on demand
-    for (const m of ['knowledge', 'memory', 'actions', 'instructions']) {
+    assert.ok(existsSync(join(cwd, '.zuzuu', 'instructions', 'module.md')), 'instructions/module.md exists');
+    // the content modules do NOT — they grow on demand
+    for (const m of ['knowledge', 'memory', 'actions']) {
       assert.ok(!existsSync(join(cwd, '.zuzuu', m)), `${m} is not prebuilt`);
     }
-    assert.ok(existsSync(join(cwd, '.zuzuu', 'guardrails', 'items', 'no-root-wipe.md')), 'seed rule planted');
+    assert.ok(existsSync(join(cwd, '.zuzuu', 'instructions', 'items', 'no-root-wipe.md')), 'seed rule planted');
     // the rule round-trips as a real rule note
-    const rule = readFileSync(join(cwd, '.zuzuu', 'guardrails', 'items', 'no-root-wipe.md'), 'utf8');
+    const rule = readFileSync(join(cwd, '.zuzuu', 'instructions', 'items', 'no-root-wipe.md'), 'utf8');
     assert.match(rule, /type: rule/);
     assert.match(rule, /action: deny/);
-    // idempotent — a second init clobbers nothing (README + guardrails/module.md + 3 rules)
+    // idempotent — a second init clobbers nothing (README + instructions/module.md + 3 rules)
     const r2 = initHome(cwd);
     assert.equal(r2.created.length, 0);
     assert.ok(r2.skipped.length >= 5);
@@ -65,13 +65,13 @@ test('init: writes gitignore lines and is git-citizen (no .git created)', async 
 
 // ── router ───────────────────────────────────────────────────────────────────
 
-test('run: a fresh init lists only guardrails (the empty Project)', async () => {
+test('run: a fresh init lists only instructions (the empty Project)', async () => {
   await withRepo(async ({ io, text }) => {
     assert.equal(await run(['init'], io), 0);
     assert.equal(await run(['module', 'list'], io), 0);
-    assert.match(text(), /guardrails/);
+    assert.match(text(), /instructions/);
     // no prebuilt content modules — they materialize as the Project grows
-    for (const m of ['knowledge', 'memory', 'actions', 'instructions']) assert.doesNotMatch(text(), new RegExp(m));
+    for (const m of ['knowledge', 'memory', 'actions']) assert.doesNotMatch(text(), new RegExp(m));
   });
 });
 
@@ -128,10 +128,10 @@ test('run: check reports integrity per module; digest summarizes the Project', a
   });
 });
 
-test('init: the guardrails module.md round-trips its note_type through readManifest', async () => {
+test('init: the instructions module.md round-trips its note_type through readManifest', async () => {
   await withRepo(({ cwd }) => {
     initHome(cwd);
     const home = join(cwd, '.zuzuu');
-    assert.equal(readManifest(home, 'guardrails').note_type, 'rule', 'guardrails module.md survived serialize∘parse');
+    assert.equal(readManifest(home, 'instructions').note_type, 'instruction', 'instructions module.md survived serialize∘parse');
   });
 });

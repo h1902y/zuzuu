@@ -40,6 +40,22 @@ const RULES = [
     body: 'Asks (never blocks) on any force-push, including `git -C /path push --force-with-lease`.' },
 ];
 
+// Best-practice INSTRUCTIONS — directive guidance (type: instruction, no `action`, so the
+// gate skips them). They ride alongside the enforced rules in the same `instructions`
+// module: a new Project arrives knowing how to use zuzuu well.
+const INSTRUCTIONS = [
+  { id: 'review-the-gate', type: 'instruction', title: 'Review proposals — the gate is the moat',
+    body: 'Nothing is written to the brain without your approval. Review pending proposals promptly: approve to teach the loop, reject with a reason to correct it. The human gate is what keeps the brain trustworthy.' },
+  { id: 'sessions-are-branches', type: 'instruction', title: 'A session is a git branch',
+    body: 'Each session runs on its own `zz/session-*` branch — isolated, turn-checkpointed, squash-merged on end. Start a session before a task so the work (and what the loop mines from it) is cleanly scoped.' },
+  { id: 'modules-grow-from-work', type: 'instruction', title: 'The brain grows from how you work',
+    body: '`observe` mines your real sessions into proposals — you never hand-author the brain. Modules (knowledge · memory · actions · instructions) materialize on demand as the loop routes evidence to them.' },
+  { id: 'keep-guidance-minimal', type: 'instruction', title: 'Keep standing guidance minimal',
+    body: 'Prune instructions that no longer apply. The agent reads this module every session — fewer, sharper instructions beat a long stale list.' },
+  { id: 'the-safety-floor', type: 'instruction', title: 'The rules here are your enforced safety floor',
+    body: 'The `type: rule` notes in this module are enforced on every tool call (force-push asks; `rm -rf /` and secret-reads deny). Add a rule whenever you spot a risky pattern — the gate confirms or blocks it from then on.' },
+];
+
 // The Project body — the explainer that rides in `project.md`'s manifest body.
 const PROJECT_BODY = `A **Project** is this \`.zuzuu/\` directory of **envelopes** (markdown + frontmatter),
 grown from how you work and **human-gated**. This file (\`project.md\`) is the Project's
@@ -105,14 +121,16 @@ export function initHome(cwd = process.cwd()) {
   ensureDir(home);
   writeOnce(join(home, 'project.md'), projectManifest(root), 'project.md');
 
-  // Guardrails only — the protective safety floor. The four content modules are
-  // NOT scaffolded: they grow on demand (the loop mints their manifests on first
-  // proposal). Protection is the exception — it must hold before the first turn.
-  ensureDir(join(home, 'guardrails', 'items'));
-  ensureDir(join(home, 'guardrails', 'staged'));
-  writeOnce(join(home, 'guardrails', 'module.md'), manifestFor('guardrails'), 'guardrails/module.md');
-  for (const r of RULES) {
-    writeOnce(join(home, 'guardrails', 'items', `${r.id}.md`), serialize(r), `guardrails/${r.id}`);
+  // Instructions only — the prepacked default: the enforced safety floor (the `rule`
+  // notes, gated on every tool call) PLUS best-practice guidance, in one module. The
+  // other content modules are NOT scaffolded — they grow on demand (the loop mints
+  // their manifests on first proposal). Protection is the exception: it must hold
+  // before the first turn.
+  ensureDir(join(home, 'instructions', 'items'));
+  ensureDir(join(home, 'instructions', 'staged'));
+  writeOnce(join(home, 'instructions', 'module.md'), manifestFor('instructions'), 'instructions/module.md');
+  for (const r of [...RULES, ...INSTRUCTIONS]) {
+    writeOnce(join(home, 'instructions', 'items', `${r.id}.md`), serialize(r), `instructions/${r.id}`);
   }
 
   ensureGitignore(root, home);
