@@ -81,6 +81,20 @@ test('registry.ensure: idempotent — first call mints, second is a no-op', () =
   });
 });
 
+test('registry.ensure: adopts a local registry minted-but-not-pointed (race hardening)', () => {
+  withCfg(() => {
+    // simulate a concurrent ensure that wrote the registry on disk but hadn't yet
+    // updated the machine-global pointer: project.md exists, `active` is still null.
+    mintRegistry(localRegistryHome(), 'reg-raced');
+    const cwd = td('zz-adopt-');
+    const r = open(cwd).registry.ensure();
+    assert.equal(r.created, false);          // adopted, NOT re-minted
+    assert.equal(r.identity, 'reg-raced');   // the SAME identity (no duplicate alias)
+    assert.equal(open(cwd).registry.home(), localRegistryHome()); // pointer now set
+    rmSync(cwd, { recursive: true, force: true });
+  });
+});
+
 test('registry.touch: skips self (never adds the registry to itself)', () => {
   withCfg(() => {
     const regRepo = td('zz-regrepo-');

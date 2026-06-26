@@ -190,6 +190,15 @@ export function ensureLocalRegistry({ title = 'Local registry' } = {}) {
   const active = activeRegistryPath();
   if (active) return { home: active, identity: registryIdentity(active), created: false };
   const home = localRegistryHome();
+  // Adopt a local registry already minted on disk but not yet pointed-to (e.g. a
+  // concurrent ensure wrote project.md before this one updated the pointer) — so a
+  // race re-points the SAME identity rather than minting a duplicate alias. mintRegistry
+  // is itself file-idempotent, which closes the rest of the (best-effort) window.
+  if (isRegistry(home)) {
+    const identity = registryIdentity(home);
+    setActiveRegistry(identity, home);
+    return { home, identity, created: false };
+  }
   const identity = mintRegistry(home, newIdentity(), { title });
   setActiveRegistry(identity, home);
   return { home, identity, created: true };
