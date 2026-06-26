@@ -55,6 +55,22 @@ describe("createZuzuuApi file routes", () => {
     expect(body.items[0]).toEqual(item); // THE ENVELOPE, untouched
     expect(body.errors).toEqual([]);
   });
+  it("GET /module/:key/item/:id surfaces the current note body (the update diff's 'before' source)", async () => {
+    fixtureHome(root);
+    // The update diff (U3) reads the CURRENT note body as its 'before'. The item
+    // route shells `zz module item <key> <id>` and passes the envelope through whole,
+    // so `body` rides to the client (which diffs it against the staged change).
+    const note = {
+      id: "fact-node-sqlite", module: "knowledge", kind: "fact", title: "use node:sqlite",
+      status: "active", body: "use node:sqlite — it ships in the runtime",
+    };
+    const app = createZuzuuApi(() => root, { binary: jsonStub(root, JSON.stringify(note)) });
+    const res = await app.request("/module/knowledge/item/fact-node-sqlite");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(note); // body surfaced for the before/after diff
+    // an unsafe id never reaches the CLI
+    expect((await app.request("/module/knowledge/item/..%2fevil")).status).toBe(400);
+  });
   it("GET /module/:key/schema: CLI → builtin/home schema; absent CLI → seeded file; else null", async () => {
     const agent = fixtureHome(root);
     const schema = { type: "object", required: ["type"] };

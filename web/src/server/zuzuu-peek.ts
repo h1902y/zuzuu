@@ -187,6 +187,7 @@ export function stagedSummary(p: Record<string, unknown>, key: string): import("
     module: key,
     title: stagedTitle(p),
     ...(typeof p.op === "string" ? { op: p.op } : {}),
+    ...(typeof p.target === "string" ? { target: p.target } : {}),
     ...(preview ? { preview } : {}),
     ...(typeof p.rationale === "string" && p.rationale ? { rationale: p.rationale } : {}),
     ...(evidence ? { evidence } : {}),

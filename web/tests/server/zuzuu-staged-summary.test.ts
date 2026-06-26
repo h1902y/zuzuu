@@ -60,11 +60,12 @@ describe("stagedSummary — a real observe-written record (body under `change`)"
     expect(s.preview).toBe("npm test");
   });
 
-  it("projects rationale, evidence, op, and change onto the DTO", () => {
+  it("projects rationale, evidence, op, target, and change onto the DTO", () => {
     const s = stagedSummary(MINED_ACTION, "actions");
     expect(s.rationale).toBe(MINED_ACTION.rationale);
     expect(s.evidence).toEqual(MINED_ACTION.evidence);
     expect(s.op).toBe("create");
+    expect(s.target).toBe("command-npm-test"); // the diff's update-before id source
     expect(s.change).toEqual(MINED_ACTION.change);
   });
 

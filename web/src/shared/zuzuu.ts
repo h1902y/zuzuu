@@ -52,6 +52,9 @@ export interface StagedSummary {
   title: string;
   /** create | update | delete | relate | deprecate — the staged op. */
   op?: string;
+  /** the note id this change targets (for an update: the current note whose body is
+   *  the diff's "before"; null/absent for a create). */
+  target?: string | null;
   /** a short preview of the content being approved — best-effort */
   preview?: string;
   /** why this was proposed (observe writes the candidate body here). */
