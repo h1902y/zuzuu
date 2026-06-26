@@ -10,6 +10,7 @@ import * as config from "./config.js";
 import { reconcileRecents } from "./recents.js";
 import { listDirs } from "./dir-complete.js";
 import { readRegistry, chooseSource, type RegistryStatus } from "./registry-read.js";
+import { pickFolder } from "./pick-folder.js";
 
 interface ProjectsOpts {
   /** injectable for tests; defaults to the real ~/.webcode/config.json loader. */
@@ -43,6 +44,10 @@ export function createProjectsApi(getRoot: () => string, opts: ProjectsOpts = {}
   // GET /dir?prefix= — names-only directory autocomplete for "Open a folder…" (R17).
   // The one deliberately out-of-jail read (see dir-complete.ts) — never throws.
   app.get("/dir", async (c) => c.json(await listDirs(c.req.query("prefix") ?? "")));
+
+  // GET /pick — open the OS-native folder picker (local daemon only) → the chosen
+  // absolute path. Falls back to the manual path field when unsupported/cancelled.
+  app.get("/pick", (c) => c.json(pickFolder()));
 
   return app;
 }
