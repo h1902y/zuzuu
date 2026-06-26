@@ -11,7 +11,7 @@ import { Stack, Inline, Text, Button, Icon } from "../../ds/index.js";
 
 const META: Record<RungId, { label: string; why: string; cta?: string }> = {
   "git-init": { label: "Make this folder a repository", why: "a session is a git branch", cta: "git init" },
-  init: { label: "Initialize the Project", why: "plant .zuzuu/ and the guardrails floor", cta: "Initialize" },
+  init: { label: "Initialize the Project", why: "plant .zuzuu/ and the instructions floor", cta: "Initialize" },
   enable: { label: "Enable your agent", why: "wire your host’s lifecycle hooks", cta: "Enable" },
   session: { label: "Start a session", why: "zuzuu watches it and proposes", cta: "Start a session" },
   review: { label: "Review your first proposal", why: "nothing is written without your yes" },

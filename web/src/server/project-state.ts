@@ -23,7 +23,7 @@ export interface StateFacts {
   hasActivity: boolean;
 }
 
-/** The pure 5-state map. The guardrails floor alone is NOT activity (it ships with
+/** The pure 5-state map. The instructions floor alone is NOT activity (it ships with
  *  `zz init`), so `steady` needs a content module / proposal / session. */
 export function deriveState(f: StateFacts): ProjectStateKind {
   if (!f.git) return "not-a-repo";
@@ -63,7 +63,7 @@ export async function gatherProjectState(root: string, binary?: string, liveSess
     if (Array.isArray(ov)) {
       modules = ov.length;
       pending = ov.reduce((n, e) => n + (e.pending ?? 0), 0);
-      contentful = ov.some((e) => e.key !== "guardrails"); // a content module materialized
+      contentful = ov.some((e) => e.key !== "instructions" && e.key !== "guardrails"); // a content module materialized beyond the safety floor
     }
   }
 

@@ -1,6 +1,6 @@
 // shell/projects/ProjectsHome.tsx — the launcher (L1, the decided launch landing).
 // A warm, editorial table of every recent Project with its health read from disk
-// (no daemon running): notes · tables · ◷ pending-review · guardrails · last activity.
+// (no daemon running): notes · tables · ◷ pending-review · protected · last activity.
 // Search + sort + group-by facets; the Bagel Fat One logotype; "New / Open a folder".
 // Opening a row hands off to useEnterProject (switchTo → land on the Overview, no
 // reload). Thin .tsx — projects-model is the tested logic; static utilities only.

@@ -1,8 +1,9 @@
 // shell/settings/Settings.tsx — the per-project Settings surface (P3.3). Three calm
-// sections: Project (identity + state), Agent/Host (detected host + enable), Guardrails
-// (the safety floor's rules). Theme lives in the header toggle, not here. Reads
-// project-state + workspace + the guardrails module; actions go through the setup
-// verbs. Thin .tsx; settings-model is the tested logic. Static utils.
+// sections: Project (identity + state), Agent/Host (detected host + enable), Instructions
+// (the prepacked default module — the enforced safety-floor rules + best-practice
+// guidance). Theme lives in the header toggle, not here. Reads project-state +
+// workspace + the instructions module; actions go through the setup verbs. Thin .tsx;
+// settings-model is the tested logic. Static utils.
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/api.js";
 import { toast } from "../../state/toast.js";
@@ -31,11 +32,11 @@ export function Settings() {
   const qc = useQueryClient();
   const workspace = useQuery({ queryKey: ["workspace"], queryFn: api.workspace });
   const projectState = useQuery({ queryKey: ["zuzuu", "project-state"], queryFn: api.zuzuu.projectState });
-  const guardrails = useQuery({ queryKey: ["zuzuu", "module", "guardrails"], queryFn: () => api.zuzuu.module("guardrails") });
+  const instructions = useQuery({ queryKey: ["zuzuu", "module", "instructions"], queryFn: () => api.zuzuu.module("instructions") });
 
   if (projectState.isLoading) return <Loading label="reading settings…" />;
   const host = projectState.data?.host ?? { kind: null, enabled: false };
-  const rules = guardrails.data?.items ?? [];
+  const items = instructions.data?.items ?? [];
 
   async function enable() {
     try { await api.setup.enable(); toast("Agent enabled"); void qc.invalidateQueries({ queryKey: ["zuzuu"] }); }
@@ -64,12 +65,12 @@ export function Settings() {
             </Inline>
           </Section>
 
-          <Section title="Guardrails">
+          <Section title="Instructions">
             <Stack gap="sm">
-              <Text size="meta" tone="muted">The enforced tool gate — the safety floor every Project ships with.</Text>
-              {rules.length ? (
+              <Text size="meta" tone="muted">The prepacked default module — the enforced safety-floor rules plus best-practice guidance every Project ships with.</Text>
+              {items.length ? (
                 <Stack gap="xs">
-                  {rules.map((r) => (
+                  {items.map((r) => (
                     <Inline key={r.id} gap="sm" justify="between">
                       <Text size="ui" truncate>{r.title || r.id}</Text>
                       {r.status && <Text size="meta" tone="muted">{r.status}</Text>}
@@ -77,7 +78,7 @@ export function Settings() {
                   ))}
                 </Stack>
               ) : (
-                <Text size="ui" tone="muted">{guardrails.isLoading ? "…" : "No rules yet."}</Text>
+                <Text size="ui" tone="muted">{instructions.isLoading ? "…" : "No instructions yet."}</Text>
               )}
             </Stack>
           </Section>

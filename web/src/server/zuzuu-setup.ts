@@ -36,7 +36,7 @@ export function createZuzuuSetupApi(getRoot: () => string, binary?: string): Hon
     return c.json(r.data as Record<string, unknown>);
   };
 
-  app.post("/setup/init", (c) => setup(c, ["init"]));        // plant .zuzuu/ + the guardrails floor
+  app.post("/setup/init", (c) => setup(c, ["init"]));        // plant .zuzuu/ + the instructions floor
   app.post("/setup/enable", (c) => setup(c, ["enable"]));    // wire the host's lifecycle hooks
   app.post("/setup/observe", (c) => setup(c, ["observe"]));  // mine the session → staged proposals
 
