@@ -37,7 +37,9 @@
   /* the FIXED coral accent — declared ONCE, never swapped between themes (L≈59, the midpoint) */
   --color-accent: #f25c54;
   --color-accent-dim: #d8453d;
-  --color-danger: #ef5350;
+  /* danger is a COOLER crimson, deliberately diverged from the warm coral accent so
+     destructive ≠ primary (the two were near-identical reds; a CTA read as a warning). */
+  --color-danger: #e23d51;
 
   /* semantic aliases — declared ONCE, follow the ramp through every theme */
   --color-app: var(--color-ink-950);
@@ -100,7 +102,7 @@
   --color-ink-500: #b2c19d;
   --color-ink-300: #ccddb4;
   --color-ink-100: #eafdcf;
-  --color-danger: #ef5350;
+  --color-danger: #e23d51; /* cooler crimson — diverged from the coral accent */
   --color-success: #7fb069;
   --color-warning: #e0a83c;
   --color-info: #8e95d8;
@@ -125,7 +127,7 @@
   --color-ink-500: #717966; /* muted text */
   --color-ink-300: #5c6451; /* subtle text */
   --color-ink-100: #434b39; /* primary text — soft ebony ink */
-  --color-danger: #c0362c;
+  --color-danger: #b3262f; /* cooler crimson (darkened for light contrast), diverged from coral */
   --color-success: #4f8a35;
   --color-warning: #b5821a;
   --color-info: #5b63b8; /* periwinkle (darker for light contrast) */

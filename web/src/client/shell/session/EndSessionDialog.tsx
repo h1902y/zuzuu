@@ -43,7 +43,9 @@ export function EndSessionDialog() {
       footer={
         <>
           <Button variant="ghost" size="sm" onClick={cancel} disabled={busy}>Keep working</Button>
-          <Button variant="danger" size="sm" onClick={() => void confirm()} disabled={busy}>
+          {/* primary, NOT danger — ending an agent session squash-merges your work back
+              (constructive + reversible); danger-red is reserved for actual destruction. */}
+          <Button variant="primary" size="sm" onClick={() => void confirm()} disabled={busy}>
             {busy ? copy.progress : copy.confirm}
           </Button>
         </>
