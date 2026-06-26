@@ -179,9 +179,11 @@ export async function run(argv, io = {}) {
           const r = zz.check(m);
           if (!r.ok) continue;
           const v = r.value;
-          rows.push({ module: m, broken: v.broken.length, orphans: v.orphans.length, stale: v.stale.length });
+          // check is project-wide; scope `ungated` to this module's notes for an accurate column.
+          const ungated = (v.ungated ?? []).filter((u) => u.addr.startsWith(`${m}:`)).length;
+          rows.push({ module: m, broken: v.broken.length, orphans: v.orphans.length, stale: v.stale.length, ungated });
         }
-        log(toon('integrity', rows, ['module', 'broken', 'orphans', 'stale']));
+        log(toon('integrity', rows, ['module', 'broken', 'orphans', 'stale', 'ungated']));
         return 0;
       }
 

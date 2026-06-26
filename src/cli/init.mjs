@@ -20,6 +20,7 @@ import { join, basename } from 'node:path';
 import { serialize } from '../notes/note.mjs';
 import { manifestFor } from '../notes/module-templates.mjs';
 import { homeDir, repoRoot } from '../notes/store.mjs';
+import { logMutation, read as readLog } from '../notes/log.mjs';
 
 // Seed guardrail rules — the hard-won patterns (harvested verbatim, incl. the
 // no-root-wipe negative-lookahead anchor: the gate matches over JSON.stringify,
@@ -38,6 +39,19 @@ const RULES = [
   { id: 'confirm-force-push', type: 'rule', title: 'Confirm before force-push', action: 'ask', tool: 'Bash',
     pattern: 'git\\b.*\\bpush\\b.*--force', reason: 'force-push rewrites shared history',
     body: 'Asks (never blocks) on any force-push, including `git -C /path push --force-with-lease`.' },
+  // The MOAT, enforced: the brain (.zuzuu/) is human-gated, so the agent must not write
+  // it directly — every change goes through review (`zz stage` → `zz review approve`).
+  // `tool: write` + the canonical write-alias set fires on every host's file-write tool;
+  // `match: path` tests the file PATH only (not content), so a normal edit that mentions
+  // .zuzuu/ isn't blocked; session worktrees are excluded (that's where the agent works).
+  { id: 'protect-brain-writes', type: 'rule', title: 'The brain is human-gated — propose, never write .zuzuu/ directly', action: 'deny', tool: 'write', match: 'path',
+    pattern: '\\.zuzuu/(?!worktrees/)',
+    reason: 'the brain (.zuzuu/) changes only through review — stage a proposal with `zz stage <module> --op create --target <id> --field title=… --field body=…`, then approve it; never edit .zuzuu/ files directly',
+    body: "Denies the agent's DIRECT file writes (Write/Edit/… canonicalized across hosts) into the brain. Path-scoped so it tests the file path, not the content. Session worktrees (.zuzuu/worktrees/) are excluded — that's where the agent works. The only door to the brain is the gate: `zz stage` proposes, `zz review approve` lands it. Reads stay allowed; `zz` itself is unaffected (its commands don't reference the path); human edits aren't gated." },
+  { id: 'protect-brain-shell', type: 'rule', title: 'No shell writes into .zuzuu/ — propose instead', action: 'deny', tool: 'Bash',
+    pattern: '(?:>>?|\\btee\\b|\\bsed\\s+-i\\b)[^\\n]*\\.zuzuu/(?!worktrees/)',
+    reason: 'the brain changes only through review — use `zz stage` to propose, never write .zuzuu/ from the shell',
+    body: 'Companion to protect-brain-writes for the shell path: denies a redirect (`> …/.zuzuu/…`, absolute or relative), `tee`, or `sed -i` that targets the brain, excluding session worktrees. A plain read (`cat .zuzuu/…`, `cat .zuzuu/x > out`) and `zz` commands are unaffected.' },
 ];
 
 // Best-practice INSTRUCTIONS — directive guidance (type: instruction, no `action`, so the
@@ -53,7 +67,9 @@ const INSTRUCTIONS = [
   { id: 'keep-guidance-minimal', type: 'instruction', title: 'Keep standing guidance minimal',
     body: 'Prune instructions that no longer apply. The agent reads this module every session — fewer, sharper instructions beat a long stale list.' },
   { id: 'the-safety-floor', type: 'instruction', title: 'The rules here are your enforced safety floor',
-    body: 'The `type: rule` notes in this module are enforced on every tool call (force-push asks; `rm -rf /` and secret-reads deny). Add a rule whenever you spot a risky pattern — the gate confirms or blocks it from then on.' },
+    body: 'The `type: rule` notes in this module are enforced on every tool call (force-push asks; `rm -rf /`, secret-reads, and direct .zuzuu/ writes deny). Add a rule whenever you spot a risky pattern — the gate confirms or blocks it from then on.' },
+  { id: 'propose-never-write', type: 'instruction', title: 'Propose brain changes with `zz stage` — never edit .zuzuu/ by hand',
+    body: 'The brain (.zuzuu/) is human-gated: it changes only through review. To add or change a note (knowledge, an instruction, an action, a rule), STAGE a proposal — `zz stage <module> --op create --target <id> --field title="…" --field body="…"` — and it lands only after `zz review approve`. Do NOT create or edit files under .zuzuu/ directly; that bypasses the gate (and the guardrails now deny it). Files in your session worktree are fine — this is only about the brain itself.' },
 ];
 
 // The Project body — the explainer that rides in `project.md`'s manifest body.
@@ -131,10 +147,23 @@ export function initHome(cwd = process.cwd()) {
   writeOnce(join(home, 'instructions', 'module.md'), manifestFor('instructions'), 'instructions/module.md');
   for (const r of [...RULES, ...INSTRUCTIONS]) {
     writeOnce(join(home, 'instructions', 'items', `${r.id}.md`), serialize(r), `instructions/${r.id}`);
+    ensureSeedLogged(home, 'instructions', r.id); // Layer 4: provenance for the seed
   }
 
   ensureGitignore(root, home);
   return { ok: true, home, created, skipped };
+}
+
+/** Layer 4 provenance: ensure a seeded note has a `create` mutation in its module log
+ *  (actor: init), so `zz check` can tell SEEDED notes from ones written directly outside
+ *  review. Idempotent — re-running `zz init` reconciles existing seeds (so a pre-
+ *  provenance Project gets clean provenance, leaving only true bypasses flagged).
+ *  Best-effort: a log failure never blocks init. */
+function ensureSeedLogged(home, module, id) {
+  try {
+    const already = readLog(home, module, 'mutations').some((e) => e && e.note === id);
+    if (!already) logMutation(home, module, 'create', id, { actor: 'init', source: 'seed' });
+  } catch { /* provenance is best-effort */ }
 }
 
 /** Add the home's ignore lines to the repo's .gitignore (idempotent). */

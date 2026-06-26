@@ -32,7 +32,8 @@ function compile(note) {
   if (!note || !ACTIONS.has(note.action) || typeof note.pattern !== 'string' || !note.pattern) return null;
   if (NESTED_QUANTIFIER.test(note.pattern)) return null; // ReDoS guard
   try {
-    return { id: note.id, action: note.action, tool: note.tool || '*', re: new RegExp(note.pattern, 'i'), reason: String(note.reason ?? '') };
+    const match = note.match === 'path' ? 'path' : 'all'; // 'path' → test only file-path fields
+    return { id: note.id, action: note.action, tool: note.tool || '*', match, re: new RegExp(note.pattern, 'i'), reason: String(note.reason ?? '') };
   } catch {
     return null; // uncompilable pattern → skip this rule only
   }
@@ -42,7 +43,21 @@ function compile(note) {
 // exec_command · local_shell · run_command). Canonicalize so a `tool: Bash` rule
 // fires on every host, not just Claude Code (case-insensitive + alias).
 const SHELL_ALIASES = new Set(['bash', 'shell', 'run_command', 'local_shell', 'exec_command', 'run']);
-const canonTool = (t) => { const s = String(t ?? '').toLowerCase(); return SHELL_ALIASES.has(s) ? 'bash' : s; };
+// File-WRITE tools, likewise named differently per host (Write/Edit/MultiEdit ·
+// write_file/replace · apply_patch · str_replace_based_edit_tool · …). Canonicalize to
+// `write` so ONE `tool: write` rule protects against direct file writes on EVERY host
+// — instead of a rule per host's tool name. READ tools are deliberately absent, so a
+// write-only rule (e.g. the .zuzuu/ brain guard) never blocks the agent reading.
+const WRITE_ALIASES = new Set([
+  'write', 'edit', 'multiedit', 'notebookedit', 'write_file', 'edit_file', 'create_file',
+  'replace', 'str_replace', 'str_replace_editor', 'str_replace_based_edit_tool', 'apply_patch', 'patch', 'fs_write',
+]);
+const canonTool = (t) => {
+  const s = String(t ?? '').toLowerCase();
+  if (SHELL_ALIASES.has(s)) return 'bash';
+  if (WRITE_ALIASES.has(s)) return 'write';
+  return s;
+};
 const toolMatches = (ruleTool, callTool) => ruleTool === '*' || canonTool(ruleTool) === canonTool(callTool);
 
 // Match over the RAW string values of the tool input (the actual command/path),
@@ -59,6 +74,22 @@ function haystackFor(input) {
     else if (v && typeof v === 'object') Object.values(v).forEach(walk);
   };
   walk(input ?? {});
+  return parts.join('\n').slice(0, MAX_HAYSTACK);
+}
+
+// Field keys that carry a FILE PATH across hosts. A rule with `match: path` tests its
+// pattern against ONLY these values (not the file content), so a brain-write guard
+// (`pattern: \.zuzuu/`) fires on `file_path: ".zuzuu/…"` but NOT on a normal edit whose
+// content merely mentions ".zuzuu/" — no false-positive deny on legitimate writes.
+const PATH_KEYS = new Set(['file_path', 'filepath', 'path', 'file', 'filename', 'target_file', 'notebook_path', 'dir', 'directory']);
+function pathsFor(input) {
+  const parts = [];
+  const walk = (v, key) => {
+    if (typeof v === 'string') { if (key && PATH_KEYS.has(key)) parts.push(v); }
+    else if (Array.isArray(v)) v.forEach((x) => walk(x, key));
+    else if (v && typeof v === 'object') for (const [k, val] of Object.entries(v)) walk(val, k.toLowerCase());
+  };
+  walk(input ?? {}, null);
   return parts.join('\n').slice(0, MAX_HAYSTACK);
 }
 
@@ -92,11 +123,12 @@ export function loadRules(home, module = 'instructions') {
  * @returns {null | {action, rule, reason}}  null = defer to host
  */
 export function evaluate(rules, { tool, input }) {
-  const haystack = haystackFor(input);
+  const haystack = haystackFor(input);     // all string values (commands, content, paths)
+  const pathHaystack = pathsFor(input);    // only file-path fields (for `match: path` rules)
   let winner = null;
   for (const r of rules) {
     if (!toolMatches(r.tool, tool)) continue;
-    if (!r.re.test(haystack)) continue;
+    if (!r.re.test(r.match === 'path' ? pathHaystack : haystack)) continue;
     if (!winner || SEVERITY[r.action] > SEVERITY[winner.action]) {
       winner = { action: r.action, rule: r.id, reason: r.reason || `matched rule ${r.id}` };
     }

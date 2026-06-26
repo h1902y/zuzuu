@@ -11,6 +11,7 @@
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { parse } from '../notes/note.mjs';
+import { read as readLog } from '../notes/log.mjs';
 import { itemsDir } from '../notes/store.mjs';
 import { brokenLinks } from '../notes/index.mjs';
 import { listModules } from '../notes/module.mjs';
@@ -52,8 +53,32 @@ function driftFindings(home) {
   return out;
 }
 
+/** Notes with NO create/update record in their module's mutation log — added or edited
+ *  OUTSIDE the review gate (or seeded before provenance logging; `zz init` reconciles
+ *  seeds). The detection half of the brain write-protection (Layer 4). Fail-soft. */
+function ungatedFindings(home, notes) {
+  const loggedByModule = new Map();
+  const loggedIds = (module) => {
+    if (!loggedByModule.has(module)) {
+      const ids = new Set();
+      try { for (const e of readLog(home, module, 'mutations')) if (e && e.note != null) ids.add(String(e.note)); } catch { /* fail-soft */ }
+      loggedByModule.set(module, ids);
+    }
+    return loggedByModule.get(module);
+  };
+  const out = [];
+  for (const { addr } of notes) {
+    const i = addr.indexOf(':');
+    const module = addr.slice(0, i), id = addr.slice(i + 1);
+    if (!loggedIds(module).has(id)) {
+      out.push({ addr, why: 'no review record — added outside the gate (propose via `zz stage`), or a pre-provenance seed (`zz init` reconciles)' });
+    }
+  }
+  return out;
+}
+
 /**
- * @returns {{ broken: Array, orphans: string[], stale: Array, drifted: Array }}
+ * @returns {{ broken: Array, orphans: string[], stale: Array, drifted: Array, ungated: Array }}
  */
 function checkData(home) {
   const broken = (() => { try { return brokenLinks(home); } catch { return []; } })();
@@ -79,7 +104,8 @@ function checkData(home) {
     .map(({ addr, note }) => ({ addr, why: note.superseded_by ? `superseded_by ${note.superseded_by}` : 'deprecated' }));
 
   const drifted = (() => { try { return driftFindings(home); } catch { return []; } })();
-  return { broken, orphans, stale, drifted };
+  const ungated = (() => { try { return ungatedFindings(home, notes); } catch { return []; } })();
+  return { broken, orphans, stale, drifted, ungated };
 }
 
 /** The `check` capability handler (project-wide). */

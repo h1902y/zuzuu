@@ -33,10 +33,15 @@ export function doctorReport(cwd = process.cwd()) {
     const mods = zz.modules();
     info.push(`home: ${home} (${mods.length} module${mods.length === 1 ? '' : 's'})`);
     if (!mods.length) problems.push('home has no modules — run `zz init`');
-    // integrity: broken links across modules
-    let broken = 0;
-    for (const m of mods) { const r = zz.check(m.id); if (r.ok) broken += r.value.broken.length; }
+    // integrity: broken links + ungated notes. check() is project-wide, so ONE call
+    // covers every module (no per-module summing → no overcount).
+    let broken = 0, ungated = 0;
+    if (mods.length) {
+      const r = zz.check(mods[0].id);
+      if (r.ok) { broken = r.value.broken.length; ungated = (r.value.ungated ?? []).length; }
+    }
     if (broken) warnings.push(`${broken} broken link(s) — see \`zz check\``);
+    if (ungated) warnings.push(`${ungated} note(s) added outside review — see \`zz check\` (propose via \`zz stage\`; \`zz init\` reconciles seeds)`);
   } else {
     problems.push(`no .zuzuu/ home — run \`zz init\``);
   }
