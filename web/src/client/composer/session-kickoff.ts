@@ -37,6 +37,17 @@ export function doctorVerdict(doctor?: string | null): string | null {
   return lines.find((l) => /^✓ healthy/.test(l) || /^✗ \d+ problem/.test(l)) || null;
 }
 
+/** The actionable ISSUE lines from `zz doctor` — the `⚠ warnings` + per-problem
+ *  `✗ …` lines, glyph stripped. So "1 warning" carries WHAT the warning is, not just
+ *  a count. Excludes the `·` info lines and the `✗ N problem(s)` verdict (digit guard). */
+export function doctorIssues(doctor?: string | null): string[] {
+  if (!doctor) return [];
+  return doctor.split("\n")
+    .map((l) => l.trim())
+    .filter((l) => /^[⚠✗]/.test(l) && !/^✗ \d+ problem/.test(l))
+    .map((l) => l.replace(/^[⚠✗]\s*/, ""));
+}
+
 /** Pending-review count parsed from the digest brief (0 when it shows none, null when
  *  there's no digest at all). */
 export function pendingFromDigest(digest?: string | null): number | null {
@@ -59,10 +70,13 @@ export function kickoffMessage(opts: { projectName?: string; readiness?: Readine
     `Session start — a new zuzuu-managed session${where}. You're running inside zuzuu: it observes this session and proposes brain changes I review (every change is human-gated).`;
 
   const verdict = doctorVerdict(opts.readiness?.doctor);
+  const issues = doctorIssues(opts.readiness?.doctor);
   const pending = pendingFromDigest(opts.readiness?.digest);
-  if (verdict || pending !== null) {
+  if (verdict || issues.length || pending !== null) {
     const bits: string[] = [];
-    if (verdict) bits.push(verdict);
+    // verdict carries its own issue detail, so "1 warning" says WHAT it is.
+    const health = verdict ?? (issues.length ? "issues" : "");
+    if (health) bits.push(issues.length ? `${health}: ${issues.join("; ")}` : health);
     if (pending !== null) bits.push(`${pending} pending review`);
     return `${intro} Readiness (already checked): ${bits.join(" · ")}. Confirm you're oriented and flag anything that looks off, then wait for my first task.`;
   }

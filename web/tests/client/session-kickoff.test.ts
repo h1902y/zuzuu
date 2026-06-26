@@ -3,6 +3,7 @@ import { describe, it, expect } from "vitest";
 import {
   kickoffMessage,
   doctorVerdict,
+  doctorIssues,
   pendingFromDigest,
   shouldFireKickoff,
   requestKickoff,
@@ -24,6 +25,14 @@ describe("doctorVerdict", () => {
   it("extracts the ✗ verdict (the digit guard skips per-problem ✗ lines)", () =>
     expect(doctorVerdict("  ✗ a broken thing\n\n✗ 2 problem(s)")).toBe("✗ 2 problem(s)"));
   it("null when there's no doctor text", () => expect(doctorVerdict(null)).toBeNull());
+});
+
+describe("doctorIssues", () => {
+  it("returns the ⚠/✗ detail lines (glyph stripped), not info or the verdict", () =>
+    expect(doctorIssues(DOCTOR)).toEqual(["leftover session branch zz/session-7ce8459f"]));
+  it("keeps per-problem ✗ lines but drops the ✗ N problem(s) verdict", () =>
+    expect(doctorIssues("  ✗ db is unreachable\n\n✗ 1 problem(s)")).toEqual(["db is unreachable"]));
+  it("empty when there are no issues", () => expect(doctorIssues("✓ healthy")).toEqual([]));
 });
 
 describe("pendingFromDigest", () => {
