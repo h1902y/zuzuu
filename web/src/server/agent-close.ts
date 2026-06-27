@@ -22,6 +22,7 @@ import type { SessionCloseResult, SessionMergeResult } from "#shared/index.js";
 import type { Session } from "./session.js";
 import { runZuzuuMut, type ZuzuuMutResult } from "./zuzuu-cli.js";
 import { readProjectHealth } from "./project-health.js";
+import { createMainTreeLock, type MainTreeLock } from "./main-tree-lock.js";
 
 /** Map a finalize/merge CLI result onto the SessionCloseResult envelope. `merged`
  *  selects the arm: the held variant (default — END holds) vs the merge variant (the
@@ -57,6 +58,11 @@ export interface AgentCloserDeps {
    *  `autoMerge:true`). Default: read it off disk at the root. The escape hatch that
    *  restores the OLD merge-on-END behavior; default false = the gated hold. */
   autoMerge?: (root: string) => boolean;
+  /** the shared main-tree serializer (KTD6). The daemon passes ONE instance to both
+   *  this closer and the explicit held-merge route so the two main-tree writers can't
+   *  race. Default: a private lock (server tests that don't share one still serialize
+   *  their own auto-merges). */
+  lock?: MainTreeLock;
 }
 
 /** Default auto-merge read: `<root>/.zuzuu/agent.json` `"autoMerge": true`. Mirrors
@@ -90,8 +96,9 @@ export function createAgentCloser(getRoot: () => string, deps: AgentCloserDeps =
   const autoMerge = deps.autoMerge ?? readAutoMerge;
   // serializes the auto-merge worktree squash-merges so two agents exiting at once
   // can't race on the shared main working tree (KTD6). The default hold path doesn't
-  // touch the main tree, so it never enters this chain.
-  let worktreeCloses: Promise<unknown> = Promise.resolve();
+  // touch the main tree, so it never enters this chain. The daemon shares ONE lock
+  // with the explicit held-merge route so a manual merge can't race the auto-merge.
+  const lock = deps.lock ?? createMainTreeLock();
 
   /** After a successful close: stage this session's proposals (deterministic) on the
    *  MAIN tree, then count them. observe mines the just-finished session's transcript
@@ -116,11 +123,10 @@ export function createAgentCloser(getRoot: () => string, deps: AgentCloserDeps =
       // exit. `zz session worktree close <id>` checks out the base on the MAIN tree,
       // squash-merges the branch, and removes the worktree — it touches the shared
       // main tree, so it is SERIALIZED (KTD6) so two agents exiting at once can't race.
-      const run = worktreeCloses.then(() =>
+      const closed = await lock.run(() =>
         runZuzuuMut(root, ["session", "worktree", "close", session.id], { binary }),
       );
-      worktreeCloses = run.catch(() => undefined); // never let one failure poison the chain
-      return observeThenCount(await run, true);
+      return observeThenCount(closed, true);
     }
     // U3 DEFAULT: FINALIZE (hold), never merge. `zz session worktree finalize <id>`
     // folds the worktree's uncommitted work and leaves the worktree + branch held. It

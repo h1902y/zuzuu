@@ -9,6 +9,8 @@ import type {
   CreateSessionRequest,
   DirListing,
   FileListResponse,
+  HeldActionResult,
+  HeldSessionList,
   ListResponse,
   ModuleDetail,
   ModuleGenerationList,
@@ -87,6 +89,11 @@ export const api = {
   // settles (agents) — the close result carries the merge + post-close pending count.
   closeSession: (id: string) =>
     request<{ ok: true; closeResult?: SessionCloseResult }>(`/api/sessions/${id}`, { method: "DELETE" }),
+  // the CODE merge gate (U6): land or drop a held session by id. Merge squash-merges
+  // the held branch onto main (serialized server-side); discard drops the branch +
+  // checkpoints (the daemon shells the `--yes`-guarded verb).
+  mergeHeld: (id: string) => request<HeldActionResult>(`/api/sessions/held/${id}/merge`, { method: "POST" }),
+  discardHeld: (id: string) => request<HeldActionResult>(`/api/sessions/held/${id}/discard`, { method: "POST" }),
 
   // filesystem
   listDir: (path: string) => request<ListResponse>(`/api/fs/list?path=${encodeURIComponent(path)}`),
@@ -112,6 +119,9 @@ export const api = {
   zuzuu: {
     overview: () => request<ModuleOverviewResponse>("/api/zuzuu/overview"),
     projectState: () => request<ProjectState>("/api/zuzuu/project-state"),
+    // the held-session CODE queue — sessions awaiting a merge decision (the close
+    // card's code section reads it). CLI absent / non-git → { held: [] }.
+    held: () => request<HeldSessionList>("/api/zuzuu/held"),
     // the session-start readiness brief — `zz doctor` + `zz digest` as raw text
     // (either null when the CLI is absent), embedded in the agent's first turn.
     readiness: () => request<{ doctor: string | null; digest: string | null }>("/api/zuzuu/readiness"),

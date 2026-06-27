@@ -37,6 +37,23 @@ describe("api client", () => {
     expect(JSON.parse(init!.body as string)).toEqual({ module: "actions", reason: "noisy" });
   });
 
+  it("held/merge/discard hit the right routes (U6 code gate)", async () => {
+    const fetchMock = vi.fn(async () => ok({ held: [] }));
+    vi.stubGlobal("fetch", fetchMock);
+    await api.zuzuu.held();
+    expect((fetchMock.mock.calls[0] as unknown as [string])[0]).toBe("/api/zuzuu/held");
+
+    await api.mergeHeld("abc123");
+    let [url, init] = fetchMock.mock.calls[1] as unknown as [string, RequestInit];
+    expect(url).toBe("/api/sessions/held/abc123/merge");
+    expect(init?.method).toBe("POST");
+
+    await api.discardHeld("abc123");
+    [url, init] = fetchMock.mock.calls[2] as unknown as [string, RequestInit];
+    expect(url).toBe("/api/sessions/held/abc123/discard");
+    expect(init?.method).toBe("POST");
+  });
+
   it("maps 401 to a clear ApiError", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 401, json: async () => ({}) }) as Response));
     await expect(api.workspace()).rejects.toMatchObject({ status: 401 } satisfies Partial<ApiError>);

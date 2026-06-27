@@ -204,6 +204,35 @@ export interface SessionMergeResult {
   restoredTo?: string | null;
 }
 
+// ── The held-session merge gate (the CODE queue, mirroring the brain queue) ───
+
+/** One session awaiting a merge decision — GET /api/zuzuu/held (shells `zz session
+ *  status --json` → its `held[]`). The code-gate queue: each held branch with its
+ *  pure-read review (U4 — diff summary + mergeability). `id` is the session id the
+ *  merge/discard actions take, derived from the branch namespace: `zz/session-<id>`
+ *  (worktree-backed — the workbench's agents) vs `zz/held-<id>` (in-place fallback). */
+export interface HeldSession {
+  id: string;
+  branch: string;
+  /** worktree = a `zz/session-<id>` worktree-backed hold (merge via `worktree close`);
+   *  inplace = a `zz/held-<id>` in-place hold (merge via `session merge`). */
+  kind: "worktree" | "inplace";
+  checkpoints: number;
+  files: number;
+  added: number;
+  removed: number;
+  mergeability: "ready" | "conflict" | "unknown";
+}
+
+export interface HeldSessionList {
+  held: HeldSession[];
+}
+
+/** The result of a held-session merge/discard action (POST /api/sessions/held/:id/*).
+ *  The daemon shells the `zz` verb and passes its JSON through; shape varies by verb
+ *  (a merge carries `mergedAs`/`commits`, a discard `branch`), so it's read tolerantly. */
+export type HeldActionResult = { ok?: boolean } & Record<string, unknown>;
+
 /** Stored on a daemon session after the agent-exit close hook ran; read via
  *  GET /api/sessions/:id. `pending` is the count of staged proposals AFTER the
  *  close-time `zz observe` ran (U5/KTD5) — the signal the "what this session

@@ -9,11 +9,15 @@
 
 import crypto from "node:crypto";
 import { Hono } from "hono";
+import type { Context } from "hono";
 import type { CreateSessionRequest, SessionCloseResult, SessionDetail } from "#shared/index.js";
 import type { Session } from "./session.js";
 import { SessionManager } from "./session-manager.js";
-import { runZuzuuMut } from "./zuzuu-cli.js";
+import { runZuzuuMut, type ZuzuuMutResult } from "./zuzuu-cli.js";
 import { safeJoin } from "./safe-path.js";
+import { SAFE_ID } from "./zuzuu-peek.js";
+import { readHeld, mergeArgs, discardArgs } from "./held-sessions.js";
+import type { MainTreeLock } from "./main-tree-lock.js";
 
 export interface SessionsApiDeps {
   /** live getter — switchTo() replaces the manager, so read it per request */
@@ -26,6 +30,9 @@ export interface SessionsApiDeps {
   zuzuuBinary?: string;
   /** agent PTY exited → squash-merge its branch back (serialized on the server) */
   closeAgentSession: (s: Session) => Promise<SessionCloseResult>;
+  /** the shared main-tree serializer (KTD6) — the held-merge action acquires it so a
+   *  manual merge can't race the agent-exit auto-merge (or another manual merge) on `main`. */
+  mainTreeLock: MainTreeLock;
 }
 
 export function createSessionsApi(deps: SessionsApiDeps): Hono {
@@ -88,6 +95,37 @@ export function createSessionsApi(deps: SessionsApiDeps): Hono {
     });
     return c.json(session.info(), 201);
   });
+
+  // ── The CODE merge gate: land or drop a held session (U6/R2/R6) ──────────────
+  // The close card's Merge / Discard buttons shell the `zz` verb for the held branch.
+  // The id is SAFE_ID-validated AND checked for membership in the LIVE held list (we
+  // never trust the wire id past validation — the entry's recorded kind picks the
+  // verb). Merge touches the shared main tree → it acquires the main-tree lock (KTD6);
+  // discard drops a branch without merging, so it doesn't need it.
+  const mapMut = (c: Context, r: ZuzuuMutResult) => {
+    if (!r.ok) {
+      return r.code === "absent"
+        ? c.json({ error: "zuzuu CLI required" }, 503)
+        : c.json({ error: "zuzuu command failed", stderr: r.stderr ?? "", data: r.data ?? null }, 502);
+    }
+    return c.json(r.data as Record<string, unknown>);
+  };
+
+  const heldAction = async (c: Context, mode: "merge" | "discard") => {
+    const id = c.req.param("id");
+    if (!id || !SAFE_ID.test(id)) return c.json({ error: "bad id" }, 400);
+    const root = deps.root();
+    const entry = (await readHeld(root, deps.zuzuuBinary)).find((h) => h.id === id);
+    if (!entry) return c.json({ error: "no such held session" }, 404);
+    const args = mode === "merge" ? mergeArgs(entry) : discardArgs(entry);
+    const run = () => runZuzuuMut(root, args, { binary: deps.zuzuuBinary });
+    // serialize the merge on the main tree; discard runs unserialized (no main-tree write)
+    const r = mode === "merge" ? await deps.mainTreeLock.run(run) : await run();
+    return mapMut(c, r);
+  };
+
+  app.post("/held/:id/merge", (c) => heldAction(c, "merge"));
+  app.post("/held/:id/discard", (c) => heldAction(c, "discard"));
 
   // Single-session read: the SPA polls this once after the Exit frame to pick up
   // closeResult (the agent-exit auto-merge outcome). Awaiting whenClosed() means

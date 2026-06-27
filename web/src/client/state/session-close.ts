@@ -5,13 +5,9 @@
 // the session hasn't fired before — opens the card. The store holds only the active
 // card + the report queue; the detection/dedup logic is the pure session-close-card.ts.
 import { create } from "zustand";
-import type { StagedSummary } from "#shared/index.js";
+import { cardWithoutCode, type CloseCardData } from "../shell/review/session-close-card.js";
 
-export interface CloseCardData {
-  sessionId: string;
-  pending: number;
-  staged: StagedSummary[];
-}
+export type { CloseCardData, CloseCardCode } from "../shell/review/session-close-card.js";
 
 interface SessionCloseState {
   /** agent session ids whose PTY exited and await close-detection (FIFO). */
@@ -24,6 +20,9 @@ interface SessionCloseState {
   consume: (sessionId: string) => void;
   /** open the card for an ended session. */
   show: (data: CloseCardData) => void;
+  /** the CODE decision resolved (Merge / Discard / Keep): collapse the code section to
+   *  a brain-only card, or clear it when no brain proposals remain. */
+  resolveCode: () => void;
   /** dismiss the card (does NOT re-fire — the dedup mark persists). */
   dismiss: () => void;
 }
@@ -35,6 +34,7 @@ export const useSessionClose = create<SessionCloseState>((set) => ({
     set((s) => (s.reported.includes(sessionId) ? s : { reported: [...s.reported, sessionId] })),
   consume: (sessionId) => set((s) => ({ reported: s.reported.filter((id) => id !== sessionId) })),
   show: (data) => set({ card: data }),
+  resolveCode: () => set((s) => ({ card: s.card ? cardWithoutCode(s.card) : null })),
   dismiss: () => set({ card: null }),
 }));
 

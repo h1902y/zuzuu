@@ -348,6 +348,85 @@ describe("agent exit → session-git finalize (hold)", () => {
   });
 });
 
+describe("U6: the held-session merge gate (POST /api/sessions/held/:id/*)", () => {
+  /** A `zz` stub: `session status` reports ONE held worktree session; `worktree
+   *  close`/`worktree discard` are logged + answered ok. The held id is fixed so the
+   *  route's membership check (readHeld → find) passes for it and 404s for others. */
+  function heldStub(r: string, id = "abc123") {
+    const marker = path.join(r, "held-calls.log");
+    const stub = path.join(r, "zuzuu-held-stub.sh");
+    writeFileSync(
+      stub,
+      `#!/bin/sh
+case "$*" in
+  *"session status"*)
+    echo '{"enabled":true,"main":"main","active":null,"onSessionBranch":false,"held":[{"branch":"zz/session-${id}","checkpoints":2,"files":3,"added":9,"removed":2,"mergeability":"ready"}]}'
+    ;;
+  *"worktree close"*) echo "close $@" >> '${marker}'; echo '{"ok":true,"mergedAs":"deadbee","commits":2}' ;;
+  *"worktree discard"*) echo "discard $@" >> '${marker}'; echo '{"ok":true,"branch":"zz/session-${id}"}' ;;
+  *) echo '{}' ;;
+esac
+`,
+    );
+    chmodSync(stub, 0o755);
+    return { stub, marker, id };
+  }
+
+  const postHeld = (server: WebcodeServer, headers: Record<string, string>, p: string) =>
+    server.app.request(`/api/sessions/held/${p}`, { method: "POST", headers });
+
+  it("merge: a held id → 200, shells `session worktree close <id>` (the land verb)", async () => {
+    const { stub, marker, id } = heldStub(root);
+    const server = makeServer({ zuzuuBinary: stub });
+    const headers = await authedHeaders(server);
+    const res = await postHeld(server, headers, `${id}/merge`);
+    expect(res.status).toBe(200);
+    expect((await res.json()).mergedAs).toBe("deadbee");
+    expect(readFileSync(marker, "utf8")).toContain(`close session worktree close ${id}`);
+    server.stop();
+  });
+
+  it("discard: a held id → 200, shells `session worktree discard <id> --yes` (the --yes guard)", async () => {
+    const { stub, marker, id } = heldStub(root);
+    const server = makeServer({ zuzuuBinary: stub });
+    const headers = await authedHeaders(server);
+    const res = await postHeld(server, headers, `${id}/discard`);
+    expect(res.status).toBe(200);
+    expect(readFileSync(marker, "utf8")).toContain(`discard session worktree discard ${id} --yes`);
+    server.stop();
+  });
+
+  it("an unsafe id (traversal / shell-meta) → 400, never reaching the held read or a spawn", async () => {
+    const { stub, marker } = heldStub(root);
+    const server = makeServer({ zuzuuBinary: stub });
+    const headers = await authedHeaders(server);
+    for (const bad of ["..%2fx", "a;rm", "$(rm)"]) {
+      expect((await postHeld(server, headers, `${bad}/merge`)).status).toBe(400);
+    }
+    await sleep(100);
+    expect(existsSync(marker)).toBe(false); // no merge/discard verb ever spawned
+    server.stop();
+  });
+
+  it("a SAFE id that is NOT in the held list → 404 (membership-validated, no merge spawn)", async () => {
+    const { stub, marker } = heldStub(root, "abc123");
+    const server = makeServer({ zuzuuBinary: stub });
+    const headers = await authedHeaders(server);
+    const res = await postHeld(server, headers, "notheld9/merge");
+    expect(res.status).toBe(404);
+    expect(existsSync(marker)).toBe(false); // the merge verb was never reached
+    server.stop();
+  });
+
+  it("absent CLI → 503 (the held read finds nothing → 404, or the verb 503s); never a silent ok", async () => {
+    const server = makeServer({ zuzuuBinary: "definitely-not-a-real-binary-zzz" });
+    const headers = await authedHeaders(server);
+    // readHeld degrades to [] when the CLI is absent → the id isn't a member → 404.
+    expect((await postHeld(server, headers, "abc123/merge")).status).toBe(404);
+    server.stop();
+  });
+});
+
 describe("Wave B: worktree-backed agent sessions", () => {
   it("an agent at the workspace root spawns in its own worktree dir", async () => {
     const { stub, wt } = worktreeStub(root);

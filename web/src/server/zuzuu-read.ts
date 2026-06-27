@@ -8,6 +8,7 @@ import path from "node:path";
 import { Hono } from "hono";
 import { resolveSafe } from "./safe-path.js";
 import { runZuzuu, runZuzuuText } from "./zuzuu-cli.js";
+import { readHeld } from "./held-sessions.js";
 import {
   SAFE_SLUG,
   SAFE_ID,
@@ -118,6 +119,15 @@ export function createZuzuuReadApi(getRoot: () => string, binary?: string): Hono
       runZuzuuText(root, ["digest"], { binary }),
     ]);
     return c.json({ doctor, digest });
+  });
+
+  // The CODE gate queue: the workspace's held sessions awaiting a merge decision
+  // (shells `zz session status --json` → its `held[]`, id-enriched). The close card's
+  // code section reads this to surface the diff summary + mergeability beside the
+  // brain proposals; the merge/discard actions live on /api/sessions (they mutate).
+  // CLI absent / non-git → { held: [] } (degrades to "nothing held," never errors).
+  app.get("/held", async (c) => {
+    return c.json({ held: await readHeld(getRoot(), binary) });
   });
 
   return app;

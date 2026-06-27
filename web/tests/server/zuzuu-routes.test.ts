@@ -106,6 +106,25 @@ describe("createZuzuuApi file routes", () => {
     const app = createZuzuuApi(() => root, { binary: "x" });
     expect((await app.request("/module/..%2f..%2fetc")).status).toBe(404);
   });
+
+  it("GET /held shells `zz session status --json` → the id-enriched held[] (U6)", async () => {
+    fixtureHome(root);
+    const status = JSON.stringify({
+      enabled: true, main: "main", active: null, onSessionBranch: false,
+      held: [{ branch: "zz/session-abc", checkpoints: 2, files: 3, added: 9, removed: 2, mergeability: "ready" }],
+    });
+    const app = createZuzuuApi(() => root, { binary: jsonStub(root, status) });
+    const body = await (await app.request("/held")).json();
+    expect(body.held).toEqual([
+      { id: "abc", branch: "zz/session-abc", kind: "worktree", checkpoints: 2, files: 3, added: 9, removed: 2, mergeability: "ready" },
+    ]);
+  });
+
+  it("GET /held degrades to { held: [] } when the CLI is absent", async () => {
+    fixtureHome(root);
+    const app = createZuzuuApi(() => root, { binary: "definitely-not-a-real-binary-zzz" });
+    expect(await (await app.request("/held")).json()).toEqual({ held: [] });
+  });
 });
 
 describe("createZuzuuApi overview", () => {
