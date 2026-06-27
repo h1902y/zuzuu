@@ -11,13 +11,17 @@ import { spawnSync } from 'node:child_process';
 import { rmSync } from 'node:fs';
 import { join, isAbsolute, resolve } from 'node:path';
 
-/** One git call — argv array only (no shell), never throws. */
+/** One git call — argv array only (no shell), never throws.
+ *  `code` is the raw exit status (null when git couldn't be spawned). Most
+ *  callers only need `ok`; the merge-tree mergeability probe (session-git.mjs)
+ *  needs the exact code to tell a clean merge (0) from a conflict (1) from a
+ *  fatal/usage error (128/129) — it must NEVER report a probe error as a conflict. */
 export function git(args, cwd, input) {
   try {
     const r = spawnSync('git', args, { cwd, encoding: 'utf8', input });
-    return { ok: r.status === 0 && !r.error, out: (r.stdout ?? '').trim(), err: (r.stderr ?? '').trim() };
+    return { ok: r.status === 0 && !r.error, code: r.status, out: (r.stdout ?? '').trim(), err: (r.stderr ?? '').trim() };
   } catch (e) {
-    return { ok: false, out: '', err: String(e) };
+    return { ok: false, code: null, out: '', err: String(e) };
   }
 }
 

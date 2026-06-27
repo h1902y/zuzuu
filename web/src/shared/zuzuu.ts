@@ -219,5 +219,18 @@ export interface SessionMergeResult {
 export type SessionCloseResult =
   | { cliAbsent: true }
   | { ok: true; merge: SessionMergeResult; pending?: number }
-  | { ok: true; held: true; branch: string; pending?: number }
+  | {
+      ok: true;
+      held: true;
+      branch: string;
+      pending?: number;
+      /** U4: the pure-read review of the held branch (`zz session review`) — the
+       *  data the merge card needs. Optional here: U4 ships the CLI read + the
+       *  type; U6 wires the daemon to populate it on the close hook. */
+      diffSummary?: { files: number; added: number; removed: number; checkpoints: number };
+      /** mergeability of the held branch vs current `main`, computed at read time
+       *  via the pure-read `git merge-tree --write-tree` probe. 'unknown' = git
+       *  < 2.38 or an un-probeable state. */
+      mergeability?: "ready" | "conflict" | "unknown";
+    }
   | { ok: false; stderr?: string; refusal?: Record<string, unknown> };

@@ -327,6 +327,93 @@ export function sessionStatus(cwd) {
 
 export const defaultTitle = (branch) => `${branch} · ${new Date().toISOString().slice(0, 10)}`;
 
+/** True when this git supports `merge-tree --write-tree` (git ≥ 2.38) — the only
+ *  PURE-READ mergeability probe (writes loose objects, never the index/worktree).
+ *  Below 2.38 there is NO non-mutating probe, so mergeability degrades to
+ *  'unknown' — we NEVER fall back to a `merge --squash` probe (it stages/conflicts
+ *  in the real index, and a mid-probe crash would corrupt the user's tree). */
+function supportsMergeTreeWriteTree(cwd) {
+  const m = git(['--version'], cwd).out.match(/(\d+)\.(\d+)/);
+  if (!m) return false;
+  const major = Number(m[1]);
+  const minor = Number(m[2]);
+  return major > 2 || (major === 2 && minor >= 38);
+}
+
+/**
+ * Would the held branch squash-merge cleanly onto current `main`?
+ *   'ready'    → clean (exit 0)
+ *   'conflict' → merge conflict (exit 1) — mirrors what `git merge --squash`
+ *                (closeSession's actual merge) would hit
+ *   'unknown'  → can't probe (git < 2.38, or a probe error: bad refs, fatal)
+ *
+ * The probe is `git merge-tree --write-tree --quiet <main> <branch>` — NO
+ * --merge-base (git auto-computes the merge-base, exactly as a real merge does;
+ * the recorded zz-base is a branch NAME and would resolve to main's *current*
+ * tip once main advances, giving the wrong merge-base). It writes only loose
+ * objects; the index + working tree are byte-identical before/after, including
+ * on conflict (characterization-pinned).
+ */
+function probeMergeability(cwd, main, branch) {
+  if (!main || main === branch) return 'unknown';
+  if (!supportsMergeTreeWriteTree(cwd)) return 'unknown';
+  const r = git(['merge-tree', '--write-tree', '--quiet', main, branch], cwd);
+  if (r.code === 0) return 'ready';
+  if (r.code === 1) return 'conflict';
+  return 'unknown'; // 128/129/… (fatal/usage/unrelated histories) → never a false conflict
+}
+
+/**
+ * REVIEW (pure read — NEVER mutates the repo): the data the merge gate needs to
+ * decide on a held branch (`zz/held-*`) or a worktree-held session branch
+ * (`zz/session-*`). Returns the diff summary vs the branch's base, the checkpoint
+ * count, the default squash title, and mergeability vs CURRENT `main` (computed
+ * at read time, never cached).
+ *
+ *   { ok:true, branch, base, title, checkpoints, files, added, removed, mergeability }
+ *   { ok:false, reason }   — fail-soft (preconditions / missing branch / no base)
+ *
+ * Pure-read guarantees: the diff (`--numstat`, three-dot) and the merge-tree
+ * probe touch neither the index nor the working tree. No checkout, no merge, no
+ * commit — closeSession owns every mutation.
+ */
+export function sessionReview(cwd, branch) {
+  try {
+    const blocked = unsafeReason(cwd);
+    if (blocked) return { ok: false, reason: blocked };
+    if (!branch || !branchExists(cwd, branch)) return { ok: false, reason: 'no-such-branch' };
+
+    // base: the recorded divergence branch, else the resolved main.
+    const baseCfg = git(['config', `branch.${branch}.zz-base`], cwd).out;
+    const base = baseCfg && branchExists(cwd, baseCfg) ? baseCfg : mainBranch(cwd);
+    if (!base) return { ok: false, reason: 'no-base' };
+
+    // diff summary: the branch's own changes vs its base (three-dot = merge-base
+    // diff, so it's right even if main advanced). Pure read.
+    let files = 0;
+    let added = 0;
+    let removed = 0;
+    const numstat = git(['diff', '--numstat', `${base}...${branch}`], cwd);
+    if (numstat.ok && numstat.out) {
+      for (const line of numstat.out.split('\n').filter(Boolean)) {
+        const cols = line.split('\t');
+        if (cols.length < 3) continue;
+        files += 1;
+        if (cols[0] !== '-') added += Number.parseInt(cols[0], 10) || 0; // '-' = binary
+        if (cols[1] !== '-') removed += Number.parseInt(cols[1], 10) || 0;
+      }
+    }
+
+    const checkpoints = countCheckpoints(cwd, branch);
+    const title = defaultTitle(branch);
+    const mergeability = probeMergeability(cwd, mainBranch(cwd), branch);
+
+    return { ok: true, branch, base, title, checkpoints, files, added, removed, mergeability };
+  } catch (e) {
+    return { ok: false, reason: String(e) };
+  }
+}
+
 /**
  * END: squash-merge the session branch into main as ONE commit
  * `session: <title>`, then delete the branch. Every ok:true return carries
