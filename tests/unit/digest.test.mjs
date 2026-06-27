@@ -111,6 +111,20 @@ test('digest: held sessions add an "awaiting merge" line, mirroring the proposal
   });
 });
 
+test('digest: the awaiting-merge line carries the U7 escape-hatch hint (END holds; autoMerge restores auto-land)', () => {
+  withGitHome((home, root) => {
+    project(home, { title: 'demo' });
+    note(home, 'knowledge', 'a', { type: 'knowledge', title: 'A' });
+    // no held → no hint (the hint only stands beside a real awaiting-merge line)
+    assert.doesNotMatch(digestText(root), /autoMerge/);
+    sh(root, 'git', 'branch', 'zz/held-aaaa1111');
+    const out = digestText(root);
+    assert.match(out, /1 session\(s\) awaiting merge: zz session merge/);
+    assert.match(out, /END now holds for review/);
+    assert.match(out, /"autoMerge": true in \.zuzuu\/agent\.json to restore auto-land/);
+  });
+});
+
 test('digest: goals + instructions are deterministic across calls', () => {
   withHome((home, root) => {
     project(home, { title: 'demo', steering: { goals: 'g' } });

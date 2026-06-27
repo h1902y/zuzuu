@@ -16,7 +16,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -79,6 +79,34 @@ test('END FINALIZES (holds) the in-place session — branch held, main HEAD unch
       ['zz: checkpoint 1'],
       'the held branch carries the folded final checkpoint',
     );
+  });
+});
+
+test('U7 escape hatch: agent.json autoMerge:true → END auto-merges to main (the OLD behavior), branch gone', () => {
+  withRepo((cwd) => {
+    // opt INTO auto-land — the migration escape hatch (mirrors sessionGit:false opt-out)
+    mkdirSync(join(cwd, '.zuzuu'), { recursive: true });
+    writeFileSync(join(cwd, '.zuzuu', 'agent.json'), JSON.stringify({ autoMerge: true }));
+
+    const a = openSession(cwd, 'eeee-5555');
+    assert.equal(a.ok, true);
+    assert.equal(a.branch, 'zz/session-eeee5555');
+    const mainHead = git(['rev-parse', 'main'], cwd);
+
+    // dirty, uncommitted work at END time
+    writeFileSync(join(cwd, 'a.txt'), 'work at end\n');
+
+    handleHook({ event: 'SessionEnd', host: 'claude-code', cwd, payload: { session_id: 'eeee-5555' } });
+
+    // main ADVANCED with a `session:` squash commit — the OLD auto-merge behavior.
+    assert.notEqual(git(['rev-parse', 'main'], cwd), mainHead, 'main HEAD advanced — autoMerge auto-lands on END');
+    assert.equal(logSubjects(cwd, 'main').length, 2, 'main has the init + the session squash');
+    assert.match(logSubjects(cwd, 'main')[0], /^session: /, 'a session: squash landed on main');
+
+    // the session branch is GONE (merged + deleted) and NOTHING is held.
+    assert.deepEqual(listSessionBranches(cwd), [], 'session branch merged away');
+    assert.deepEqual(listHeldBranches(cwd), [], 'nothing held — autoMerge landed it instead');
+    assert.equal(git(['rev-parse', '--abbrev-ref', 'HEAD'], cwd), 'main', 'back on main');
   });
 });
 

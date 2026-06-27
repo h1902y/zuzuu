@@ -23,7 +23,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -33,6 +33,7 @@ import {
   finalizeSession,
   listSessionBranches,
   listHeldBranches,
+  autoMergeEnabled,
 } from '../../src/sessions/session-git.mjs';
 
 function git(args, cwd, input) {
@@ -200,6 +201,31 @@ test('finalizeSession fail-soft no-op with an operation in progress (preserves t
     // the active session branch is left intact (not renamed mid-operation)
     assert.deepEqual(listSessionBranches(cwd), ['zz/session-dddd4444']);
     assert.deepEqual(listHeldBranches(cwd), []);
+  });
+});
+
+// ── autoMergeEnabled: the U7 opt-in read (mirrors the sessionGit:false opt-out) ─
+
+test('autoMergeEnabled defaults to false (gated hold) when there is no agent.json', () => {
+  tmpRepo((cwd) => {
+    assert.equal(autoMergeEnabled(cwd), false, 'absent manifest → gated (default hold)');
+  });
+});
+
+test('autoMergeEnabled is true only when agent.json carries autoMerge:true', () => {
+  tmpRepo((cwd) => {
+    const writeAgent = (obj) => {
+      mkdirSync(join(cwd, '.zuzuu'), { recursive: true });
+      writeFileSync(join(cwd, '.zuzuu', 'agent.json'), JSON.stringify(obj));
+    };
+    writeAgent({ autoMerge: true });
+    assert.equal(autoMergeEnabled(cwd), true, 'explicit opt-in → auto-land');
+    writeAgent({ autoMerge: false });
+    assert.equal(autoMergeEnabled(cwd), false, 'autoMerge:false → gated');
+    writeAgent({ sessionGit: false });
+    assert.equal(autoMergeEnabled(cwd), false, 'a different key → gated');
+    writeFileSync(join(cwd, '.zuzuu', 'agent.json'), 'not json{');
+    assert.equal(autoMergeEnabled(cwd), false, 'unreadable manifest never enables auto-land');
   });
 });
 

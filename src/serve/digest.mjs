@@ -66,7 +66,12 @@ export function digestText(cwd = process.cwd()) {
     // the code gate, mirroring the brain gate above: held sessions awaiting merge
     // (in-place + worktree-held; cwd is the git repo). Absent when none are held.
     const held = heldSessionBranches(cwd).length;
-    if (held) out += `\n${held} session(s) awaiting merge: zz session merge`;
+    if (held) {
+      out += `\n${held} session(s) awaiting merge: zz session merge`;
+      // why the hold (END no longer auto-lands) + the escape hatch, so a user who
+      // didn't expect it sees both. A standing hint, not a one-time notice.
+      out += `\n  (END now holds for review — set "autoMerge": true in .zuzuu/agent.json to restore auto-land)`;
+    }
     out += steeringSection(zz); // the steering spine — goals + standing guidance, capped (Plane 3)
     return out;
   } catch { return ''; }

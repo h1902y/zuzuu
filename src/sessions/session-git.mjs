@@ -77,6 +77,25 @@ function disabledReason(cwd) {
   return null;
 }
 
+/**
+ * Project opt-IN: `.zuzuu/agent.json` carrying `"autoMerge": true`. The migration
+ * escape hatch — it restores the OLD auto-merge-on-END behavior for users who
+ * relied on auto-land. Default false = gated (END holds for review). Mirrors
+ * optedOut's read EXACTLY (same file, same parse, fail-soft): an unreadable
+ * manifest never enables auto-land — the safe default is the gated hold.
+ */
+export function autoMergeEnabled(cwd) {
+  try {
+    const root = git(['rev-parse', '--show-toplevel'], cwd);
+    if (!root.ok || !root.out) return false;
+    const f = join(root.out, '.zuzuu', 'agent.json');
+    if (!existsSync(f)) return false;
+    return JSON.parse(readFileSync(f, 'utf8')).autoMerge === true;
+  } catch {
+    return false; // an unreadable manifest never *enables* auto-land
+  }
+}
+
 /** True when session-git may act here: a usable git repo, not opted out. */
 export function sessionGitEnabled(cwd) {
   try {

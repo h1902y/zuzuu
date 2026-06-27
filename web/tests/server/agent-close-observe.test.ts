@@ -37,6 +37,7 @@ function cliStub(r: string, opts: { finalizeFails?: boolean } = {}): { binary: s
 echo "$*" >> '${marker}'
 case "$*" in
   *"worktree finalize"*) ${finalizeBody} ;;
+  *"worktree close"*) echo '{"ok":true,"mergedAs":"abc123","mergedTo":"main","commits":1}' ;;
   *"observe"*) echo '{"ok":true,"proposed":2}' ;;
   *) echo '{}' ;;
 esac
@@ -96,6 +97,45 @@ describe("agent-close finalizes (holds) then observes (U3 + U5/KTD5)", () => {
     const closer = createAgentCloser(() => root, { binary: "definitely-not-a-real-binary-zzz", pendingCount: () => 3 });
     const result = await closer.close(fakeSession());
     expect(result).toEqual({ cliAbsent: true });
+  });
+
+  it("U7 escape hatch: autoMerge:true → shells `worktree close` (the OLD merge), maps to the merge variant", async () => {
+    const { binary, marker } = cliStub(root);
+    const closer = createAgentCloser(() => root, { binary, pendingCount: () => 4, autoMerge: () => true });
+    const result = await closer.close(fakeSession({ usesWorktree: true }));
+
+    // the merge variant (NOT held) — the OLD auto-land behavior restored.
+    expect(result).toEqual({ ok: true, merge: { ok: true, mergedAs: "abc123", mergedTo: "main", commits: 1 }, pending: 4 });
+    const log = calls(marker);
+    expect(log.some((c) => c.includes("worktree close"))).toBe(true);
+    expect(log.some((c) => c.includes("worktree finalize"))).toBe(false); // never holds when opted in
+    // observe still runs after the merge (deterministic staging), before the read
+    const closeIdx = log.findIndex((c) => c.includes("worktree close"));
+    const observeIdx = log.findIndex((c) => /(^|\s)observe(\s|$)/.test(c));
+    expect(observeIdx).toBeGreaterThan(closeIdx);
+  });
+
+  it("U7 default (autoMerge absent) reads off disk → no agent.json → HOLDS (finalize), never closes", async () => {
+    // no agent.json at root → the default reader returns false → the gated hold.
+    const { binary, marker } = cliStub(root);
+    const closer = createAgentCloser(() => root, { binary, pendingCount: () => 1 }); // no autoMerge dep
+    const result = await closer.close(fakeSession({ usesWorktree: true }));
+    expect(result).toMatchObject({ ok: true, held: true });
+    expect(calls(marker).some((c) => c.includes("worktree finalize"))).toBe(true);
+    expect(calls(marker).some((c) => c.includes("worktree close"))).toBe(false);
+  });
+
+  it("U7 default reader honors an on-disk agent.json autoMerge:true → merges", async () => {
+    const { binary, marker } = cliStub(root);
+    writeFileSync(path.join(root, "agent.json-skip"), ""); // noise
+    // write a real .zuzuu/agent.json so the DEFAULT reader (not an injected stub) fires
+    const { mkdirSync } = await import("node:fs");
+    mkdirSync(path.join(root, ".zuzuu"), { recursive: true });
+    writeFileSync(path.join(root, ".zuzuu", "agent.json"), JSON.stringify({ autoMerge: true }));
+    const closer = createAgentCloser(() => root, { binary, pendingCount: () => 0 }); // default autoMerge reader
+    const result = await closer.close(fakeSession({ usesWorktree: true }));
+    expect(result).toMatchObject({ ok: true, merge: { ok: true } });
+    expect(calls(marker).some((c) => c.includes("worktree close"))).toBe(true);
   });
 
   it("an observe FAILURE never poisons the held result (best-effort)", async () => {
