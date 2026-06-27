@@ -12,6 +12,7 @@ import { open } from './api.mjs';
 import { toon } from '../notes/toon.mjs';
 import { readProject } from '../notes/project.mjs';
 import { moduleCounts, search } from '../notes/index.mjs';
+import { heldSessionBranches } from '../sessions/session-git.mjs';
 
 // The steering addition is always-loaded into the session, so it stays LEAN: the
 // Instructions module's standing notes are capped to the top-N (by id, deterministic),
@@ -62,6 +63,10 @@ export function digestText(cwd = process.cwd()) {
     const pending = rows.reduce((a, r) => a + r.pending, 0);
     let out = `# ${name} — session brief\n` + toon('zuzuu', rows, ['module', 'notes', 'pending']);
     if (pending) out += `\n${pending} proposal(s) awaiting review: zz review`;
+    // the code gate, mirroring the brain gate above: held sessions awaiting merge
+    // (in-place + worktree-held; cwd is the git repo). Absent when none are held.
+    const held = heldSessionBranches(cwd).length;
+    if (held) out += `\n${held} session(s) awaiting merge: zz session merge`;
     out += steeringSection(zz); // the steering spine — goals + standing guidance, capped (Plane 3)
     return out;
   } catch { return ''; }

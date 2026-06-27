@@ -10,7 +10,7 @@
 //       with the trace layer (v2 mines transcripts directly).
 // how:  a thin sub-dispatch onto sessions/*; brief output. Zero-dep.
 
-import { sessionStatus, closeSession, continueSession, discardSession } from '../sessions/session-git.mjs';
+import { sessionStatus, closeSession, continueSession, discardSession, heldSessionBranches, sessionReview } from '../sessions/session-git.mjs';
 import { openSessionWorktree, closeSessionWorktree, finalizeSessionWorktree, listSessionWorktrees, discardSessionWorktree } from '../sessions/session-worktree.mjs';
 import { readSessionLabels, setSessionLabel } from '../sessions/labels.mjs';
 import { toon } from '../notes/toon.mjs';
@@ -29,7 +29,24 @@ export function sessionCommand(args, cwd, log) {
   switch (sub) {
     case 'status': {
       const s = sessionStatus(cwd);
+      // EVERY held session (in-place `zz/held-*` + worktree-held `zz/session-*`),
+      // each with its merge-review summary — not just branches[0]. This is the
+      // code-gate queue, mirroring `zz review` for the brain gate.
+      const held = heldSessionBranches(cwd).map((branch) => {
+        const r = sessionReview(cwd, branch);
+        return r.ok
+          ? { branch, checkpoints: r.checkpoints, files: r.files, added: r.added, removed: r.removed, mergeability: r.mergeability }
+          : { branch, checkpoints: 0, files: 0, added: 0, removed: 0, mergeability: 'unknown' };
+      });
+      if (args.json) {
+        log(JSON.stringify({ enabled: s.enabled, main: s.mainBranch ?? null, active: s.active ?? null, onSessionBranch: s.onSessionBranch, held }));
+        return 0;
+      }
       log(toon('session', [{ enabled: s.enabled, main: s.mainBranch ?? '', branch: s.active?.branch ?? '', checkpoints: s.active?.checkpoints ?? 0, onBranch: s.onSessionBranch }], ['enabled', 'main', 'branch', 'checkpoints', 'onBranch']));
+      if (held.length) {
+        log(toon('held', held, ['branch', 'checkpoints', 'files', 'added', 'removed', 'mergeability']));
+        log(`${held.length} session(s) awaiting merge — zz session merge`);
+      }
       const w = leftoverWarning(s);
       if (w) log(w);
       return 0;
@@ -91,6 +108,9 @@ function worktree(args, cwd, log, fail) {
     }
     case 'discard': {
       if (!id) return fail('usage: zz session worktree discard <id>');
+      // symmetric with the in-place `zz session discard` guard: dropping a held
+      // worktree DELETES its branch + checkpoints — never without an explicit --yes.
+      if (!args.yes) return fail('refusing without --yes — DELETES the session worktree and its checkpoints');
       const r = discardSessionWorktree(cwd, id);
       return r.ok ? (log(`✓ discarded worktree ${id}`), 0) : fail(r.reason ?? 'cannot discard');
     }

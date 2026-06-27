@@ -150,6 +150,33 @@ export function listHeldBranches(cwd) {
   }
 }
 
+/** EVERY held session awaiting the merge gate, across BOTH holding models:
+ *    · in-place held — renamed into `zz/held-*` (finalizeSession)
+ *    · worktree-held — a `zz/session-*` branch checked out in a LINKED worktree
+ *      (finalizeSessionWorktree leaves it in place; the worktree isolates it) —
+ *      the inverse of blockingSessionBranches, keyed the same way (name !== cur,
+ *      so this tree's OWN active session is never counted as held).
+ *  This is the union `zz session status` lists and the digest counts — the
+ *  merge-gate queue. Fail-soft → []. */
+export function heldSessionBranches(cwd) {
+  try {
+    const cur = currentBranch(cwd);
+    const r = git(['for-each-ref', '--format=%(refname:short)|%(worktreepath)', `refs/heads/${PREFIX}*`], cwd);
+    const worktreeHeld = [];
+    if (r.ok && r.out) {
+      for (const line of r.out.split('\n').filter(Boolean)) {
+        const i = line.indexOf('|');
+        const name = i >= 0 ? line.slice(0, i) : line;
+        const wt = i >= 0 ? line.slice(i + 1) : '';
+        if (wt && name !== cur) worktreeHeld.push(name); // isolated in a linked worktree → held
+      }
+    }
+    return [...listHeldBranches(cwd), ...worktreeHeld];
+  } catch {
+    return [];
+  }
+}
+
 /**
  * The branch sessions merge back into. Preference order:
  *   1. the branch HEAD was on when the session opened (recorded as

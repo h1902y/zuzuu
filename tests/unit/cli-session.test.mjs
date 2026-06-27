@@ -67,6 +67,27 @@ test('session discard: refuses without --yes', async () => {
   });
 });
 
+test('session worktree discard: refuses without --yes (symmetric with the in-place guard)', async () => {
+  await withGitRepo(async ({ io, out }) => {
+    assert.equal(await run(['session', 'worktree', 'discard', 'someid'], io), 1);
+    assert.match(out.join('\n'), /refusing without --yes/);
+  });
+});
+
+test('session status: lists EVERY held session, not just one', async () => {
+  await withGitRepo(async ({ cwd, io, out }) => {
+    sh(cwd, 'git', 'branch', 'zz/held-aaaa1111');
+    sh(cwd, 'git', 'branch', 'zz/held-bbbb2222');
+    out.length = 0;
+    assert.equal(await run(['session', 'status'], io), 0);
+    const t = out.join('\n');
+    assert.match(t, /held\[2\]/, 'both held sessions enumerated');
+    assert.match(t, /zz\/held-aaaa1111/);
+    assert.match(t, /zz\/held-bbbb2222/);
+    assert.match(t, /2 session\(s\) awaiting merge/);
+  });
+});
+
 test('session worktree list: renders (empty by default)', async () => {
   await withGitRepo(async ({ io, out }) => {
     assert.equal(await run(['session', 'worktree', 'list'], io), 0);
