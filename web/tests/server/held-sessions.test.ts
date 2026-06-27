@@ -11,6 +11,7 @@ import {
   parseHeldBranch,
   shapeHeld,
   readHeld,
+  listHeldRefs,
   mergeArgs,
   discardArgs,
   parseWorktrees,
@@ -54,9 +55,9 @@ describe("mergeArgs / discardArgs — the verb per kind", () => {
     expect(mergeArgs(wt)).toEqual(["session", "worktree", "close", "abc"]);
     expect(discardArgs(wt)).toEqual(["session", "worktree", "discard", "abc", "--yes"]);
   });
-  it("in-place → session merge / session discard --yes", () => {
-    expect(mergeArgs(ip)).toEqual(["session", "merge"]);
-    expect(discardArgs(ip)).toEqual(["session", "discard", "--yes"]);
+  it("in-place → session merge <id> / session discard <id> --yes (id resolves the specific held branch)", () => {
+    expect(mergeArgs(ip)).toEqual(["session", "merge", "def"]);
+    expect(discardArgs(ip)).toEqual(["session", "discard", "def", "--yes"]);
   });
 });
 
@@ -140,6 +141,44 @@ describe("readHeld — shells `zz session status --json` and id-enriches its hel
     const held = await readHeld(root, stub); // root is not a git repo
     expect(held).toHaveLength(1);
     expect(held[0]?.worktreePath).toBeUndefined();
+  });
+});
+
+describe("listHeldRefs — the CHEAP held validation source (id + kind, no review payload)", () => {
+  let root: string;
+  beforeEach(() => { root = realpathSync(mkdtempSync(path.join(tmpdir(), "zw-refs-"))); });
+  afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  const g = (r: string, ...a: string[]) => execFileSync("git", ["-C", r, ...a], { stdio: "pipe" });
+  function repo(r: string) {
+    g(r, "init", "-q", "-b", "main");
+    g(r, "config", "user.email", "t@t");
+    g(r, "config", "user.name", "t");
+    g(r, "config", "commit.gpgsign", "false");
+    writeFileSync(path.join(r, "f.txt"), "hi\n");
+    g(r, "add", "-A");
+    g(r, "commit", "-qm", "init");
+  }
+
+  it("lists zz/held-* (in-place) and only MARKED zz/session-* (worktree); a LIVE agent is excluded", async () => {
+    repo(root);
+    // an in-place hold
+    g(root, "branch", "zz/held-aaaa1111");
+    // a LIVE worktree session (no marker) → NOT held
+    g(root, "worktree", "add", "-q", "-b", "zz/session-live0001", path.join(root, ".zuzuu", "worktrees", "live0001"));
+    // a FINALIZED worktree session (zz-held marker set)
+    g(root, "worktree", "add", "-q", "-b", "zz/session-held0002", path.join(root, ".zuzuu", "worktrees", "held0002"));
+    g(root, "config", "branch.zz/session-held0002.zz-held", "true");
+
+    const refs = await listHeldRefs(root);
+    expect(refs).toContainEqual({ id: "aaaa1111", kind: "inplace" });
+    expect(refs).toContainEqual({ id: "held0002", kind: "worktree" });
+    expect(refs.some((r) => r.id === "live0001")).toBe(false); // the live agent is not actionable as held
+    expect(refs).toHaveLength(2);
+  });
+
+  it("a non-git workspace degrades to []", async () => {
+    expect(await listHeldRefs(root)).toEqual([]); // root is not a git repo yet
   });
 });
 

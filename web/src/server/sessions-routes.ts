@@ -16,7 +16,7 @@ import { SessionManager } from "./session-manager.js";
 import { runZuzuuMut, type ZuzuuMutResult } from "./zuzuu-cli.js";
 import { safeJoin } from "./safe-path.js";
 import { SAFE_ID } from "./zuzuu-peek.js";
-import { readHeld, mergeArgs, discardArgs } from "./held-sessions.js";
+import { listHeldRefs, mergeArgs, discardArgs } from "./held-sessions.js";
 import type { MainTreeLock } from "./main-tree-lock.js";
 
 export interface SessionsApiDeps {
@@ -115,7 +115,10 @@ export function createSessionsApi(deps: SessionsApiDeps): Hono {
     const id = c.req.param("id");
     if (!id || !SAFE_ID.test(id)) return c.json({ error: "bad id" }, 400);
     const root = deps.root();
-    const entry = (await readHeld(root, deps.zuzuuBinary)).find((h) => h.id === id);
+    // Validate id + kind CHEAPLY (branch namespace + hold marker) — no per-branch
+    // diff/mergeability probe (readHeld) just to pick a verb. Still SAFE_ID +
+    // membership-checked against the live held set (never trust the wire id past this).
+    const entry = (await listHeldRefs(root)).find((h) => h.id === id);
     if (!entry) return c.json({ error: "no such held session" }, 404);
     const args = mode === "merge" ? mergeArgs(entry) : discardArgs(entry);
     const run = () => runZuzuuMut(root, args, { binary: deps.zuzuuBinary });

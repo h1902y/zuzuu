@@ -16,28 +16,38 @@ let root: string;
 beforeEach(() => { root = realpathSync(mkdtempSync(path.join(tmpdir(), "zw-close-"))); });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
-/** A minimal Session stand-in: close() reads only id / cwd / usesWorktree. */
+/** A minimal Session stand-in: close() reads only id / cwd / usesWorktree. The
+ *  realistic default daemon agent is worktree-backed (Wave B); the in-place arm
+ *  (F2) is the fallback, exercised by passing usesWorktree:false explicitly. */
 function fakeSession(over: Partial<Pick<Session, "id" | "cwd" | "usesWorktree">> = {}): Session {
-  return { id: "agent1", cwd: root, usesWorktree: false, ...over } as Session;
+  return { id: "agent1", cwd: root, usesWorktree: true, ...over } as Session;
 }
 
-/** A stub `zuzuu` that logs every call and answers per the argv:
- *  - `session worktree finalize` → a HELD JSON (the U3 hold; never a merge)
+/** A stub `zuzuu` that logs every call and answers per the argv, covering BOTH
+ *  session models (F2 — the close path branches on session.usesWorktree):
+ *  - `session worktree finalize` / `session finalize` → a HELD JSON (the U3 hold)
+ *  - `session worktree close`     / `session merge`    → a MERGE JSON (the autoMerge land)
  *  - `observe` → ok JSON
- *  When `finalizeFails`, the finalize call exits 1. */
+ *  When `finalizeFails`, BOTH finalize calls exit 1. */
 function cliStub(r: string, opts: { finalizeFails?: boolean } = {}): { binary: string; marker: string } {
   const marker = path.join(r, "calls.log");
   const stub = path.join(r, "zuzuu-stub.sh");
   const finalizeBody = opts.finalizeFails
     ? `echo 'finalize kaboom' >&2; exit 1`
     : `echo '{"ok":true,"held":"zz/session-agent1","worktree":"/tmp/wt","checkpoints":1}'`;
+  const inplaceFinalizeBody = opts.finalizeFails
+    ? `echo 'finalize kaboom' >&2; exit 1`
+    : `echo '{"ok":true,"held":"zz/held-agent1","base":"main","checkpoints":1}'`;
+  const mergeBody = `echo '{"ok":true,"mergedAs":"abc123","mergedTo":"main","commits":1}'`;
   writeFileSync(
     stub,
     `#!/bin/sh
 echo "$*" >> '${marker}'
 case "$*" in
   *"worktree finalize"*) ${finalizeBody} ;;
-  *"worktree close"*) echo '{"ok":true,"mergedAs":"abc123","mergedTo":"main","commits":1}' ;;
+  *"worktree close"*) ${mergeBody} ;;
+  *"session finalize"*) ${inplaceFinalizeBody} ;;
+  *"session merge"*) ${mergeBody} ;;
   *"observe"*) echo '{"ok":true,"proposed":2}' ;;
   *) echo '{}' ;;
 esac
@@ -136,6 +146,38 @@ describe("agent-close finalizes (holds) then observes (U3 + U5/KTD5)", () => {
     const result = await closer.close(fakeSession({ usesWorktree: true }));
     expect(result).toMatchObject({ ok: true, merge: { ok: true } });
     expect(calls(marker).some((c) => c.includes("worktree close"))).toBe(true);
+  });
+
+  // ── F2: the in-place arm (usesWorktree=false — worktree-prep fell back) ──────
+  // A worktree verb on an in-place agent finds no worktree and leaves the active
+  // branch checked out, blocking the next open. The close path must branch on
+  // session.usesWorktree and shell the IN-PLACE verbs instead.
+
+  it("F2: an in-place agent (usesWorktree=false) HOLDS via `session finalize`, NOT `worktree finalize`", async () => {
+    const { binary, marker } = cliStub(root);
+    const closer = createAgentCloser(() => root, { binary, pendingCount: () => 3 });
+    const result = await closer.close(fakeSession({ usesWorktree: false }));
+
+    expect(result).toEqual({ ok: true, held: true, branch: "zz/held-agent1", pending: 3 });
+    const log = calls(marker);
+    // the in-place hold verb ran; the WORKTREE verb did NOT (it would no-op + strand the branch)
+    expect(log.some((c) => /(^|\s)session finalize(\s|$)/.test(c))).toBe(true);
+    expect(log.some((c) => c.includes("worktree finalize"))).toBe(false);
+    expect(log.some((c) => c.includes("worktree close"))).toBe(false);
+    // observe still runs after the in-place hold
+    expect(log.some((c) => /(^|\s)observe(\s|$)/.test(c))).toBe(true);
+  });
+
+  it("F2: an in-place agent with autoMerge:true MERGES via `session merge`, NOT `worktree close`", async () => {
+    const { binary, marker } = cliStub(root);
+    const closer = createAgentCloser(() => root, { binary, pendingCount: () => 1, autoMerge: () => true });
+    const result = await closer.close(fakeSession({ usesWorktree: false }));
+
+    expect(result).toEqual({ ok: true, merge: { ok: true, mergedAs: "abc123", mergedTo: "main", commits: 1 }, pending: 1 });
+    const log = calls(marker);
+    expect(log.some((c) => /(^|\s)session merge(\s|$)/.test(c))).toBe(true);
+    expect(log.some((c) => c.includes("worktree close"))).toBe(false);
+    expect(log.some((c) => c.includes("worktree finalize"))).toBe(false);
   });
 
   it("an observe FAILURE never poisons the held result (best-effort)", async () => {

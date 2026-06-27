@@ -118,23 +118,37 @@ export function createAgentCloser(getRoot: () => string, deps: AgentCloserDeps =
 
   const close = async (session: Session): Promise<SessionCloseResult> => {
     const root = getRoot();
+    // The agent ran EITHER in its own worktree (Wave B) OR in-place (worktree-prep
+    // fell back: a non-git workspace / absent CLI → session.usesWorktree === false).
+    // Each model has its OWN verbs — a worktree verb on an in-place agent finds no
+    // worktree dir and leaves the active branch checked out, blocking the next open.
+    const wt = session.usesWorktree;
     if (autoMerge(root)) {
       // U7 ESCAPE HATCH (agent.json autoMerge:true): restore the OLD auto-merge-on-
-      // exit. `zz session worktree close <id>` checks out the base on the MAIN tree,
-      // squash-merges the branch, and removes the worktree — it touches the shared
-      // main tree, so it is SERIALIZED (KTD6) so two agents exiting at once can't race.
+      // exit. The squash-merge touches the shared MAIN tree, so it is SERIALIZED
+      // (KTD6) — two agents exiting at once can't race on `main`. Worktree:
+      // `worktree close <id>` (id-keyed). In-place: `session merge` (no id — resolves
+      // the single active in-place branch the host's hook opened).
       const closed = await lock.run(() =>
-        runZuzuuMut(root, ["session", "worktree", "close", session.id], { binary }),
+        runZuzuuMut(
+          root,
+          wt ? ["session", "worktree", "close", session.id] : ["session", "merge"],
+          { binary },
+        ),
       );
       return observeThenCount(closed, true);
     }
-    // U3 DEFAULT: FINALIZE (hold), never merge. `zz session worktree finalize <id>`
-    // folds the worktree's uncommitted work and leaves the worktree + branch held. It
-    // runs from the MAIN tree (getRoot()) but never touches the main tree's checkout,
-    // so two agents exiting at once can't race (no serialization needed). The squash-
-    // merge is now an explicit human gate.
+    // U3 DEFAULT: FINALIZE (hold), never merge. It folds uncommitted work and leaves
+    // the branch held for the explicit merge gate. Neither finalize touches the main
+    // tree's checkout, so two agents exiting at once can't race (no serialization).
+    // Worktree: `worktree finalize <id>`. In-place: `session finalize` (no id —
+    // resolves the single active in-place branch).
     return observeThenCount(
-      await runZuzuuMut(getRoot(), ["session", "worktree", "finalize", session.id], { binary }),
+      await runZuzuuMut(
+        root,
+        wt ? ["session", "worktree", "finalize", session.id] : ["session", "finalize"],
+        { binary },
+      ),
     );
   };
 

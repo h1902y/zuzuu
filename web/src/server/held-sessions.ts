@@ -115,19 +115,50 @@ export async function readHeld(root: string, binary?: string): Promise<HeldSessi
   });
 }
 
+/** The id + kind a held branch resolves to — enough to pick the verb, without the
+ *  full review payload. */
+export type HeldRef = Pick<HeldSession, "id" | "kind">;
+
+/** The held branches in `root`, id + kind only — a CHEAP validation source for the
+ *  merge/discard routes (no per-branch diff/mergeability probe like `readHeld`).
+ *  `zz/held-*` are always held (in-place); a `zz/session-*` branch is held ONLY when
+ *  it carries the `zz-held` marker (a LIVE agent is a `zz/session-*` branch too, but
+ *  must NOT be actionable as held). CLI-free — straight `git`. Degrades to []. */
+export async function listHeldRefs(root: string): Promise<HeldRef[]> {
+  try {
+    const { stdout } = await execFileP("git", [
+      "-C", root, "for-each-ref", "--format=%(refname:short)",
+      `refs/heads/${HELD_PREFIX}*`, `refs/heads/${SESSION_PREFIX}*`,
+    ]);
+    const refs: HeldRef[] = [];
+    for (const name of stdout.split("\n").filter(Boolean)) {
+      const parsed = parseHeldBranch(name);
+      if (!parsed) continue;
+      if (parsed.kind === "inplace") { refs.push(parsed); continue; }
+      const marked = await execFileP("git", ["-C", root, "config", `branch.${name}.zz-held`])
+        .then((r) => r.stdout.trim() === "true")
+        .catch(() => false);
+      if (marked) refs.push(parsed);
+    }
+    return refs;
+  } catch {
+    return [];
+  }
+}
+
 /** The argv that LANDS a held session: a worktree hold squash-merges via `worktree
  *  close <id>` (touches the main tree → serialize); an in-place hold via `session
- *  merge`. */
-export function mergeArgs(entry: HeldSession): string[] {
+ *  merge <id>` (the id resolves the specific `zz/held-<id>` — several may be queued). */
+export function mergeArgs(entry: HeldRef): string[] {
   return entry.kind === "worktree"
     ? ["session", "worktree", "close", entry.id]
-    : ["session", "merge"];
+    : ["session", "merge", entry.id];
 }
 
 /** The argv that DROPS a held session — branch + all checkpoints, `--yes`-guarded
  *  (the destructive verb refuses without it). */
-export function discardArgs(entry: HeldSession): string[] {
+export function discardArgs(entry: HeldRef): string[] {
   return entry.kind === "worktree"
     ? ["session", "worktree", "discard", entry.id, "--yes"]
-    : ["session", "discard", "--yes"];
+    : ["session", "discard", entry.id, "--yes"];
 }

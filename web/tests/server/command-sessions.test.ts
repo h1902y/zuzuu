@@ -16,6 +16,7 @@ import {
   mkdirSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
+import { execFileSync } from "node:child_process";
 import path from "node:path";
 import type { Session } from "../../src/server/session.js";
 import { SessionManager } from "../../src/server/session-manager.js";
@@ -278,7 +279,10 @@ describe("agent exit → session-git finalize (hold)", () => {
     const calls = readFileSync(marker, "utf8").trim().split("\n");
     // EXACTLY ONE finalize (no duplicate) + the close-time observe (U5) — two CLI calls.
     expect(calls).toHaveLength(2);
-    expect(calls.filter((c) => c.includes("worktree finalize"))).toHaveLength(1);
+    // F2: an in-place (worktree-fallback) agent holds via the IN-PLACE verb `session
+    // finalize`, NOT `worktree finalize` (which would no-op + strand the active branch).
+    expect(calls.filter((c) => /(^|\s)session finalize(\s|$)/.test(c))).toHaveLength(1);
+    expect(calls.some((c) => c.includes("worktree finalize"))).toBe(false);
     expect(calls.some((c) => /session merge|worktree close/.test(c))).toBe(false); // never merges
     expect(calls.some((c) => /(^|\s)observe(\s|$)/.test(c))).toBe(true);
     server.stop();
@@ -349,9 +353,25 @@ describe("agent exit → session-git finalize (hold)", () => {
 });
 
 describe("U6: the held-session merge gate (POST /api/sessions/held/:id/*)", () => {
-  /** A `zz` stub: `session status` reports ONE held worktree session; `worktree
-   *  close`/`worktree discard` are logged + answered ok. The held id is fixed so the
-   *  route's membership check (readHeld → find) passes for it and 404s for others. */
+  /** Make `root` a real git repo holding ONE finalized (marked) worktree session
+   *  `zz/session-<id>` — F6's `listHeldRefs` reads git directly (no `zz session
+   *  status` shell), so the held set must exist on disk + carry the `zz-held` marker. */
+  function setupHeldRepo(r: string, id: string) {
+    const g = (...a: string[]) => execFileSync("git", ["-C", r, ...a], { stdio: "pipe" });
+    g("init", "-q", "-b", "main");
+    g("config", "user.email", "t@t");
+    g("config", "user.name", "t");
+    g("config", "commit.gpgsign", "false");
+    writeFileSync(path.join(r, "f.txt"), "hi\n");
+    g("add", "-A");
+    g("commit", "-qm", "init");
+    g("worktree", "add", "-q", "-b", `zz/session-${id}`, path.join(r, ".zuzuu", "worktrees", id));
+    g("config", `branch.zz/session-${id}.zz-held`, "true"); // FINALIZED, not live
+  }
+
+  /** A `zz` stub: `worktree close`/`worktree discard` are logged + answered ok. The
+   *  held id is fixed; `setupHeldRepo` makes it the live held set so the route's
+   *  membership check (listHeldRefs → find) passes for it and 404s for others. */
   function heldStub(r: string, id = "abc123") {
     const marker = path.join(r, "held-calls.log");
     const stub = path.join(r, "zuzuu-held-stub.sh");
@@ -359,9 +379,6 @@ describe("U6: the held-session merge gate (POST /api/sessions/held/:id/*)", () =
       stub,
       `#!/bin/sh
 case "$*" in
-  *"session status"*)
-    echo '{"enabled":true,"main":"main","active":null,"onSessionBranch":false,"held":[{"branch":"zz/session-${id}","checkpoints":2,"files":3,"added":9,"removed":2,"mergeability":"ready"}]}'
-    ;;
   *"worktree close"*) echo "close $@" >> '${marker}'; echo '{"ok":true,"mergedAs":"deadbee","commits":2}' ;;
   *"worktree discard"*) echo "discard $@" >> '${marker}'; echo '{"ok":true,"branch":"zz/session-${id}"}' ;;
   *) echo '{}' ;;
@@ -377,6 +394,7 @@ esac
 
   it("merge: a held id → 200, shells `session worktree close <id>` (the land verb)", async () => {
     const { stub, marker, id } = heldStub(root);
+    setupHeldRepo(root, id);
     const server = makeServer({ zuzuuBinary: stub });
     const headers = await authedHeaders(server);
     const res = await postHeld(server, headers, `${id}/merge`);
@@ -388,6 +406,7 @@ esac
 
   it("discard: a held id → 200, shells `session worktree discard <id> --yes` (the --yes guard)", async () => {
     const { stub, marker, id } = heldStub(root);
+    setupHeldRepo(root, id);
     const server = makeServer({ zuzuuBinary: stub });
     const headers = await authedHeaders(server);
     const res = await postHeld(server, headers, `${id}/discard`);
@@ -410,6 +429,7 @@ esac
 
   it("a SAFE id that is NOT in the held list → 404 (membership-validated, no merge spawn)", async () => {
     const { stub, marker } = heldStub(root, "abc123");
+    setupHeldRepo(root, "abc123"); // only abc123 is held
     const server = makeServer({ zuzuuBinary: stub });
     const headers = await authedHeaders(server);
     const res = await postHeld(server, headers, "notheld9/merge");

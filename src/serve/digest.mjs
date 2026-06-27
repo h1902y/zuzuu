@@ -12,7 +12,7 @@ import { open } from './api.mjs';
 import { toon } from '../notes/toon.mjs';
 import { readProject } from '../notes/project.mjs';
 import { moduleCounts, search } from '../notes/index.mjs';
-import { heldSessionBranches } from '../sessions/session-git.mjs';
+import { heldSessions, heldMergeHint } from '../sessions/session-git.mjs';
 
 // The steering addition is always-loaded into the session, so it stays LEAN: the
 // Instructions module's standing notes are capped to the top-N (by id, deterministic),
@@ -65,9 +65,11 @@ export function digestText(cwd = process.cwd()) {
     if (pending) out += `\n${pending} proposal(s) awaiting review: zz review`;
     // the code gate, mirroring the brain gate above: held sessions awaiting merge
     // (in-place + worktree-held; cwd is the git repo). Absent when none are held.
-    const held = heldSessionBranches(cwd).length;
-    if (held) {
-      out += `\n${held} session(s) awaiting merge: zz session merge`;
+    const held = heldSessions(cwd);
+    if (held.length) {
+      // the CORRECT verb per kind (in-place → `zz session merge`; worktree → `zz
+      // session worktree close <id>`), never a blanket merge that grabs the wrong branch.
+      out += `\n${held.length} session(s) awaiting merge: ${heldMergeHint(held)}`;
       // why the hold (END no longer auto-lands) + the escape hatch, so a user who
       // didn't expect it sees both. A standing hint, not a one-time notice.
       out += `\n  (END now holds for review — set "autoMerge": true in .zuzuu/agent.json to restore auto-land)`;

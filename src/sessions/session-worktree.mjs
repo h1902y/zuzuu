@@ -103,6 +103,7 @@ export function openSessionWorktree(cwd, sessionId) {
     if (recorded && recorded !== String(sessionId)) return { ok: false, blocked: true, collision: true, branch, reason: 'id-collision' };
 
     if (allWorktrees(root).some((w) => w.path === wt)) {
+      git(['config', '--unset', `branch.${branch}.zz-held`], root); // resumed → live again, clear any stale hold marker
       return { ok: true, resumed: true, branch, worktree: wt, base };
     }
     mkdirSync(dirname(wt), { recursive: true });
@@ -199,6 +200,13 @@ export function closeSessionWorktree(cwd, sessionId, { title } = {}) {
  * session-git.mjs blockingSessionBranches). The merge verb resolves the branch by
  * sessionId, so renaming here would strand it — holding in place is deliberate.
  *
+ * Because the branch can't be renamed into the held namespace while checked out
+ * in its worktree, the hold is recorded as a git-config MARKER
+ * (`branch.<branch>.zz-held = true`). This is what distinguishes a FINALIZED
+ * worktree session (awaiting merge) from a LIVE one (agent still running): without
+ * the marker, heldSessionBranches must NOT count it — counting a live agent would
+ * let it be merged mid-session.
+ *
  * Mirrors closeSessionWorktree's fail-soft discipline: { ok:true, held, worktree,
  * checkpoints } or { ok:false, reason }. Never merges, never removes the worktree,
  * never deletes the branch.
@@ -218,6 +226,9 @@ export function finalizeSessionWorktree(cwd, sessionId) {
       if (cp.ok) excludedSecrets = cp.excludedSecrets ?? 0;
     }
     const checkpoints = countCheckpoints(cwd, branch);
+    // MARK the hold (can't rename a worktree-checked-out branch) so a LIVE agent
+    // (no marker) is never mistaken for a finalized one awaiting merge.
+    git(['config', `branch.${branch}.zz-held`, 'true'], root);
     return { ok: true, held: branch, worktree: wt, checkpoints, ...(excludedSecrets ? { excludedSecrets } : {}) };
   } catch (e) {
     return { ok: false, reason: String(e) };

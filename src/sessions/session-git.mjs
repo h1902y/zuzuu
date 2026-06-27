@@ -124,6 +124,27 @@ export function listSessionBranches(cwd) {
   }
 }
 
+/** Every `zz/session-*` branch paired with the worktree holding it (empty when
+ *  not checked out anywhere). ONE `for-each-ref` enumeration, shared by the
+ *  blocking + held readers so their branch-classification can't drift.
+ *  `%(worktreepath)` is git ≥ 2.13. Fail-soft → []. */
+function sessionBranchesWithWorktree(cwd) {
+  const r = git(['for-each-ref', '--format=%(refname:short)|%(worktreepath)', `refs/heads/${PREFIX}*`], cwd);
+  if (!r.ok || !r.out) return [];
+  return r.out.split('\n').filter(Boolean).map((line) => {
+    const i = line.indexOf('|');
+    return { name: i >= 0 ? line.slice(0, i) : line, wt: i >= 0 ? line.slice(i + 1) : '' };
+  });
+}
+
+/** True when a session branch carries the `zz-held` marker (set by
+ *  finalizeSessionWorktree). A worktree branch can't be renamed cleanly into the
+ *  held namespace while checked out, so the hold is recorded as this git-config
+ *  marker instead — and a LIVE worktree agent (no marker) is NOT held. */
+function isHeldMarked(cwd, branch) {
+  return git(['config', `branch.${branch}.zz-held`], cwd).out === 'true';
+}
+
 /** Session branches that would BLOCK a new in-place open here.
  *  A `zz/session-*` branch checked out in a LINKED worktree (a held or active
  *  worktree session under `.zuzuu/worktrees/`) is ISOLATED — it physically can't
@@ -135,15 +156,8 @@ export function listSessionBranches(cwd) {
 export function blockingSessionBranches(cwd) {
   try {
     const cur = currentBranch(cwd);
-    // %(worktreepath) is empty for a branch not checked out anywhere, else the
-    // path of the worktree holding it (git ≥ 2.13).
-    const r = git(['for-each-ref', '--format=%(refname:short)|%(worktreepath)', `refs/heads/${PREFIX}*`], cwd);
-    if (!r.ok || !r.out) return [];
     const blocking = [];
-    for (const line of r.out.split('\n').filter(Boolean)) {
-      const i = line.indexOf('|');
-      const name = i >= 0 ? line.slice(0, i) : line;
-      const wt = i >= 0 ? line.slice(i + 1) : '';
+    for (const { name, wt } of sessionBranchesWithWorktree(cwd)) {
       if (wt && name !== cur) continue; // isolated in another (linked) worktree → non-blocking
       blocking.push(name);
     }
@@ -172,28 +186,81 @@ export function listHeldBranches(cwd) {
 /** EVERY held session awaiting the merge gate, across BOTH holding models:
  *    · in-place held — renamed into `zz/held-*` (finalizeSession)
  *    · worktree-held — a `zz/session-*` branch checked out in a LINKED worktree
- *      (finalizeSessionWorktree leaves it in place; the worktree isolates it) —
- *      the inverse of blockingSessionBranches, keyed the same way (name !== cur,
- *      so this tree's OWN active session is never counted as held).
+ *      AND carrying the `zz-held` marker (finalizeSessionWorktree sets it). The
+ *      marker is load-bearing: a LIVE worktree agent is also a `zz/session-*`
+ *      branch in a linked worktree, but it is NOT held — counting it would let a
+ *      running agent be merged mid-session. Only the FINALIZED (marked) ones held.
  *  This is the union `zz session status` lists and the digest counts — the
  *  merge-gate queue. Fail-soft → []. */
 export function heldSessionBranches(cwd) {
   try {
     const cur = currentBranch(cwd);
-    const r = git(['for-each-ref', '--format=%(refname:short)|%(worktreepath)', `refs/heads/${PREFIX}*`], cwd);
     const worktreeHeld = [];
-    if (r.ok && r.out) {
-      for (const line of r.out.split('\n').filter(Boolean)) {
-        const i = line.indexOf('|');
-        const name = i >= 0 ? line.slice(0, i) : line;
-        const wt = i >= 0 ? line.slice(i + 1) : '';
-        if (wt && name !== cur) worktreeHeld.push(name); // isolated in a linked worktree → held
-      }
+    for (const { name, wt } of sessionBranchesWithWorktree(cwd)) {
+      // isolated in a linked worktree AND explicitly finalized (marked) → held
+      if (wt && name !== cur && isHeldMarked(cwd, name)) worktreeHeld.push(name);
     }
     return [...listHeldBranches(cwd), ...worktreeHeld];
   } catch {
     return [];
   }
+}
+
+/** Each held session as { branch, id, kind } — kind 'inplace' (a `zz/held-*`
+ *  branch) or 'worktree' (a marked `zz/session-*` branch in its own worktree).
+ *  The single source the CLI status hint + the digest line derive the CORRECT
+ *  per-kind verb from (in-place → `zz session merge`; worktree → `zz session
+ *  worktree close <id>`). Fail-soft → []. */
+export function heldSessions(cwd) {
+  return heldSessionBranches(cwd).map((branch) => ({ branch, ...classifyHeldBranch(branch) }));
+}
+
+/** The CORRECT land verb(s) for a set of held sessions, by kind. An in-place
+ *  hold (`zz/held-*`) lands via `zz session merge`; a worktree hold via `zz session
+ *  worktree close <id>` (a blanket `zz session merge` would grab the wrong branch
+ *  via the active namespace, orphaning the worktree). Shared by `zz session status`
+ *  and the digest line so they can't drift. */
+export function heldMergeHint(entries) {
+  const worktree = entries.filter((e) => e.kind === 'worktree');
+  const inplace = entries.some((e) => e.kind === 'inplace');
+  if (!worktree.length) return 'zz session merge';            // all in-place
+  if (!inplace && worktree.length === 1) return `zz session worktree close ${worktree[0].id}`;
+  const parts = [];
+  if (inplace) parts.push('zz session merge');
+  parts.push('zz session worktree close <id>');
+  return parts.join(' / ');
+}
+
+/** Derive a held branch's id + kind from its namespace. */
+function classifyHeldBranch(branch) {
+  if (branch.startsWith(HELD_PREFIX)) return { id: branch.slice(HELD_PREFIX.length), kind: 'inplace' };
+  if (branch.startsWith(PREFIX)) return { id: branch.slice(PREFIX.length), kind: 'worktree' };
+  return { id: branch, kind: 'inplace' };
+}
+
+/**
+ * Resolve the in-place branch a merge/continue/discard verb should act on.
+ *   active in-place = blockingSessionBranches (loose/own `zz/session-*`, excludes
+ *     worktree-isolated branches — those land via the `worktree` verbs)
+ *   held  in-place = listHeldBranches (`zz/held-*`)
+ * With an explicit id → that specific branch (active `zz/session-<id>` else held
+ * `zz/held-<id>`). With no id → the single active-or-held branch; >1 candidate is
+ * AMBIGUOUS (refuse rather than guess which held session to land).
+ * Returns { branch } or { reason }.
+ */
+function resolveInplaceTarget(cwd, id) {
+  const active = blockingSessionBranches(cwd);
+  if (id != null && String(id).trim() !== '') {
+    const s = sessionBranchName(id);     // zz/session-<short>
+    const h = heldBranchName(s);          // zz/held-<short>
+    if (active.includes(s)) return { branch: s };
+    if (branchExists(cwd, h)) return { branch: h };
+    return { reason: 'no-session-branch' };
+  }
+  const all = [...active, ...listHeldBranches(cwd)];
+  if (all.length === 0) return { reason: 'no-session-branch' };
+  if (all.length > 1) return { reason: 'ambiguous-session' };
+  return { branch: all[0] };
 }
 
 /**
@@ -473,16 +540,22 @@ export function sessionReview(cwd, branch) {
  *                     destroyed silently) → { ok:false,
  *                     reason:'empty-squash-with-checkpoints', commits, branch }
  */
-export function closeSession(cwd, { title } = {}) {
+export function closeSession(cwd, { title, id } = {}) {
   try {
     const blocked = unsafeReason(cwd);
     if (blocked) return { ok: false, reason: blocked };
-    const branches = listSessionBranches(cwd);
-    if (!branches.length) return { ok: false, reason: 'no-session-branch' };
-    const branch = branches[0];
+    // Resolve the target across BOTH namespaces — an active `zz/session-*` OR a
+    // held `zz/held-*` (an END-finalized session). Optional `id` picks a specific
+    // held session when several are queued; without it, the single active-or-held.
+    const target = resolveInplaceTarget(cwd, id);
+    if (target.reason) return { ok: false, reason: target.reason };
+    const branch = target.branch;
     const cur = currentBranch(cwd);
+    // base = the branch's recorded divergence point (rides the held rename via
+    // config), else the resolved main. A held branch is NOT in the active
+    // namespace, so mainBranch alone can't recover its base — read it off the branch.
     const baseCfg = git(['config', `branch.${branch}.zz-base`], cwd).out;
-    const main = mainBranch(cwd);
+    const main = baseCfg && branchExists(cwd, baseCfg) ? baseCfg : mainBranch(cwd);
     if (!main || main === branch) return { ok: false, reason: 'no-main-branch' };
     // honesty: the branch we recorded at open is gone → we merge to a fallback
     const baseMissing = !!baseCfg && !branchExists(cwd, baseCfg);
@@ -563,12 +636,19 @@ export function closeSession(cwd, { title } = {}) {
  *
  * The mechanism (the in-place safety the merge gate relies on):
  *   1. checkpoint() folds dirty work onto the session branch (no-op when clean)
- *   2. `git branch -m zz/session-<x> zz/held-<x>` — out of the `zz/session-*`
- *      namespace that openSession/listSessionBranches gate on (so it can't block
- *      a new open). The zz-base/zz-id config rides along (git moves the section;
- *      re-set defensively so the held branch always knows its merge base).
- *   3. checkout the base branch — the working tree leaves the session branch, so
- *      the NEXT session's checkpoints land on its own branch, never the held one.
+ *   2. checkout the base branch FIRST — while still on `zz/session-*`. The working
+ *      tree leaves the session branch, so the NEXT session's checkpoints land on
+ *      its own branch, never the held one. If this fails (e.g. an untracked file
+ *      would be overwritten), return EARLY without renaming — the active
+ *      `zz/session-*` branch survives intact and the session stays recoverable.
+ *   3. `git branch -m zz/session-<x> zz/held-<x>` — only NOW, when the branch is
+ *      no longer checked out, so the rename is clean. It moves the branch out of
+ *      the `zz/session-*` namespace that openSession/listSessionBranches gate on
+ *      (so it can't block a new open). The zz-base/zz-id config rides along; re-set
+ *      defensively so the held branch always knows its merge base.
+ *
+ * (Reordering 2→3 closes the rename-before-checkout hazard: a failed checkout used
+ * to leave the tree stranded on a `zz/held-*` branch no verb recognized.)
  *
  * Fail-soft, never merges: returns { ok:true, held, base, checkpoints } or
  * { ok:false, reason }. The unsafeReason preconditions (not-a-repo / no-commits /
@@ -579,9 +659,11 @@ export function finalizeSession(cwd) {
   try {
     const blocked = unsafeReason(cwd);
     if (blocked) return { ok: false, reason: blocked };
-    const branches = listSessionBranches(cwd);
-    if (!branches.length) return { ok: false, reason: 'no-session-branch' };
-    const branch = branches[0];
+    // the active in-place branch (excludes worktree-isolated `zz/session-*`, which
+    // hold via finalizeSessionWorktree's marker instead).
+    const active = blockingSessionBranches(cwd);
+    if (!active.length) return { ok: false, reason: 'no-session-branch' };
+    const branch = active[0];
     const held = heldBranchName(branch);
     if (branchExists(cwd, held)) return { ok: false, reason: 'held-branch-exists' };
 
@@ -605,14 +687,20 @@ export function finalizeSession(cwd) {
       return { ok: false, reason: 'dirty-worktree' };
     }
 
+    // Checkout base FIRST (still on zz/session-*). On failure, return WITHOUT
+    // renaming — the active branch is intact and the work is recoverable.
+    if (cur === branch) {
+      resetZuzuuOwn(cwd); // zuzuu's own index churn must not block the checkout
+      const co = git(['checkout', '-q', base], cwd);
+      if (!co.ok) return { ok: false, reason: co.err || 'checkout-base-failed', base, checkpoints };
+    }
+
+    // Now the branch is no longer checked out → the rename into the held namespace
+    // is clean.
     const mv = git(['branch', '-m', branch, held], cwd);
     if (!mv.ok) return { ok: false, reason: mv.err || 'rename-failed' };
     if (baseCfg) git(['config', `branch.${held}.zz-base`, baseCfg], cwd); // defensive — keep the merge base
     if (idCfg) git(['config', `branch.${held}.zz-id`, idCfg], cwd);
-
-    resetZuzuuOwn(cwd); // zuzuu's own index churn must not block the checkout
-    const co = git(['checkout', '-q', base], cwd);
-    if (!co.ok) return { ok: false, reason: co.err || 'checkout-base-failed', held, base, checkpoints };
 
     return { ok: true, held, base, checkpoints, ...(excludedSecrets ? { excludedSecrets } : {}) };
   } catch (e) {
@@ -620,32 +708,46 @@ export function finalizeSession(cwd) {
   }
 }
 
-/** Recovery: check the leftover session branch back out and keep working. */
-export function continueSession(cwd) {
+/** Recovery: resume a held-or-active session and keep working. With an explicit
+ *  `id`, resume that one; without, the single active-or-held. A HELD (`zz/held-*`)
+ *  branch is RE-ACTIVATED — renamed back into `zz/session-*` after checkout so
+ *  further checkpoints (and a later merge) work. */
+export function continueSession(cwd, id) {
   try {
     const blocked = unsafeReason(cwd);
     if (blocked) return { ok: false, reason: blocked };
-    const branches = listSessionBranches(cwd);
-    if (!branches.length) return { ok: false, reason: 'no-session-branch' };
-    const branch = branches[0];
+    const target = resolveInplaceTarget(cwd, id);
+    if (target.reason) return { ok: false, reason: target.reason };
+    const branch = target.branch;
     if (currentBranch(cwd) === branch) return { ok: true, branch };
     resetZuzuuOwn(cwd); // zuzuu's own index churn must not block the checkout
-    const r = git(['checkout', '-q', branch], cwd);
-    return r.ok ? { ok: true, branch } : { ok: false, reason: r.err || 'checkout-failed' };
+    const co = git(['checkout', '-q', branch], cwd);
+    if (!co.ok) return { ok: false, reason: co.err || 'checkout-failed' };
+    if (branch.startsWith(HELD_PREFIX)) {
+      // re-activate: move back into the active namespace (config rides the rename)
+      const active = PREFIX + branch.slice(HELD_PREFIX.length);
+      const mv = git(['branch', '-m', branch, active], cwd); // renames the current branch; HEAD follows
+      if (mv.ok) return { ok: true, branch: active, reactivated: true };
+      return { ok: true, branch, warning: 'reactivate-failed' };
+    }
+    return { ok: true, branch };
   } catch (e) {
     return { ok: false, reason: String(e) };
   }
 }
 
-/** Recovery: drop the session branch and its checkpoints. The CALLER gates confirmation. */
-export function discardSession(cwd) {
+/** Recovery: drop a held-or-active session and its checkpoints. With an explicit
+ *  `id`, drop that one; without, the single active-or-held. The CALLER gates
+ *  confirmation. */
+export function discardSession(cwd, id) {
   try {
     const blocked = unsafeReason(cwd);
     if (blocked) return { ok: false, reason: blocked };
-    const branches = listSessionBranches(cwd);
-    if (!branches.length) return { ok: false, reason: 'no-session-branch' };
-    const branch = branches[0];
-    const main = mainBranch(cwd);
+    const target = resolveInplaceTarget(cwd, id);
+    if (target.reason) return { ok: false, reason: target.reason };
+    const branch = target.branch;
+    const baseCfg = git(['config', `branch.${branch}.zz-base`], cwd).out;
+    const main = baseCfg && branchExists(cwd, baseCfg) ? baseCfg : mainBranch(cwd);
     if (!main || main === branch) return { ok: false, reason: 'no-main-branch' };
     if (currentBranch(cwd) === branch) {
       resetZuzuuOwn(cwd); // zuzuu's own index churn must not block the checkout
