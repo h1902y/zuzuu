@@ -10,8 +10,8 @@ export function useStartSession() {
   const open = useWorkbench((s) => s.open);
   const select = useWorld((s) => s.select);
   return useCallback(
-    async (type?: "shell" | "agent", host?: string): Promise<SessionInfo | null> => {
-      const created = await open(type, host);
+    async (type?: "shell" | "agent", host?: string, opts?: { cwd?: string }): Promise<SessionInfo | null> => {
+      const created = await open(type, host, opts);
       if (created) select({ kind: "session", id: created.id }); // redirect into the new session
       return created;
     },

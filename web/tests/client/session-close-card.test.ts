@@ -16,6 +16,7 @@ import {
   cardWithoutCode,
   mergeReducer,
   initialMergeState,
+  resolveTargetOf,
   type CloseCardData,
   type CloseCardCode,
 } from "../../src/client/shell/review/session-close-card.js";
@@ -152,6 +153,13 @@ describe("codeFromHeld / pickHeld — mapping the held DTO onto the card", () =>
   it("codeFromHeld carries the id + summary + mergeability", () => {
     expect(codeFromHeld(held())).toEqual(codeOf());
   });
+  it("codeFromHeld carries worktreePath through when present (U8)", () => {
+    expect(codeFromHeld(held({ worktreePath: ".zuzuu/worktrees/abc" })))
+      .toEqual(codeOf({ worktreePath: ".zuzuu/worktrees/abc" }));
+  });
+  it("codeFromHeld omits worktreePath for an in-place hold (no worktree)", () => {
+    expect(codeFromHeld(held({ kind: "inplace", branch: "zz/held-abc" })).worktreePath).toBeUndefined();
+  });
   it("pickHeld matches by branch first, then by id", () => {
     const list = [held({ id: "a", branch: "zz/session-a" }), held({ id: "b", branch: "zz/held-b", kind: "inplace" })];
     expect(pickHeld(list, "zz/held-b", "x")?.id).toBe("b");
@@ -168,6 +176,16 @@ describe("cardWithoutCode — the post-merge/discard/keep collapse", () => {
   });
   it("with no brain proposals → the card clears (null)", () => {
     expect(cardWithoutCode(base)).toBeNull();
+  });
+});
+
+describe("resolveTargetOf — how a conflict routes to resolution (U8/R9)", () => {
+  it("a worktree-held session (has worktreePath) → opens a shell AT that worktree", () => {
+    expect(resolveTargetOf(codeOf({ mergeability: "conflict", worktreePath: ".zuzuu/worktrees/abc" })))
+      .toEqual({ kind: "worktree", cwd: ".zuzuu/worktrees/abc" });
+  });
+  it("an in-place hold (no worktreePath) → the CLI-instruction route (no daemon shell)", () => {
+    expect(resolveTargetOf(codeOf({ mergeability: "conflict" }))).toEqual({ kind: "inplace" });
   });
 });
 

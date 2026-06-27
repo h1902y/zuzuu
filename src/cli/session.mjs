@@ -54,7 +54,7 @@ export function sessionCommand(args, cwd, log) {
     case 'merge': {
       const r = closeSession(cwd, { title: args.title });
       if (r.ok) { log(r.mergedAs ? `✓ squashed ${r.commits} checkpoint(s) into ${r.mergedAs.slice(0, 8)} — branch removed` : '✓ nothing to merge'); return 0; }
-      return fail(r.conflict ? `conflict squashing ${r.branch} — aborted, branch intact` : (r.reason ?? 'cannot merge'));
+      return fail(r.conflict ? `conflict squashing ${r.branch} — aborted, branch intact; resolve with \`zz session continue\`, then \`zz session merge\`` : (r.reason ?? 'cannot merge'));
     }
     case 'continue': {
       const r = continueSession(cwd);

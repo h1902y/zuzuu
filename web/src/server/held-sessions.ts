@@ -8,8 +8,13 @@
 // shared by the GET /api/zuzuu/held route and the POST merge/discard actions, which
 // validate a requested id against THIS list before spawning (never trusting the wire id).
 
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import path from "node:path";
 import type { HeldSession } from "#shared/index.js";
 import { runZuzuu } from "./zuzuu-cli.js";
+
+const execFileP = promisify(execFile);
 
 const SESSION_PREFIX = "zz/session-";
 const HELD_PREFIX = "zz/held-";
@@ -52,13 +57,62 @@ export function shapeHeld(raw: unknown): HeldSession | null {
   };
 }
 
+/** Parse `git worktree list --porcelain` into `{ path, branch }[]` (absolute paths,
+ *  branch with `refs/heads/` stripped; a detached worktree has no branch). */
+export function parseWorktrees(porcelain: string): { path: string; branch: string }[] {
+  const list: { path: string; branch: string }[] = [];
+  let cur: { path?: string; branch?: string } = {};
+  for (const line of porcelain.split("\n")) {
+    if (line.startsWith("worktree ")) cur = { path: line.slice("worktree ".length) };
+    else if (line.startsWith("branch ")) cur.branch = line.slice("branch ".length).replace("refs/heads/", "");
+    else if (line === "") { if (cur.path) list.push({ path: cur.path, branch: cur.branch ?? "" }); cur = {}; }
+  }
+  if (cur.path) list.push({ path: cur.path, branch: cur.branch ?? "" });
+  return list;
+}
+
+/** The WORKSPACE-RELATIVE worktree dir holding `branch`, from a parsed worktree
+ *  list — `undefined` when no worktree holds it, or when the dir lies outside root
+ *  (then the conflict routes to the CLI instruction, not a daemon shell). Relative
+ *  + forward-slashed so it round-trips through the create route's `safeJoin(root, …)`
+ *  (a session worktree lives under `<root>/.zuzuu/worktrees/<id>`). */
+export function worktreeRelPath(
+  branch: string,
+  worktrees: { path: string; branch: string }[],
+  root: string,
+): string | undefined {
+  const wt = worktrees.find((w) => w.branch === branch);
+  if (!wt) return undefined;
+  const rel = path.relative(root, wt.path);
+  if (!rel || rel.startsWith("..") || path.isAbsolute(rel)) return undefined;
+  return rel.split(path.sep).join("/");
+}
+
+/** The repo's worktree list, or [] (non-git workspace / git absent → degrade). */
+async function listWorktrees(root: string): Promise<{ path: string; branch: string }[]> {
+  try {
+    const { stdout } = await execFileP("git", ["-C", root, "worktree", "list", "--porcelain"]);
+    return parseWorktrees(stdout);
+  } catch {
+    return [];
+  }
+}
+
 /** Shell `zz session status --json` and return the workspace's held sessions
  *  (id-enriched). CLI absent / parse failure → [] (the read degrades to "nothing
- *  held," never an error). */
+ *  held," never an error). Worktree-kind holds are enriched with their (workspace-
+ *  relative) worktree path so the conflict→Resolve flow can open a shell there. */
 export async function readHeld(root: string, binary?: string): Promise<HeldSession[]> {
   const data = (await runZuzuu(root, ["session", "status"], { binary })) as { held?: unknown } | null;
   if (!data || !Array.isArray(data.held)) return [];
-  return data.held.map(shapeHeld).filter((h): h is HeldSession => h !== null);
+  const shaped = data.held.map(shapeHeld).filter((h): h is HeldSession => h !== null);
+  if (!shaped.some((h) => h.kind === "worktree")) return shaped;
+  const worktrees = await listWorktrees(root);
+  return shaped.map((h) => {
+    if (h.kind !== "worktree") return h;
+    const rel = worktreeRelPath(h.branch, worktrees, root);
+    return rel ? { ...h, worktreePath: rel } : h;
+  });
 }
 
 /** The argv that LANDS a held session: a worktree hold squash-merges via `worktree

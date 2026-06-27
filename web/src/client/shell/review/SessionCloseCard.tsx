@@ -12,6 +12,7 @@ import { X } from "lucide-react";
 import { Box, Stack, Inline, Text, Button, Chip, Icon } from "../../ds/index.js";
 import { useSessionClose } from "../../state/session-close.js";
 import { useReview } from "../../state/review.js";
+import { useStartSession } from "../session/use-start-session.js";
 import { api, ApiError } from "../../lib/api.js";
 import {
   countByType,
@@ -19,7 +20,9 @@ import {
   markCloseCardDeferred,
   mergeReducer,
   initialMergeState,
+  resolveTargetOf,
   type CloseCardCode,
+  type ResolveTarget,
 } from "./session-close-card.js";
 
 export function SessionCloseCard() {
@@ -27,6 +30,7 @@ export function SessionCloseCard() {
   const dismiss = useSessionClose((s) => s.dismiss);
   const resolveCode = useSessionClose((s) => s.resolveCode);
   const setReview = useReview((s) => s.setOpen);
+  const startSession = useStartSession();
   const [merge, dispatch] = useReducer(mergeReducer, initialMergeState);
   const [showDiff, setShowDiff] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
@@ -56,6 +60,19 @@ export function SessionCloseCard() {
 
   const keep = () => { markCloseCardDeferred(card.sessionId); resolveCode(); };
 
+  /** Conflict → route to resolution (U8 / R9), never a silent half-merge. A worktree-
+   *  held session opens a shell AT its worktree and redirects into it (fix there with
+   *  `zz session continue` / git, then `zz session merge`); an in-place hold has no
+   *  worktree to open, so the card shows the CLI instruction and this just defers.
+   *  Either way the session stays held until an explicit merge. */
+  const resolve = async () => {
+    if (!code) return;
+    const target = resolveTargetOf(code);
+    if (target.kind === "worktree") await startSession("shell", undefined, { cwd: target.cwd });
+    markCloseCardDeferred(card.sessionId);
+    resolveCode();
+  };
+
   return (
     <div className={`fixed bottom-10 right-4 z-50 ${code ? "w-96" : "w-80"}`}>
       <Box bg="elevated" border="hairline" radius="ui" pad="md">
@@ -73,6 +90,7 @@ export function SessionCloseCard() {
               showDiff={showDiff}
               confirmDiscard={confirmDiscard}
               onMerge={() => void runAction(api.mergeHeld)}
+              onResolve={() => void resolve()}
               onKeep={keep}
               onToggleDiff={() => setShowDiff((v) => !v)}
               onAskDiscard={() => setConfirmDiscard(true)}
@@ -112,13 +130,13 @@ export function SessionCloseCard() {
   );
 }
 
-/** The CODE section: the held branch's diff summary + the Merge / Keep / Discard gate.
- *  A `conflict` mergeability disables Merge with a note (the Resolve affordance is U8).
- *  Discard is an inline confirm (not a stacked dialog). Pure presentation — all state
- *  lives in the parent. */
+/** The CODE section: the held branch's diff summary + the gate. A clean branch shows
+ *  Merge / Keep / Discard; a `conflict` (main moved) replaces Merge with **Resolve**
+ *  (U8 / R9) — never a silent half-merge. Discard is an inline confirm (not a stacked
+ *  dialog). Pure presentation — all state lives in the parent. */
 function CodeSection({
   code, busy, error, showDiff, confirmDiscard,
-  onMerge, onKeep, onToggleDiff, onAskDiscard, onCancelDiscard, onConfirmDiscard,
+  onMerge, onResolve, onKeep, onToggleDiff, onAskDiscard, onCancelDiscard, onConfirmDiscard,
 }: {
   code: CloseCardCode;
   busy: boolean;
@@ -126,6 +144,7 @@ function CodeSection({
   showDiff: boolean;
   confirmDiscard: boolean;
   onMerge: () => void;
+  onResolve: () => void;
   onKeep: () => void;
   onToggleDiff: () => void;
   onAskDiscard: () => void;
@@ -133,6 +152,7 @@ function CodeSection({
   onConfirmDiscard: () => void;
 }) {
   const conflict = code.mergeability === "conflict";
+  const target: ResolveTarget = resolveTargetOf(code);
   const files = `${code.files} file${code.files === 1 ? "" : "s"}`;
   const checkpoints = `${code.checkpoints} checkpoint${code.checkpoints === 1 ? "" : "s"}`;
 
@@ -159,9 +179,6 @@ function CodeSection({
         </Box>
       )}
 
-      {conflict && (
-        <Text size="meta" tone="danger">conflict — resolve needed before this can merge</Text>
-      )}
       {error && <Text size="meta" tone="danger">{error}</Text>}
 
       {confirmDiscard ? (
@@ -172,9 +189,35 @@ function CodeSection({
             <Button variant="ghost" size="sm" onClick={onCancelDiscard} disabled={busy}>Cancel</Button>
           </Inline>
         </Stack>
+      ) : conflict ? (
+        <Stack gap="xs">
+          <Text size="meta" tone="danger">main moved — this needs a manual resolve before it can merge.</Text>
+          {target.kind === "worktree" ? (
+            <>
+              <Inline gap="sm">
+                <Button variant="primary" size="sm" onClick={onResolve} disabled={busy}>Resolve</Button>
+                <Button variant="outline" size="sm" onClick={onKeep} disabled={busy}>Keep on branch</Button>
+                <Button variant="danger" size="sm" onClick={onAskDiscard} disabled={busy}>Discard</Button>
+              </Inline>
+              <Text size="meta" tone="muted">
+                Opens the worktree — run zz session continue (or git) to fix, then zz session merge.
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text size="meta" tone="muted">
+                Resolve in your terminal: zz session continue → fix → zz session merge.
+              </Text>
+              <Inline gap="sm">
+                <Button variant="outline" size="sm" onClick={onKeep} disabled={busy}>Keep on branch</Button>
+                <Button variant="danger" size="sm" onClick={onAskDiscard} disabled={busy}>Discard</Button>
+              </Inline>
+            </>
+          )}
+        </Stack>
       ) : (
         <Inline gap="sm">
-          <Button variant="primary" size="sm" onClick={onMerge} disabled={busy || conflict}>
+          <Button variant="primary" size="sm" onClick={onMerge} disabled={busy}>
             {busy ? "Merging…" : "Merge"}
           </Button>
           <Button variant="outline" size="sm" onClick={onKeep} disabled={busy}>Keep on branch</Button>

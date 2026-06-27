@@ -222,6 +222,13 @@ export interface HeldSession {
   added: number;
   removed: number;
   mergeability: "ready" | "conflict" | "unknown";
+  /** workspace-relative path of the worktree holding this branch (U8 / R9) —
+   *  present only for a `worktree`-kind hold git reports a worktree for. It lets a
+   *  `conflict` route to resolution: the workbench opens a shell session AT the
+   *  worktree (cwd) so the user can fix the merge in place, then `zz session merge`.
+   *  Undefined for in-place holds (no worktree) or when the dir can't be expressed
+   *  safely under root (then the conflict routes to the CLI instruction instead). */
+  worktreePath?: string;
 }
 
 export interface HeldSessionList {

@@ -26,6 +26,10 @@ export interface CloseCardCode {
   removed: number;
   checkpoints: number;
   mergeability: "ready" | "conflict" | "unknown";
+  /** workspace-relative worktree path (U8) — present for a worktree-held session;
+   *  a `conflict` then routes Resolve to a shell opened here. Absent for in-place
+   *  holds (conflict routes to the CLI instruction instead). */
+  worktreePath?: string;
 }
 
 export interface CloseCardData {
@@ -64,7 +68,21 @@ export function codeFromHeld(held: HeldSession): CloseCardCode {
     removed: held.removed,
     checkpoints: held.checkpoints,
     mergeability: held.mergeability,
+    ...(held.worktreePath ? { worktreePath: held.worktreePath } : {}),
   };
+}
+
+/** How a `conflict` held session routes to resolution (U8 / R9). A worktree-held
+ *  session (has a worktreePath) opens a shell AT that worktree so the user fixes
+ *  the conflict in place, then `zz session merge`. An in-place hold can't get a
+ *  daemon shell into the main tree mid-session, so it routes to a CLI instruction.
+ *  Pure: the .tsx renders the affordance the `kind` names. */
+export type ResolveTarget =
+  | { kind: "worktree"; cwd: string }
+  | { kind: "inplace" };
+
+export function resolveTargetOf(code: CloseCardCode): ResolveTarget {
+  return code.worktreePath ? { kind: "worktree", cwd: code.worktreePath } : { kind: "inplace" };
 }
 
 /** Find the held entry for an ended session: by its held branch (the close result's
