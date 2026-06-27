@@ -65,9 +65,17 @@ export const cacheDir = (home) => join(xdg('XDG_CACHE_HOME', '.cache'), 'zuzuu',
 /** The project's transient run-state dir (XDG state) — session digest + the gate log. */
 export const stateDir = (home) => join(xdg('XDG_STATE_HOME', '.local', 'state'), 'zuzuu', repoHash(home));
 
-/** Current commit + branch, or nulls outside a git repo. */
+/** Current commit + branch, or nulls outside a git repo. NOTE: `commit` is null for a
+ *  real repo with NO commits yet (unborn HEAD) — use `isGitRepo` to tell that apart
+ *  from not-a-repo. */
 export function gitInfo(cwd = process.cwd()) {
   return { commit: git(['rev-parse', 'HEAD'], cwd), branch: git(['rev-parse', '--abbrev-ref', 'HEAD'], cwd) };
+}
+
+/** True when cwd is inside a git work tree — even with NO commits yet (a fresh
+ *  `git init`). `gitInfo().commit` can't tell "no commits" from "not a repo"; this can. */
+export function isGitRepo(cwd = process.cwd()) {
+  return git(['rev-parse', '--is-inside-work-tree'], cwd) === 'true';
 }
 
 // ── addressing ──────────────────────────────────────────────────────────────

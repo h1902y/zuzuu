@@ -11,7 +11,7 @@
 //       Zero-dep, fail-soft (a broken probe degrades to a warning).
 
 import { existsSync } from 'node:fs';
-import { gitInfo, homeDir, repoRoot } from '../notes/store.mjs';
+import { gitInfo, isGitRepo, homeDir, repoRoot } from '../notes/store.mjs';
 import { detected } from '../hosts/registry.mjs';
 import { sessionStatus } from '../sessions/session-git.mjs';
 import { hooksInstalled } from './enable.mjs';
@@ -26,6 +26,10 @@ export function doctorReport(cwd = process.cwd()) {
 
   const { commit, branch } = gitInfo(cwd);
   if (commit) info.push(`git: on ${branch ?? '(detached)'} @ ${commit.slice(0, 8)}`);
+  // a real repo with NO commits yet (unborn HEAD) is NOT "not a git repo" — git can't
+  // branch off an unborn HEAD, so session branches need a first commit, but say so
+  // accurately + actionably instead of the misleading "not a git repo".
+  else if (isGitRepo(cwd)) warnings.push('git repo has no commits yet — make an initial commit to enable session branches + checkpoints');
   else warnings.push('not a git repo — session branches + checkpoints are disabled');
 
   if (existsSync(home)) {
