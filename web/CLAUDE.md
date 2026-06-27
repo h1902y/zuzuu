@@ -69,8 +69,9 @@ A plain DAG: `shared/` is the only thing both halves import (`shared → server`
   `server.ts`'s route registration was then decomposed: the `/api/sessions` surface
   (argv validation + the Wave-B worktree orchestration) lives in `sessions-routes.ts`,
   the SPA static handler in `static.ts`, the shared ripgrep probe in `rg.ts`, the
-  WS-upgrade auth in `AuthGate.upgradeAllowed()`, and the agent-exit squash-merge
-  orchestration in `agent-close.ts` — `server.ts` is now a table of mounts.
+  WS-upgrade auth in `AuthGate.upgradeAllowed()`, and the agent-exit hold/merge
+  orchestration in `agent-close.ts` (END holds for the merge gate — branching on
+  `usesWorktree` × the `autoMerge` opt-in) — `server.ts` is now a table of mounts.
 
 - **`src/client/`** — a fresh, lean Vite + React 19 + Tailwind v4 SPA the daemon
   serves from `dist/web`. `term/` (xterm + WebGL + `connection.ts`, the binary-WS
@@ -103,7 +104,9 @@ straight at `./dist/shared`.
   mirror replays a serialized snapshot on reattach, then streams live. Reconnect is
   indefinite (`term/reconnect.ts`, `online`/`visibilitychange` wakes).
 - **Concurrent agent sessions**: each `type:"agent"` session spawns its PTY in its
-  own git worktree via `session worktree open`, squash-merged on exit.
+  own git worktree via `session worktree open`; on exit it's **held** for the merge
+  gate (the close card surfaces the diff → Merge / Discard), auto-merged only on the
+  per-project `autoMerge` opt-in.
 
 ### Security model
 

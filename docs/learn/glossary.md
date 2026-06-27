@@ -13,7 +13,7 @@ These each mean **more than one thing**. When you read or write them, know which
 ### `agent`
 Three distinct meanings — keep them straight:
 1. **The host agent** — the coding agent you already run (Claude Code · Codex · Gemini CLI · OpenCode · pi). It supplies the *brain*; zuzuu wraps it. This is the primary meaning.
-2. **An agent session** — a PTY session of `type: "agent"`: a host CLI spawned **directly** on the PTY (no shell, no rc injection), whose exit triggers the session-git auto-merge. Contrast a `type: "shell"` session.
+2. **An agent session** — a PTY session of `type: "agent"`: a host CLI spawned **directly** on the PTY (no shell, no rc injection), whose exit **holds** the session-git branch for the merge gate (auto-merges only on the `autoMerge` opt-in). Contrast a `type: "shell"` session.
 3. **`agent` / `agentDir` in the web code** — an unfortunate local variable name for the **`.zuzuu/` home directory** in `server/zuzuu-read.ts` and `server/zuzuu-peek.ts` (`const agent = await agentDir(root)`). This is *not* an agent at all — it's the Project's home dir. (Flagged for a future rename; left for now to keep the refactor surface small.)
 
 ### `brain` / `Project` / `zuzuu`
@@ -25,9 +25,9 @@ Three things that kept colliding — pin them:
 There is **no master/aggregate Project** — each repo carries its own. Cross-project aggregation (the deferred Enterprise tier) is a **roll-up** (a read-only dashboard over every repo's `.zuzuu/`) + an **org module registry** (a curated `.zuzuu/`-shaped repo that fan-out-PRs modules into projects) — never "the brain", never one big Project.
 
 ### `session`
-1. **A git branch** — the invisible `zz/session-*` branch the Project's session-git layer checkpoints onto; "session = git branch" is the v2 lifecycle model. Squash-merged on end.
+1. **A git branch** — the invisible `zz/session-*` branch the Project's session-git layer checkpoints onto; "session = git branch" is the v2 lifecycle model. On end it's **held** (renamed `zz/held-*`, or a worktree branch marked held) for the explicit merge gate (`zz session merge`) — squash-merged only at the gate, or automatically on the `autoMerge` opt-in.
 2. **A PTY `Session`** — the web daemon's `server/session.ts` class: one pseudo-terminal + its flow control + its headless mirror. Tracked by the `SessionManager` (`server/session-manager.ts`).
-3. The two connect: an **agent** PTY `Session` exiting drives the squash-merge of its **git-branch** session (`server/agent-close.ts`).
+3. The two connect: an **agent** PTY `Session` exiting drives the **finalize/hold** of its **git-branch** session (`server/agent-close.ts`) — the daemon's close card then surfaces the held diff for the Merge / Discard gate (auto-merge only on the `autoMerge` opt-in).
 
 ### `module`
 1. **A zuzuu module** — a **generic, goal-shaped collection of notes**, declared by its `module.md`. Modules are an **open set** — any goal can be one (a `roadmap`, a `tasks` module, …); there's no per-module code and no closed taxonomy. The **standard us-owned kinds** are **Knowledge · Memory · Actions · Instructions · Guardrails** — examples with sensible defaults, **not a rule** (the "five types" framing is a v1 artifact from when they were prebuilt). **No prebuilt modules (2026-06-23):** `zz init` ships only **Guardrails** (the safety floor); every other module — standard kind or custom — **materializes on demand** (its `module.md` minted on first proposal) as the loop grows the Project. (Was **faculty** until the `faculty → module` rename; `faculty` now survives only as intentional history.)
