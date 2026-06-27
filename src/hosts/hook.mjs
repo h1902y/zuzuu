@@ -15,7 +15,7 @@ import { readFileSync, writeFileSync, mkdirSync, appendFileSync } from 'node:fs'
 import { join } from 'node:path';
 import { homeDir, repoRoot, stateDir } from '../notes/store.mjs';
 import { gate, toPreToolUseDecision } from '../guardrails/gate.mjs';
-import { sessionGitEnabled, openSession, checkpoint, closeSession } from '../sessions/session-git.mjs';
+import { sessionGitEnabled, openSession, checkpoint, finalizeSession } from '../sessions/session-git.mjs';
 import { inSessionWorktree } from '../sessions/session-worktree.mjs';
 import { observe } from '../grow/observe.mjs';
 import { captureSignals } from './capture.mjs';
@@ -85,7 +85,10 @@ export function handleHook({ event, payload = {}, cwd = process.cwd(), host = 'c
   } else if (TURN.has(event)) {
     try { if (sessionGitEnabled(cwd)) checkpoint(cwd); } catch { /* fail-open — commits only on the session branch */ }
   } else if (END.has(event)) {
-    try { if (sessionGitEnabled(cwd) && !inSessionWorktree(cwd)) closeSession(cwd, {}); } catch { /* fail-open */ }
+    // END FINALIZES (holds) the in-place session — it never auto-merges to main.
+    // The squash-merge moves behind the explicit `zz session merge` gate. In a
+    // daemon-owned worktree the daemon's agent-close holds it instead — defer.
+    try { if (sessionGitEnabled(cwd) && !inSessionWorktree(cwd)) finalizeSession(cwd); } catch { /* fail-open */ }
     try { observe(homeDir(repoRoot(cwd)), { cwd, sessions: captureSignals({ cwd, scope: 'last' }) }); } catch { /* mining is best-effort */ }
     writeDigest(cwd);
   } else {

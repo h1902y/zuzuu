@@ -189,6 +189,42 @@ export function closeSessionWorktree(cwd, sessionId, { title } = {}) {
 }
 
 /**
+ * FINALIZE (hold, never merge): fold any uncommitted worktree work into a final
+ * checkpoint, then LEAVE the worktree + branch in place — held, awaiting the
+ * explicit merge gate (`zz session worktree close`). `main`/the base is untouched.
+ *
+ * The branch stays in the `zz/session-*` namespace, IN its own worktree, which is
+ * exactly why it can't block a new in-place open: openSession()'s blocking check
+ * skips session branches checked out in a linked worktree (see
+ * session-git.mjs blockingSessionBranches). The merge verb resolves the branch by
+ * sessionId, so renaming here would strand it — holding in place is deliberate.
+ *
+ * Mirrors closeSessionWorktree's fail-soft discipline: { ok:true, held, worktree,
+ * checkpoints } or { ok:false, reason }. Never merges, never removes the worktree,
+ * never deletes the branch.
+ */
+export function finalizeSessionWorktree(cwd, sessionId) {
+  try {
+    const root = repoRootOf(cwd);
+    if (!root) return { ok: false, reason: 'not-a-git-repo' };
+    const branch = sessionBranchName(sessionId);
+    if (!branchExists(cwd, branch)) return { ok: false, reason: 'no-session-branch' };
+    const wt = worktreePath(root, sessionId);
+
+    // fold any uncommitted work in the worktree onto its branch (no-op when clean)
+    let excludedSecrets = 0;
+    if (existsSync(wt)) {
+      const cp = checkpoint(wt);
+      if (cp.ok) excludedSecrets = cp.excludedSecrets ?? 0;
+    }
+    const checkpoints = countCheckpoints(cwd, branch);
+    return { ok: true, held: branch, worktree: wt, checkpoints, ...(excludedSecrets ? { excludedSecrets } : {}) };
+  } catch (e) {
+    return { ok: false, reason: String(e) };
+  }
+}
+
+/**
  * Reconcile: prune git's bookkeeping for session worktrees whose dirs are gone
  * (a crashed session, a manually-removed `.zuzuu/.worktrees/`). Safe — `git
  * worktree prune` only drops admin entries for already-deleted dirs, never

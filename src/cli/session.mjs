@@ -11,7 +11,7 @@
 // how:  a thin sub-dispatch onto sessions/*; brief output. Zero-dep.
 
 import { sessionStatus, closeSession, continueSession, discardSession } from '../sessions/session-git.mjs';
-import { openSessionWorktree, closeSessionWorktree, listSessionWorktrees, discardSessionWorktree } from '../sessions/session-worktree.mjs';
+import { openSessionWorktree, closeSessionWorktree, finalizeSessionWorktree, listSessionWorktrees, discardSessionWorktree } from '../sessions/session-worktree.mjs';
 import { readSessionLabels, setSessionLabel } from '../sessions/labels.mjs';
 import { toon } from '../notes/toon.mjs';
 
@@ -78,6 +78,16 @@ function worktree(args, cwd, log, fail) {
       const r = closeSessionWorktree(cwd, id, { title: args.title });
       if (r.ok) { log(`✓ closed worktree ${id}`); return 0; }
       return fail(r.conflict ? `conflict closing ${id} — worktree+branch kept` : (r.reason ?? 'cannot close'));
+    }
+    case 'finalize': {
+      // END holds (never merges): fold uncommitted work, leave the worktree+branch
+      // held for the explicit merge gate. The daemon (agent-close) shells this with
+      // --json on PTY exit; humans see the prose.
+      if (!id) return fail('usage: zz session worktree finalize <id>');
+      const r = finalizeSessionWorktree(cwd, id);
+      if (args.json) { log(JSON.stringify(r)); return r.ok ? 0 : 1; }
+      if (r.ok) { log(`✓ held worktree ${id} on ${r.held} (${r.checkpoints} checkpoint(s)) — \`zz session worktree close ${id}\` to merge`); return 0; }
+      return fail(r.reason ?? 'cannot finalize');
     }
     case 'discard': {
       if (!id) return fail('usage: zz session worktree discard <id>');

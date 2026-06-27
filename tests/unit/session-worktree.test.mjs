@@ -15,11 +15,13 @@ import {
   openSessionWorktree,
   checkpointWorktree,
   closeSessionWorktree,
+  finalizeSessionWorktree,
   listSessionWorktrees,
   worktreePath,
   inSessionWorktree,
   pruneWorktrees,
 } from '../../src/sessions/session-worktree.mjs';
+import { openSession, listSessionBranches, blockingSessionBranches } from '../../src/sessions/session-git.mjs';
 
 function git(args, cwd, input) {
   const r = spawnSync('git', args, { cwd, encoding: 'utf8', input });
@@ -146,6 +148,59 @@ test('conflict on close: abort cleanly — branch + worktree intact, base untouc
     assert.equal(readFileSync(join(root, 'a.txt'), 'utf8'), 'main change\n', 'base file intact');
     assert.ok(existsSync(worktree), 'worktree kept for retry');
     assert.equal(git(['rev-parse', '-q', '--verify', 'refs/heads/zz/session-conf0001'], root).length > 0, true);
+  });
+});
+
+// ── U3: finalize (hold) — fold work, leave the worktree+branch held, NO merge ──
+
+test('finalizeSessionWorktree folds uncommitted work and HOLDS the worktree+branch (no merge)', () => {
+  tmpRepo((root) => {
+    const { worktree } = openSessionWorktree(root, 'hold0001');
+    writeFileSync(join(worktree, 'b.txt'), 'held work\n'); // uncommitted at END
+    const mainHead = git(['rev-parse', 'HEAD'], root);
+
+    const r = finalizeSessionWorktree(root, 'hold0001');
+    assert.equal(r.ok, true);
+    assert.equal(r.held, 'zz/session-hold0001', 'branch held in place (still zz/session-*)');
+    assert.equal(r.checkpoints, 1, 'uncommitted work folded into a final checkpoint');
+
+    // main is untouched — finalize NEVER merges.
+    assert.equal(git(['rev-parse', 'HEAD'], root), mainHead, 'main HEAD unchanged');
+    assert.equal(existsSync(join(root, 'b.txt')), false, 'work stayed on the branch, not main');
+    // worktree + branch retained (not removed, not deleted).
+    assert.ok(existsSync(worktree), 'worktree retained');
+    assert.equal(branchGone('zz/session-hold0001', root), false, 'branch retained');
+    assert.equal(listSessionWorktrees(root).length, 1, 'the held worktree is still registered');
+  });
+});
+
+test('finalizeSessionWorktree is a clean no-op for an unknown session (fail-soft)', () => {
+  tmpRepo((root) => {
+    const r = finalizeSessionWorktree(root, 'nope0001');
+    assert.equal(r.ok, false);
+    assert.equal(r.reason, 'no-session-branch');
+  });
+});
+
+test('a HELD worktree session does NOT block a new in-place open (the tricky-part resolution)', () => {
+  tmpRepo((root) => {
+    // a worktree session runs, does work, then is finalized (held).
+    const { worktree } = openSessionWorktree(root, 'wt00aaaa');
+    writeFileSync(join(worktree, 'b.txt'), 'worktree work\n');
+    checkpointWorktree(worktree);
+    const fin = finalizeSessionWorktree(root, 'wt00aaaa');
+    assert.equal(fin.ok, true);
+
+    // its branch is still zz/session-* and checked out IN its worktree …
+    assert.deepEqual(listSessionBranches(root), ['zz/session-wt00aaaa'], 'held worktree branch is still zz/session-*');
+    // … but it is isolated, so it must NOT block a new in-place open in the main tree.
+    assert.deepEqual(blockingSessionBranches(root), [], 'the held worktree branch is non-blocking');
+
+    const open = openSession(root, 'inplace9');
+    assert.equal(open.ok, true, 'a new in-place session opens cleanly despite the held worktree session');
+    assert.equal(open.branch, 'zz/session-inplace9');
+    assert.equal(open.blocked, undefined);
+    assert.equal(currentBranch(root), 'zz/session-inplace9', 'the main tree is on the new session branch');
   });
 });
 

@@ -1,7 +1,8 @@
 // Command sessions (W2.2 ②): POST /api/sessions can spawn a host CLI
 // DIRECTLY on the PTY (argv, no shell, no rc injection), gated by a
-// server-side allowlist; agent PTY exits trigger exactly one
-// `zuzuu session merge` whose result is readable via GET /api/sessions/:id.
+// server-side allowlist; agent PTY exits trigger exactly one FINALIZE (hold) —
+// `zuzuu session worktree finalize` (U3, never an auto-merge) — whose result is
+// readable via GET /api/sessions/:id.
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
@@ -80,12 +81,13 @@ const postJson = (server: WebcodeServer, headers: Record<string, string>, body: 
     body: JSON.stringify(body),
   });
 
-/** A zuzuu stub for the in-place (non-worktree) path: the worktree-open probe
- *  reports a non-git workspace (→ daemon falls back to in-place), and only the
- *  `session merge` call is logged + answered with merge JSON. */
-function mergeStub(r: string, payload = '{"ok":true,"mergedAs":"abc12345","mergedTo":"main","commits":2,"branch":"zz/session-x"}') {
-  const marker = path.join(r, "merge-calls.log");
-  const stub = path.join(r, "zuzuu-merge-stub.sh");
+/** A zuzuu stub for the in-place fallback path: the worktree-open probe reports a
+ *  non-git workspace (→ daemon falls back to in-place), and the U3 `worktree
+ *  finalize` (hold) + `observe` calls are logged. finalize answers with a HELD JSON
+ *  (END never merges). */
+function finalizeStub(r: string, payload = '{"ok":true,"held":"zz/session-x","checkpoints":2}') {
+  const marker = path.join(r, "finalize-calls.log");
+  const stub = path.join(r, "zuzuu-finalize-stub.sh");
   writeFileSync(
     stub,
     `#!/bin/sh
@@ -100,7 +102,7 @@ esac
 }
 
 /** A zuzuu stub for the worktree path: `worktree open` mkdir's a real dir and
- *  returns it; `worktree close` is logged + answered with merge JSON. */
+ *  returns it; `worktree finalize` (the U3 hold) is logged + answered with held JSON. */
 function worktreeStub(r: string) {
   const marker = path.join(r, "wt-calls.log");
   const wt = path.join(r, ".zuzuu", ".worktrees", "agent");
@@ -113,11 +115,10 @@ case "$*" in
     mkdir -p '${wt}'
     echo '{"ok":true,"branch":"zz/session-agent","worktree":"${wt}","base":"main"}'
     ;;
-  *"worktree close"*)
+  *"worktree finalize"*)
     echo "run $@" >> '${marker}'
-    echo '{"ok":true,"mergedAs":"deadbeef","mergedTo":"main","commits":1}'
+    echo '{"ok":true,"held":"zz/session-agent","worktree":"${wt}","checkpoints":1}'
     ;;
-  *"session merge"*) echo "run $@" >> '${marker}'; echo '{"ok":true}' ;;
 esac
 `,
   );
@@ -247,9 +248,9 @@ describe("POST /api/sessions command allowlist", () => {
     server.stop();
   });
 });
-describe("agent exit → session-git merge", () => {
-  it("agent PTY exit triggers EXACTLY ONE merge; closeResult retrievable via GET /api/sessions/:id", async () => {
-    const { stub, marker } = mergeStub(root);
+describe("agent exit → session-git finalize (hold)", () => {
+  it("agent PTY exit triggers EXACTLY ONE finalize (hold, NOT a merge); closeResult retrievable via GET /api/sessions/:id", async () => {
+    const { stub, marker } = finalizeStub(root);
     const server = makeServer({ commandAllowlist: ["/bin/echo"], zuzuuBinary: stub });
     const headers = await authedHeaders(server);
     const created = await (
@@ -264,19 +265,21 @@ describe("agent exit → session-git merge", () => {
       return detail.closeResult !== undefined;
     });
     expect(detail.alive).toBe(false);
-    // U5/KTD5: the close result now also carries `pending` — the post-close staged
-    // count read off the (empty temp) `.zuzuu` after the close-time `zz observe` ran.
+    // U3: END holds (the `held` variant) — NO merge. U5/KTD5: `pending` is the post-close
+    // staged count off the (empty temp) `.zuzuu` after the close-time `zz observe` ran.
     expect(detail.closeResult).toEqual({
       ok: true,
-      merge: { ok: true, mergedAs: "abc12345", mergedTo: "main", commits: 2, branch: "zz/session-x" },
+      held: true,
+      branch: "zz/session-x",
       pending: 0,
     });
 
-    await sleep(300); // give any would-be duplicate merge a beat
+    await sleep(300); // give any would-be duplicate close a beat
     const calls = readFileSync(marker, "utf8").trim().split("\n");
-    // EXACTLY ONE merge (no duplicate) + the close-time observe (U5) — two CLI calls.
+    // EXACTLY ONE finalize (no duplicate) + the close-time observe (U5) — two CLI calls.
     expect(calls).toHaveLength(2);
-    expect(calls.filter((c) => c.includes("session merge"))).toHaveLength(1);
+    expect(calls.filter((c) => c.includes("worktree finalize"))).toHaveLength(1);
+    expect(calls.some((c) => /session merge|worktree close/.test(c))).toBe(false); // never merges
     expect(calls.some((c) => /(^|\s)observe(\s|$)/.test(c))).toBe(true);
     server.stop();
   });
@@ -299,9 +302,9 @@ describe("agent exit → session-git merge", () => {
     server.stop();
   });
 
-  it("failed merge → closeResult {ok:false, stderr}", async () => {
+  it("failed finalize → closeResult {ok:false, stderr}", async () => {
     const stub = path.join(root, "zuzuu-fail.sh");
-    writeFileSync(stub, `#!/bin/sh\necho 'merge kaboom' >&2\nexit 1\n`);
+    writeFileSync(stub, `#!/bin/sh\necho 'finalize kaboom' >&2\nexit 1\n`);
     chmodSync(stub, 0o755);
     const server = makeServer({ commandAllowlist: ["/bin/echo"], zuzuuBinary: stub });
     const headers = await authedHeaders(server);
@@ -314,12 +317,12 @@ describe("agent exit → session-git merge", () => {
       return detail.closeResult !== undefined;
     });
     expect(detail.closeResult).toMatchObject({ ok: false });
-    expect((detail.closeResult as { stderr: string }).stderr).toMatch(/merge kaboom/);
+    expect((detail.closeResult as { stderr: string }).stderr).toMatch(/finalize kaboom/);
     server.stop();
   });
 
-  it("shell-typed command exit never triggers a merge", async () => {
-    const { stub, marker } = mergeStub(root);
+  it("shell-typed command exit never triggers a finalize", async () => {
+    const { stub, marker } = finalizeStub(root);
     const server = makeServer({ commandAllowlist: ["/bin/echo"], zuzuuBinary: stub });
     const headers = await authedHeaders(server);
     const created = await (
@@ -359,7 +362,7 @@ describe("Wave B: worktree-backed agent sessions", () => {
     server.stop();
   });
 
-  it("worktree-backed agent exit closes via `session worktree close`, NOT `session merge`", async () => {
+  it("worktree-backed agent exit FINALIZES (holds) via `session worktree finalize`, NOT a merge", async () => {
     const { stub, marker } = worktreeStub(root);
     const server = makeServer({ commandAllowlist: ["/bin/echo"], zuzuuBinary: stub });
     const headers = await authedHeaders(server);
@@ -371,19 +374,21 @@ describe("Wave B: worktree-backed agent sessions", () => {
       detail = await (await server.app.request(`/api/sessions/${created.id}`, { headers })).json();
       return detail.closeResult !== undefined;
     });
-    // U5/KTD5: `pending` (the post-close staged count, 0 on this empty temp `.zuzuu`)
-    // now rides the result after the close-time `zz observe`.
+    // U3: END holds the worktree branch (the `held` variant) — no merge. U5/KTD5:
+    // `pending` (0 on this empty temp `.zuzuu`) rides after the close-time `zz observe`.
     expect(detail.closeResult).toEqual({
       ok: true,
-      merge: { ok: true, mergedAs: "deadbeef", mergedTo: "main", commits: 1 },
+      held: true,
+      branch: "zz/session-agent",
       pending: 0,
     });
     await sleep(200);
     // the worktree stub doesn't log `observe` (no marker arm) → still one logged call.
     const calls = readFileSync(marker, "utf8").trim().split("\n");
     expect(calls).toHaveLength(1);
-    expect(calls[0]).toContain(`session worktree close ${created.id}`);
+    expect(calls[0]).toContain(`session worktree finalize ${created.id}`);
     expect(calls[0]).not.toContain("session merge");
+    expect(calls[0]).not.toContain("worktree close");
     server.stop();
   });
 

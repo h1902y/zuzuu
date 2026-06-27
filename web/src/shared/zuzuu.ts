@@ -204,13 +204,20 @@ export interface SessionMergeResult {
   restoredTo?: string | null;
 }
 
-/** Stored on a daemon session after the agent-exit auto-merge ran; read via
+/** Stored on a daemon session after the agent-exit close hook ran; read via
  *  GET /api/sessions/:id. `pending` is the count of staged proposals AFTER the
  *  close-time `zz observe` ran (U5/KTD5) — the signal the "what this session
- *  taught" close card keys off (`pending > 0` → fire once). Present only on the
- *  success arm (a merge ran → observe ran → the count is meaningful); absent when
- *  the CLI was absent or the merge failed. */
+ *  taught" close card keys off (`pending > 0` → fire once). Present only on a
+ *  success arm (the close hook ran → observe ran → the count is meaningful);
+ *  absent when the CLI was absent or the close failed.
+ *
+ *  U3: END now FINALIZES (holds) — the daemon shells `zz session worktree finalize`
+ *  on PTY exit, so the live arm is the `held` variant (`branch` = the held
+ *  `zz/session-*` branch). The squash-merge moved behind the explicit `zz session
+ *  merge` verb (U6 enriches this with the diff summary + mergeability). The `merge`
+ *  variant stays for the explicit-merge path. */
 export type SessionCloseResult =
   | { cliAbsent: true }
   | { ok: true; merge: SessionMergeResult; pending?: number }
+  | { ok: true; held: true; branch: string; pending?: number }
   | { ok: false; stderr?: string; refusal?: Record<string, unknown> };

@@ -1,28 +1,34 @@
-// src/server/agent-close.ts — one job: the agent-exit squash-merge orchestration.
+// src/server/agent-close.ts — one job: the agent-exit FINALIZE (hold) orchestration.
 //
-// When an agent PTY exits, its invisible session branch is squash-merged back via
-// the zz CLI. Worktree-backed agents (Wave B) merge via `session worktree close`
-// run from the MAIN tree; in-place agents use `session merge` from their own cwd.
-// Closes are SERIALIZED so two agents exiting at once don't race on the shared main
-// working tree. CLI-only, like every zuzuu mutation; absent CLI is recorded, never
-// fatal. The Session's close hook guarantees this runs once per session.
+// U3: when an agent PTY exits, its invisible session branch is FINALIZED (held),
+// NEVER auto-merged. The daemon shells `zz session worktree finalize <id>` (folds
+// uncommitted work, leaves the worktree + branch held); the squash-merge moves
+// behind the explicit `zz session merge` / `worktree close` gate (U6). Finalize
+// touches only the session's own worktree — never the main tree — so the old
+// main-tree serialization is unnecessary here (it moves to the future merge action,
+// KTD6). CLI-only, like every zuzuu mutation; absent CLI is recorded, never fatal.
+// The Session's close hook guarantees this runs once per session.
 
-import type { SessionCloseResult, SessionMergeResult } from "#shared/index.js";
+import type { SessionCloseResult } from "#shared/index.js";
 import type { Session } from "./session.js";
 import { runZuzuuMut, type ZuzuuMutResult } from "./zuzuu-cli.js";
 import { readProjectHealth } from "./project-health.js";
 
-/** Map a CLI mutation result onto the SessionCloseResult envelope. The post-close
- *  pending count (U5) rides only on the success arm — it's only meaningful once a
- *  merge ran AND the close-time `zz observe` staged this session's proposals. */
+/** Map a finalize CLI result onto the SessionCloseResult envelope. The post-close
+ *  pending count (U5) rides only on the success arm — it's only meaningful once the
+ *  hold ran AND the close-time `zz observe` staged this session's proposals. */
 function mapCloseResult(r: ZuzuuMutResult, pending?: number): SessionCloseResult {
-  if (r.ok) return { ok: true, merge: r.data as SessionMergeResult, ...(pending !== undefined ? { pending } : {}) };
+  if (r.ok) {
+    const d = (r.data ?? {}) as { held?: unknown };
+    const branch = typeof d.held === "string" ? d.held : "";
+    return { ok: true, held: true, branch, ...(pending !== undefined ? { pending } : {}) };
+  }
   if (r.code === "absent") return { cliAbsent: true };
   return { ok: false, ...(r.stderr !== undefined ? { stderr: r.stderr } : {}), ...(r.data !== undefined ? { refusal: r.data as Record<string, unknown> } : {}) };
 }
 
 export interface AgentCloser {
-  /** agent PTY exited → squash-merge its branch back (serialized on the main tree) */
+  /** agent PTY exited → finalize (hold) its branch; never auto-merges */
   close: (session: Session) => Promise<SessionCloseResult>;
 }
 
@@ -49,14 +55,12 @@ export interface AgentCloserDeps {
 export function createAgentCloser(getRoot: () => string, deps: AgentCloserDeps = {}): AgentCloser {
   const binary = deps.binary;
   const pendingCount = deps.pendingCount ?? ((root: string) => readProjectHealth(root).pending);
-  // serializes worktree squash-merges so two agents exiting at once don't race
-  // on the shared main working tree (Wave B concurrency)
-  let worktreeCloses: Promise<unknown> = Promise.resolve();
 
-  /** After a successful merge: stage this session's proposals (deterministic) on the
-   *  MAIN tree, then count them. The `.zuzuu` home is the git-citizen home at the
-   *  toplevel, so the main tree's root is correct for worktree AND in-place agents
-   *  (the merge already folded the branch's work onto it). */
+  /** After a successful hold: stage this session's proposals (deterministic) on the
+   *  MAIN tree, then count them. observe mines the just-finished session's transcript
+   *  into proposals regardless of whether the work merged — so it's meaningful after
+   *  a hold too. The `.zuzuu` home is the git-citizen home at the toplevel, so the
+   *  main tree's root is correct for worktree AND in-place agents. */
   const observeThenCount = async (mut: ZuzuuMutResult): Promise<SessionCloseResult> => {
     if (!mut.ok) return mapCloseResult(mut);
     const root = getRoot();
@@ -69,19 +73,13 @@ export function createAgentCloser(getRoot: () => string, deps: AgentCloserDeps =
   };
 
   const close = async (session: Session): Promise<SessionCloseResult> => {
-    // Worktree-backed agents (Wave B): squash-merge via `session worktree close`
-    // run from the MAIN tree (getRoot()) — the merge checks out the base + folds
-    // the branch there, then removes the worktree. In-place agents keep the
-    // original `session merge` from their own cwd.
-    if (session.usesWorktree) {
-      const run = worktreeCloses.then(() =>
-        runZuzuuMut(getRoot(), ["session", "worktree", "close", session.id], { binary }),
-      );
-      worktreeCloses = run.catch(() => undefined); // never let one failure poison the chain
-      return observeThenCount(await run);
-    }
+    // U3: FINALIZE (hold), never merge. `zz session worktree finalize <id>` folds the
+    // worktree's uncommitted work and leaves the worktree + branch held. It runs from
+    // the MAIN tree (getRoot()); it never touches the main tree's checkout, so two
+    // agents exiting at once can't race (no serialization needed — that moves to the
+    // explicit merge action, KTD6). The squash-merge is now an explicit human gate.
     return observeThenCount(
-      await runZuzuuMut(session.cwd, ["session", "merge"], { binary }),
+      await runZuzuuMut(getRoot(), ["session", "worktree", "finalize", session.id], { binary }),
     );
   };
 

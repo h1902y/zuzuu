@@ -105,6 +105,35 @@ export function listSessionBranches(cwd) {
   }
 }
 
+/** Session branches that would BLOCK a new in-place open here.
+ *  A `zz/session-*` branch checked out in a LINKED worktree (a held or active
+ *  worktree session under `.zuzuu/worktrees/`) is ISOLATED — it physically can't
+ *  collide with this tree's checkout, which is exactly what the single-working-
+ *  branch invariant guards against. So it must NOT block a new in-place open.
+ *  Keyed on branch identity (not path): a branch is blocking unless it's checked
+ *  out in a worktree that is NOT the current tree. Loose leftovers (no worktree)
+ *  and this tree's own session branch still block. Fail toward safe (blocking). */
+export function blockingSessionBranches(cwd) {
+  try {
+    const cur = currentBranch(cwd);
+    // %(worktreepath) is empty for a branch not checked out anywhere, else the
+    // path of the worktree holding it (git ≥ 2.13).
+    const r = git(['for-each-ref', '--format=%(refname:short)|%(worktreepath)', `refs/heads/${PREFIX}*`], cwd);
+    if (!r.ok || !r.out) return [];
+    const blocking = [];
+    for (const line of r.out.split('\n').filter(Boolean)) {
+      const i = line.indexOf('|');
+      const name = i >= 0 ? line.slice(0, i) : line;
+      const wt = i >= 0 ? line.slice(i + 1) : '';
+      if (wt && name !== cur) continue; // isolated in another (linked) worktree → non-blocking
+      blocking.push(name);
+    }
+    return blocking;
+  } catch {
+    return listSessionBranches(cwd); // fail toward the safe (blocking) reading
+  }
+}
+
 /** The held name for an active session branch: `zz/session-<x>` → `zz/held-<x>`. */
 export function heldBranchName(sessionBranch) {
   return HELD_PREFIX + String(sessionBranch ?? '').slice(PREFIX.length);
@@ -176,7 +205,11 @@ export function openSession(cwd, sessionId) {
     if (recorded && recorded !== String(sessionId)) return { ok: false, blocked: true, collision: true, existing: target, reason: 'id-collision' };
     const cur = currentBranch(cwd);
     if (cur === target) return { ok: true, resumed: true, branch: target };
-    const existing = listSessionBranches(cwd);
+    // A held/active worktree session keeps its `zz/session-*` branch checked out
+    // in its own worktree — isolated, so it must not trip this block (it can't
+    // collide with the main tree). Only loose leftovers + this tree's own session
+    // branch count.
+    const existing = blockingSessionBranches(cwd);
     if (existing.length) return { ok: false, blocked: true, existing: existing[0] };
     const r = git(['checkout', '-q', '-b', target], cwd);
     if (!r.ok) return { ok: false, reason: r.err || 'checkout-failed' };
