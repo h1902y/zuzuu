@@ -34,6 +34,11 @@ import { join } from 'node:path';
 import { git, gitDir, currentBranch, branchExists, isDirty, cleanupSquashState } from './git.mjs';
 
 const PREFIX = 'zz/session-';
+// Held branches: a finalized session moved OUT of the active `zz/session-*`
+// namespace so it can no longer block a new open (openSession/listSessionBranches
+// gate only on PREFIX) nor catch the next session's checkpoints — it stays
+// discoverable here, awaiting the explicit merge gate.
+const HELD_PREFIX = 'zz/held-';
 
 /** Why git mutations are unsafe right now, or null when clear. */
 function unsafeReason(cwd) {
@@ -87,10 +92,29 @@ export function sessionBranchName(sessionId) {
   return PREFIX + (short || 'unknown');
 }
 
-/** All `zz/session-*` branches (there should be at most one — the invariant). */
+/** All `zz/session-*` branches (there should be at most one — the invariant).
+ *  ACTIVE sessions only; held (finalized) branches live in the `zz/held-*`
+ *  namespace and are enumerated by listHeldBranches — they do NOT count here,
+ *  so a held branch never trips the single-working-branch block. */
 export function listSessionBranches(cwd) {
   try {
     const r = git(['for-each-ref', '--format=%(refname:short)', `refs/heads/${PREFIX}*`], cwd);
+    return r.ok && r.out ? r.out.split('\n').filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** The held name for an active session branch: `zz/session-<x>` → `zz/held-<x>`. */
+export function heldBranchName(sessionBranch) {
+  return HELD_PREFIX + String(sessionBranch ?? '').slice(PREFIX.length);
+}
+
+/** All `zz/held-*` branches — finalized sessions awaiting the merge gate.
+ *  Discoverable (status/digest/the future queue read these) but non-blocking. */
+export function listHeldBranches(cwd) {
+  try {
+    const r = git(['for-each-ref', '--format=%(refname:short)', `refs/heads/${HELD_PREFIX}*`], cwd);
     return r.ok && r.out ? r.out.split('\n').filter(Boolean) : [];
   } catch {
     return [];
@@ -361,6 +385,70 @@ export function closeSession(cwd, { title } = {}) {
       return { ok: true, mergedAs, mergedTo: main, commits, ...extras, warning };
     }
     return { ok: true, mergedAs, mergedTo: main, commits, ...extras };
+  } catch (e) {
+    return { ok: false, reason: String(e) };
+  }
+}
+
+/**
+ * FINALIZE (hold, never merge): fold any uncommitted work into a final
+ * checkpoint, then move the session branch OUT of the active namespace so it
+ * can't block or contaminate the next session — `main` is left untouched.
+ *
+ * The mechanism (the in-place safety the merge gate relies on):
+ *   1. checkpoint() folds dirty work onto the session branch (no-op when clean)
+ *   2. `git branch -m zz/session-<x> zz/held-<x>` — out of the `zz/session-*`
+ *      namespace that openSession/listSessionBranches gate on (so it can't block
+ *      a new open). The zz-base/zz-id config rides along (git moves the section;
+ *      re-set defensively so the held branch always knows its merge base).
+ *   3. checkout the base branch — the working tree leaves the session branch, so
+ *      the NEXT session's checkpoints land on its own branch, never the held one.
+ *
+ * Fail-soft, never merges: returns { ok:true, held, base, checkpoints } or
+ * { ok:false, reason }. The unsafeReason preconditions (not-a-repo / no-commits /
+ * detached-head / operation-in-progress) are a clean no-op, same as closeSession.
+ * The explicit merge stays in closeSession — this only HOLDS.
+ */
+export function finalizeSession(cwd) {
+  try {
+    const blocked = unsafeReason(cwd);
+    if (blocked) return { ok: false, reason: blocked };
+    const branches = listSessionBranches(cwd);
+    if (!branches.length) return { ok: false, reason: 'no-session-branch' };
+    const branch = branches[0];
+    const held = heldBranchName(branch);
+    if (branchExists(cwd, held)) return { ok: false, reason: 'held-branch-exists' };
+
+    // Capture base + config BEFORE the rename: mainBranch resolves the recorded
+    // zz-base by iterating the ACTIVE namespace, which the rename empties.
+    const baseCfg = git(['config', `branch.${branch}.zz-base`], cwd).out;
+    const idCfg = git(['config', `branch.${branch}.zz-id`], cwd).out;
+    const base = baseCfg && branchExists(cwd, baseCfg) ? baseCfg : mainBranch(cwd);
+    if (!base || base === branch) return { ok: false, reason: 'no-main-branch' };
+
+    const cur = currentBranch(cwd);
+    let checkpoints = countCheckpoints(cwd, branch);
+    let excludedSecrets = 0;
+    if (cur === branch) {
+      const cp = checkpoint(cwd); // fold any uncommitted work (no-op when clean)
+      if (!cp.ok) return { ok: false, reason: cp.reason };
+      checkpoints = cp.n ?? checkpoints;
+      excludedSecrets = cp.excludedSecrets ?? 0;
+    } else if (userDirty(cwd)) {
+      // loose changes on another branch belong to the USER — never fold them in
+      return { ok: false, reason: 'dirty-worktree' };
+    }
+
+    const mv = git(['branch', '-m', branch, held], cwd);
+    if (!mv.ok) return { ok: false, reason: mv.err || 'rename-failed' };
+    if (baseCfg) git(['config', `branch.${held}.zz-base`, baseCfg], cwd); // defensive — keep the merge base
+    if (idCfg) git(['config', `branch.${held}.zz-id`, idCfg], cwd);
+
+    resetZuzuuOwn(cwd); // zuzuu's own index churn must not block the checkout
+    const co = git(['checkout', '-q', base], cwd);
+    if (!co.ok) return { ok: false, reason: co.err || 'checkout-base-failed', held, base, checkpoints };
+
+    return { ok: true, held, base, checkpoints, ...(excludedSecrets ? { excludedSecrets } : {}) };
   } catch (e) {
     return { ok: false, reason: String(e) };
   }
