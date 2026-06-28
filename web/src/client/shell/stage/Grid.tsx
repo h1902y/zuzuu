@@ -4,13 +4,25 @@
 // Thin: all derivation is in grid-columns.ts / list-state.ts. Static utilities only.
 import { useQuery } from "@tanstack/react-query";
 import { NotesListProvider, useList } from "../../data/ListContext.js";
-import { gridColumns, cellValue } from "./grid-columns.js";
+import { gridColumns, cellDescriptor, type CellDescriptor } from "./grid-columns.js";
 import { fieldsFromSchema } from "./schema-fields.js";
 import { emptyCopy } from "../empty-copy.js";
 import { api } from "../../lib/api.js";
 import { useWorld } from "../world-state.js";
 import { Table2 } from "lucide-react";
-import { Text, EmptyState } from "../../ds/index.js";
+import { Text, EmptyState, Chip } from "../../ds/index.js";
+
+/** Render one typed cell descriptor (the visual half of grid-columns' cellDescriptor). */
+function GridCell({ d }: { d: CellDescriptor }) {
+  switch (d.kind) {
+    case "empty": return <span className="text-muted">—</span>;
+    case "mono": return <span className="font-mono text-subtle">{d.value}</span>;
+    case "pill": return <Chip label={d.value} tone={d.tone} />;
+    case "pills": return <span className="inline-flex flex-wrap gap-1">{d.values.map((v) => <Chip key={v} label={v} />)}</span>;
+    case "bool": return d.value ? <span className="text-success">✓</span> : <span className="text-muted">—</span>;
+    default: return <span className="text-subtle">{d.value}</span>;
+  }
+}
 
 function GridInner() {
   const { module, rows, total, loading, state, dispatch } = useList();
@@ -60,11 +72,15 @@ function GridInner() {
                   onClick={() => select({ kind: "row", id: row.id, module })}
                   className="cursor-pointer border-b border-border transition-colors hover:bg-hover"
                 >
-                  {cols.map((c) => (
-                    <td key={c.name} className={`max-w-xs truncate px-6 py-3 text-subtle ${c.align === "right" ? "text-right" : "text-left"}`}>
-                      {cellValue(row, c)}
-                    </td>
-                  ))}
+                  {cols.map((c) => {
+                    const d = cellDescriptor(row, c);
+                    const clamp = d.kind === "text" || d.kind === "mono"; // pills/glyphs aren't clipped
+                    return (
+                      <td key={c.name} className={`px-6 py-3 align-middle ${clamp ? "max-w-xs truncate" : ""} ${c.align === "right" ? "text-right" : "text-left"}`}>
+                        <GridCell d={d} />
+                      </td>
+                    );
+                  })}
                 </tr>
               ))}
             </tbody>

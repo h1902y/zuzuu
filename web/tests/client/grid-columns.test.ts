@@ -1,6 +1,7 @@
 // U5 logic — grid column derivation (typed fields vs schemaless inference) + cells.
 import { describe, it, expect } from "vitest";
-import { gridColumns, inferKeys, cellValue } from "../../src/client/shell/stage/grid-columns.js";
+import { gridColumns, inferKeys, cellValue, cellDescriptor, statusTone } from "../../src/client/shell/stage/grid-columns.js";
+import type { GridColumn } from "../../src/client/shell/stage/grid-columns.js";
 import type { ModuleItem } from "#shared/index.js";
 
 const item = (over: Partial<ModuleItem>): ModuleItem =>
@@ -41,5 +42,36 @@ describe("gridColumns", () => {
   it("cellValue formats via the FieldType registry", () => {
     const col = gridColumns([{ name: "title", type: "text" }], [])[0]!;
     expect(cellValue(item({ title: "Hi" }), col)).toBe("Hi");
+  });
+});
+
+describe("cellDescriptor (typed cells)", () => {
+  const col = (name: string, type = "text"): GridColumn => ({ name, label: name, type, align: "left" });
+
+  it("declared FieldType wins: select → pill, multi → pills, bool → bool, number → mono, link → pill", () => {
+    expect(cellDescriptor(item({ ...({ s: "open" } as object) }), col("s", "select"))).toMatchObject({ kind: "pill", value: "open" });
+    expect(cellDescriptor(item({ ...({ tags: ["a", "b"] } as object) }), col("tags", "multi"))).toEqual({ kind: "pills", values: ["a", "b"] });
+    expect(cellDescriptor(item({ ...({ on: true } as object) }), col("on", "bool"))).toEqual({ kind: "bool", value: true });
+    expect(cellDescriptor(item({ ...({ n: 42 } as object) }), col("n", "number"))).toEqual({ kind: "mono", value: "42" });
+    expect(cellDescriptor(item({ ...({ ref: "deck-index" } as object) }), col("ref", "link"))).toEqual({ kind: "pill", value: "deck-index", tone: "neutral" });
+  });
+
+  it("schemaless domain columns read typed: id → mono, kind → module-hue pill, action/status → status pill", () => {
+    expect(cellDescriptor(item({ id: "no-root-wipe" }), col("id"))).toEqual({ kind: "mono", value: "no-root-wipe" });
+    expect(cellDescriptor(item({ kind: "rule" }), col("kind"))).toEqual({ kind: "pill", value: "rule", tone: "guardrails" });
+    expect(cellDescriptor(item({ ...({ action: "deny" } as object) }), col("action"))).toEqual({ kind: "pill", value: "deny", tone: "danger" });
+    expect(cellDescriptor(item({ status: "active" }), col("status"))).toEqual({ kind: "pill", value: "active", tone: "success" });
+  });
+
+  it("plain text otherwise; empty/null → empty", () => {
+    expect(cellDescriptor(item({ title: "Hello" }), col("title"))).toEqual({ kind: "text", value: "Hello" });
+    expect(cellDescriptor(item({ ...({ note: "" } as object) }), col("note"))).toEqual({ kind: "empty" });
+  });
+
+  it("statusTone maps the closed vocabularies", () => {
+    expect(statusTone("ask")).toBe("warning");
+    expect(statusTone("allow")).toBe("success");
+    expect(statusTone("deny")).toBe("danger");
+    expect(statusTone("whatever")).toBe("neutral");
   });
 });
