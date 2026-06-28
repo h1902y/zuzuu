@@ -167,8 +167,9 @@ export function blockingSessionBranches(cwd) {
   }
 }
 
-/** The held name for an active session branch: `zz/session-<x>` → `zz/held-<x>`. */
-export function heldBranchName(sessionBranch) {
+/** The held name for an active session branch: `zz/session-<x>` → `zz/held-<x>`.
+ *  Internal — the two finalize/close call sites below are the only consumers. */
+function heldBranchName(sessionBranch) {
   return HELD_PREFIX + String(sessionBranch ?? '').slice(PREFIX.length);
 }
 

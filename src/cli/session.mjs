@@ -109,7 +109,7 @@ function worktree(args, cwd, log, fail) {
     case 'open': {
       if (!id) return fail('usage: zz session worktree open <id>');
       const r = openSessionWorktree(cwd, id);
-      if (r.ok) { log(`✓ worktree ${id} at ${r.dir}`); return 0; }
+      if (r.ok) { log(`✓ worktree ${id} at ${r.worktree}`); return 0; }
       return fail(r.reason ?? 'cannot open worktree');
     }
     case 'close': {
@@ -139,7 +139,7 @@ function worktree(args, cwd, log, fail) {
     }
     case 'list':
     case undefined:
-      log(toon('worktrees', listSessionWorktrees(cwd).map((w) => ({ id: w.sessionId ?? w.id, branch: w.branch ?? '', dir: w.dir ?? '' })), ['id', 'branch', 'dir']));
+      log(toon('worktrees', listSessionWorktrees(cwd).map((w) => ({ id: (w.branch ?? '').slice('zz/session-'.length), branch: w.branch ?? '', dir: w.path ?? '' })), ['id', 'branch', 'dir']));
       return 0;
     default:
       return fail(`unknown: zz session worktree ${op}`);
