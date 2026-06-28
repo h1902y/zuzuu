@@ -6,7 +6,7 @@ The words zuzuu uses, in plain terms — a friendly *view*, not a third definiti
 
 - **Envelope** — the one file format: a markdown body + YAML frontmatter, distinguished by its `type`. Everything in zuzuu is an envelope.
 - **Note** — one envelope = one fact, optionally runnable. The atom.
-- **Module** — a goal-shaped folder of notes, **and a table**: its `module.md` can declare a typed-column **schema** that validates every note in it (a bad write is rejected at the gate); without one it stays schemaless and flexible. The five built-ins: **[[Knowledge]]** (what's true), **Memory** (what happened), **Actions** (what runs), **Instructions** (how to steer), **[[Guardrails]]** (what's enforced).
+- **Module** — a goal-shaped folder of notes, **and a table**: its `module.md` can declare a typed-column **schema** that validates every note in it (a bad write is rejected at the gate); without one it stays schemaless and flexible. The standard *kinds* (sensible defaults, not a closed set): **[[Knowledge]]** (what's true), **Memory** (what happened), **Actions** (what runs), **Instructions** (how to steer), **[[Guardrails]]** (what's enforced). `init` seeds only **Instructions** (with the enforced rules folded in); the rest **materialize on demand** as the loop routes evidence to them.
 - **Project** — your `.zuzuu/` [[Module Home|home]] — the whole brain for one repo. The hierarchy is **note › module › project**.
 
 ## What you do
@@ -28,7 +28,7 @@ The words zuzuu uses, in plain terms — a friendly *view*, not a third definiti
 - **The gate** — the human-approval step (`review`), and the enforced **[[Guardrails]]** check that can block a tool call before it runs. "The gate is the moat."
 - **The home / `.zuzuu/`** — the hidden, git-friendly folder holding your brain. zuzuu finds it from your repo root and never runs `git init` for you.
 - **Session** — your work with the agent runs on an invisible git branch; on exit it's **held for review** and squash-merged back only at the merge gate (`zz session land`, or the close card in the workbench), so the brain's history stays clean and nothing lands without your yes. *(`zz session merge` still works as an alias.)*
-- **The workbench** — the visual way to run zuzuu in a browser (`zz host web`): a real terminal, a file tree, an editor, and the modules dashboard, all on your own machine. See [[Workbench]].
+- **The workbench** — the visual way to run zuzuu in a browser (`zz host web`): a CRUD-style admin over your Project — your modules as tables, the record/form for each note, a live session terminal, and the review queue — all on your own machine. See [[Workbench]].
 - **The daemon** — the small local server `zz host web` starts on your machine to power the workbench. It stays on `127.0.0.1` (your computer only).
 
 > Everything here is **shipped and verified** — the wiki's standing rule. Designed-but-unbuilt ideas live in the repo docs, not here.

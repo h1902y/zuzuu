@@ -6,7 +6,7 @@ The core was rebuilt greenfield in 2026-06 — the **envelope/note model**, the 
 - **The envelope** — one md+frontmatter format; note › module › project; zero-dep parse/serialize.
 - **The four verbs** — `query` (FTS + graph over a `node:sqlite` index) · `act` (run a note, gated, with a `run.allow` allowlist) · `check` (integrity) · `review` (the human gate). The producer is `observe` (mine real sessions → proposals).
 - **observe (Design B)** — re-parse the transcript, never drive the host; mine recurring commands/files/failures → routed proposals. Adapters for **5 hosts** (Claude Code · Codex · Gemini CLI · OpenCode · pi).
-- **The human gate** — every write to the brain through `zz review`; content-addressed per-module generations, rollback = pointer flip.
+- **The human gate** — every write to the brain through `zz review`; content-addressed per-module generations, rollback = pointer flip **+ content restore** (never a `git revert`).
 - **Guardrails** — the enforced `PreToolUse` gate (rules are notes; fail-open; raw-command matching; ReDoS-guarded).
 - **Session management** — session = git branch (the branch *is* the record); per-session worktrees (concurrency); **END holds for the merge gate** (`zz session land`; `autoMerge` opt-in to land on exit); navigable recording markers.
 - **The CLI + workbench** — a **two-tier `zz`** veneer over one `api` (flat hot-loop verbs · `note`/`gen`/`session`/`host`/`registry` namespaces; every old verb still aliased); **schema-enforced module tables** (a `module.md` `fields` block validates each note at the gate); the visual workbench (`zz host web`).

@@ -6,19 +6,21 @@ The visual way to run zuzuu — a local browser app over your project and its `.
 zz host web   # the bundled workbench — ships with the CLI; launches and prints the URL  (alias: zz web)
 ```
 
-## Home
+## The shell
 
-`zz host web` lands on **Home**: your agent's status (active generation · pending approvals), the live digest, the five module cards (click to drill in), the generations timeline, and recent sessions. The whole loop runs from here:
+`zz host web` opens on the **Projects Home** — a launcher listing every project zuzuu knows, each with its health at a glance (notes · tables · pending review · last activity). Open one (or add a folder), and you land in the **per-project shell**: a calm three-region frame —
 
-- **Start agent session ▾** — pick a detected host in a real embedded terminal. OpenCode is always available (it launches `zz host code`, which installs it on demand).
-- **Review N proposals** — the graduation ceremony in the browser (below).
-- **Open workbench** — the IDE view.
+- a **nav** rail — your sessions (work) and your modules-as-tables (the brain);
+- the **stage** — the active surface: a session terminal, a module **grid**, or a note **record**;
+- a **wing** — the contextual side panel: the record form, the schema/generations, or the live **review queue**;
 
-**No zuzuu home yet?** Home becomes onboarding: *Set up zuzuu* runs `zz init` in a visible terminal (its narrated output is the tour), then *Enable* runs `zz host enable`.
+— over a footer **ribbon** that keeps the gate in view (● live · ◷ N pending · press **R** to review). It's a **database-style admin over your Project**, not an IDE: you read and edit notes through typed forms, not by hand-editing markdown, and a session terminal is one surface among many.
+
+**No zuzuu home in that folder yet?** Opening it runs the setup for you — `zz init` then `zz host enable` — and drops you into the shell. OpenCode is always available as a host (it launches `zz host code`, which installs it on demand).
 
 ## The review ceremony
 
-Pending proposals, ranked, one card at a time — the change, its evidence, the score, the miner's rationale. **Approve / Reject (with a reason) / Skip.** Approvals apply through the CLI gate; each approval writes the note + **mints a generation**. Rejections archive with your reason. The same ceremony opens from the status-bar chip, the Agent sidebar tab, or Home. Mirrors `zz review`.
+Pending proposals, ranked, one card at a time — the change, its evidence, the score, the miner's rationale. **Approve / Reject (with a reason) / Skip.** Approvals apply through the CLI gate; each approval writes the note + **mints a generation**. Rejections archive with your reason. The same ceremony opens from the ribbon's pending chip or by pressing **R** anywhere — live in a session's wing, or as a batch from a module. Mirrors `zz review`.
 
 ## Modules are tables (the grid)
 
@@ -43,3 +45,4 @@ Each session gets **its own git worktree** (a separate checked-out copy on its s
 
 - One install: `npm i -g @zuzuucodes/cli` includes the workbench (its runtime deps are `optionalDependencies` — a failed native build degrades the workbench, never the CLI; `--omit=optional` skips it). The daemon refuses to reimplement note writes — mutations always go through the CLI.
 - Node ≥ 22. The daemon binds localhost only, with a per-launch token. Direct entry: the `zuzuu-web <project-dir>` binary also ships with the CLI.
+- The UI ships a warm light **and** dark theme (toggle in the header).
