@@ -9,37 +9,41 @@
 // the default binds the real client. Pure logic here; surfaces stay thin.
 import { api } from "../lib/api.js";
 import type { ModuleItem, StagedChange, StagedSummary } from "#shared/index.js";
+import type { ListQuery } from "./list-state.js";
 
 type ZuzuuApi = typeof api.zuzuu;
 
-/** Client-side filter state (the filter-chip bar drives this; server-side index
- *  filtering is a later enhancement — the /module/:key route takes no params yet). */
-export interface FilterState { text?: string; kind?: string }
-
 export interface ListResult {
+  /** ONE page of the module's notes (the server already filtered·sorted·sliced). */
   items: ModuleItem[];
-  /** total before filtering */
+  /** the pre-paginate match count — the client paginates off this. */
   total: number;
   staged: StagedSummary[];
   degraded?: boolean;
 }
 
-const matches = (it: ModuleItem, f: FilterState): boolean => {
-  if (f.kind && it.kind !== f.kind) return false;
-  if (f.text) {
-    const q = f.text.toLowerCase();
-    if (!(`${it.title ?? ""} ${it.body ?? ""} ${it.id}`.toLowerCase().includes(q))) return false;
-  }
-  return true;
-};
+/** The list control state → the server module-query (Rung 7). `kind` is the note
+ *  type filter (kind → --type); sort + the page window become limit/offset. The index
+ *  does the filter·sort·paginate — NO more `limit:10000` + a client-side `matches()`. */
+const toModuleQuery = (q: ListQuery) => ({
+  ...(q.text ? { text: q.text } : {}),
+  ...(q.kind ? { type: q.kind } : {}),
+  ...(q.sort ? { sort: `${q.sort.key}${q.sort.dir === "desc" ? ":desc" : ""}` } : {}),
+  limit: q.pageSize,
+  offset: q.page * q.pageSize,
+});
 
 export function makeDataProvider(zuzuu: ZuzuuApi = api.zuzuu) {
   return {
-    /** getList — a module's notes, with the staged queue + a degraded flag. */
-    async getList(module: string, filter: FilterState = {}): Promise<ListResult> {
-      const detail = await zuzuu.module(module);
-      const items = detail.items.filter((it) => matches(it, filter));
-      return { items, total: detail.items.length, staged: detail.staged, degraded: detail.degraded };
+    /** getList — one server-filtered·sorted·paginated page + the staged queue + total. */
+    async getList(module: string, query: ListQuery): Promise<ListResult> {
+      const detail = await zuzuu.module(module, toModuleQuery(query));
+      return {
+        items: detail.items,
+        total: detail.total ?? detail.items.length,
+        staged: detail.staged,
+        degraded: detail.degraded,
+      };
     },
 
     /** getOne — a single record. */

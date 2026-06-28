@@ -5,7 +5,7 @@ import { createContext, useContext, useReducer, type Dispatch, type ReactNode } 
 import { useQuery } from "@tanstack/react-query";
 import type { ModuleItem, StagedSummary } from "#shared/index.js";
 import { dataProvider } from "./provider.js";
-import { listReducer, initialListState, filterOf, project, type ListState, type ListAction } from "./list-state.js";
+import { listReducer, initialListState, queryOf, type ListState, type ListAction } from "./list-state.js";
 
 interface ListContextValue {
   module: string;
@@ -23,13 +23,15 @@ const Ctx = createContext<ListContextValue | null>(null);
 export function NotesListProvider({ module, children }: { module: string; children: ReactNode }) {
   const [state, dispatch] = useReducer(listReducer, initialListState);
   const q = useQuery({
-    queryKey: ["zuzuu", "list", module, state.text, state.kind],
-    queryFn: () => dataProvider.getList(module, filterOf(state)),
+    // the full query (filter·sort·page) keys the cache — any change refetches the page.
+    queryKey: ["zuzuu", "list", module, state.text, state.kind, state.sort?.key, state.sort?.dir, state.page, state.pageSize],
+    queryFn: () => dataProvider.getList(module, queryOf(state)),
   });
-  const view = project(q.data?.items ?? [], state);
+  // the server already filtered·sorted·sliced; rows ARE the page, total is pre-paginate.
+  const total = q.data?.total ?? 0;
   const value: ListContextValue = {
     module, state, dispatch,
-    rows: view.rows, total: view.total, pages: view.pages,
+    rows: q.data?.items ?? [], total, pages: Math.max(1, Math.ceil(total / state.pageSize)),
     staged: q.data?.staged ?? [], loading: q.isLoading,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

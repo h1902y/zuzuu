@@ -12,6 +12,7 @@ import { readHeld } from "./held-sessions.js";
 import {
   SAFE_SLUG,
   SAFE_ID,
+  buildModuleQueryFlags,
   listModuleDirs,
   moduleEnvelopeItems,
   peekModuleItems,
@@ -53,9 +54,16 @@ export function createZuzuuReadApi(getRoot: () => string, binary?: string): Hono
     if (!SAFE_SLUG.test(key)) return c.json({ error: "unknown module" }, 404);
     const root = getRoot();
     const home = await homeDir(root);
-    const { items, errors, degraded } = await moduleEnvelopeItems(root, home, key, binary);
+    // server-side filter·sort·paginate: the URL query → validated `module items` flags
+    // (the index does the SELECT). `where` repeats; everything else is single-valued.
+    const flags = buildModuleQueryFlags({
+      text: c.req.query("text"), type: c.req.query("type"), status: c.req.query("status"),
+      tag: c.req.query("tag"), sort: c.req.query("sort"), where: c.req.queries("where"),
+      limit: c.req.query("limit"), offset: c.req.query("offset"),
+    });
+    const { items, total, errors, degraded } = await moduleEnvelopeItems(root, home, key, binary, flags);
     const staged = (await stagedOf(home, key)).map((p) => stagedSummary(p, key));
-    return c.json({ key, items, staged, errors, ...(degraded ? { degraded: true } : {}) });
+    return c.json({ key, items, total, staged, errors, ...(degraded ? { degraded: true } : {}) });
   });
 
   // One record (getOne) — CLI `zz module item <key> <id>`. Absent/unknown → 404.

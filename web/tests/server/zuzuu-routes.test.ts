@@ -6,7 +6,8 @@ import { mkdtempSync, rmSync, mkdirSync, writeFileSync, realpathSync, existsSync
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createZuzuuApi } from "../../src/server/zuzuu-routes.js";
-import { envelope, fixtureHome, jsonStub, failStub, markerStub, argvStub } from "./zuzuu-fixtures.js";
+import { buildModuleQueryFlags } from "../../src/server/zuzuu-peek.js";
+import { envelope, fixtureHome, jsonStub, failStub, markerStub, argvStub, argvItemsStub } from "./zuzuu-fixtures.js";
 
 let root: string;
 // realpath the temp root: resolveSafe requires an already-realpath'd root (the
@@ -55,6 +56,25 @@ describe("createZuzuuApi file routes", () => {
     expect(body.degraded).toBeUndefined();
     expect(body.items[0]).toEqual(item); // THE ENVELOPE, untouched
     expect(body.errors).toEqual([]);
+  });
+  it("GET /module/:key forwards filter·sort·paginate query params to `module items` flags + returns total (Rung 7)", async () => {
+    fixtureHome(root);
+    const app = createZuzuuApi(() => root, { binary: argvItemsStub(root, 42) });
+    const res = await app.request("/module/knowledge?text=blue&type=fact&status=active&tag=client-acme&where=priority%3Dhigh&where=owner%3Dalice&sort=title%3Adesc&limit=2&offset=4");
+    const body = await res.json();
+    expect(body.total).toBe(42); // the pre-paginate count rides through for the grid's pagination
+    const argv: string = body.items[0].argv;
+    // every axis reached the CLI as the matching flag (spawn is argv-array → injection-safe)
+    expect(argv).toContain("module items knowledge");
+    expect(argv).toContain("--text blue");
+    expect(argv).toContain("--type fact");
+    expect(argv).toContain("--status active");
+    expect(argv).toContain("--tag client-acme");
+    expect(argv).toContain("--where priority=high");
+    expect(argv).toContain("--where owner=alice"); // repeatable EAV filter
+    expect(argv).toContain("--sort title:desc");
+    expect(argv).toContain("--limit 2");
+    expect(argv).toContain("--offset 4");
   });
   it("GET /module/:key/item/:id surfaces the current note body (the update diff's 'before' source)", async () => {
     fixtureHome(root);
@@ -337,3 +357,24 @@ describe("createZuzuuApi POST /module/new (WS-D guided creation)", () => {
   });
 });
 
+
+// The pure param → flags mapping (buildModuleQueryFlags): each axis guarded
+// independently; an invalid value is dropped, never a hard error (degrade).
+describe("buildModuleQueryFlags — query params → `module items` flags", () => {
+  it("maps every axis; `where` repeats; an empty query yields no flags", () => {
+    expect(buildModuleQueryFlags({})).toEqual([]);
+    expect(buildModuleQueryFlags({
+      text: "blue deck", type: "fact", status: "active", tag: "client-acme",
+      sort: "title:desc", where: ["priority=high", "owner=alice"], limit: "20", offset: "40",
+    })).toEqual([
+      "--text", "blue deck", "--type", "fact", "--status", "active", "--tag", "client-acme",
+      "--sort", "title:desc", "--where", "priority=high", "--where", "owner=alice",
+      "--limit", "20", "--offset", "40",
+    ]);
+  });
+  it("drops invalid axes (bad slug/sort/int, malformed where) instead of forwarding them", () => {
+    expect(buildModuleQueryFlags({ type: "../evil", status: "a b", sort: "title;drop", where: ["noeq", "=v"], limit: "-1", offset: "x" })).toEqual([]);
+    // a control char in free text is stripped to a space (spawn is argv-array, but clamp anyway)
+    expect(buildModuleQueryFlags({ text: "a\nb" })).toEqual(["--text", "a b"]);
+  });
+});

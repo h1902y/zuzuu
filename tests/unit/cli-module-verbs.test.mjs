@@ -69,6 +69,32 @@ test('module items <key> carries CUSTOM frontmatter columns (the lossless projec
   });
 });
 
+test('module items <key> filters · sorts · paginates server-side + returns total (Rung 7)', async () => {
+  await withRepo(async ({ home, io, out }) => {
+    initHome(io.cwd);
+    const mk = (id, title, status, priority) => writeNote(home, 'tasks', id, { type: 'task', title, status, priority, body: `${id} body` });
+    mk('alpha', 'Alpha', 'active', 'high');
+    mk('bravo', 'Bravo', 'active', 'low');
+    mk('charlie', 'Charlie', 'archived', 'high');
+    mk('delta', 'Delta', 'active', 'high');
+    const page = async (...flags) => { out.length = 0; assert.equal(await run(['module', 'items', 'tasks', ...flags, '--json'], io), 0); return JSON.parse(out[0]); };
+
+    // --where (EAV) + --sort (promoted) + --limit/--offset: the golden filtered, sorted, paginated page
+    const r = await page('--where', 'priority=high', '--sort', 'title', '--limit', '2', '--offset', '1');
+    assert.equal(r.total, 3, 'total = the pre-paginate count (the 3 high), not the 2-row page');
+    assert.deepEqual(r.items.map((i) => i.id), ['charlie', 'delta']);
+    assert.equal(out.length, 1, 'single JSON line — the daemon JSON.parses it');
+
+    // each filter axis stands alone
+    assert.deepEqual((await page('--type', 'task')).items.length, 4);
+    assert.deepEqual((await page('--status', 'archived')).items.map((i) => i.id), ['charlie']);
+    assert.deepEqual((await page('--text', 'bravo')).items.map((i) => i.id), ['bravo']);
+
+    // an empty result is clean (no rows, total 0, errors present)
+    assert.deepEqual(await page('--where', 'priority=none'), { items: [], total: 0, errors: [] });
+  });
+});
+
 test('module item <key> <id> returns the FULL envelope incl. custom keys', async () => {
   await withRepo(async ({ home, io, out }) => {
     initHome(io.cwd);

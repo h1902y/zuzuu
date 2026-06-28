@@ -29,7 +29,62 @@ export async function listModuleDirs(home: string): Promise<string[]> {
 export const SAFE_ID = /^[a-z0-9][a-z0-9._-]{0,127}$/i;
 /** A safe module slug: lowercase alphanumeric start, then alphanumeric/underscore/hyphen. */
 export const SAFE_SLUG = /^[a-z0-9][a-z0-9_-]*$/;
+/** A `--sort` spec: a column name + an optional `:asc`/`:desc` direction. */
+export const SAFE_SORT = /^[a-z0-9_]+(:asc|:desc)?$/i;
 export const MAX_REASON_LEN = 500;
+
+// ── the module-as-table query (Rung 7) ───────────────────────────────────────
+// The GET /module/:key route forwards filter·sort·paginate query params to the CLI's
+// `module items` flags (the index does the SELECT). Spawn is argv-array (never a shell),
+// so values can't inject; we still validate slugs/ids and clamp free text defensively.
+
+/** A free-text value (FTS query / EAV value): strip control chars, trim, cap length.
+ *  null when nothing usable remains (the flag is omitted). */
+function clampText(v: string | undefined, max = 200): string | null {
+  if (!v) return null;
+  // eslint-disable-next-line no-control-regex
+  const t = v.replace(/[\u0000-\u001f]/g, " ").trim();
+  return t ? t.slice(0, max) : null;
+}
+
+/** A non-negative integer query param (limit/offset), capped. null when absent/invalid. */
+function intParam(v: string | undefined, max = 100_000): number | null {
+  if (v == null || v === "") return null;
+  const n = Number(v);
+  return Number.isInteger(n) && n >= 0 ? Math.min(n, max) : null;
+}
+
+/** The query params the read route reads off the request (all raw strings; `where`
+ *  repeats). Passed to buildModuleQueryFlags so the mapping is pure + unit-testable. */
+export interface ModuleQueryParams {
+  text?: string; type?: string; status?: string; tag?: string;
+  sort?: string; where?: string[]; limit?: string; offset?: string;
+}
+
+/** Map validated query params → the `module items` CLI flags (no leading `module items
+ *  <key>` — the caller prepends those). Each axis is independently guarded; an invalid
+ *  value is simply dropped (degrade, never 400 on a stray filter). */
+export function buildModuleQueryFlags(p: ModuleQueryParams): string[] {
+  const flags: string[] = [];
+  const text = clampText(p.text);
+  if (text) flags.push("--text", text);
+  if (p.type && SAFE_SLUG.test(p.type)) flags.push("--type", p.type);
+  if (p.status && SAFE_SLUG.test(p.status)) flags.push("--status", p.status);
+  if (p.tag && SAFE_ID.test(p.tag)) flags.push("--tag", p.tag);
+  if (p.sort && SAFE_SORT.test(p.sort)) flags.push("--sort", p.sort);
+  for (const w of p.where ?? []) {
+    const eq = w.indexOf("=");
+    if (eq <= 0) continue;
+    const key = w.slice(0, eq);
+    const value = clampText(w.slice(eq + 1));
+    if (SAFE_SLUG.test(key) && value) flags.push("--where", `${key}=${value}`);
+  }
+  const limit = intParam(p.limit);
+  if (limit != null) flags.push("--limit", String(limit));
+  const offset = intParam(p.offset);
+  if (offset != null) flags.push("--offset", String(offset));
+  return flags;
+}
 
 // ── CLI-absent envelope peek ────────────────────────────────────────────
 // The CLI is the parser of record (`zuzuu module items <f> --json` returns the
@@ -104,17 +159,28 @@ export async function peekModuleItems(home: string, key: string): Promise<Record
 
 export interface EnvelopeListing {
   items: unknown[];
+  /** the pre-paginate match count (CLI `total`); peek/legacy ⇒ items.length. */
+  total: number;
   errors: { file: string; error: string }[];
   degraded: boolean;
 }
 
-/** One module's envelope items: CLI first (full envelopes), peek fallback. */
-export async function moduleEnvelopeItems(root: string, home: string, key: string, binary?: string): Promise<EnvelopeListing> {
-  const viaCli = await runZuzuu(root, ["module", "items", key], { binary }) as
-    { items?: unknown[]; errors?: { file: string; error: string }[] } | null;
+/** One module's envelope items: CLI first (full envelopes, server-side filter·sort·
+ *  paginate via `flags`), peek fallback. `flags` are the already-validated `module
+ *  items` query flags (buildModuleQueryFlags); the peek fallback can't filter
+ *  server-side, so it returns the whole module (degraded). */
+export async function moduleEnvelopeItems(root: string, home: string, key: string, binary?: string, flags: string[] = []): Promise<EnvelopeListing> {
+  const viaCli = await runZuzuu(root, ["module", "items", key, ...flags], { binary }) as
+    { items?: unknown[]; total?: number; errors?: { file: string; error: string }[] } | null;
   if (viaCli && Array.isArray(viaCli.items))
-    return { items: viaCli.items, errors: Array.isArray(viaCli.errors) ? viaCli.errors : [], degraded: false };
-  return { items: await peekModuleItems(home, key), errors: [], degraded: true };
+    return {
+      items: viaCli.items,
+      total: typeof viaCli.total === "number" ? viaCli.total : viaCli.items.length,
+      errors: Array.isArray(viaCli.errors) ? viaCli.errors : [],
+      degraded: false,
+    };
+  const items = await peekModuleItems(home, key);
+  return { items, total: items.length, errors: [], degraded: true };
 }
 
 /** Read every *.json in a dir into objects; missing dir → [], corrupt file → skipped. */

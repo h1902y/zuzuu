@@ -33,6 +33,30 @@ import type {
 /** A setup verb's response — the CLI JSON the daemon passes through (shape varies). */
 type SetupResult = { ok?: boolean } & Record<string, unknown>;
 
+/** The server-side module-list query (Rung 7): filter·sort·paginate the daemon pushes
+ *  to the index. `type` is the note kind, `where` are repeatable `key=val` EAV filters,
+ *  `sort` is `col[:desc]`. All optional — an empty query lists the module unfiltered. */
+export interface ModuleQuery {
+  text?: string; type?: string; status?: string; tag?: string;
+  sort?: string; where?: string[]; limit?: number; offset?: number;
+}
+
+/** ModuleQuery → a `?...` querystring (omitting empty axes; `where` repeats). */
+function moduleQs(q?: ModuleQuery): string {
+  if (!q) return "";
+  const p = new URLSearchParams();
+  if (q.text) p.set("text", q.text);
+  if (q.type) p.set("type", q.type);
+  if (q.status) p.set("status", q.status);
+  if (q.tag) p.set("tag", q.tag);
+  if (q.sort) p.set("sort", q.sort);
+  for (const w of q.where ?? []) p.append("where", w);
+  if (q.limit != null) p.set("limit", String(q.limit));
+  if (q.offset != null) p.set("offset", String(q.offset));
+  const s = p.toString();
+  return s ? `?${s}` : "";
+}
+
 export class ApiError extends Error {
   constructor(readonly status: number, message: string) {
     super(message);
@@ -125,7 +149,9 @@ export const api = {
     // the session-start readiness brief — `zz doctor` + `zz digest` as raw text
     // (either null when the CLI is absent), embedded in the agent's first turn.
     readiness: () => request<{ doctor: string | null; digest: string | null }>("/api/zuzuu/readiness"),
-    module: (key: string) => request<ModuleDetail>(`/api/zuzuu/module/${key}`),
+    // the module's notes — optionally filtered·sorted·paginated server-side (the index
+    // SELECT). No query ⇒ the whole module (the default the graph/search/review reads use).
+    module: (key: string, query?: ModuleQuery) => request<ModuleDetail>(`/api/zuzuu/module/${key}${moduleQs(query)}`),
     item: (key: string, id: string) => request<ModuleItem>(`/api/zuzuu/module/${key}/item/${id}`),
     schema: (key: string) => request<ModuleSchema>(`/api/zuzuu/module/${key}/schema`),
     generations: (key: string) => request<ModuleGenerationList>(`/api/zuzuu/module/${key}/generations`),

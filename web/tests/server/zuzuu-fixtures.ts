@@ -81,3 +81,13 @@ export function argvStub(r: string, name = "zuzuu-argv.sh"): string {
   chmodSync(stub, 0o755);
   return stub;
 }
+
+/** A `module items` stub that echoes its argv INTO an item field (+ a fixed `total`) —
+ *  so a READ route shaping `{items,total}` still surfaces exactly which flags reached
+ *  the CLI (argvStub's bare `{argv}` would make the route degrade to peek). */
+export function argvItemsStub(r: string, total = 0, name = "zuzuu-argv-items.sh"): string {
+  const stub = path.join(r, name);
+  writeFileSync(stub, `#!/bin/sh\nprintf '{"items":[{"id":"x","argv":"'\nfor a in "$@"; do printf '%s ' "$a"; done\nprintf '"}],"total":${total},"errors":[]}'\n`);
+  chmodSync(stub, 0o755);
+  return stub;
+}

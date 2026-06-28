@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { serialize } from '../../src/notes/note.mjs';
 import { search, related, backlinks, count, brokenLinks } from '../../src/notes/index.mjs';
+import { searchRows } from '../../src/notes/rows.mjs';
 import { queryData } from '../../src/use/query.mjs';
 import { toon } from '../../src/notes/toon.mjs';
 
@@ -50,6 +51,67 @@ test('search: filter by type, module, tag', () => {
     assert.equal(search(home, { module: 'knowledge' }).length, 2);
     assert.equal(search(home, { tag: 'client-acme' }).length, 2);
     assert.equal(search(home, { tag: 'design' }).length, 1);
+  });
+});
+
+// ── Rung 7: server-side filter · sort · paginate over a module-as-table ──────
+const TABLE = {
+  'tasks:alpha': { type: 'task', title: 'Alpha', status: 'active', priority: 'high', body: 'a' },
+  'tasks:bravo': { type: 'task', title: 'Bravo', status: 'active', priority: 'low', body: 'b' },
+  'tasks:charlie': { type: 'task', title: 'Charlie', status: 'archived', priority: 'high', body: 'c' },
+  'tasks:delta': { type: 'task', title: 'Delta', status: 'active', priority: 'high', body: 'd' },
+};
+
+test('search: --status filters server-side', () => {
+  withZuzuu(TABLE, (home) => {
+    assert.deepEqual(search(home, { module: 'tasks', status: 'archived' }).map((r) => r.addr), ['tasks:charlie']);
+    assert.equal(search(home, { module: 'tasks', status: 'active' }).length, 3);
+  });
+});
+
+test('search: --where key=val selects only the matching EAV rows (prop side-table)', () => {
+  withZuzuu(TABLE, (home) => {
+    const hi = search(home, { module: 'tasks', where: [{ key: 'priority', value: 'high' }] }).map((r) => r.addr).sort();
+    assert.deepEqual(hi, ['tasks:alpha', 'tasks:charlie', 'tasks:delta']);
+    // repeatable + AND-ed: high AND active narrows further
+    const both = search(home, { module: 'tasks', where: [{ key: 'priority', value: 'high' }, { key: 'status', value: 'active' }] }).map((r) => r.addr).sort();
+    assert.deepEqual(both, ['tasks:alpha', 'tasks:delta']);
+    assert.equal(search(home, { module: 'tasks', where: [{ key: 'priority', value: 'none' }] }).length, 0);
+  });
+});
+
+test('search: --sort a promoted column asc/desc + --offset slices in SQL', () => {
+  withZuzuu(TABLE, (home) => {
+    const asc = search(home, { module: 'tasks', sort: { col: 'title' } }).map((r) => r.title);
+    assert.deepEqual(asc, ['Alpha', 'Bravo', 'Charlie', 'Delta']);
+    const desc = search(home, { module: 'tasks', sort: { col: 'title', desc: true } }).map((r) => r.title);
+    assert.deepEqual(desc, ['Delta', 'Charlie', 'Bravo', 'Alpha']);
+    // limit + offset page the ordered window
+    assert.deepEqual(search(home, { module: 'tasks', sort: { col: 'title' }, limit: 2, offset: 1 }).map((r) => r.title), ['Bravo', 'Charlie']);
+  });
+});
+
+test('searchRows: filter + sort + paginate returns the page + the pre-paginate total', () => {
+  withZuzuu(TABLE, (home) => {
+    // --where priority=high (3 match) --sort title --limit 2 --offset 1 → page 2 of 3
+    const r = searchRows(home, { module: 'tasks', where: [{ key: 'priority', value: 'high' }], sort: { col: 'title' }, limit: 2, offset: 1 });
+    assert.equal(r.total, 3, 'total is the pre-paginate count (all 3 high), not the page size');
+    assert.deepEqual(r.items.map((n) => n.id), ['charlie', 'delta']);
+    // every frontmatter column survives the hydration (the lossless projection)
+    assert.equal(r.items[0].priority, 'high');
+  });
+});
+
+test('searchRows: an arbitrary EAV column sorts post-hydration, then slices', () => {
+  withZuzuu(TABLE, (home) => {
+    // `priority` is a custom column (no `notes` column to ORDER BY) → JS sort path
+    const desc = searchRows(home, { module: 'tasks', sort: { col: 'priority', desc: true } });
+    assert.equal(desc.total, 4);
+    // low sorts after high under desc; ties (the 3 highs) break on id
+    assert.deepEqual(desc.items.map((n) => n.id), ['bravo', 'alpha', 'charlie', 'delta']);
+    // paginate the EAV-sorted set
+    const page = searchRows(home, { module: 'tasks', sort: { col: 'priority' }, limit: 2, offset: 0 });
+    assert.deepEqual(page.items.map((n) => n.id), ['alpha', 'charlie']); // high (a,c,d) before low; id tiebreak
   });
 });
 

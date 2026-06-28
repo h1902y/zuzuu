@@ -48,6 +48,28 @@ function projectRow(note, module) {
   return { id: rest.id, module, kind: type ?? '', title: rest.title ?? '', status: rest.status ?? '', ...rest };
 }
 
+/** Repeated `--where key=val` → [{key,value}] (the EAV column filters). parseArgs
+ *  keeps only the LAST of a repeated flag, so — like `stage`'s `--field` — scan the
+ *  raw argv so multiples accumulate. A pair without `=` (or empty key) is skipped. */
+function whereFilters(rest) {
+  const out = [];
+  for (let i = 0; i < rest.length; i++) {
+    if (rest[i] === '--where' && rest[i + 1] != null) {
+      const eq = rest[i + 1].indexOf('=');
+      if (eq > 0) out.push({ key: rest[i + 1].slice(0, eq), value: rest[i + 1].slice(eq + 1) });
+      i++;
+    }
+  }
+  return out;
+}
+
+/** `--sort <col>[:desc]` → { col, desc } | null (the index orders by it). */
+function parseSort(raw) {
+  if (!raw || raw === true) return null;
+  const [col, dir] = String(raw).split(':');
+  return col ? { col, desc: dir === 'desc' } : null;
+}
+
 /** The displayable column set across a set of items: the union of their keys minus
  *  the SKIP internals (matches the client's `inferKeys`), so a custom frontmatter
  *  column surfaces as a column. Insertion order preserved; null/absent values skip. */
@@ -189,7 +211,7 @@ export const COMMANDS = [
     path: ['module'], plane: 'data', json: true, permission: 'read', agentInvokable: true,
     usage: 'module [list | overview | items <k> | item <k> <id> | schema <k>]',
     summary: 'inspect modules · notes  (generations → the `gen` namespace)',
-    handler: ({ args, cwd, log, json, warn }) => {
+    handler: ({ args, cwd, log, json, warn, rest }) => {
       const zz = open(cwd);
       const [a, b, c] = args._;
 
@@ -205,14 +227,24 @@ export const COMMANDS = [
       }
       if (a === 'items') {
         if (!b) return fail(log, 'usage: zz module items <key>', json);
-        // Hydrate the FULL envelopes (every frontmatter column), not the index's five.
-        // The index search gives the matching addr set + relevance order; rows.mjs
-        // re-reads each off disk (the lossless source of truth) so a custom column
-        // round-tripped on disk is no longer truncated here — the silent data-loss-in-view.
-        const items = searchRows(zz.home, { module: b }).map((note) => projectRow(note, b));
-        // shape: { items, errors } + `kind` — the daemon's moduleEnvelopeItems passes this
-        // straight through as the shared ModuleItem[] (otherwise it degrades to peek)
-        emit(log, json, { items, errors: [] }, ['items', items, columnsFor(items)]);
+        // The module-as-table query: filter (--text/--type/--tag/--status/--where k=v) +
+        // --sort + --limit/--offset all run in the index SELECT (searchRows composes
+        // search+count), so filtering is NOT "fetch everything + filter in JS." Each match
+        // is then hydrated to its FULL envelope off disk (the lossless source of truth), so
+        // a custom column round-tripped on disk is no longer truncated — the data-loss-in-view.
+        const opts = {
+          module: b,
+          text: args.text || '', type: args.type || '', tag: args.tag || '', status: args.status || '',
+          where: whereFilters(rest), sort: parseSort(args.sort),
+          limit: args.limit !== undefined ? Number(args.limit) : 10000,
+          offset: Number(args.offset) || 0,
+        };
+        const { items: notes, total } = searchRows(zz.home, opts);
+        const items = notes.map((note) => projectRow(note, b));
+        // shape: { items, total, errors } + `kind` — the daemon's moduleEnvelopeItems passes
+        // this straight through as the shared ModuleItem[] (`total` = the pre-paginate count,
+        // so the grid paginates); CLI-absent degrades to peek.
+        emit(log, json, { items, total, errors: [] }, ['items', items, columnsFor(items)]);
         return 0;
       }
       if (a === 'item') {

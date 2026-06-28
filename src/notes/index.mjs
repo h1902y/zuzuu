@@ -152,8 +152,17 @@ function ftsQuery(text) {
   }).join(' ');
 }
 
-/** Build the shared FROM + WHERE + args for a filter set (search and count reuse it). */
-function plan({ text = '', module = '', type = '', tag = '' }) {
+// Columns the index PROMOTES to the `notes` row — the only ones an `ORDER BY` can
+// reach in SQL. A custom frontmatter column lives in `prop` (EAV), not here, so it
+// can't sort in SQL; the read path sorts those post-hydration (rows.mjs). Exported
+// so the read projection shares ONE source of truth for "is this sort SQL-native?".
+export const SORTABLE_COLUMNS = new Set(['title', 'status', 'type', 'id', 'addr']);
+
+/** Build the shared FROM + WHERE + args for a filter set (search and count reuse it).
+ *  `where` is the EAV column filter: an array of `{key,value}` pairs (repeatable,
+ *  AND-ed) tested against the `prop` side-table — the `prop_kv (key,value)` index
+ *  serves it, so a custom column filters server-side without joining it into `notes`. */
+function plan({ text = '', module = '', type = '', tag = '', status = '', where: eav = [] }) {
   const where = [];
   const args = [];
   let from = 'notes';
@@ -161,16 +170,19 @@ function plan({ text = '', module = '', type = '', tag = '' }) {
   if (fts) { from = 'notes JOIN fts ON fts.addr = notes.addr'; where.push('fts MATCH ?'); args.push(fts); }
   if (module) { where.push('notes.module = ?'); args.push(module); }
   if (type) { where.push('notes.type = ?'); args.push(type); }
+  if (status) { where.push('notes.status = ?'); args.push(status); }
   if (tag) { where.push('notes.addr IN (SELECT addr FROM prop WHERE key=? AND value=?)'); args.push('tag', tag); }
+  for (const { key, value } of eav) { where.push('notes.addr IN (SELECT addr FROM prop WHERE key=? AND value=?)'); args.push(key, value); }
   return { from, whereSql: where.length ? ` WHERE ${where.join(' AND ')}` : '', args };
 }
 
 /**
  * Search the index. Composable filters; brief by default. User `text` is sanitized,
- * so it never crashes on FTS metacharacters.
+ * so it never crashes on FTS metacharacters. `sort` ({col,desc}, col ∈ SORTABLE_COLUMNS)
+ * applies a SQL `ORDER BY` (overriding relevance); `offset` paginates the window.
  * @returns {Array<{addr,type,title,status,body?}>}
  */
-export function search(home, { limit = 50, full = false, ...filters } = {}) {
+export function search(home, { limit = 50, offset = 0, full = false, sort = null, ...filters } = {}) {
   const db = open(home);
   try {
     const { from, whereSql, args } = plan(filters);
@@ -178,8 +190,12 @@ export function search(home, { limit = 50, full = false, ...filters } = {}) {
     // relevance order on a text query (BM25; title weighted 10× over body); a
     // matched-context snippet rides along on --full. (fts cols: addr·title·body.)
     const sel = (full ? FULL_SEL : BRIEF_SEL) + (usesFts && full ? `, snippet(fts, 2, '', '', '…', 12) AS snippet` : '');
-    const order = usesFts ? ' ORDER BY bm25(fts, 1.0, 10.0, 1.0)' : '';
-    const sql = `SELECT ${sel} FROM ${from}${whereSql}${order} LIMIT ${Number(limit) || 50}`;
+    // an explicit promoted-column sort wins over relevance; the `, notes.addr` tiebreak
+    // makes ties deterministic (stable goldens, stable pagination across pages).
+    let order = usesFts ? ' ORDER BY bm25(fts, 1.0, 10.0, 1.0)' : '';
+    if (sort && SORTABLE_COLUMNS.has(sort.col)) order = ` ORDER BY notes.${sort.col} COLLATE NOCASE${sort.desc ? ' DESC' : ''}, notes.addr`;
+    const off = Number(offset) > 0 ? ` OFFSET ${Number(offset)}` : '';
+    const sql = `SELECT ${sel} FROM ${from}${whereSql}${order} LIMIT ${Number(limit) || 50}${off}`;
     return db.prepare(sql).all(...args);
   } finally { db.close(); }
 }

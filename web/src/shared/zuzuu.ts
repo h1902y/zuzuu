@@ -94,6 +94,9 @@ export interface StagedSummary {
 export interface ModuleDetail {
   key: string;
   items: ModuleItem[];
+  /** the PRE-paginate match count (the index COUNT over the same filter) — `items` is
+   *  one page of it. The client paginates off this; absent ⇒ fall back to items.length. */
+  total?: number;
   staged: StagedSummary[];
   errors?: ModuleItemError[];
   /** true = zuzuu CLI absent; items are a best-effort frontmatter peek */
