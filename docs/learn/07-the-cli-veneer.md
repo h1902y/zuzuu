@@ -2,18 +2,22 @@
 
 > Six lessons built the Project: an envelope, an index, a registry, a gate, a loop, an observer. This one is the **front door** — how a person (or an agent) actually *uses* it. The surprise: it's the thinnest layer in the whole system, and that's the point.
 
-The code is `cli/init.mjs` (`zz init`) and `cli/index.mjs` (the router). The entry is `bin/zuzuu.mjs`.
+The code is `cli/init.mjs` (`zz init`), `cli/commands.mjs` (the command table), and `cli/index.mjs` (the router). The entry is `bin/zuzuu.mjs`.
 
-## The router owns no logic
+## The router owns no logic — the table does
 
-`cli/index.mjs` is a flat `switch` over the verb, and every case is a one-liner onto the `api` façade (lesson on `api.mjs`):
+`cli/commands.mjs` is a **declarative table**: one row per command (`{ path, plane, summary, usage, handler, …metadata }`), each handler a one-liner onto the `api` façade (lesson on `api.mjs`):
 
 ```js
-case 'query': { const r = open(cwd).query(module, opts); log(toon('notes', r.value.rows, …)); }
-case 'act':   { const r = open(cwd).act(module, id, inputs); … }
+{ path: ['query'], handler: ({ args, cwd, log }) => { const r = open(cwd).query(…); log(toon('notes', …)); } }
+{ path: ['act'],   handler: ({ args, cwd, log }) => { const r = open(cwd).act(…); … } }
 ```
 
-That's deliberate. The dependency rule is `notes ← use · loop ← serve ← hosts · cli` — the CLI is the **outermost** ring and imports only inward. It parses argv, calls the façade, renders the result. If logic ever creeps into the router, it's in the wrong place — it belongs in a capability, where every host (the web daemon, a plugin) gets it too. The CLI is a *veneer*: thin, swappable, opinion-free.
+`cli/index.mjs` is then a ~63-line router: parse argv → resolve the command by **longest-prefix** match against the table → build a `ctx` → call its handler. (This replaced a hand-maintained ~40-verb `switch` + a hand-maintained `HELP` const — the table is the single source of truth that the router, `zz help`, the guardrails gate's brain-write deny set, and the web daemon's spawn catalog *all* read, so they can't drift; 2026-06-28, see `docs/LOG.md`.)
+
+The grammar is **two-tier**: hot-loop verbs stay flat (`query · act · check · review · stage · observe · …` — querying them every turn must stay cheap on tokens), cold verbs live under noun namespaces (`note · gen · session · host · registry`). Every old flat verb survives as a deprecating **alias row** — back-compat is *data*, not a wrapper.
+
+That thinness is deliberate. The dependency rule is `metal ← notes ← use · grow ← serve ← hosts · cli` — the CLI is the **outermost** ring and imports only inward. It parses argv, calls the façade, renders the result. If logic ever creeps into the router, it's in the wrong place — it belongs in a capability, where every host (the web daemon, a plugin) gets it too. The CLI is a *veneer*: thin, swappable, opinion-free.
 
 ## Written for an agent to read (AXI)
 
@@ -33,7 +37,7 @@ The verbs read as the sentence the whole system is built around: *you **query** 
 - **Git-citizen.** It resolves the *host* repo root (`git --show-toplevel`) and plants `.zuzuu/` there. It **never** `git init`s — zuzuu lives *inside* your project's history, it doesn't start one. (Lesson `01`.)
 - **Idempotent + brownfield-safe.** It writes each file *once* — a second `init`, or an `init` over an existing home, creates nothing and clobbers nothing (it reports what it skipped). Onboarding an existing project is safe.
 
-It plants an **empty Project** — only the protective **guardrails** module (its `module.md` envelope written with the note serializer, declaring its `capabilities` and `enhance.goal`) plus the seed guardrail rules as real `type: rule` notes (the hard-won `no-root-wipe` negative-lookahead among them, lesson `04`). **No prebuilt modules (2026-06-23):** the four content modules — knowledge, memory, actions, instructions — are *not* scaffolded; they **materialize on demand** as the loop grows the Project, their `module.md` minted from the standard templates (`src/notes/module-templates.mjs`) the first time `observe` routes a proposal to one (`grow/propose.mjs`). The five remain the standard module *types*; only shipping them prebuilt went away — a fresh repo shows the honest empty state, and guardrails ships because protection must hold from byte one.
+It plants a **near-empty Project** — only the **instructions** module (its `module.md` envelope written with the note serializer, declaring its `capabilities` and `enhance.goal`), seeded with the enforced safety floor as real `type: rule` notes (the hard-won `no-root-wipe` negative-lookahead among them, lesson `04`, plus the `.zuzuu/` write-protection rules) and a few best-practice instruction-notes. **No prebuilt content modules (2026-06-23; the safety floor folded into `instructions` 2026-06-26):** the three remaining content modules — knowledge, memory, actions — are *not* scaffolded; they **materialize on demand** as the loop grows the Project, their `module.md` minted from the standard templates (`src/notes/module-templates.mjs`) the first time `observe` routes a proposal to one (`grow/stage.mjs`). The five remain the standard module *types*; only shipping them prebuilt went away — a fresh repo shows the honest near-empty state, and `instructions` ships because protection must hold from byte one.
 
 ## The whole loop, from the command line
 

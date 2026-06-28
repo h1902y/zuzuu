@@ -58,10 +58,16 @@ A plain DAG: `shared/` is the only thing both halves import (`shared → server`
   below without touching `sessions`/`term-protocol`). Plus `fs-api`, `search`
   (ripgrep), `ws-fs` (chokidar), `cast` (asciicast), `shell-integration/` (OSC
   133/7 injection), and `zuzuu-cli.ts` — the **only** place the daemon shells the
-  `zz` CLI (every brain mutation goes through it; the daemon never imports
-  `src/loop`). `zuzuu-routes.ts` composes the modules-dashboard API from `zuzuu-read.ts` (GET) ·
-  `zuzuu-write.ts` (CLI-only mutations) · `zuzuu-peek.ts` (the CLI-absent fallback +
-  shared id guards). **The surface is
+  `zz` CLI (every brain mutation goes through it; the daemon never imports `src/`).
+  It builds argv **only** from `zuzuu-catalog.ts` (`COMMAND_CATALOG`), a typed mirror
+  of the CLI's generated catalog (`zz commands --json` ← `src/cli/commands.mjs`): a
+  `commandId` is `keyof typeof COMMAND_CATALOG`, so a typo is a **tsc** error and an
+  unknown id at runtime is **refused** (`buildZuzuuArgv` throws). The daemon can only
+  shell a command the CLI table KNOWS — closing the class of bug where it once shelled
+  nonexistent verbs (`module new` / `generation mint`); byte-equality with the live
+  catalog is pinned by `zuzuu-catalog.test.ts` (drift fails CI). `zuzuu-routes.ts`
+  composes the modules-dashboard API from `zuzuu-read.ts` (GET) · `zuzuu-write.ts`
+  (CLI-only mutations) · `zuzuu-peek.ts` (the CLI-absent fallback + shared id guards). **The surface is
   trimmed to what the client actually calls** — beyond the v1 dead routes
   (checkpoints, OTLP session views, eval/inbox), the 2026-06-22 squeeze pruned the
   ported-but-unused features too: git, workflows, shell-history, vault-browse,
@@ -77,8 +83,15 @@ A plain DAG: `shared/` is the only thing both halves import (`shared → server`
   serves from `dist/web`. `term/` (xterm + WebGL + `connection.ts`, the binary-WS
   client reusing the ack/flow-control loop + indefinite reconnect), `explorer/`
   (tree + `/ws/fs` + ripgrep), `editor/` (lazy Monaco),
-  `panel/` (the right panel — files mode = the editor, modules mode = the five-tile
-  brain dashboard with per-module generations + approve/reject), `palette/` (cmdk),
+  `panel/` (the right panel — files mode = the editor, modules mode = the
+  brain dashboard with per-module generations + approve/reject), `data/` (the
+  `DataProvider` over module-as-table: `getList` paginates the server-side
+  filter/sort query, and every row op — `create · update · delete · deprecate ·
+  relate · unrelate` — **stages a proposal** the review gate governs, never a direct
+  mutation: THE INVERSION; `relate/unrelate` carry a relation EDGE, the `link`
+  FieldType's writable link field), `shell/wing/` (the typed grid + Form — a module's
+  `schema` `fields` drive the columns + the edit form, so the dormant FieldType
+  apparatus is now the live CRUD surface), `palette/` (cmdk),
   `preview/` (asciinema CastView), `state/` (zustand + TanStack Query).
 
 - **`cloud/`** — the deferred SaaS skin (untouched by the rebuild). `cloud/broker`

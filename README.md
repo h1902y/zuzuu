@@ -36,7 +36,7 @@ You **query** what's true, **act** on what's runnable, **check** integrity; zuzu
 npm install -g @zuzuucodes/cli
 
 zz init                      # plant this repo's empty .zuzuu/ (git-style, hidden like .git) — only the guardrails safety floor; modules grow on demand
-zz enable                    # wire the lifecycle hooks + the enforced guardrails gate
+zz host enable               # wire the lifecycle hooks + the enforced guardrails gate
 
 # … now use your coding agent normally. zuzuu watches. Then:
 
@@ -46,7 +46,7 @@ zz review approve actions <id>   # the human gate — writes the note + mints a 
 zz act actions <id>          # run the procedure it just learned
 ```
 
-Other verbs: `zz query <module> [text]` (FTS + graph), `zz check` (broken links · orphans · stale), `zz digest` (the session-start brief), `zz start · steer · wrap` (the session steering loop), `zz session …` (every session is a git branch — `status·merge·continue·discard·worktree·label`), `zz module <m> generations|rollback`, `zz doctor·status·explain`, `zz code` (launch OpenCode pre-wired), `zz web` (the visual workbench).
+Other verbs: `zz query <module> [text]` (FTS + graph), `zz check` (broken links · orphans · stale), `zz digest` (the session-start brief), `zz start · steer · wrap` (the session steering loop), `zz session …` (every session is a git branch — `status·land·hold·resume·drop·worktree·label`), `zz gen list|rollback <m>` (the generation lineage), `zz doctor·status·explain`, `zz host code` (launch OpenCode pre-wired), `zz host web` (the visual workbench). The full surface is the two-tier grammar (`zz help`); every pre-rename verb still works as a deprecating alias.
 
 ## The loop
 
@@ -194,13 +194,14 @@ without traversing it all).
 ```
 .zuzuu/
   project.md                 ← the Project manifest (type: project)
-  guardrails/                ← the ONLY module that ships — the safety floor
+  instructions/              ← the ONLY module that ships — the safety floor + guidance
     module.md
-    items/{no-root-wipe, no-secret-reads, confirm-force-push}.md   ← seed rules (type: rule)
+    items/{no-root-wipe, protect-brain-writes, review-the-gate, …}.md   ← seed rules + guidance (type: rule / instruction)
 ```
 
-Only **Guardrails** ships (protection must hold from byte one); the four content kinds
-start absent.
+Only **Instructions** ships at init — the enforced safety floor (guardrail rule-notes incl.
+`.zuzuu/` write-protection) plus best-practice guidance; the other content kinds
+(knowledge · memory · actions) start absent.
 
 **Grows on demand.** As the loop runs, a **module** materializes the first time `observe`
 routes a staged change to it (its `module.md` minted from a template), and **notes** accumulate
@@ -211,9 +212,9 @@ legible, every path a plain file you can open:
 .zuzuu/
   project.md                          ← the Project manifest (type: project)
 
-  guardrails/                         ← shipped at init, then grown
+  instructions/                       ← shipped at init, then grown
     module.md
-    items/ no-root-wipe.md · no-secret-reads.md · confirm-force-push.md · ask-before-rm.md
+    items/ no-root-wipe.md · protect-brain-writes.md · review-the-gate.md · sessions-are-branches.md
     log.jsonl                         ← mutations (create/update/delete) — git-tracked provenance
     runs.jsonl                        ← runs + queries — local telemetry, gitignored (observe's feedback edge)
     generations.json                  ← the lineage ledger ({n, mintedAt, mintedFrom}; git holds the bytes)
@@ -265,11 +266,13 @@ The **plumbing**: precise, single-purpose operations — the vocabulary every hi
 composes, each bottoming out in filesystem + git. Four families — **use** (read & run, no write) ·
 **grow** (the write loop + edits, every change human-gated) · **version** (read & roll a module's
 git-native lineage) · **dispatch** (how a verb reaches a module) — and the **two gates**. Plane 3's
-porcelain (`zz`, `start · steer · wrap`, …) is built *on* these. Code: `src/use/` (read/run) ·
-`src/grow/` (the loop + edits) · `src/serve/{dispatch,wire,timeline,api}.mjs` (dispatch + the
-façade) · `src/notes/{generation,log,index,validate}.mjs` (version · the ledger · search · the
-pre-write check). The invariant: **only grow writes the Project, and only through `review`; use
-reads + runs.**
+porcelain (`zz`, `start · steer · wrap`, …) is built *on* these. Code: `src/metal/{git,fs,sqlite}.mjs`
+(the I/O owners) · `src/notes/{repo,rows,generation,log,index,validate}.mjs` (the note repository ·
+the lossless read projection · version · the ledger · search · the pre-write check) · `src/use/`
+(read/run) · `src/grow/{commit,observe,review,…}.mjs` (the one write boundary + the loop) ·
+`src/serve/{dispatch,wire,timeline,api}.mjs` (dispatch + the façade). The invariant, now **structural**:
+**one writer — `grow/commit.mjs` is the sole note-writer + the loop's sole minter, reached only
+through `review`; use reads + runs.**
 
 ### Use — read & run (no Project write)
 
@@ -277,7 +280,7 @@ Each verb heads a small **family**.
 
 - **query** — retrieve: FTS + graph walk, BM25-ranked, TOON output. *Family:* `view` (page a body) · `links` (out-relations + inbound **backlinks**) · `diff` (note↔note — the change preview `plan`/`review` render; generation↔generation diff is a **version** op, below).
 - **act** — run a runnable note, gated + allowlisted (each run appends to `runs.jsonl`). *Family:* `flow` (a `type: workflow` DAG of run-steps, compensating on failure).
-- **check** — integrity: broken links · orphans · stale. *Family:* `validate` (the type-keyed schema — and the **pre-write reject** inside `evolve`: a malformed note never lands).
+- **check** — integrity: broken links · orphans · stale. *Family:* `validate` (the type-keyed invariants **plus** a module's declared typed-column **schema** — a `module.md` `fields` block, the 8 FieldTypes — enforced as a **pre-write reject** at the write boundary: a note that violates its schema never lands. "A module is a TABLE, a note a ROW, the columns are the schema"; absent `fields` ⇒ schemaless).
 
 ### Grow — the loop (every write human-gated)
 
@@ -288,12 +291,14 @@ generation** (Plane 1), so growth *is* git history.
 - **observe** — mine the host's own on-disk transcript (never drives the agent — *adding a host = one adapter file*); route corroborated per-session signals → staged changes via the declarative `ROUTE` table (reaching 4 of the 5 standard module kinds).
 - **stage** — the typed, deduped, ranked **staged-change** queue (`<module>/staged/`; decided changes move to `staged/archive/`, never deleted). A module **materializes on its first staged change** (its `module.md` minted from a template — the "no prebuilt modules" rule). *(Renamed from `propose` — the noun collided with the verb; `staged → review → evolve` mirrors git's `staged → committed`.)*
 - **plan → apply** — `plan` bundles a module's pending set into ONE content-addressed **change-set** + its diff (a dry-run, writes nothing); **apply** commits the whole set as one generation, all-or-nothing (reverts via `git restore` mid-batch). The id is a TOCTOU guard; Terraform's `plan → apply`. A single change is a plan-of-one.
-- **review** — **the human gate**: approve or reject. *"The gate is the moat"* — the one door to a Project. `validate` runs first; a malformed note is refused before it lands.
-- **evolve** — execute the approve: **write the note + log the mutation + mint a generation** (one beat; the **only** notes-writer). A batch applies all writes, then mints *once*.
+- **review** — **the human gate**: approve or reject. *"The gate is the moat"* — the one door to a Project. `validate` runs first; a malformed note (or a note that violates its module's typed-column **schema**) is refused before it lands.
+- **evolve** — execute the approve. It now feeds **the one write boundary** — `grow/commit.mjs`, the **sole note-writer + the loop's sole minter** (2026-06-28): a batch applies all writes as one all-or-nothing transaction, then mints *once* per touched module. `commit` validates, logs, mints, and **refuses an agent-stamped write** — so the agent can only reach it through `review`. The moat is now *structural* (zero writers bypass `commit`), not a convention.
 
-*Direct edits (outside the loop, operator-gated):* the graph-safe refactors `rename · merge ·
-refactor` (rewrite a field, **repointing inbound links**) and the scoped edits `patch · append`.
-Each lands as a generation.
+*Direct edits (outside the loop, operator-gated):* the graph-safe refactors `note rename · note
+fold · note retype` (rewrite a field, **repointing inbound links**) and the scoped edits `note set ·
+note append` — each a pure batch **expander** that feeds `commit`, landing as a generation. *(All in
+the Tier-2 `note` namespace; the old flat `rename`/`merge`/`refactor`/`patch`/`append` survive as
+deprecating aliases.)*
 
 ### Version — read & roll the git-native lineage
 
@@ -310,7 +315,7 @@ Per-module, over git history (`notes/generation.mjs` + `serve/timeline.mjs`), su
 The seam between an operation and a module's declared `capabilities`:
 
 - **register / invoke / list** (`serve/dispatch.mjs`) — one `Map` of `name → {handler, permission}`; `invoke` is **manifest-gated** (refuses a verb the module's `module.md` doesn't list) and **fail-soft** (returns `{ok:false}`, never throws).
-- **registerAll** (`serve/wire.mjs`) — binds `query · check · act`; `review` and the tool gate are **deliberately off-registry** (a gate is not a capability).
+- **registerAll** (`serve/wire.mjs`) — binds `query · check · act · view · flow · validate` (all six route through the one dispatch table, so none skips its permission/actor gate); `review` and the tool gate are **deliberately off-registry** (a gate is not a capability).
 - **the façade** (`serve/api.mjs` — `open(cwd)`) — the one handle that exposes all of the above; the seam the CLI and the daemon both compose (Plane 3).
 
 The **review gate** governs *writes* — fail-closed by design (the moat). A different gate, the
@@ -330,14 +335,21 @@ git-branch engine) · `src/cli/` · `src/hosts/` (the lifecycle hook + surfaces)
 ```
    zz                            ← apex: one command, the whole conversation
    start · steer · wrap          ← headline porcelain (the few you remember)
-   session continue · module rollback · enable · doctor · …   ← niche porcelain
-   query · act · check · plan/apply · rename · rollback · …    ← Plane-2 vocabulary
+   session resume · gen rollback · host enable · doctor · …   ← niche porcelain (Tier-2 nouns)
+   query · act · check · review plan/apply · note rename · gen rollback · …   ← Plane-2 vocabulary
    read/write files · git commit/restore                      ← the metal
 ```
 
+The verb surface is a **two-tier grammar** (a declarative table, `src/cli/commands.mjs`, that drives
+the router, `zz help`, the gate deny set, and the daemon catalog — they can't drift): **Tier-1** keeps
+the hot-loop verbs flat (`query · act · check · review · stage · observe · …`); **Tier-2** groups the
+cold verbs under noun namespaces (`note · gen · session · host · registry`). Every pre-rename flat verb
+(`merge`, `log`, `rename`, `session merge/continue/discard`, `enable`, …) still works as a
+stderr-deprecating alias.
+
 - **`zz`** *(apex)* — the unified conversational front door: open the session (greeting + opener), scaffold + steer as you work, and surface the human **only at the review gate**. It **frames, scaffolds, steers, and gates** — it never *drives* (the host supplies the brain; *that* is the cardinal line). The realization of **interactive-first**: the user just converses; zuzuu does the rest underneath.
 - **headline porcelain** — `start · steer · wrap` (the steering loop, below): the few you remember.
-- **niche porcelain** — closer to the metal: `session continue/discard/merge` · `module generations/diff/rollback` · `enable · doctor · status · explain`. Each is sugar over a small set of Plane-2 primitives.
+- **niche porcelain** — closer to the metal: `session resume/drop/land` · `gen list/diff/rollback` · `host enable · doctor · status · explain`. Each is sugar over a small set of Plane-2 primitives. *(The old `session continue/discard/merge` and `module generations/rollback` names still work as deprecating aliases.)*
 
 ### The steering loop — open · steer · close (the headline)
 
@@ -373,8 +385,8 @@ or a worktree branch marked held) so it queues for the merge gate **without** bl
 session — the merge/continue/discard verbs resolve both namespaces (and take an optional `<id>` when
 several are held). Code: `src/sessions/`.
 
-**Enablement & hosts** — the lifecycle is dormant until **`zz enable`** installs the `#zz-hook`
-block into the host's settings (idempotent; never clobbers your hooks — `zz disable` removes only
+**Enablement & hosts** — the lifecycle is dormant until **`zz host enable`** installs the `#zz-hook`
+block into the host's settings (idempotent; never clobbers your hooks — `zz host disable` removes only
 tagged entries). It fires for **five hosts** — Claude Code · Codex · Gemini CLI · OpenCode · pi —
 each a one-file adapter that **re-parses that host's real transcript** (Design B: observe, never
 drive); the core iterates *detected* hosts, never a host name (`hosts/registry · capture · signals`).
@@ -382,14 +394,15 @@ drive); the core iterates *detected* hosts, never a host name (`hosts/registry �
 **The lifecycle** — driven automatically by the host **hook** (*fail-open*, never blocks the agent):
 - **open** → cut the session branch + **ground** (inject the brief — the steering above).
 - **turn** → **checkpoint**: commit the turn's dirty state to the session branch, **secrets excluded** (`.env` · `*.pem/*.key` · `id_rsa*` · `credentials` …; an all-secret diff yields *no* commit) — nothing is lost mid-session, and no key ever lands in a commit.
-- **end** → **finalize and hold**: fold the checkpoints, then hold the session branch out of the active namespace (in-place → renamed `zz/held-*` + base checked out; worktree → left in its own checkout, marked held), then **observe** (mine the transcript → staged proposals, Plane 2) + refresh the brief. The squash-merge onto the working branch is **no longer automatic** — it's an explicit human gate (**`zz session merge`**), symmetric with the brain's review gate (nothing lands without your yes). *(Opt back into the old auto-land per-project with `"autoMerge": true` in `.zuzuu/agent.json` — mirrors the `"sessionGit": false` opt-out, fail-soft.)*
+- **end** → **`hold`**: fold the checkpoints, then hold the session branch out of the active namespace (in-place → renamed `zz/held-*` + base checked out; worktree → left in its own checkout, marked held), then **observe** (mine the transcript → staged proposals, Plane 2) + refresh the brief. The squash-merge onto the working branch is **no longer automatic** — it's an explicit human gate (**`zz session land`**), symmetric with the brain's review gate (nothing lands without your yes). *(Opt back into the old auto-land per-project with `"autoMerge": true` in `.zuzuu/agent.json` — mirrors the `"sessionGit": false` opt-out, fail-soft.)*
 
 **Drop & recovery** *(#7)* — a session that drops mid-task (crash · closed terminal · walk-away)
 leaves a leftover branch with uncommitted checkpoints and no clean end. It **never corrupts the
 working branch** (checkpoints live on the session branch; squash-merge happens only on a clean end).
-`zz start` **and `zz doctor`** both surface it; **`zz session continue`** resumes (the work restored
-from the checkpoints), **`zz session merge`** keeps it (squash onto the working branch), **`zz
-session discard`** drops it.
+`zz start` **and `zz doctor`** both surface it; **`zz session resume`** resumes (the work restored
+from the checkpoints), **`zz session land`** keeps it (squash onto the working branch), **`zz
+session drop`** drops it. *(The canonical session verbs are now `land · hold · resume · drop`; the
+prior `merge · finalize · continue · discard` survive as deprecating aliases.)*
 
 **Concurrency** — a per-session **worktree** (`.zuzuu/worktrees/<id>`) gives N agents their own
 checkout, so they never clash on the one working branch. Machine-local, gitignored (the lone
@@ -444,7 +457,7 @@ How zuzuu is packaged & sold is *strategy*, not core ontology — the full model
 
 | Path | What |
 |---|---|
-| [`src/`](src/) + `bin/zuzuu.mjs` | the CLI — `notes · use · grow · guardrails · hosts · sessions · cli · serve` (~3.8k lines, zero-dep, filed by concept) |
+| [`src/`](src/) + `bin/zuzuu.mjs` | the CLI — `metal · notes · use · grow · guardrails · hosts · sessions · cli · serve` (zero-dep, filed by concept; `cli/commands.mjs` is the one command table, `grow/commit.mjs` the one write boundary) |
 | [`web/`](web/) | the visual workbench — a nested project (daemon + React SPA), staged into the npm package at publish |
 | [`tests/`](tests/) | hermetic units (`npm test`) + a real-data observe playground (`node tests/playground/run.mjs 5`) |
 | [`docs/learn/`](docs/learn/) | the educative book — read in order; lessons 02–09 walk the v2 code file-by-file |
