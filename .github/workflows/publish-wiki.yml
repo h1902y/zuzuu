@@ -1,0 +1,55 @@
+# Publish the user guide to the GitHub wiki.
+#
+# docs/guide/ is the SINGLE SOURCE OF TRUTH for the wiki — edited in the main repo
+# (reviewed in PRs, atomic with the code it documents). This action mirrors it into
+# the `<repo>.wiki.git` repo on every merge to main, so the rendered /wiki tab can't
+# drift from the repo. The wiki repo is never hand-edited.
+#
+# Auth: the default GITHUB_TOKEN (with contents:write) can push to the same repo's
+# wiki. If a tightened org policy blocks that, create a PAT with `repo` scope as the
+# secret WIKI_TOKEN and it's used instead.
+name: publish-wiki
+
+on:
+  push:
+    branches: [main]
+    paths: ["docs/guide/**", ".github/workflows/publish-wiki.yml"]
+  workflow_dispatch: {} # allow a manual re-sync
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-wiki
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Mirror docs/guide → wiki
+        env:
+          TOKEN: ${{ secrets.WIKI_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git clone --depth 1 \
+            "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git" wiki
+
+          # Mirror the guide into the wiki — copy current pages, drop removed ones.
+          # README.md is the contributors' note, not a wiki page → never published.
+          rsync -a --delete --exclude='.git' --exclude='README.md' docs/guide/ wiki/
+
+          cd wiki
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "wiki already in sync — nothing to publish."
+            exit 0
+          fi
+          git add -A
+          git commit -m "Publish from docs/guide @ ${GITHUB_SHA:0:7}"
+          git push
+          echo "✓ wiki published from docs/guide."
