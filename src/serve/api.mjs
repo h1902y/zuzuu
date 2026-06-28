@@ -25,6 +25,7 @@ import { validateProject } from '../use/check.mjs';
 import { runWorkflow } from '../use/workflow.mjs';
 import { generations, diffGenerations, notesAsOf } from '../notes/generation.mjs';
 import { rollback } from '../grow/commit.mjs';
+import { addColumn, alterColumn, dropColumn } from '../grow/schema.mjs';
 import { timeline } from './timeline.mjs';
 import { existsSync } from 'node:fs';
 import { readProjectRefs, readLibraryModules, registryIdentity, mintRegistry, newIdentity, addProject, syncRegistry, ensureLocalRegistry } from '../notes/registry.mjs';
@@ -47,6 +48,11 @@ export function open(cwd = process.cwd()) {
 
     // ── inspection ──────────────────────────────────────────────────────────
     modules: () => listModules(home),
+
+    // ── schema: ALTER TABLE on a module's typed-column schema (operator-gated) ──
+    addColumn: (module, name, type, opts) => addColumn(home, module, name, type, opts),
+    alterColumn: (module, name, opts) => alterColumn(home, module, name, opts),
+    dropColumn: (module, name) => dropColumn(home, module, name),
 
     // ── the read/run verbs (dispatched through the one registry) ────────────
     query: (module, opts = {}) => invoke(home, module, 'query', opts),

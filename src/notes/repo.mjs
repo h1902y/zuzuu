@@ -18,6 +18,7 @@ import { existsSync } from 'node:fs';
 import { parse, serialize } from './note.mjs';
 import { itemPath, itemsDir } from './store.mjs';
 import { validateNote } from './validate.mjs';
+import { readManifest } from './module.mjs';
 import { readText, writeText, remove, list, mkdirp } from '../metal/fs.mjs';
 
 /**
@@ -37,14 +38,18 @@ export function readNote(home, module, id) {
 
 /**
  * Write one note: validate (by default), serialize, and write — creating the module's
- * items dir first. `{validate:false}` writes the bytes WITHOUT the schema check (the
- * raw path refactor uses; see grow/refactor.mjs). An unsafe id throws via `itemPath`.
+ * items dir first. Validation is SCHEMA-AWARE: it loads the target module's declared
+ * `fields` (its `module.md` typed-column schema) so a note that violates the schema
+ * (missing a required column, a value that won't coerce) is REJECTED here — at the one
+ * write boundary every durable write routes through (grow/commit). A module with no
+ * `fields` is schemaless (per-type invariants only — exactly as before). `{validate:false}`
+ * skips the check entirely. An unsafe id throws via `itemPath`.
  * @param {{validate?: boolean}} [opts]
  * @returns {{ok: boolean, error?: string}}
  */
 export function writeNote(home, module, id, note, { validate = true } = {}) {
   if (validate) {
-    const v = validateNote(note);
+    const v = validateNote(note, readManifest(home, module).fields);
     if (!v.ok) return { ok: false, error: `invalid note '${module}:${id}': ${v.errors.join('; ')}` };
   }
   const path = itemPath(home, module, id);

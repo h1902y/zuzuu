@@ -25,6 +25,8 @@ import { dirname } from 'node:path';
 import { readNote, writeNote, removeNote } from '../notes/repo.mjs';
 import { logMutation } from '../notes/log.mjs';
 import { mint, expandRollback } from '../notes/generation.mjs';
+import { manifestPath } from '../notes/store.mjs';
+import { writeText, mkdirp } from '../metal/fs.mjs';
 import { git } from '../metal/git.mjs';
 
 const isPlainObject = (x) => x != null && typeof x === 'object' && !Array.isArray(x);
@@ -173,6 +175,11 @@ export function commit(home, { actor = 'operator' } = {}, batch = [], { label = 
 export function rollback(home, module, n) {
   const ex = expandRollback(home, module, n);
   if (!ex.ok) return ex;
+  // restore the manifest (its `fields` schema) to the gen-n bytes BEFORE the commit, so
+  // the new generation pins it too — a schema alter is rollback-able like any row change.
+  // The manifest is NOT a note, so it doesn't ride the note batch; it's a plain write
+  // (the same door init/propose/schema use), gated by the operator-initiated rollback.
+  if (ex.manifest != null) { const p = manifestPath(home, module); mkdirp(dirname(p)); writeText(p, ex.manifest); }
   const res = commit(home, { actor: 'operator' }, ex.batch, { label: `rollback ${module} to gen ${n}`, mintedFrom: [`rollback:${n}`] });
   if (!res.ok) return { ok: false, error: res.error };
   return { ok: true, module, n, newGeneration: res.generations.find((g) => g.module === module)?.n, restored: ex.restored, pruned: ex.pruned };

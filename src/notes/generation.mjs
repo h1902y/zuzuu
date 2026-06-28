@@ -150,5 +150,10 @@ export function expandRollback(home, module, n) {
   // prune any note added after gen n
   let pruned = 0;
   for (const id of onDisk) if (!pinned.has(id)) { batch.push({ module, op: 'delete', target: id, log: { rollback: `prune (not in gen ${n})` } }); pruned++; }
-  return { ok: true, module, n, batch, restored: pinned.size, pruned };
+  // the manifest (module.md) is part of the module's pinned state too — its `fields`
+  // schema rode in gen n's commit. Return the gen-n bytes so the orchestrator restores
+  // the SCHEMA along with the rows (a schema alter-then-rollback round-trips). Null when
+  // the manifest didn't exist at gen n (older lineage) — then we leave the live one alone.
+  const manifest = git(root, ['show', `${commit}:.zuzuu/${module}/module.md`]) ?? null;
+  return { ok: true, module, n, batch, restored: pinned.size, pruned, manifest };
 }

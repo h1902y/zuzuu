@@ -44,8 +44,9 @@ const SWITCH_VERBS = [
 
 // The Tier-2 noun namespaces (Rung 4): every old flat verb still resolves at the top
 // level — as a canonical row (Tier-1) OR a deprecating alias — so the switch's surface
-// is intact; the only NEW top-level tokens are these five nouns.
-const NAMESPACES = ['gen', 'host', 'note', 'registry', 'session'];
+// is intact. `module` is both a flat read verb AND a namespace (its Rung-6 schema
+// alter-table ops — add/alter/drop-column — live under it).
+const NAMESPACES = ['gen', 'host', 'module', 'note', 'registry', 'session'];
 
 /** Resolve a row to the handler it ultimately runs (following an `alias` pointer). */
 const canonicalOf = (row) => row.alias
@@ -68,7 +69,7 @@ test('the table keeps the switch surface + adds only the five noun namespaces', 
   const flatVerbs = [...new Set(COMMANDS.filter((c) => c.path.length === 1).map((c) => c.path[0]))].sort();
   assert.deepEqual(flatVerbs, [...SWITCH_VERBS].sort(), 'every old flat verb still resolves top-level');
   const nouns = [...new Set(COMMANDS.filter((c) => c.path.length > 1).map((c) => c.path[0]))].sort();
-  assert.deepEqual(nouns, NAMESPACES, 'the only namespaced paths are note/gen/session/host/registry');
+  assert.deepEqual(nouns, NAMESPACES, 'the only namespaced paths are module/note/gen/session/host/registry');
 });
 
 test('every NON-alias row carries the help + capability metadata the loop reads', () => {

@@ -260,6 +260,52 @@ export const COMMANDS = [
     },
   },
 
+  // ── module: ALTER TABLE on a module's typed-column schema (operator-gated) ──
+  // These mutate `module.md`'s `fields` + mint a generation (rollback-able). They
+  // bypass `commit()` deliberately — a manifest write is operator-initiated, the gate
+  // itself. `module schema <k>` (the READ) stays inside the `module` handler above.
+  {
+    path: ['module', 'add-column'], plane: 'data', json: true, permission: 'admin', agentInvokable: false,
+    usage: 'module add-column <k> <name> <type> [--required] [--options a,b]', summary: 'add a typed column to a module schema',
+    handler: ({ args, cwd, log, json }) => {
+      const [m, name, type] = args._;
+      if (!m || !name || !type) return fail(log, 'usage: zz module add-column <key> <name> <type> [--required] [--options a,b]', json);
+      const opts = { required: !!args.required, options: args.options ? String(args.options).split(',').map((s) => s.trim()).filter(Boolean) : null };
+      const r = open(cwd).addColumn(m, name, type, opts);
+      if (!r.ok) return fail(log, r.error, json);
+      emit(log, json, { key: m, fields: r.fields, generation: r.generation }, ['schema', r.fields, ['name', 'type', 'required']]);
+      return 0;
+    },
+  },
+  {
+    path: ['module', 'alter-column'], plane: 'data', json: true, permission: 'admin', agentInvokable: false,
+    usage: 'module alter-column <k> <name> [--type t] [--required] [--options a,b]', summary: 'change a column (type · required · options)',
+    handler: ({ args, cwd, log, json }) => {
+      const [m, name] = args._;
+      if (!m || !name) return fail(log, 'usage: zz module alter-column <key> <name> [--type <t>] [--required] [--options a,b]', json);
+      const opts = {};
+      if (args.type) opts.type = String(args.type);
+      if (args.required !== undefined) opts.required = !!args.required;
+      if (args.options !== undefined) opts.options = String(args.options).split(',').map((s) => s.trim()).filter(Boolean);
+      const r = open(cwd).alterColumn(m, name, opts);
+      if (!r.ok) return fail(log, r.error, json);
+      emit(log, json, { key: m, fields: r.fields, generation: r.generation }, ['schema', r.fields, ['name', 'type', 'required']]);
+      return 0;
+    },
+  },
+  {
+    path: ['module', 'drop-column'], plane: 'data', json: true, permission: 'admin', agentInvokable: false,
+    usage: 'module drop-column <k> <name>', summary: 'drop a column from a module schema',
+    handler: ({ args, cwd, log, json }) => {
+      const [m, name] = args._;
+      if (!m || !name) return fail(log, 'usage: zz module drop-column <key> <name>', json);
+      const r = open(cwd).dropColumn(m, name);
+      if (!r.ok) return fail(log, r.error, json);
+      emit(log, json, { key: m, fields: r.fields, generation: r.generation }, ['schema', r.fields, ['name', 'type', 'required']]);
+      return 0;
+    },
+  },
+
   // ── note: edit notes (gated writes) — the Tier-2 `note …` namespace ──
   {
     path: ['note', 'view'], plane: 'data', json: false, permission: 'read', agentInvokable: true,
@@ -673,8 +719,9 @@ const PLANE_LABEL = {
   inspection: 'inspect', session: 'sessions', registry: 'registry',
   steer: 'session briefs', host: 'hosts',
 };
-const NS_ORDER = ['note', 'gen', 'session', 'host', 'registry'];
+const NS_ORDER = ['module', 'note', 'gen', 'session', 'host', 'registry'];
 const NS_LABEL = {
+  module: 'module — alter a typed-column schema (operator-gated)',
   note: 'note — edit notes (gated writes)',
   gen: 'gen — generations (the lineage)',
   session: 'session — the per-session git surface',

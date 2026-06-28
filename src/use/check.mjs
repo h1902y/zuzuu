@@ -15,7 +15,7 @@ import { read as readLog } from '../notes/log.mjs';
 import { itemsDir } from '../notes/store.mjs';
 import { readText, list } from '../metal/fs.mjs';
 import { brokenLinks } from '../notes/index.mjs';
-import { listModules } from '../notes/module.mjs';
+import { listModules, readManifest } from '../notes/module.mjs';
 import { validateNote } from '../notes/validate.mjs';
 import { moduleContent, readSourcePin } from '../notes/registry.mjs';
 import { resolveRegistryPath } from '../notes/registry-pointer.mjs';
@@ -116,10 +116,14 @@ export function check(ctx) {
   return checkData(ctx.home);
 }
 
-/** Schema-validate every note (project-wide, or one module). @returns the failures only. */
+/** Schema-validate every note (project-wide, or one module) — against both the per-type
+ *  invariants AND its module's declared typed-column schema (cached per module so a big
+ *  Project reads each `module.md` once). @returns the failures only. */
 export function validateProject(home, module = '') {
+  const fieldsCache = new Map();
+  const fieldsFor = (m) => { if (!fieldsCache.has(m)) fieldsCache.set(m, readManifest(home, m).fields); return fieldsCache.get(m); };
   return allNotes(home)
     .filter(({ addr }) => !module || addr.startsWith(`${module}:`))
-    .map(({ addr, note }) => ({ addr, ...validateNote(note) }))
+    .map(({ addr, note }) => ({ addr, ...validateNote(note, fieldsFor(addr.slice(0, addr.indexOf(':')))) }))
     .filter((r) => !r.ok);
 }
