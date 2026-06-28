@@ -8,9 +8,9 @@
 //       one generation (sugar over evolve's update — same merge + mint, no new path).
 // how:  thin wrappers over evolve(update) on an existing note. Zero-dep, fail-soft.
 
-import { existsSync, readFileSync } from 'node:fs';
-import { parse } from '../notes/note.mjs';
+import { existsSync } from 'node:fs';
 import { itemPath } from '../notes/store.mjs';
+import { readNote } from '../notes/repo.mjs';
 import { evolve } from './evolve.mjs';
 
 // a CLI value is text; coerce JSON (numbers/booleans/lists) but keep a plain string
@@ -25,9 +25,8 @@ export function patchNote(home, module, id, key, value, actor = 'operator') {
 
 /** Append text to an existing note's body → one generation. */
 export function appendNote(home, module, id, text, actor = 'operator') {
-  const path = itemPath(home, module, id);
-  if (!existsSync(path)) return { ok: false, error: `no note '${module}:${id}'` };
-  const cur = parse(readFileSync(path, 'utf8'), { id }).note ?? {};
+  const cur = readNote(home, module, id); // the persistence ring — not an open-coded parse(readFileSync(itemPath))
+  if (!cur) return { ok: false, error: `no note '${module}:${id}'` };
   const body = [cur.body, text].filter((s) => s && s.trim()).join('\n');
   return evolve(home, module, { id: `append-${id}`, op: 'update', target: id, change: { body } }, actor);
 }

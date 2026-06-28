@@ -99,7 +99,13 @@ function emit(log, json, value, toonArgs) {
 // as a prose 2nd line; --json mode rides it on the document as `warnings` (the single-
 // emit invariant — a 2nd stdout line would break the daemon's JSON.parse).
 function integrityWarning(zz) {
-  const broken = zz.modules().reduce((n, m) => { const c = zz.check(m.id); return n + (c.ok ? c.value.broken.length : 0); }, 0);
+  // `check` is PROJECT-WIDE (it ignores the module arg) — so run it ONCE and read the
+  // total. The old per-module reduce summed the same project-wide count M times (an
+  // M× over-count, and M× the full corpus scan).
+  const mods = zz.modules();
+  if (!mods.length) return null;
+  const c = zz.check(mods[0].id);
+  const broken = c.ok ? c.value.broken.length : 0;
   return broken ? `⚠ ${broken} broken link(s) after this change — run zz check` : null;
 }
 
@@ -680,6 +686,13 @@ export const COMMANDS = [
   // ── session: the per-session git surface ──
   {
     path: ['session'], plane: 'session', json: true, permission: 'admin', agentInvokable: false,
+    // The session handler sub-dispatches its OWN write verbs (not standalone rows): the
+    // deprecated aliases merge/finalize/continue/discard (byte-equivalent to land/hold/
+    // resume/drop, which DO have rows) AND the destructive worktree ops. Without these in
+    // the deny set, the gate denied `zz session drop --yes` but ALLOWED the alias `zz session
+    // discard --yes` (and `zz session worktree discard <id> --yes`) — the agent could delete a
+    // held session branch + checkpoints at the merge gate. `status`/`label` stay reads (allowed).
+    writeSubcommands: ['merge', 'finalize', 'continue', 'discard', 'worktree close', 'worktree finalize', 'worktree discard'],
     usage: 'session [status | land | hold | resume | drop | worktree … | label]',
     summary: 'inspect & steer the per-session git substrate',
     handler: ({ args, cwd, log, warn }) => sessionCommand(args, cwd, log, warn),
@@ -905,8 +918,11 @@ export function writeVerbPaths() {
   const paths = canon
     .filter((c) => WRITE_PERMS.has(c.permission) && c.agentInvokable === false && !isNamespaceRoot(c))
     .map((c) => c.path.slice());
-  // 2. gate-WRITE subcommands a `gate` row declares (review approve|apply)
-  for (const c of canon) for (const sub of c.writeSubcommands ?? []) paths.push([...c.path, sub]);
+  // 2. WRITE subcommands a row dispatches INSIDE its own handler (so they're not standalone
+  //    rows): the `gate` row's `review approve|apply`, and the `session` namespace's
+  //    sub-dispatched mutators (the deprecated aliases + the destructive worktree ops). A
+  //    sub may be multi-segment (`worktree discard`) — split it onto the path.
+  for (const c of canon) for (const sub of c.writeSubcommands ?? []) paths.push([...c.path, ...sub.split(/\s+/)]);
   // 3. every back-compat alias that points at one of the denied canonical paths
   const denied = new Set(paths.map((p) => p.join(' ')));
   for (const c of COMMANDS) if (c.alias && denied.has(c.alias.join(' '))) paths.push(c.path.slice());

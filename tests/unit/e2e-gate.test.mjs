@@ -96,3 +96,39 @@ test('matched decisions are logged for the trace', () => {
     assert.equal(entry.tool, 'Bash');
   });
 });
+
+// ── Critical 2: the session WRITE aliases must not escape protect-brain-exec ──
+// The gate denies `zz session drop --yes` (a row) but USED to ALLOW the byte-equivalent
+// alias `zz session discard --yes` and `zz session worktree discard <id> --yes` — the
+// agent could DELETE a held session branch + checkpoints at the merge gate.
+test('the deprecated session aliases + the destructive worktree ops are DENIED', () => {
+  withProject((cwd) => {
+    const deny = (command) => {
+      const { status, stdout } = gate(cwd, { session_id: 's1', tool_name: 'Bash', tool_input: { command } });
+      assert.equal(status, 0, 'gate exits 0 even on deny');
+      const d = JSON.parse(stdout || '{}');
+      assert.equal(d.hookSpecificOutput?.permissionDecision, 'deny', `denied: ${command}`);
+      assert.match(d.hookSpecificOutput.permissionDecisionReason, /protect-brain-exec/);
+    };
+    deny('zz session discard --yes');
+    deny('zz session worktree discard mybranch --yes');
+    deny('zz session worktree close mybranch');
+    deny('zuzuu session merge');
+    // …while the reads/labels stay allowed (no decision = normal flow)
+    for (const command of ['zz session status', 'zz session worktree list', 'zz session label x --text y']) {
+      assert.equal(gate(cwd, { session_id: 's1', tool_name: 'Bash', tool_input: { command } }).stdout, '', `allowed: ${command}`);
+    }
+  });
+});
+
+// ── Critical 3: whitespace padding must not push a write verb past the match window ──
+test('a write verb padded past the 8192-char haystack window still DENIES', () => {
+  withProject((cwd) => {
+    const padded = 'zz' + ' '.repeat(8300) + 'note set rule action allow';
+    const { status, stdout } = gate(cwd, { session_id: 's1', tool_name: 'Bash', tool_input: { command: padded } });
+    assert.equal(status, 0);
+    const d = JSON.parse(stdout || '{}');
+    assert.equal(d.hookSpecificOutput?.permissionDecision, 'deny', 'the padded write verb is still denied');
+    assert.match(d.hookSpecificOutput.permissionDecisionReason, /protect-brain-exec/);
+  });
+});

@@ -22,12 +22,12 @@
 //       DECIDE what changes — pure functions emitting ops; commit decides HOW it lands.
 
 import { dirname } from 'node:path';
+import { existsSync } from 'node:fs';
 import { readNote, writeNote, removeNote } from '../notes/repo.mjs';
 import { logMutation } from '../notes/log.mjs';
 import { mint, expandRollback } from '../notes/generation.mjs';
-import { manifestPath } from '../notes/store.mjs';
-import { writeText, mkdirp } from '../metal/fs.mjs';
-import { git } from '../metal/git.mjs';
+import { itemPath, manifestPath } from '../notes/store.mjs';
+import { readText, writeText, remove, mkdirp } from '../metal/fs.mjs';
 
 const isPlainObject = (x) => x != null && typeof x === 'object' && !Array.isArray(x);
 
@@ -43,7 +43,9 @@ function mergeEdit(cur, change) {
 }
 
 // the note a change reads/edits: relate/unrelate edit the `from` note; the rest, the target.
-const lookupId = (staged, change) => (staged.op === 'relate' || staged.op === 'unrelate') ? change?.from : (staged.target ?? change?.id ?? staged.id);
+// Exported so the dry-run preview (grow/plan) reads through the SAME resolver — one source
+// of truth (a drifted copy once forgot `unrelate` and previewed the wrong note).
+export const lookupId = (staged, change) => (staged.op === 'relate' || staged.op === 'unrelate') ? change?.from : (staged.target ?? change?.id ?? staged.id);
 
 /**
  * PURE: project a staged change onto the current note. `after === null` means the
@@ -109,10 +111,14 @@ function applyOp(home, op) {
   // from itemPath) returns {ok:false} rather than escaping — the moat stays closed.
   try {
     if (op.op === 'move') {
-      // move = rename: write-new (VALIDATED) + remove-old, carrying the note's bytes.
+      // move = rename: write-new + remove-old, carrying the note's EXISTING bytes unchanged.
+      // Skip validation — a move re-files bytes that were already valid when written; re-
+      // validating against a since-stricter schema would refuse to RENAME a legacy note (a
+      // pure relocation isn't a content change). merge/edit, which produce NEW content, ride
+      // the normal `update` path below and DO validate.
       const note = readNote(home, op.module, op.from);
       if (!note) return { ok: false, error: `no note '${op.module}:${op.from}'` };
-      const w = writeNote(home, op.module, op.target, note);
+      const w = writeNote(home, op.module, op.target, note, { validate: false });
       if (!w.ok) return { ok: false, error: w.error };
       removeNote(home, op.module, op.from);
       logMutation(home, op.module, 'create', op.target, op.log ?? { rename: `from ${op.from}` });
@@ -136,14 +142,43 @@ function applyOp(home, op) {
   }
 }
 
-// revert the module's items to the last committed generation (HEAD) — git IS the
-// compensation for note CRUD (pure data, no external side effects). Best-effort: the
-// metal git() result is ignored (a fresh, never-committed module has nothing at HEAD;
-// `clean` then sweeps the uncommitted attempt).
-function revert(home, module) {
-  const root = dirname(home);
-  git(['checkout', 'HEAD', '--', `.zuzuu/${module}/items`], root);
-  git(['clean', '-fdq', '--', `.zuzuu/${module}/items`], root);
+// ── surgical compensation: restore EXACTLY the files this transaction touched ──────
+// (Was a blanket `git checkout HEAD` + `git clean -fdq` over the whole items dir — which
+//  DELETED every UNTRACKED sibling note on any failure. Right after `zz init` the seeded
+//  brain rules are on disk but NOT git-committed, so one rejected approve nuked them all,
+//  losing the .zuzuu/ write-protection. Now revert is a per-file pre-image restore: a
+//  validation failure that wrote nothing reverts nothing, and a real mid-batch failure
+//  rolls back only the writes that happened — untracked siblings are never swept.)
+
+// the note id(s) an op's WRITE touches — a `move` touches two (from + target); every
+// other op touches the single note it reads/edits (the same resolver applyOp uses).
+function touchedIds(op) {
+  if (op.op === 'move') return [op.from, op.target];
+  return [lookupId(op, op.change)];
+}
+
+// snapshot an op's target file(s) BEFORE it applies: { path, existed, bytes }. An unsafe
+// id (itemPath throws) is skipped — applyOp refuses it, so there's nothing to restore.
+function snapshot(home, op) {
+  const snaps = [];
+  for (const id of touchedIds(op)) {
+    if (!id) continue;
+    let path;
+    try { path = itemPath(home, op.module, id); } catch { continue; }
+    snaps.push({ path, existed: existsSync(path), bytes: existsSync(path) ? readText(path) : null });
+  }
+  return snaps;
+}
+
+// restore captured pre-images to their pre-transaction state, in REVERSE capture order
+// (so a create-then-update of the same file unwinds cleanly back to "absent"): a file the
+// transaction CREATED (existed:false) is removed; one it overwrote/deleted is rewritten.
+function restore(snaps) {
+  for (let i = snaps.length - 1; i >= 0; i--) {
+    const { path, existed, bytes } = snaps[i];
+    if (existed) writeText(path, bytes);
+    else if (existsSync(path)) remove(path);
+  }
 }
 
 /**
@@ -173,12 +208,14 @@ export function commit(home, { actor = 'operator' } = {}, batch = [], { label = 
   }
   const results = [];
   const dirty = []; // modules written this transaction, first-touch order (= the mint set)
+  const captured = []; // pre-images of every file touched, in apply order (the surgical revert)
   const mark = (m) => { if (!dirty.includes(m)) dirty.push(m); };
   for (const op of batch) {
     mark(op.module);
+    captured.push(...snapshot(home, op)); // capture the file's PRE-transaction bytes BEFORE applying
     const r = applyOp(home, op);
     if (!r.ok) {
-      for (const m of dirty) revert(home, m); // all-or-nothing: undo every touched module
+      restore(captured); // all-or-nothing: undo ONLY the files this transaction wrote (no blanket clean)
       return { ok: false, error: `commit failed on ${op.id ?? op.op}: ${r.error}`, reverted: true };
     }
     results.push(r);
@@ -209,8 +246,16 @@ export function rollback(home, module, n, actor = 'operator') {
   // the new generation pins it too — a schema alter is rollback-able like any row change.
   // The manifest is NOT a note, so it doesn't ride the note batch; it's a plain write
   // (the same door init/propose/schema use), gated by the operator-initiated rollback.
-  if (ex.manifest != null) { const p = manifestPath(home, module); mkdirp(dirname(p)); writeText(p, ex.manifest); }
+  // ATOMICITY: capture the live manifest's pre-image and, if the batch FAILS, restore it
+  // — otherwise a failed rollback would leave the gen-n schema on disk over the un-rolled
+  // rows (a schema/rows mismatch). The manifest and the rows roll back together, or not at all.
+  const p = manifestPath(home, module);
+  const priorManifest = existsSync(p) ? readText(p) : null;
+  if (ex.manifest != null) { mkdirp(dirname(p)); writeText(p, ex.manifest); }
   const res = commit(home, { actor }, ex.batch, { label: `rollback ${module} to gen ${n}`, mintedFrom: [`rollback:${n}`] });
-  if (!res.ok) return { ok: false, error: res.error };
+  if (!res.ok) {
+    if (ex.manifest != null) { if (priorManifest != null) writeText(p, priorManifest); else if (existsSync(p)) remove(p); }
+    return { ok: false, error: res.error };
+  }
   return { ok: true, module, n, newGeneration: res.generations.find((g) => g.module === module)?.n, restored: ex.restored, pruned: ex.pruned };
 }

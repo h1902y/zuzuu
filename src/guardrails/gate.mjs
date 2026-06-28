@@ -66,8 +66,14 @@ const toolMatches = (ruleTool, callTool) => ruleTool === '*' || canonTool(ruleTo
 // `\s` stops matching and `rm\t-rf\t/` would slip past a deny rule. Capped to
 // bound backtracking input.
 const MAX_HAYSTACK = 8192;
+// Collapse RUNS of whitespace to a single space BEFORE the cap, so a verb can't be
+// pushed past the window by padding: `zz` + 8200 spaces + `note set …` executes as one
+// command in the shell, but a naive slice(8192) would truncate before the verb and the
+// deny would never fire. Normalizing first keeps every token inside the matched window
+// (the rule patterns match on single `\s`, so collapsed whitespace matches identically).
+const normalizeWs = (s) => s.replace(/\s+/g, ' ');
 function haystackFor(input) {
-  if (typeof input === 'string') return input.slice(0, MAX_HAYSTACK);
+  if (typeof input === 'string') return normalizeWs(input).slice(0, MAX_HAYSTACK);
   const parts = [];
   const walk = (v) => {
     if (typeof v === 'string') parts.push(v);
@@ -75,7 +81,7 @@ function haystackFor(input) {
     else if (v && typeof v === 'object') Object.values(v).forEach(walk);
   };
   walk(input ?? {});
-  return parts.join('\n').slice(0, MAX_HAYSTACK);
+  return normalizeWs(parts.join('\n')).slice(0, MAX_HAYSTACK);
 }
 
 // Field keys that carry a FILE PATH across hosts. A rule with `match: path` tests its
@@ -91,7 +97,7 @@ function pathsFor(input) {
     else if (v && typeof v === 'object') for (const [k, val] of Object.entries(v)) walk(val, k.toLowerCase());
   };
   walk(input ?? {}, null);
-  return parts.join('\n').slice(0, MAX_HAYSTACK);
+  return normalizeWs(parts.join('\n')).slice(0, MAX_HAYSTACK); // same anti-padding normalization as haystackFor
 }
 
 // The modules the gate enforces rule-notes from. `instructions` is the prepacked

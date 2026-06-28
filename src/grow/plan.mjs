@@ -17,7 +17,7 @@
 import { createHash } from 'node:crypto';
 import { readNote as readNoteRaw } from '../notes/repo.mjs';
 import { listStaged, archiveStaged } from './stage.mjs';
-import { projectChange, commit } from './commit.mjs';
+import { projectChange, commit, lookupId } from './commit.mjs';
 import { diffNote } from '../use/diff.mjs';
 
 // fail-soft preview read: an unsafe/`../` id throws in itemPath (inside repo.readNote)
@@ -26,7 +26,8 @@ import { diffNote } from '../use/diff.mjs';
 const readNote = (home, module, id) => {
   try { return readNoteRaw(home, module, id); } catch { return null; }
 };
-const lookupId = (s) => s.op === 'relate' ? s.change?.from : (s.target ?? s.change?.id ?? s.id);
+// `lookupId` is imported from commit (the SINGLE source) — the local copy here had drifted
+// (it forgot `unrelate`, so an unrelate preview read the wrong note and rendered a bogus diff).
 // the plan id is the content hash of the pending member set — same trick as stageId
 const planId = (ids) => 'plan-' + createHash('sha256').update(ids.slice().sort().join('\n')).digest('hex').slice(0, 8);
 
@@ -37,7 +38,7 @@ const planId = (ids) => 'plan-' + createHash('sha256').update(ids.slice().sort()
 export function planFor(home, module) {
   const staged = listStaged(home, module);
   const members = staged.map((s) => {
-    const current = readNote(home, module, lookupId(s));
+    const current = readNote(home, module, lookupId(s, s.change));
     const { target, after, error } = projectChange(s, current);
     return { id: s.id, op: s.op, target, addr: `${module}:${target}`, error, diff: error ? null : diffNote(current, after) };
   });

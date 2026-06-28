@@ -115,6 +115,39 @@ test('searchRows: an arbitrary EAV column sorts post-hydration, then slices', ()
   });
 });
 
+// ── adversarial-review regressions: id substring · stable paging · limit 0 ──────
+
+test('search: a text query also matches the note id as a SUBSTRING (the lost id filter)', () => {
+  withZuzuu(CORPUS, (home) => {
+    // 'me-st' is a substring of the id 'acme-style' but appears in no title/body token —
+    // the old client matched title+body+id; FTS covers title+body, `id LIKE` restores id.
+    assert.deepEqual(search(home, { text: 'me-st' }).map((r) => r.addr), ['knowledge:acme-style']);
+    assert.equal(count(home, { text: 'me-st' }), 1, 'count uses the same plan — id substring counts too');
+    // a text that matches BOTH a title token AND another row's id returns the union
+    const acme = search(home, { module: 'knowledge', text: 'acme' }).map((r) => r.addr).sort();
+    assert.deepEqual(acme, ['knowledge:acme', 'knowledge:acme-style'], 'fts title hit + id substring hit, unioned');
+  });
+});
+
+test('search: OFFSET pagination is stable across pages — no dup, no skip (the tiebreak)', () => {
+  withZuzuu(TABLE, (home) => {
+    // no explicit sort (the FTS-less branch that USED to lack a `, notes.addr` tiebreak);
+    // two non-overlapping pages of 2 must together cover the 4-note set exactly once.
+    const p0 = search(home, { module: 'tasks', limit: 2, offset: 0 }).map((r) => r.addr);
+    const p1 = search(home, { module: 'tasks', limit: 2, offset: 2 }).map((r) => r.addr);
+    assert.equal(p0.length, 2);
+    assert.equal(p1.length, 2);
+    assert.equal(new Set([...p0, ...p1]).size, 4, 'the two pages cover all 4 with no dup/skip');
+  });
+});
+
+test('search: an explicit limit:0 returns NONE (not the default 50)', () => {
+  withZuzuu(TABLE, (home) => {
+    assert.equal(search(home, { module: 'tasks', limit: 0 }).length, 0, 'limit 0 means 0 — `Number(limit) || 50` wrongly returned 50');
+    assert.equal(search(home, { module: 'tasks' }).length, 4, 'the default (no limit) still returns the set');
+  });
+});
+
 test('related: walk relations by depth (recursive CTE)', () => {
   withZuzuu(CORPUS, (home) => {
     const r = related(home, 'actions:build-report', { depth: 1 });
