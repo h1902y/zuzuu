@@ -6,7 +6,7 @@
 
 import fsp from "node:fs/promises";
 import path from "node:path";
-import { runZuzuu } from "./zuzuu-cli.js";
+import { runCommand } from "./zuzuu-catalog.js";
 
 /** Enumerate the ACTUAL module dirs on disk for the CLI-absent degraded fallback:
  *  non-dot subdirs of `.zuzuu` that hold a `module.md` (mirrors src/notes/module.mjs
@@ -170,7 +170,8 @@ export interface EnvelopeListing {
  *  items` query flags (buildModuleQueryFlags); the peek fallback can't filter
  *  server-side, so it returns the whole module (degraded). */
 export async function moduleEnvelopeItems(root: string, home: string, key: string, binary?: string, flags: string[] = []): Promise<EnvelopeListing> {
-  const viaCli = await runZuzuu(root, ["module", "items", key, ...flags], { binary }) as
+  // the validated query flags ride as the catalog's pre-built `extra` (repeated --where et al.)
+  const viaCli = await runCommand(root, "module.items", { key }, { binary, extra: flags }) as
     { items?: unknown[]; total?: number; errors?: { file: string; error: string }[] } | null;
   if (viaCli && Array.isArray(viaCli.items))
     return {

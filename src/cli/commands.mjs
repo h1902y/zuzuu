@@ -226,6 +226,7 @@ export const COMMANDS = [
   {
     path: ['act'], plane: 'data', json: false, permission: 'run', agentInvokable: true,
     usage: 'act <module> <id> [--k v]', summary: 'run a runnable note',
+    io: { params: ['module', 'id'], flags: {} }, // catalog: the daemon shells `act <verb> <slug>`
     handler: ({ args, cwd, log }) => {
       const zz = open(cwd);
       const [module, id] = args._;
@@ -377,14 +378,17 @@ export const COMMANDS = [
     path: ['module', 'new'], plane: 'data', json: true, permission: 'admin', agentInvokable: false,
     usage: 'module new <id> [--title t --tagline t --capabilities a,b --kinds k --required a,b]',
     summary: 'create a new module manifest', handler: moduleNew,
+    io: { params: ['id'], flags: { title: '--title', tagline: '--tagline', capabilities: '--capabilities', kinds: '--kinds', required: '--required' } },
   },
   {
     path: ['module', 'enable'], plane: 'data', json: true, permission: 'admin', agentInvokable: false,
     usage: 'module enable <id>', summary: "set a module's enabled flag on", handler: moduleToggle(true),
+    io: { params: ['key'], flags: {} },
   },
   {
     path: ['module', 'disable'], plane: 'data', json: true, permission: 'admin', agentInvokable: false,
     usage: 'module disable <id>', summary: "set a module's enabled flag off", handler: moduleToggle(false),
+    io: { params: ['key'], flags: {} },
   },
 
   // ── note: edit notes (gated writes) — the Tier-2 `note …` namespace ──
@@ -494,6 +498,8 @@ export const COMMANDS = [
   {
     path: ['stage'], plane: 'evolution', json: true, permission: 'write', agentInvokable: true,
     usage: 'stage <m> --op create|update|delete|deprecate|relate|unrelate [--target <id>] --field k=v', summary: 'stage a change (a pending proposal)',
+    io: { params: ['module'], flags: { op: '--op', target: '--target', change: '--change' } }, // catalog: the daemon stages via --change <json>
+
     handler: ({ args, cwd, log, json, rest }) => {
       // the write entry-door: a UI (or human) stages a change → a PENDING proposal
       // the review gate governs. A thin door over the complete grow/stage engine.
@@ -603,6 +609,7 @@ export const COMMANDS = [
     path: ['gen', 'mint'], plane: 'evolution', json: true, permission: 'admin', agentInvokable: false,
     usage: 'gen mint <m> [--from id,id]', summary: "freeze a module's current items into a new generation",
     handler: genMint,
+    io: { params: ['module'], flags: { from: '--from' } },
   },
 
   // ── inspection: integrity · health · porcelain ──
@@ -649,6 +656,25 @@ export const COMMANDS = [
     path: ['explain'], plane: 'inspection', json: false, permission: 'read', agentInvokable: true,
     usage: 'explain [topic]', summary: 'porcelain — explain a concept',
     handler: ({ args, log }) => explain(args._[0], log),
+  },
+  {
+    // The generated command catalog: the argv specs the daemon shells from. Emitting it
+    // from the SAME table that drives the router/help/gate means the out-of-process daemon
+    // builds its argv from a source that CANNOT drift (the moat extends to the daemon — it
+    // can only shell commands this table knows). See commandCatalog() below.
+    path: ['commands'], plane: 'inspection', json: true, permission: 'read', agentInvokable: true,
+    usage: 'commands', summary: 'the command catalog (argv specs) — the daemon reads this',
+    handler: ({ log, json }) => {
+      const cat = commandCatalog();
+      if (json) { log(JSON.stringify({ commands: cat })); return 0; }
+      const rows = cat.map((c) => ({
+        id: c.id, path: c.path.join(' '),
+        params: c.params.map((p) => (typeof p === 'string' ? `<${p}>` : p.const)).join(' '),
+        flags: Object.values(c.flags).join(' '),
+      }));
+      log(toon('commands', rows, ['id', 'path', 'params', 'flags']));
+      return 0;
+    },
   },
 
   // ── session: the per-session git surface ──
@@ -806,6 +832,51 @@ export const COMMANDS = [
     [['subscribe'], ['registry', 'subscribe']],
   ].map(([path, alias]) => ({ path, alias })),
 ];
+
+// ── the command catalog — GENERATED FROM THE TABLE, the daemon's argv source ───────
+// The workbench daemon is out-of-process (it must not import src/), yet it shells `zz`
+// for every brain read/write. Hand-typed argv arrays there are how it once shelled
+// NONEXISTENT verbs (`module new` / `generation mint` — a live bug). The catalog closes
+// that class structurally: the daemon builds argv ONLY from a (commandId → spec) lookup
+// emitted by `zz commands --json`, so it can only shell commands THIS table knows.
+//
+// A catalog entry is `{ id, path, params, flags }`: `path` is the fixed argv prefix,
+// `params` an ordered positional list (a string is a named placeholder; `{const}` a
+// literal — used by the deprecated key-first `module <m> rollback|generations` shapes),
+// and `flags` maps a named param → its `--flag` (emitted only when the daemon supplies a
+// value). A row's optional `io` descriptor carries its precise params/flags; rows without
+// one (reads the daemon never builds argv for) catalog as an empty contract.
+//
+// CATALOG_SUBFORMS are the daemon-shelled shapes handled INSIDE a parent row's handler
+// (module overview/items/item/schema + the deprecated key-first forms; session label;
+// review approve/reject) — real, table-known argv that isn't a standalone row, so it's
+// declared here against its parent's leading token.
+const CATALOG_SUBFORMS = [
+  { id: 'module.overview', path: ['module', 'overview'], params: [], flags: {} },
+  { id: 'module.items', path: ['module', 'items'], params: ['key'], flags: {} },
+  { id: 'module.item', path: ['module', 'item'], params: ['key', 'id'], flags: {} },
+  { id: 'module.schema', path: ['module', 'schema'], params: ['key'], flags: {} },
+  { id: 'module.generations', path: ['module'], params: ['key', { const: 'generations' }], flags: {} },
+  { id: 'module.rollback', path: ['module'], params: ['key', { const: 'rollback' }, 'id'], flags: {} },
+  { id: 'session.label', path: ['session', 'label'], params: ['id'], flags: { text: '--text' } },
+  { id: 'review.approve', path: ['review', 'approve'], params: ['module', 'id'], flags: {} },
+  { id: 'review.reject', path: ['review', 'reject'], params: ['module', 'id'], flags: { reason: '--reason' } },
+];
+
+/** The argv catalog: one `{ id, path, params, flags }` entry per non-alias row (id =
+ *  path joined by `.`) plus the in-handler daemon subforms. The single source the daemon
+ *  reads via `zz commands --json` — adding/renaming a verb flows to the daemon for free,
+ *  and the daemon refuses any id this doesn't carry. Aliases are back-compat, not surface. */
+export function commandCatalog() {
+  const out = [];
+  for (const c of COMMANDS) {
+    if (c.alias) continue;
+    const io = c.io ?? { params: [], flags: {} };
+    out.push({ id: c.path.join('.'), path: c.path.slice(), params: (io.params ?? []).slice(), flags: { ...(io.flags ?? {}) } });
+  }
+  for (const s of CATALOG_SUBFORMS) out.push({ id: s.id, path: s.path.slice(), params: s.params.slice(), flags: { ...s.flags } });
+  return out;
+}
 
 // ── the moat's execution-gate deny set — GENERATED FROM THE TABLE ────────────────
 // The same table that drives the router AND help also drives the guardrails gate, so the

@@ -12,7 +12,7 @@ import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readdirSync, readFileSyn
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { run } from '../../src/cli/index.mjs';
-import { COMMANDS, helpText, writeVerbPaths, gateWriteVerbPattern } from '../../src/cli/commands.mjs';
+import { COMMANDS, helpText, writeVerbPaths, gateWriteVerbPattern, commandCatalog } from '../../src/cli/commands.mjs';
 import { initHome } from '../../src/cli/init.mjs';
 import { serialize } from '../../src/notes/note.mjs';
 import { ensureModuleManifest } from '../../src/notes/module-templates.mjs';
@@ -40,6 +40,7 @@ const SWITCH_VERBS = [
   'flow', 'view', 'patch', 'append', 'rename', 'merge', 'refactor', 'module',
   'session', 'registry', 'subscribe', 'doctor', 'status', 'explain', 'code', 'web',
   'enable', 'disable', 'hook', 'digest', 'start', 'wrap', 'steer',
+  'commands', // Rung 9b: the generated catalog verb (the daemon reads this)
 ];
 
 // The Tier-2 noun namespaces (Rung 4): every old flat verb still resolves at the top
@@ -340,4 +341,51 @@ test('stage rescans raw argv for repeated --field k=v (the quirk survives)', asy
       assert.ok(blob.includes(fragment), `staged change carries '${fragment}' (every --field landed)`);
     }
   });
+});
+
+// ── 6. the command catalog is GENERATED FROM THE TABLE (Rung 9b) ─────────────────
+// The same table that drives the router/help/gate also emits the argv catalog the
+// out-of-process daemon shells from (`zz commands --json`). These pin that the catalog
+// covers every row + the daemon subforms, so the daemon can only shell commands the
+// table knows (a renamed/added verb flows to the daemon; an unknown one is impossible).
+
+test('commandCatalog() carries an entry for EVERY non-alias row (the daemon can shell it)', () => {
+  const cat = commandCatalog();
+  const ids = new Set(cat.map((c) => c.id));
+  for (const c of COMMANDS) {
+    if (c.alias) continue;
+    assert.ok(ids.has(c.path.join('.')), `catalog has '${c.path.join('.')}'`);
+    const entry = cat.find((e) => e.id === c.path.join('.'));
+    assert.deepEqual(entry.path, c.path, `${c.path.join('.')}: catalog path mirrors the row path`);
+  }
+  // every catalog entry is a self-consistent argv spec
+  for (const e of cat) {
+    assert.ok(Array.isArray(e.path) && e.path.length >= 1, `${e.id}: path is a non-empty array`);
+    assert.ok(Array.isArray(e.params), `${e.id}: params is an array`);
+    assert.equal(typeof e.flags, 'object', `${e.id}: flags is an object`);
+  }
+});
+
+test('commandCatalog() carries the in-handler daemon subforms (not standalone rows)', () => {
+  const byId = new Map(commandCatalog().map((c) => [c.id, c]));
+  // a golden spot-check of the daemon-shelled shapes — path/params/flags exactly
+  assert.deepEqual(byId.get('module.items'), { id: 'module.items', path: ['module', 'items'], params: ['key'], flags: {} });
+  assert.deepEqual(byId.get('module.generations'), { id: 'module.generations', path: ['module'], params: ['key', { const: 'generations' }], flags: {} });
+  assert.deepEqual(byId.get('module.rollback'), { id: 'module.rollback', path: ['module'], params: ['key', { const: 'rollback' }, 'id'], flags: {} });
+  assert.deepEqual(byId.get('review.reject'), { id: 'review.reject', path: ['review', 'reject'], params: ['module', 'id'], flags: { reason: '--reason' } });
+  assert.deepEqual(byId.get('session.label'), { id: 'session.label', path: ['session', 'label'], params: ['id'], flags: { text: '--text' } });
+  // and the rich-flag write rows derive from their row `io`
+  assert.deepEqual(byId.get('module.new').flags, { title: '--title', tagline: '--tagline', capabilities: '--capabilities', kinds: '--kinds', required: '--required' });
+  assert.deepEqual(byId.get('stage'), { id: 'stage', path: ['stage'], params: ['module'], flags: { op: '--op', target: '--target', change: '--change' } });
+});
+
+test('`zz commands --json` emits the catalog as one parseable {commands:[…]} line', async () => {
+  const out = [];
+  assert.equal(await run(['commands', '--json'], { cwd: '/', log: (s) => out.push(String(s)) }), 0);
+  assert.equal(out.length, 1, 'exactly one JSON line — the daemon JSON.parses it');
+  const parsed = JSON.parse(out[0]);
+  assert.ok(Array.isArray(parsed.commands), 'a commands[] array');
+  // it equals the in-process catalog (the same producer the daemon mirrors)
+  assert.deepEqual(parsed.commands, commandCatalog());
+  assert.ok(parsed.commands.some((c) => c.id === 'review.approve'), 'review.approve is shellable');
 });

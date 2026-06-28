@@ -7,7 +7,7 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import { Hono } from "hono";
 import { resolveSafe } from "./safe-path.js";
-import { runZuzuu, runZuzuuText } from "./zuzuu-cli.js";
+import { runCommand, runCommandText } from "./zuzuu-catalog.js";
 import { readHeld } from "./held-sessions.js";
 import {
   SAFE_SLUG,
@@ -31,7 +31,7 @@ export function createZuzuuReadApi(getRoot: () => string, binary?: string): Hono
   // kit's built-in metadata).
   app.get("/overview", async (c) => {
     const root = getRoot();
-    const viaCli = await runZuzuu(root, ["module", "overview"], { binary }) as { modules?: unknown[] } | null;
+    const viaCli = await runCommand(root, "module.overview", {}, { binary }) as { modules?: unknown[] } | null;
     if (viaCli && Array.isArray(viaCli.modules)) return c.json(viaCli);
     const home = await homeDir(root);
     const ids = await listModuleDirs(home); // real dirs on disk, not a hardcoded list
@@ -72,7 +72,7 @@ export function createZuzuuReadApi(getRoot: () => string, binary?: string): Hono
     const id = c.req.param("id");
     if (!SAFE_SLUG.test(key)) return c.json({ error: "unknown module" }, 404);
     if (!SAFE_ID.test(id)) return c.json({ error: "bad id" }, 400);
-    const viaCli = await runZuzuu(getRoot(), ["module", "item", key, id], { binary });
+    const viaCli = await runCommand(getRoot(), "module.item", { key, id }, { binary });
     if (viaCli) return c.json(viaCli);
     return c.json({ error: "not found" }, 404);
   });
@@ -81,7 +81,7 @@ export function createZuzuuReadApi(getRoot: () => string, binary?: string): Hono
     const key = c.req.param("key");
     if (!SAFE_SLUG.test(key)) return c.json({ error: "unknown module" }, 404);
     const root = getRoot();
-    const viaCli = await runZuzuu(root, ["module", "schema", key], { binary });
+    const viaCli = await runCommand(root, "module.schema", { key }, { binary });
     if (viaCli) return c.json({ key, schema: viaCli, source: "cli" });
     // CLI absent → the seeded payload schema in the home (zuzuu init writes it)
     const home = await homeDir(root);
@@ -100,7 +100,7 @@ export function createZuzuuReadApi(getRoot: () => string, binary?: string): Hono
     const key = c.req.param("key");
     if (!SAFE_SLUG.test(key)) return c.json({ error: "unknown module" }, 404);
     const root = getRoot();
-    const viaCli = await runZuzuu(root, ["module", key, "generations"], { binary });
+    const viaCli = await runCommand(root, "module.generations", { key }, { binary });
     if (viaCli) return c.json(viaCli);
     const home = await homeDir(root);
     const dir = path.join(home, ".generations", key);
@@ -123,8 +123,8 @@ export function createZuzuuReadApi(getRoot: () => string, binary?: string): Hono
   app.get("/readiness", async (c) => {
     const root = getRoot();
     const [doctor, digest] = await Promise.all([
-      runZuzuuText(root, ["doctor"], { binary }),
-      runZuzuuText(root, ["digest"], { binary }),
+      runCommandText(root, "doctor", {}, { binary }),
+      runCommandText(root, "digest", {}, { binary }),
     ]);
     return c.json({ doctor, digest });
   });
