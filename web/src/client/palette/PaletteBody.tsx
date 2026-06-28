@@ -24,7 +24,7 @@ export default function PaletteBody() {
   const setReview = useReview((s) => s.setOpen);
   const startSession = useStartSession();
   const enterProject = useEnterProject();
-  const setScreen = useAppSurface((s) => s.setScreen);
+  const goHome = useAppSurface((s) => s.home);
   const overview = useQuery({ queryKey: ["zuzuu", "overview"], queryFn: api.zuzuu.overview });
   const recents = useQuery({ queryKey: ["projects", "recents"], queryFn: api.projects.recents });
 
@@ -41,7 +41,7 @@ export default function PaletteBody() {
     switch (action.kind) {
       case "review": setReview(true); break;
       case "overview": select({ kind: "overview" }); break;
-      case "projects-home": setScreen("projects"); break;
+      case "projects-home": goHome(); break;
       case "new-shell": void startSession("shell"); break;
       case "new-agent": void startSession("agent", action.host); break;
       case "open-session": select({ kind: "session", id: action.id }); break;

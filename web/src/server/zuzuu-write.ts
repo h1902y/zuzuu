@@ -7,7 +7,7 @@
 
 import { Hono } from "hono";
 import type { Context } from "hono";
-import { runZuzuuMut } from "./zuzuu-cli.js";
+import { runCommandMut, type CommandId } from "./zuzuu-catalog.js";
 import { SAFE_ID, SAFE_SLUG, MAX_REASON_LEN } from "./zuzuu-peek.js";
 
 export function createZuzuuWriteApi(getRoot: () => string, binary?: string): Hono {
@@ -17,9 +17,11 @@ export function createZuzuuWriteApi(getRoot: () => string, binary?: string): Hon
     try { const b = await c.req.json(); return b && typeof b === "object" ? b as Record<string, unknown> : {}; }
     catch { return {}; }
   };
-  /** Run a mutation and map the result: absent → 503, failed → 502, success → 200 + CLI JSON. */
-  const mutate = async (c: Context, args: string[]) => {
-    const r = await runZuzuuMut(getRoot(), args, { binary });
+  /** Run a catalog mutation (commandId + named params → argv, built + validated by the
+   *  catalog, never hand-typed) and map the result: absent → 503, failed → 502 (incl. an
+   *  unknown commandId — refused before any spawn), success → 200 + CLI JSON. */
+  const mutate = async (c: Context, commandId: CommandId, params?: Record<string, string | undefined>) => {
+    const r = await runCommandMut(getRoot(), commandId, params, { binary });
     if (!r.ok) {
       return r.code === "absent"
         ? c.json({ error: "zuzuu CLI required" }, 503)
@@ -37,7 +39,8 @@ export function createZuzuuWriteApi(getRoot: () => string, binary?: string): Hon
     const body = await readBody(c);
     const label = typeof body.label === "string" ? body.label : "";
     if (label.length > 200) return c.json({ error: "label too long" }, 400);
-    return mutate(c, ["session", "label", id, "--text", label]);
+    // a blank label rides as `--text ""` (clears it) — the empty string is supplied, not omitted
+    return mutate(c, "session.label", { id, text: label });
   });
 
   // Toggle a module's enabled flag. Body: { enabled: boolean }.
@@ -46,7 +49,7 @@ export function createZuzuuWriteApi(getRoot: () => string, binary?: string): Hon
     if (!SAFE_SLUG.test(key)) return c.json({ error: "unknown module" }, 404);
     const { enabled } = await readBody(c);
     if (typeof enabled !== "boolean") return c.json({ error: "body must be {enabled: boolean}" }, 400);
-    return mutate(c, ["module", enabled ? "enable" : "disable", key]);
+    return mutate(c, enabled ? "module.enable" : "module.disable", { key });
   });
 
   // Guided module creation (WS-D). Strings ride as single argv elements.
@@ -63,13 +66,16 @@ export function createZuzuuWriteApi(getRoot: () => string, binary?: string): Hon
     if (!okList(capabilities)) return c.json({ error: "bad capabilities" }, 400);
     if (!okList(kinds)) return c.json({ error: "bad kinds" }, 400);
     if (!okList(required)) return c.json({ error: "bad required" }, 400);
-    const args = ["module", "new", id];
-    if (okStr(title) && title) args.push("--title", title);
-    if (okStr(tagline) && tagline) args.push("--tagline", tagline);
-    if (Array.isArray(capabilities) && capabilities.length) args.push("--capabilities", capabilities.join(","));
-    if (Array.isArray(kinds) && kinds.length) args.push("--kinds", kinds.join(","));
-    if (Array.isArray(required) && required.length) args.push("--required", required.join(","));
-    return mutate(c, args);
+    // named params → the catalog builds `module new <id> [--title …]` (flags omitted when
+    // absent/empty, exactly as the old conditional pushes did — argv byte-identical)
+    return mutate(c, "module.new", {
+      id,
+      title: okStr(title) && title ? title : undefined,
+      tagline: okStr(tagline) && tagline ? tagline : undefined,
+      capabilities: Array.isArray(capabilities) && capabilities.length ? capabilities.join(",") : undefined,
+      kinds: Array.isArray(kinds) && kinds.length ? kinds.join(",") : undefined,
+      required: Array.isArray(required) && required.length ? required.join(",") : undefined,
+    });
   });
 
   app.post("/staged/:id/approve", async (c) => {
@@ -78,7 +84,7 @@ export function createZuzuuWriteApi(getRoot: () => string, binary?: string): Hon
     const { module } = await readBody(c);
     if (!isModule(module)) return c.json({ error: "bad module" }, 400);
     // the real CLI verb: `zz review approve <module> <id>` (positional, no flags)
-    return mutate(c, ["review", "approve", module, id]);
+    return mutate(c, "review.approve", { module, id });
   });
 
   app.post("/staged/:id/reject", async (c) => {
@@ -88,8 +94,9 @@ export function createZuzuuWriteApi(getRoot: () => string, binary?: string): Hon
     if (!isModule(module)) return c.json({ error: "bad module" }, 400);
     if (reason !== undefined && (typeof reason !== "string" || reason.length > MAX_REASON_LEN))
       return c.json({ error: "bad reason" }, 400);
-    // reason rides as ONE argv element — spawn arrays make shell-meta inert
-    return mutate(c, ["review", "reject", module, id, ...(reason ? ["--reason", reason] : [])]);
+    // reason rides as ONE argv element — spawn arrays make shell-meta inert; an empty/absent
+    // reason omits the flag (the catalog drops an undefined value)
+    return mutate(c, "review.reject", { module, id, reason: typeof reason === "string" && reason ? reason : undefined });
   });
 
   // The write entry-door: stage a create/update as a PENDING proposal (the review
@@ -100,24 +107,27 @@ export function createZuzuuWriteApi(getRoot: () => string, binary?: string): Hon
     if (!isModule(key)) return c.json({ error: "bad module" }, 400);
     const body = await readBody(c);
     const op = body.op;
-    if (op !== "create" && op !== "update" && op !== "delete" && op !== "relate" && op !== "deprecate")
-      return c.json({ error: "op must be create|update|delete|relate|deprecate" }, 400);
+    if (op !== "create" && op !== "update" && op !== "delete" && op !== "relate" && op !== "unrelate" && op !== "deprecate")
+      return c.json({ error: "op must be create|update|delete|relate|unrelate|deprecate" }, 400);
     const { target, change } = body;
     if ((op === "create" || op === "update") && (typeof target !== "string" || !SAFE_ID.test(target)))
       return c.json({ error: "create/update need a valid target id" }, 400);
     if (change !== undefined && (typeof change !== "object" || change === null || Array.isArray(change)))
       return c.json({ error: "change must be an object" }, 400);
-    const args = ["stage", key, "--op", op];
-    if (typeof target === "string") args.push("--target", target);
-    args.push("--change", JSON.stringify(change ?? {}));
-    return mutate(c, args);
+    // the catalog builds `stage <key> --op <op> [--target <id>] --change <json>` (--target
+    // omitted when absent; --change always rides as ONE json argv element)
+    return mutate(c, "stage", {
+      module: key, op,
+      target: typeof target === "string" ? target : undefined,
+      change: JSON.stringify(change ?? {}),
+    });
   });
 
   for (const verb of ["approve", "reject"] as const) {
     app.post(`/actions/:slug/${verb}`, async (c) => {
       const slug = c.req.param("slug");
       if (!SAFE_ID.test(slug)) return c.json({ error: "bad slug" }, 400);
-      return mutate(c, ["act", verb, slug]);
+      return mutate(c, "act", { module: verb, id: slug });
     });
   }
 
@@ -130,7 +140,10 @@ export function createZuzuuWriteApi(getRoot: () => string, binary?: string): Hon
         (!Array.isArray(from) || from.length > 200 || !from.every((f) => typeof f === "string" && SAFE_ID.test(f))))
       return c.json({ error: "bad from ids" }, 400);
     const fromIds = (from as string[] | undefined) ?? [];
-    return mutate(c, ["module", key, "generation", "mint", ...(fromIds.length ? ["--from", fromIds.join(",")] : [])]);
+    // the real CLI verb is `zz gen mint <key> [--from a,b]` (the old `module <key>
+    // generation mint` shape never existed — that was the live daemon bug Rung 9 fixed; the
+    // catalog now makes shelling such a nonexistent verb impossible).
+    return mutate(c, "gen.mint", { module: key, from: fromIds.length ? fromIds.join(",") : undefined });
   });
 
   // Per-module rollback (restore ONE module's bytes + active to a past gen).
@@ -141,7 +154,7 @@ export function createZuzuuWriteApi(getRoot: () => string, binary?: string): Hon
     if (!SAFE_ID.test(id)) return c.json({ error: "bad id" }, 400);
     // reconcile the drift: the real CLI verb is `zz module <key> rollback <n>`
     // (no `generation` subword; <n> is the generation number)
-    return mutate(c, ["module", key, "rollback", id]);
+    return mutate(c, "module.rollback", { key, id });
   });
 
   return app;

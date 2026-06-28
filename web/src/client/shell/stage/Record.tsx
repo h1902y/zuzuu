@@ -8,7 +8,8 @@ import { dataProvider } from "../../data/provider.js";
 import { api } from "../../lib/api.js";
 import { fieldsFromSchema } from "./schema-fields.js";
 import { propertyStack } from "./property-stack.js";
-import { Stack, Inline, Text } from "../../ds/index.js";
+import { provenanceOf } from "../review/provenance.js";
+import { Stack, Inline, Text, Chip } from "../../ds/index.js";
 
 export function Record({ module, id }: { module: string; id: string }) {
   const q = useQuery({ queryKey: ["zuzuu", "item", module, id], queryFn: () => dataProvider.getOne(module, id) });
@@ -19,6 +20,10 @@ export function Record({ module, id }: { module: string; id: string }) {
 
   const item = q.data;
   const props = propertyStack(item, fieldsFromSchema(schema.data?.schema));
+  // Provenance (U6 / R6): if this note was mined, name the session(s) it was born
+  // from. A session LINK, not a transcript-offset jump (the locator is session-ids-
+  // only today). Degrades silently for a hand-authored / pre-U4 note (no source).
+  const prov = provenanceOf(item.source);
 
   return (
     <div className="h-full overflow-y-auto p-10">
@@ -42,6 +47,14 @@ export function Record({ module, id }: { module: string; id: string }) {
         )}
         {item.body && (
           <div className="whitespace-pre-wrap rounded-ui border border-border bg-surface p-4 text-ui text-subtle">{item.body}</div>
+        )}
+        {prov && (
+          <Stack gap="xs">
+            <Text size="meta" tone="subtle" weight="semibold">{prov.label.toUpperCase()}</Text>
+            <Inline gap="xs" wrap align="center">
+              {prov.display.map((s, i) => <Chip key={prov.sessions[i] ?? s} label={s} tone="neutral" />)}
+            </Inline>
+          </Stack>
         )}
       </Stack>
     </div>

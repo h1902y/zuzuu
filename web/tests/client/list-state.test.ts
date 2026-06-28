@@ -1,10 +1,8 @@
-// U11 — the ListContext pull-model state (pure). The reducer (filter/sort/page) +
-// project() window are the logic; the .tsx provider is thin (the project's pattern).
+// U11 / Rung 7 — the ListContext pull-model state (pure). The reducer (filter/sort/page)
+// is the logic; queryOf() maps it to the SERVER query (the index does filter·sort·paginate
+// now — no client-side project() window). The .tsx provider stays thin.
 import { describe, it, expect } from "vitest";
-import { listReducer, initialListState, filterOf, project } from "../../src/client/data/list-state.js";
-import type { ModuleItem } from "#shared/index.js";
-
-const item = (id: string, title: string): ModuleItem => ({ id, module: "knowledge", kind: "knowledge", title, status: "active", body: "" });
+import { listReducer, initialListState, queryOf } from "../../src/client/data/list-state.js";
 
 describe("list-state reducer", () => {
   it("setText/setKind reset the page; toggleSort flips asc↔desc on the same key", () => {
@@ -20,26 +18,9 @@ describe("list-state reducer", () => {
     expect(listReducer(s, { type: "reset" })).toEqual(initialListState);
   });
 
-  it("filterOf passes only the set fields to the DataProvider", () => {
-    expect(filterOf(initialListState)).toEqual({});
-    expect(filterOf({ ...initialListState, text: "x", kind: "fact" })).toEqual({ text: "x", kind: "fact" });
-  });
-});
-
-describe("list-state project — sort + paginate the window", () => {
-  const items = [item("a", "Cherry"), item("b", "Apple"), item("c", "Banana")];
-
-  it("sorts ascending/descending by a key", () => {
-    expect(project(items, { ...initialListState, sort: { key: "title", dir: "asc" } }).rows.map((r) => r.title)).toEqual(["Apple", "Banana", "Cherry"]);
-    expect(project(items, { ...initialListState, sort: { key: "title", dir: "desc" } }).rows.map((r) => r.title)).toEqual(["Cherry", "Banana", "Apple"]);
-  });
-
-  it("paginates: a window per page + a correct page count", () => {
-    const s = { ...initialListState, pageSize: 2 };
-    const p0 = project(items, s);
-    expect(p0.rows.length).toBe(2);
-    expect(p0.total).toBe(3);
-    expect(p0.pages).toBe(2);
-    expect(project(items, { ...s, page: 1 }).rows.length).toBe(1);
+  it("queryOf carries the whole control state (filter + sort + page) to getList", () => {
+    expect(queryOf(initialListState)).toEqual({ text: "", kind: "", sort: null, page: 0, pageSize: 50 });
+    const s = { ...initialListState, text: "x", kind: "fact", sort: { key: "title", dir: "desc" as const }, page: 2 };
+    expect(queryOf(s)).toEqual({ text: "x", kind: "fact", sort: { key: "title", dir: "desc" }, page: 2, pageSize: 50 });
   });
 });

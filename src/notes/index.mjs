@@ -10,16 +10,13 @@
 //       CTE traversal. node:sqlite is lazy-loaded (createRequire) so importing
 //       this never hard-requires sqlite. Rebuilt when any source file changes.
 
-import { createRequire } from 'node:module';
-import { existsSync, readdirSync, statSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { parse } from './note.mjs';
 import { itemsDir, cacheDir } from './store.mjs';
-
-const require = createRequire(import.meta.url);
-let DatabaseSync = null;
-const sqlite = () => (DatabaseSync ??= require('node:sqlite').DatabaseSync);
+import { sqlite } from '../metal/sqlite.mjs';
+import { readText, mkdirp, remove } from '../metal/fs.mjs';
 
 // The cache is a rebuildable derived artifact — it lives OUTSIDE the repo, in the
 // XDG cache dir keyed to this project, never in the tracked `.zuzuu/` tree.
@@ -91,7 +88,7 @@ function build(home, db) {
       if (!f.endsWith('.md')) continue;
       const id = f.slice(0, -3);
       const addr = `${module}:${id}`;
-      const { ok, note } = parse(readFileSync(join(dir, f), 'utf8'), { id });
+      const { ok, note } = parse(readText(join(dir, f)), { id });
       if (!ok || !note) continue; // fail-soft: a bad file just isn't indexed
       insZu.run(addr, module, id, note.type ?? '', note.title ?? '', note.status ?? 'active', note.body ?? '');
       insFts.run(addr, note.title ?? '', note.body ?? '');
@@ -129,9 +126,8 @@ export function open(home) {
     if (db) db.close(); // stale or corrupt → drop it
   }
   // (re)build into the file db — ensure the (out-of-repo) cache dir exists first
-  const { rmSync, mkdirSync } = require('node:fs');
-  if (existsSync(path)) rmSync(path);
-  else mkdirSync(cacheDir(home), { recursive: true });
+  if (existsSync(path)) remove(path);
+  else mkdirp(cacheDir(home));
   return build(home, connect(path));
 }
 
@@ -156,35 +152,75 @@ function ftsQuery(text) {
   }).join(' ');
 }
 
-/** Build the shared FROM + WHERE + args for a filter set (search and count reuse it). */
-function plan({ text = '', module = '', type = '', tag = '' }) {
+// Columns the index PROMOTES to the `notes` row — the only ones an `ORDER BY` can
+// reach in SQL. A custom frontmatter column lives in `prop` (EAV), not here, so it
+// can't sort in SQL; the read path sorts those post-hydration (rows.mjs). Exported
+// so the read projection shares ONE source of truth for "is this sort SQL-native?".
+export const SORTABLE_COLUMNS = new Set(['title', 'status', 'type', 'id', 'addr']);
+
+/** Build the shared FROM + WHERE + args for a filter set (search and count reuse it).
+ *  `where` is the EAV column filter: an array of `{key,value}` pairs (repeatable,
+ *  AND-ed) tested against the `prop` side-table — the `prop_kv (key,value)` index
+ *  serves it, so a custom column filters server-side without joining it into `notes`. */
+function plan({ text = '', module = '', type = '', tag = '', status = '', where: eav = [] }) {
   const where = [];
-  const args = [];
+  const args = [];           // the WHERE args (the FROM's fts arg is prepended by the caller)
   let from = 'notes';
   const fts = text ? ftsQuery(text) : '';
-  if (fts) { from = 'notes JOIN fts ON fts.addr = notes.addr'; where.push('fts MATCH ?'); args.push(fts); }
+  if (text) {
+    // A text query matches title/body via FTS (BM25-ranked) OR the note id as a SUBSTRING.
+    // The old client `matches()` tested title+body+id; FTS covers title+body, and `id LIKE`
+    // restores the id axis (a slug fragment finds its row). We can't OR `fts MATCH` into a
+    // join's WHERE (SQLite raises "MATCH in the requested context"), so the FTS side rides
+    // as a RANKED LEFT JOIN — that keeps the BM25 order AND lets an id-only match survive
+    // (an INNER fts join would drop a row that matched only by id).
+    const conds = [];
+    if (fts) {
+      from = 'notes LEFT JOIN (SELECT addr, bm25(fts, 1.0, 10.0, 1.0) AS rank FROM fts WHERE fts MATCH ?) ftsmatch ON ftsmatch.addr = notes.addr';
+      conds.push('ftsmatch.addr IS NOT NULL');
+    }
+    conds.push('notes.id LIKE ?'); args.push(`%${text}%`);
+    where.push(`(${conds.join(' OR ')})`);
+  }
   if (module) { where.push('notes.module = ?'); args.push(module); }
   if (type) { where.push('notes.type = ?'); args.push(type); }
+  if (status) { where.push('notes.status = ?'); args.push(status); }
   if (tag) { where.push('notes.addr IN (SELECT addr FROM prop WHERE key=? AND value=?)'); args.push('tag', tag); }
-  return { from, whereSql: where.length ? ` WHERE ${where.join(' AND ')}` : '', args };
+  for (const { key, value } of eav) { where.push('notes.addr IN (SELECT addr FROM prop WHERE key=? AND value=?)'); args.push(key, value); }
+  return { from, whereSql: where.length ? ` WHERE ${where.join(' AND ')}` : '', args, fts };
 }
 
 /**
  * Search the index. Composable filters; brief by default. User `text` is sanitized,
- * so it never crashes on FTS metacharacters.
+ * so it never crashes on FTS metacharacters. `sort` ({col,desc}, col ∈ SORTABLE_COLUMNS)
+ * applies a SQL `ORDER BY` (overriding relevance); `offset` paginates the window.
  * @returns {Array<{addr,type,title,status,body?}>}
  */
-export function search(home, { limit = 50, full = false, ...filters } = {}) {
+export function search(home, { limit = 50, offset = 0, full = false, sort = null, ...filters } = {}) {
   const db = open(home);
   try {
-    const { from, whereSql, args } = plan(filters);
-    const usesFts = from.includes('fts');
-    // relevance order on a text query (BM25; title weighted 10× over body); a
-    // matched-context snippet rides along on --full. (fts cols: addr·title·body.)
-    const sel = (full ? FULL_SEL : BRIEF_SEL) + (usesFts && full ? `, snippet(fts, 2, '', '', '…', 12) AS snippet` : '');
-    const order = usesFts ? ' ORDER BY bm25(fts, 1.0, 10.0, 1.0)' : '';
-    const sql = `SELECT ${sel} FROM ${from}${whereSql}${order} LIMIT ${Number(limit) || 50}`;
-    return db.prepare(sql).all(...args);
+    const { from, whereSql, args, fts } = plan(filters);
+    const usesFts = !!fts;
+    // A matched-context snippet rides along on --full, as a CORRELATED subquery (the fts
+    // table is no longer the driving join — it's the ranked LEFT JOIN now). Its `?` sits
+    // in the SELECT list, so it's the FIRST positional arg. (fts cols: addr·title·body.)
+    const snippetSel = usesFts && full ? `, (SELECT snippet(fts, 2, '', '', '…', 12) FROM fts WHERE fts.addr = notes.addr AND fts MATCH ?) AS snippet` : '';
+    const sel = (full ? FULL_SEL : BRIEF_SEL) + snippetSel;
+    // BM25 relevance by default on a text query (fts matches first, ranked; id-only matches
+    // trail). An explicit promoted-column sort overrides it. EVERY branch ends with
+    // `, notes.addr` so OFFSET pagination is STABLE — no branch may page without a tiebreak
+    // (the no-sort and FTS branches used to lack one, so paging could dup/skip rows).
+    let order = usesFts ? ' ORDER BY (ftsmatch.rank IS NULL), ftsmatch.rank, notes.addr' : ' ORDER BY notes.addr';
+    if (sort && SORTABLE_COLUMNS.has(sort.col)) order = ` ORDER BY notes.${sort.col} COLLATE NOCASE${sort.desc ? ' DESC' : ''}, notes.addr`;
+    const off = Number(offset) > 0 ? ` OFFSET ${Number(offset)}` : '';
+    // an EXPLICIT limit of 0 means 0 (return none) — `Number(limit) || 50` wrongly turned it into 50.
+    const lim = limit == null ? 50 : Number(limit);
+    const sql = `SELECT ${sel} FROM ${from}${whereSql}${order} LIMIT ${Number.isFinite(lim) ? lim : 50}${off}`;
+    // positional args, in SQL order: [snippet's fts?, FROM ranked-subquery's fts?, ...WHERE args]
+    const head = [];
+    if (snippetSel) head.push(fts);
+    if (usesFts) head.push(fts);
+    return db.prepare(sql).all(...head, ...args);
   } finally { db.close(); }
 }
 
@@ -212,8 +248,10 @@ export function related(home, addr, { depth = 1, type = '' } = {}) {
 export function count(home, opts = {}) {
   const db = open(home);
   try {
-    const { from, whereSql, args } = plan(opts);
-    return db.prepare(`SELECT COUNT(*) AS n FROM ${from}${whereSql}`).get(...args).n;
+    const { from, whereSql, args, fts } = plan(opts);
+    // the ranked LEFT JOIN's `fts MATCH ?` (when present) leads the positional args
+    const all = fts ? [fts, ...args] : args;
+    return db.prepare(`SELECT COUNT(*) AS n FROM ${from}${whereSql}`).get(...all).n;
   } finally { db.close(); }
 }
 

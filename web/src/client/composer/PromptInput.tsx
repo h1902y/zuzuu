@@ -7,6 +7,7 @@
 
 import { useState, type ReactNode, type KeyboardEvent } from "react";
 import TextareaAutosize from "react-textarea-autosize";
+import { Button } from "../ds/index.js";
 
 export function PromptInput({
   onSubmit,
@@ -54,13 +55,11 @@ export function PromptInput({
       />
       <div className="mt-1 flex items-center gap-2">
         {footer}
-        <button
-          onClick={submit}
-          disabled={disabled || value.trim() === ""}
-          className="ml-auto rounded-ui bg-accent-dim px-3 py-1 text-meta text-accent hover:bg-accent-dim/80 disabled:opacity-40"
-        >
-          Send ⏎
-        </button>
+        <div className="ml-auto">
+          <Button variant="primary" size="sm" onClick={submit} disabled={disabled || value.trim() === ""}>
+            Send ⏎
+          </Button>
+        </div>
       </div>
     </div>
   );

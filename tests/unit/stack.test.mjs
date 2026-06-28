@@ -40,7 +40,7 @@ function withStack(fn) {
 
 test('stack: query finds a note through the registry (universal verb)', () => {
   withStack(({ home }) => {
-    const r = invoke(home, 'knowledge', 'query', { text: 'blue' });
+    const r = invoke(home, 'knowledge', 'query', {}, { text: 'blue' });
     assert.equal(r.ok, true);
     assert.equal(r.value.kind, 'search');
     assert.ok(r.value.rows.some((x) => x.addr === 'knowledge:acme-blue'), 'found the note by FTS');
@@ -49,7 +49,7 @@ test('stack: query finds a note through the registry (universal verb)', () => {
 
 test('stack: a module that does not expose a verb is denied (manifest-gated)', () => {
   withStack(({ home }) => {
-    const r = invoke(home, 'knowledge', 'act', 'acme-blue'); // knowledge has no `act`
+    const r = invoke(home, 'knowledge', 'act', {}, 'acme-blue'); // knowledge has no `act`
     assert.equal(r.ok, false);
     assert.equal(r.denied, true);
   });
@@ -57,7 +57,7 @@ test('stack: a module that does not expose a verb is denied (manifest-gated)', (
 
 test('stack: act runs a note and reports success', () => {
   withStack(({ home }) => {
-    const r = invoke(home, 'actions', 'act', 'greet');
+    const r = invoke(home, 'actions', 'act', {}, 'greet');
     assert.equal(r.ok, true);
     assert.equal(r.value.ran, true);
     assert.equal(r.value.success, true);
@@ -95,7 +95,7 @@ test('stack: propose → review writes the Project and mints a generation', () =
     assert.equal(r.ok, true);
     assert.equal(generations(home, 'knowledge').active, 1);
     // and it is now queryable
-    const q = invoke(home, 'knowledge', 'query', { text: 'warm' });
+    const q = invoke(home, 'knowledge', 'query', {}, { text: 'warm' });
     assert.ok(q.value.rows.some((x) => x.addr === 'knowledge:acme-warm-ban'), 'the approved note is indexed + queryable');
   });
 });

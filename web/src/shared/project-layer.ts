@@ -58,6 +58,8 @@ export interface ProjectSummary {
   guarded: boolean;
   /** newest .zuzuu mtime (ms epoch), 0 when unknown. */
   lastActivityMs: number;
+  /** the project's emoji — a deterministic default from the path, or the user override. */
+  emoji: string;
   // ── registry-backed rows (the durable index; absent on recents-backed rows) ──
   /** how this row was sourced — the daemon's fallback ladder. */
   source?: "registry" | "recents";

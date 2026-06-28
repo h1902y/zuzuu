@@ -80,6 +80,21 @@ test('stage --change <json> body works (the daemon path)', async () => {
   });
 });
 
+test('stage --op relate / unrelate → pending edge proposals (no --target needed)', async () => {
+  await withRepo(async ({ home, io, out }) => {
+    initHome(io.cwd);
+    out.length = 0;
+    // relate carries the edge in --change ({from,type,to}); no --target required
+    assert.equal(await run(['stage', 'knowledge', '--op', 'relate', '--change', '{"from":"a","type":"related-to","to":"b"}', '--json'], io), 0);
+    assert.equal(out.length, 1, 'one JSON line');
+    assert.equal(JSON.parse(out[0]).op, 'relate');
+    out.length = 0;
+    assert.equal(await run(['stage', 'knowledge', '--op', 'unrelate', '--change', '{"from":"a","type":"related-to","to":"b"}', '--json'], io), 0);
+    assert.equal(JSON.parse(out[0]).op, 'unrelate');
+    assert.deepEqual(listStaged(home, 'knowledge').map((s) => s.op).sort(), ['relate', 'unrelate']);
+  });
+});
+
 test('stage errors as JSON — bad op, and missing --target for create', async () => {
   await withRepo(async ({ io, out }) => {
     initHome(io.cwd);

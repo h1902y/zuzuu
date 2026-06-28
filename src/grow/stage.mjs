@@ -1,7 +1,7 @@
 // src/grow/stage.mjs — the staged-change queue (the loop's 2nd beat).
 //
 // what: a staged change is an evidence-backed, typed change to a module's notes
-//       (create · update · delete · relate · deprecate) awaiting human review.
+//       (create · update · delete · relate · unrelate · deprecate) awaiting human review.
 // why:  the bridge from observation to the Project. NOTHING is written without a
 //       human approving a staged change — the moat. Staged, not applied. (Named to
 //       mirror git: staged → review → evolved, as staged → commit.)
@@ -14,7 +14,7 @@ import { createHash } from 'node:crypto';
 import { readJson, writeJson } from '../notes/store.mjs';
 import { ensureModuleManifest } from '../notes/module-templates.mjs';
 
-const OPS = new Set(['create', 'update', 'delete', 'relate', 'deprecate']);
+const OPS = new Set(['create', 'update', 'delete', 'relate', 'unrelate', 'deprecate']);
 const stagedDir = (home, module) => join(home, module, 'staged');
 const archiveDir = (home, module) => join(stagedDir(home, module), 'archive');
 
@@ -23,7 +23,9 @@ const stageId = (p) => 'stg-' + createHash('sha256').update(JSON.stringify([p.op
 
 /**
  * Stage a change. Returns the record (with id), or null if malformed.
- * @param {{op,module,target?,change,rationale?,evidence?,confidence?,score?}} p
+ * `source` is the provenance pointer (U4 / R6) — { producer, sessions, locator } —
+ * so a note can link back to where it was born; null when the producer omits it.
+ * @param {{op,module,target?,change,rationale?,evidence?,confidence?,score?,source?}} p
  */
 export function stageChange(home, module, p) {
   if (!OPS.has(p.op)) return null;
@@ -31,7 +33,8 @@ export function stageChange(home, module, p) {
   const record = {
     id, op: p.op, module, target: p.target ?? null, change: p.change ?? {},
     rationale: p.rationale ?? '', evidence: p.evidence ?? [],
-    confidence: p.confidence ?? null, score: p.score ?? 0, status: 'pending',
+    confidence: p.confidence ?? null, score: p.score ?? 0,
+    source: p.source ?? null, status: 'pending',
   };
   const file = join(stagedDir(home, module), `${id}.json`);
   if (existsSync(file)) return { ...record, duplicate: true }; // already staged — don't re-stage

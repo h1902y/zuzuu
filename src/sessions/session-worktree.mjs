@@ -103,6 +103,7 @@ export function openSessionWorktree(cwd, sessionId) {
     if (recorded && recorded !== String(sessionId)) return { ok: false, blocked: true, collision: true, branch, reason: 'id-collision' };
 
     if (allWorktrees(root).some((w) => w.path === wt)) {
+      git(['config', '--unset', `branch.${branch}.zz-held`], root); // resumed → live again, clear any stale hold marker
       return { ok: true, resumed: true, branch, worktree: wt, base };
     }
     mkdirSync(dirname(wt), { recursive: true });
@@ -189,17 +190,46 @@ export function closeSessionWorktree(cwd, sessionId, { title } = {}) {
 }
 
 /**
- * Reconcile: prune git's bookkeeping for session worktrees whose dirs are gone
- * (a crashed session, a manually-removed `.zuzuu/.worktrees/`). Safe — `git
- * worktree prune` only drops admin entries for already-deleted dirs, never
- * touching live worktrees or branches. Lets a new session reuse the short id.
+ * FINALIZE (hold, never merge): fold any uncommitted worktree work into a final
+ * checkpoint, then LEAVE the worktree + branch in place — held, awaiting the
+ * explicit merge gate (`zz session worktree close`). `main`/the base is untouched.
+ *
+ * The branch stays in the `zz/session-*` namespace, IN its own worktree, which is
+ * exactly why it can't block a new in-place open: openSession()'s blocking check
+ * skips session branches checked out in a linked worktree (see
+ * session-git.mjs blockingSessionBranches). The merge verb resolves the branch by
+ * sessionId, so renaming here would strand it — holding in place is deliberate.
+ *
+ * Because the branch can't be renamed into the held namespace while checked out
+ * in its worktree, the hold is recorded as a git-config MARKER
+ * (`branch.<branch>.zz-held = true`). This is what distinguishes a FINALIZED
+ * worktree session (awaiting merge) from a LIVE one (agent still running): without
+ * the marker, heldSessionBranches must NOT count it — counting a live agent would
+ * let it be merged mid-session.
+ *
+ * Mirrors closeSessionWorktree's fail-soft discipline: { ok:true, held, worktree,
+ * checkpoints } or { ok:false, reason }. Never merges, never removes the worktree,
+ * never deletes the branch.
  */
-export function pruneWorktrees(cwd) {
+export function finalizeSessionWorktree(cwd, sessionId) {
   try {
     const root = repoRootOf(cwd);
     if (!root) return { ok: false, reason: 'not-a-git-repo' };
-    const r = git(['worktree', 'prune'], root);
-    return r.ok ? { ok: true } : { ok: false, reason: r.err || 'prune-failed' };
+    const branch = sessionBranchName(sessionId);
+    if (!branchExists(cwd, branch)) return { ok: false, reason: 'no-session-branch' };
+    const wt = worktreePath(root, sessionId);
+
+    // fold any uncommitted work in the worktree onto its branch (no-op when clean)
+    let excludedSecrets = 0;
+    if (existsSync(wt)) {
+      const cp = checkpoint(wt);
+      if (cp.ok) excludedSecrets = cp.excludedSecrets ?? 0;
+    }
+    const checkpoints = countCheckpoints(cwd, branch);
+    // MARK the hold (can't rename a worktree-checked-out branch) so a LIVE agent
+    // (no marker) is never mistaken for a finalized one awaiting merge.
+    git(['config', `branch.${branch}.zz-held`, 'true'], root);
+    return { ok: true, held: branch, worktree: wt, checkpoints, ...(excludedSecrets ? { excludedSecrets } : {}) };
   } catch (e) {
     return { ok: false, reason: String(e) };
   }

@@ -1,0 +1,391 @@
+// command-table — the Rung-1 parity spec: the declarative table (commands.mjs)
+// is the single source of truth the router AND `zz help` read. These tests pin
+// three properties so the table can't silently drift from the old flat switch:
+//   1. coverage  — every verb the old switch reached resolves to a handler row
+//   2. help      — every row's path appears in `zz help` (help can't omit a verb)
+//   3. parity    — a handful of representative verbs still emit their exact bytes
+// The 359 existing tests remain the primary behavioural spec; this file guards the
+// refactor's seam (table ↔ router ↔ help) specifically.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readdirSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { run } from '../../src/cli/index.mjs';
+import { COMMANDS, helpText, writeVerbPaths, gateWriteVerbPattern, commandCatalog } from '../../src/cli/commands.mjs';
+import { initHome } from '../../src/cli/init.mjs';
+import { serialize } from '../../src/notes/note.mjs';
+import { ensureModuleManifest } from '../../src/notes/module-templates.mjs';
+import { stageChange } from '../../src/grow/stage.mjs';
+import { resetCapabilities } from '../../src/serve/wire.mjs';
+
+async function withRepo(fn) {
+  const cwd = mkdtempSync(join(tmpdir(), 'zz-cmdtable-'));
+  resetCapabilities();
+  const out = [];
+  const io = { cwd, log: (s) => out.push(String(s)) };
+  try { return await fn({ cwd, home: join(cwd, '.zuzuu'), io, out, text: () => out.join('\n') }); }
+  finally { rmSync(cwd, { recursive: true, force: true }); resetCapabilities(); }
+}
+const note = (home, module, id, n) => {
+  ensureModuleManifest(home, module);
+  mkdirSync(join(home, module, 'items'), { recursive: true });
+  writeFileSync(join(home, module, 'items', `${id}.md`), serialize({ id, ...n }));
+};
+
+// The verbs the pre-rung-1 flat switch enumerated (excluding `help`/`--help`/`-h`,
+// which the router renders from the table rather than dispatching as a row).
+const SWITCH_VERBS = [
+  'init', 'validate', 'log', 'query', 'act', 'check', 'observe', 'stage', 'review',
+  'flow', 'view', 'patch', 'append', 'rename', 'merge', 'refactor', 'module',
+  'session', 'registry', 'subscribe', 'doctor', 'status', 'explain', 'code', 'web',
+  'enable', 'disable', 'hook', 'digest', 'start', 'wrap', 'steer',
+  'commands', // Rung 9b: the generated catalog verb (the daemon reads this)
+];
+
+// The Tier-2 noun namespaces (Rung 4): every old flat verb still resolves at the top
+// level — as a canonical row (Tier-1) OR a deprecating alias — so the switch's surface
+// is intact. `module` is both a flat read verb AND a namespace (its Rung-6 schema
+// alter-table ops — add/alter/drop-column — live under it).
+const NAMESPACES = ['gen', 'host', 'module', 'note', 'registry', 'session'];
+
+/** Resolve a row to the handler it ultimately runs (following an `alias` pointer). */
+const canonicalOf = (row) => row.alias
+  ? COMMANDS.find((c) => c.path.length === row.alias.length && c.path.every((p, i) => p === row.alias[i]))
+  : row;
+
+// ── 1. coverage / parity ────────────────────────────────────────────────────────
+
+test('every old-switch verb resolves to exactly one handler (canonical or via alias)', () => {
+  for (const verb of SWITCH_VERBS) {
+    const rows = COMMANDS.filter((c) => c.path.length === 1 && c.path[0] === verb);
+    assert.equal(rows.length, 1, `verb '${verb}' resolves unambiguously at the top level`);
+    const target = canonicalOf(rows[0]);
+    assert.ok(target, `verb '${verb}' (alias → ${rows[0].alias?.join(' ') ?? 'self'}) resolves to a row`);
+    assert.equal(typeof target.handler, 'function', `verb '${verb}' ultimately runs a handler`);
+  }
+});
+
+test('the table keeps the switch surface + adds only the five noun namespaces', () => {
+  const flatVerbs = [...new Set(COMMANDS.filter((c) => c.path.length === 1).map((c) => c.path[0]))].sort();
+  assert.deepEqual(flatVerbs, [...SWITCH_VERBS].sort(), 'every old flat verb still resolves top-level');
+  const nouns = [...new Set(COMMANDS.filter((c) => c.path.length > 1).map((c) => c.path[0]))].sort();
+  assert.deepEqual(nouns, NAMESPACES, 'the only namespaced paths are module/note/gen/session/host/registry');
+});
+
+test('every NON-alias row carries the help + capability metadata the loop reads', () => {
+  const planes = new Set(['data', 'evolution', 'session', 'inspection', 'setup', 'host', 'registry', 'steer']);
+  for (const c of COMMANDS) {
+    assert.ok(Array.isArray(c.path) && c.path.length >= 1, `${c.path}: path is a non-empty array`);
+    if (c.alias) {  // an alias is pure data: { path, alias } → its canonical exists
+      assert.ok(canonicalOf(c), `${c.path.join(' ')}: alias points at a real canonical row`);
+      continue;
+    }
+    assert.ok(planes.has(c.plane), `${c.path}: plane '${c.plane}' is a known plane`);
+    assert.equal(typeof c.summary, 'string', `${c.path}: has a summary`);
+    assert.equal(typeof c.usage, 'string', `${c.path}: has a usage`);
+    assert.equal(typeof c.json, 'boolean', `${c.path}: records --json reality`);
+  }
+});
+
+// ── 2. help completeness ─────────────────────────────────────────────────────────
+
+test('every NON-alias row appears in `zz help` (help cannot drift from the router)', () => {
+  const help = helpText();
+  for (const c of COMMANDS) {
+    if (c.alias) continue;  // aliases are back-compat, not surface — deliberately absent
+    assert.ok(help.includes(c.path.join(' ')), `help lists '${c.path.join(' ')}'`);
+    assert.ok(help.includes(c.summary), `help shows the summary for '${c.path.join(' ')}'`);
+  }
+});
+
+test('`zz help` renders the Tier-2 noun namespaces as grouped sections', () => {
+  const help = helpText();
+  // the namespace headings + a representative canonical path under each
+  for (const [heading, path] of [
+    ['note — edit notes', 'note fold'],
+    ['gen — generations', 'gen log'],
+    ['session — the per-session git surface', 'session land'],
+    ['host — launch & lifecycle', 'host enable'],
+    ['registry — published modules', 'registry subscribe'],
+  ]) {
+    assert.ok(help.includes(heading), `help has the '${heading}' section`);
+    assert.ok(help.includes(path), `help lists '${path}'`);
+  }
+  // aliases must NOT clutter help (the old flat verbs are gone from the surface)
+  assert.ok(!/\n  zz merge /.test(help), 'the deprecated `merge` verb is absent from help');
+});
+
+test('`zz help` (and its aliases) render the folded table, exit 0', async () => {
+  for (const argv of [['help'], [], ['--help'], ['-h']]) {
+    const out = [];
+    assert.equal(await run(argv, { cwd: '/', log: (s) => out.push(String(s)) }), 0, `${JSON.stringify(argv)} exits 0`);
+    assert.match(out.join('\n'), /your repo's Project/);
+    assert.match(out.join('\n'), /grow the Project/);   // a plane heading proves the fold ran
+  }
+});
+
+// ── 3. no-behaviour-change spot checks (the router still routes to the same bytes) ─
+
+test('an unknown verb is a structured error + exit 1 (unchanged)', async () => {
+  const out = [];
+  assert.equal(await run(['definitely-not-a-verb'], { cwd: '/', log: (s) => out.push(String(s)) }), 1);
+  assert.match(out.join('\n'), /unknown verb 'definitely-not-a-verb' — try: zz help/);
+});
+
+test('query routes to the TOON note rows', async () => {
+  await withRepo(async ({ home, io, out }) => {
+    initHome(io.cwd);
+    note(home, 'knowledge', 'acme', { type: 'knowledge', title: 'Acme likes blue', body: 'blue decks' });
+    out.length = 0;
+    assert.equal(await run(['query', 'knowledge', 'blue'], io), 0);
+    assert.match(out.join('\n'), /knowledge:acme/);
+  });
+});
+
+test('module items routes the subcommand-first read (the daemon shells this)', async () => {
+  await withRepo(async ({ home, io, out }) => {
+    initHome(io.cwd);
+    note(home, 'knowledge', 'fact', { type: 'knowledge', title: 'Fact' });
+    out.length = 0;
+    assert.equal(await run(['module', 'items', 'knowledge', '--json'], io), 0);
+    assert.equal(out.length, 1, 'single JSON line');
+    const parsed = JSON.parse(out[0]);
+    assert.ok(Array.isArray(parsed.items));
+    assert.ok(parsed.items.some((i) => i.id === 'fact'), 'the note is listed');
+  });
+});
+
+test('session status --json routes to the daemon-shaped single JSON line', async () => {
+  await withRepo(async ({ io, out }) => {
+    initHome(io.cwd);
+    out.length = 0;
+    assert.equal(await run(['session', 'status', '--json'], io), 0);
+    assert.equal(out.length, 1);
+    const parsed = JSON.parse(out[0]);
+    assert.deepEqual(Object.keys(parsed).sort(), ['active', 'enabled', 'held', 'main', 'onSessionBranch'].sort());
+  });
+});
+
+test('review lists the staged change by its human handle', async () => {
+  await withRepo(async ({ home, io, out }) => {
+    initHome(io.cwd);
+    stageChange(home, 'knowledge', { op: 'create', target: 'fact-x', change: { type: 'knowledge', title: 'Fact X', body: 'hi' } });
+    out.length = 0;
+    assert.equal(await run(['review'], io), 0);
+    assert.match(out.join('\n'), /fact-x/);
+  });
+});
+
+// ── 4. the two-tier grammar — back-compat aliases (Rung 4) ───────────────────────
+
+// renamed verbs whose canonical path runs cleanly with no args (a usage/empty result)
+// so old and new can be byte-compared in one repo without mutation/side-effects.
+const SAFE_RENAMES = [
+  [['merge'], ['note', 'fold']],
+  [['patch'], ['note', 'set']],
+  [['append'], ['note', 'append']],
+  [['rename'], ['note', 'rename']],
+  [['refactor'], ['note', 'retype']],
+  [['view'], ['note', 'view']],
+  [['flow'], ['note', 'flow']],
+  [['log'], ['gen', 'log']],
+  [['subscribe'], ['registry', 'subscribe']],
+];
+
+test('each renamed verb runs its canonical handler + emits exactly one stderr deprecation', async () => {
+  await withRepo(async ({ cwd, out }) => {
+    initHome(cwd);
+    for (const [oldP, newP] of SAFE_RENAMES) {
+      out.length = 0; const oldWarn = [];
+      await run(oldP, { cwd, log: (s) => out.push(String(s)), warn: (s) => oldWarn.push(String(s)) });
+      const oldOut = out.join('\n');
+      out.length = 0; const newWarn = [];
+      await run(newP, { cwd, log: (s) => out.push(String(s)), warn: (s) => newWarn.push(String(s)) });
+      const newOut = out.join('\n');
+      assert.equal(oldWarn.length, 1, `'${oldP.join(' ')}' emits exactly one deprecation`);
+      assert.match(oldWarn[0], /deprecated/, 'the note names the deprecation');
+      assert.ok(oldWarn[0].includes(newP.join(' ')), `'${oldP.join(' ')}' points at '${newP.join(' ')}'`);
+      assert.equal(newWarn.length, 0, `canonical '${newP.join(' ')}' emits no deprecation`);
+      assert.equal(oldOut, newOut, `'${oldP.join(' ')}' and '${newP.join(' ')}' produce identical stdout`);
+    }
+  });
+});
+
+test('the host-namespace renames deprecate without leaking to stdout', async () => {
+  await withRepo(async ({ cwd, out }) => {
+    initHome(cwd);
+    out.length = 0; const warn = [];
+    const code = await run(['enable'], { cwd, log: (s) => out.push(String(s)), warn: (s) => warn.push(String(s)) });
+    assert.equal(code, 0, "'enable' still installs the hooks");
+    assert.equal(warn.length, 1, "'enable' emits one deprecation");
+    assert.ok(warn[0].includes('host enable'), "points at 'host enable'");
+    assert.ok(!out.join('\n').includes('deprecated'), 'the deprecation never reaches stdout');
+    // the canonical path is clean
+    out.length = 0; const warn2 = [];
+    await run(['host', 'disable'], { cwd, log: (s) => out.push(String(s)), warn: (s) => warn2.push(String(s)) });
+    assert.equal(warn2.length, 0, "'host disable' emits no deprecation");
+  });
+});
+
+test('the internal (subcommand) renames also deprecate to stderr', async () => {
+  await withRepo(async ({ cwd, out }) => {
+    initHome(cwd);
+    for (const [argv, canonical] of [
+      [['module', 'knowledge', 'generations'], 'gen list'],
+      [['module', 'knowledge', 'rollback', '1'], 'gen rollback'],
+      [['module', 'knowledge', 'diff', '1', '2'], 'gen diff'],
+      [['session', 'merge'], 'session land'],
+      [['session', 'finalize'], 'session hold'],
+      [['session', 'continue'], 'session resume'],
+      [['session', 'discard', '--yes'], 'session drop'],
+    ]) {
+      out.length = 0; const warn = [];
+      await run(argv, { cwd, log: (s) => out.push(String(s)), warn: (s) => warn.push(String(s)) });
+      assert.equal(warn.length, 1, `'${argv.join(' ')}' emits one deprecation`);
+      assert.ok(warn[0].includes(canonical), `'${argv.join(' ')}' points at '${canonical}'`);
+    }
+  });
+});
+
+test('the canonical namespaced verbs resolve with NO deprecation', async () => {
+  await withRepo(async ({ cwd, out }) => {
+    initHome(cwd);
+    for (const argv of [
+      ['session', 'land'], ['session', 'hold'], ['session', 'resume'], ['session', 'drop', '--yes'],
+      ['gen', 'list', 'knowledge'], ['gen', 'log'], ['note', 'view'],
+    ]) {
+      out.length = 0; const warn = [];
+      await run(argv, { cwd, log: (s) => out.push(String(s)), warn: (s) => warn.push(String(s)) });
+      assert.equal(warn.length, 0, `'${argv.join(' ')}' is canonical — no deprecation`);
+    }
+  });
+});
+
+test('daemon-shelled verbs keep clean single-line JSON on stdout (deprecations → warn only)', async () => {
+  await withRepo(async ({ home, cwd, out }) => {
+    initHome(cwd);
+    note(home, 'knowledge', 'fact', { type: 'knowledge', title: 'Fact' });
+    for (const [argv, expectWarn] of [
+      [['module', 'items', 'knowledge', '--json'], 0],
+      [['session', 'status', '--json'], 0],
+      [['module', 'knowledge', 'generations', '--json'], 1],  // deprecated AND daemon-shelled
+    ]) {
+      out.length = 0; const warn = [];
+      const code = await run(argv, { cwd, log: (s) => out.push(String(s)), warn: (s) => warn.push(String(s)) });
+      assert.equal(code, 0, `${argv.join(' ')} exits 0`);
+      assert.equal(out.length, 1, `${argv.join(' ')} → exactly one stdout line`);
+      JSON.parse(out[0]);  // throws if a deprecation leaked into the JSON line
+      assert.equal(warn.length, expectWarn, `${argv.join(' ')} → ${expectWarn} stderr deprecation(s)`);
+    }
+  });
+});
+
+// ── 5. the execution-gate deny set is GENERATED FROM THE TABLE (Rung 9) ──────────
+// The same table that drives the router drives the guardrails exec gate, so the moat's
+// "agent can't shell `zz <writeverb>`" invariant can't drift. These pin the generation
+// rule: every durable-mutation row (write|admin, non-agent-invokable, not a namespace
+// root) + its aliases is covered; the sanctioned channels are NOT.
+
+const WRITE_PERMS = new Set(['write', 'admin']);
+const isNamespaceRoot = (row) =>
+  row.path.length === 1 && COMMANDS.some((o) => !o.alias && o !== row && o.path.length > 1 && o.path[0] === row.path[0]);
+
+test('the gate pattern covers EVERY write/admin durable-mutation row + its aliases (no silent escape)', () => {
+  const re = new RegExp(gateWriteVerbPattern(), 'i');
+  const mustDeny = COMMANDS.filter((c) =>
+    !c.alias && WRITE_PERMS.has(c.permission) && c.agentInvokable === false && !isNamespaceRoot(c));
+  assert.ok(mustDeny.length >= 12, 'a representative set of write rows exists');
+  for (const c of mustDeny) {
+    assert.ok(re.test(`zz ${c.path.join(' ')} x y`), `gate denies 'zz ${c.path.join(' ')}'`);
+  }
+  // every back-compat alias pointing at a denied path is covered too
+  const denied = new Set(mustDeny.map((c) => c.path.join(' ')));
+  for (const c of COMMANDS) {
+    if (c.alias && denied.has(c.alias.join(' '))) assert.ok(re.test(`zz ${c.path.join(' ')} x y`), `gate denies alias 'zz ${c.path.join(' ')}'`);
+  }
+  // the gate-WRITE subcommands a `gate` row declares (review approve|apply)
+  for (const c of COMMANDS.filter((c) => c.writeSubcommands)) {
+    for (const sub of c.writeSubcommands) assert.ok(re.test(`zz ${c.path.join(' ')} ${sub} m id`), `gate denies 'zz ${c.path.join(' ')} ${sub}'`);
+  }
+});
+
+test('the deny set EXCLUDES the agent-sanctioned channels and read/list verbs', () => {
+  const re = new RegExp(gateWriteVerbPattern(), 'i');
+  // stage/observe are write-PERMISSION but agent-invokable (a proposal / a mine) → allowed
+  for (const cmd of ['zz stage knowledge --op create --target x', 'zz observe', 'zz query knowledge x', 'zz check', 'zz review knowledge', 'zz note view knowledge x', 'zz gen list knowledge', 'zz module items knowledge', 'zz session status']) {
+    assert.equal(re.test(cmd), false, `'${cmd}' is NOT denied`);
+  }
+  // and the deny PATHS never include stage/observe
+  const paths = writeVerbPaths().map((p) => p.join(' '));
+  assert.ok(!paths.includes('stage') && !paths.includes('observe'), 'stage/observe are never in the deny set');
+  assert.ok(paths.includes('note set') && paths.includes('review approve') && paths.includes('gen mint'), 'the durable writes ARE in the deny set');
+});
+
+test('stage rescans raw argv for repeated --field k=v (the quirk survives)', async () => {
+  await withRepo(async ({ home, io, out }) => {
+    initHome(io.cwd);
+    ensureModuleManifest(home, 'knowledge');
+    out.length = 0;
+    const code = await run(
+      ['stage', 'knowledge', '--op', 'create', '--target', 'multi', '--field', 'type=knowledge', '--field', 'title=First', '--field', 'body=Hello'],
+      io,
+    );
+    assert.equal(code, 0);
+    assert.match(out.join('\n'), /staged\[/, 'TOON staged receipt emitted');
+    // all three --field pairs accumulated (the raw-argv rescan): parseArgs alone
+    // would keep only the LAST --field, so the staged change would miss type+title.
+    const dir = join(home, 'knowledge', 'staged');
+    const blob = readdirSync(dir).filter((f) => f.endsWith('.json')).map((f) => readFileSync(join(dir, f), 'utf8')).join('\n');
+    for (const fragment of ['knowledge', 'First', 'Hello']) {
+      assert.ok(blob.includes(fragment), `staged change carries '${fragment}' (every --field landed)`);
+    }
+  });
+});
+
+// ── 6. the command catalog is GENERATED FROM THE TABLE (Rung 9b) ─────────────────
+// The same table that drives the router/help/gate also emits the argv catalog the
+// out-of-process daemon shells from (`zz commands --json`). These pin that the catalog
+// covers every row + the daemon subforms, so the daemon can only shell commands the
+// table knows (a renamed/added verb flows to the daemon; an unknown one is impossible).
+
+test('commandCatalog() carries an entry for EVERY non-alias row (the daemon can shell it)', () => {
+  const cat = commandCatalog();
+  const ids = new Set(cat.map((c) => c.id));
+  for (const c of COMMANDS) {
+    if (c.alias) continue;
+    assert.ok(ids.has(c.path.join('.')), `catalog has '${c.path.join('.')}'`);
+    const entry = cat.find((e) => e.id === c.path.join('.'));
+    assert.deepEqual(entry.path, c.path, `${c.path.join('.')}: catalog path mirrors the row path`);
+  }
+  // every catalog entry is a self-consistent argv spec
+  for (const e of cat) {
+    assert.ok(Array.isArray(e.path) && e.path.length >= 1, `${e.id}: path is a non-empty array`);
+    assert.ok(Array.isArray(e.params), `${e.id}: params is an array`);
+    assert.equal(typeof e.flags, 'object', `${e.id}: flags is an object`);
+  }
+});
+
+test('commandCatalog() carries the in-handler daemon subforms (not standalone rows)', () => {
+  const byId = new Map(commandCatalog().map((c) => [c.id, c]));
+  // a golden spot-check of the daemon-shelled shapes — path/params/flags exactly
+  assert.deepEqual(byId.get('module.items'), { id: 'module.items', path: ['module', 'items'], params: ['key'], flags: {} });
+  assert.deepEqual(byId.get('module.generations'), { id: 'module.generations', path: ['module'], params: ['key', { const: 'generations' }], flags: {} });
+  assert.deepEqual(byId.get('module.rollback'), { id: 'module.rollback', path: ['module'], params: ['key', { const: 'rollback' }, 'id'], flags: {} });
+  assert.deepEqual(byId.get('review.reject'), { id: 'review.reject', path: ['review', 'reject'], params: ['module', 'id'], flags: { reason: '--reason' } });
+  assert.deepEqual(byId.get('session.label'), { id: 'session.label', path: ['session', 'label'], params: ['id'], flags: { text: '--text' } });
+  // and the rich-flag write rows derive from their row `io`
+  assert.deepEqual(byId.get('module.new').flags, { title: '--title', tagline: '--tagline', capabilities: '--capabilities', kinds: '--kinds', required: '--required' });
+  assert.deepEqual(byId.get('stage'), { id: 'stage', path: ['stage'], params: ['module'], flags: { op: '--op', target: '--target', change: '--change' } });
+});
+
+test('`zz commands --json` emits the catalog as one parseable {commands:[…]} line', async () => {
+  const out = [];
+  assert.equal(await run(['commands', '--json'], { cwd: '/', log: (s) => out.push(String(s)) }), 0);
+  assert.equal(out.length, 1, 'exactly one JSON line — the daemon JSON.parses it');
+  const parsed = JSON.parse(out[0]);
+  assert.ok(Array.isArray(parsed.commands), 'a commands[] array');
+  // it equals the in-process catalog (the same producer the daemon mirrors)
+  assert.deepEqual(parsed.commands, commandCatalog());
+  assert.ok(parsed.commands.some((c) => c.id === 'review.approve'), 'review.approve is shellable');
+});

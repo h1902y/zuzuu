@@ -1,4 +1,4 @@
-// use/act.mjs + instructions/gate.mjs + notes/log.mjs.
+// use/act.mjs + guardrails/gate.mjs + notes/log.mjs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';

@@ -26,14 +26,24 @@ export function fixtureHome(r: string): string {
   mkdirSync(path.join(agent, ".live"), { recursive: true });
   writeFileSync(path.join(agent, "sessions.json"), JSON.stringify({ version: 1, sessions: [{ id: "s1", host: "claude-code" }] }));
   writeFileSync(path.join(agent, "knowledge", "items", "k1.md"),
-    envelope({ id: "k1", module: "knowledge", kind: "fact", title: '"fact one"', status: "active", created_at: "2026-06-12T00:00:00Z" }, "fact one\n"));
+    // `priority` is a CUSTOM column (beyond the old PEEK_KEYS allowlist) — it proves
+    // even the CLI-absent peek is lossless now (every top-level scalar surfaces).
+    envelope({ id: "k1", module: "knowledge", kind: "fact", title: '"fact one"', status: "active", created_at: "2026-06-12T00:00:00Z", priority: "high" }, "fact one\n"));
+  // A real observe-written staged record (body under `change`, top-level numeric
+  // `score`, `confidence: null` until a producer sets it, `evidence` as an array) —
+  // matches src/grow/stage.mjs (see the golden shape pinned in zuzuu-staged-summary.test.ts).
   writeFileSync(path.join(agent, "knowledge", "staged", "p1.json"),
     JSON.stringify({
       id: "p1",
-      payload: { type: "fact", body: "use node:sqlite" },
-      evidence: { occurrences: 12, sessions: 3, failures: 0 },
-      analysis: { er: { verdict: "new" } },
-      score: { score: 0.775, confidence: "high", rationale: "recurring + cross-session" },
+      op: "create",
+      module: "knowledge",
+      target: "fact-node-sqlite",
+      change: { type: "knowledge", title: "use node:sqlite", body: "use node:sqlite" },
+      rationale: "recurring + cross-session",
+      evidence: [{ kind: "fact", occurrences: 12, sessions: 3, failures: 0 }],
+      confidence: null,
+      score: 0.775,
+      status: "pending",
     }));
   writeFileSync(path.join(agent, ".live", "digest.md"), "# zuzuu module digest\n");
   return agent;
@@ -68,6 +78,16 @@ export function markerStub(r: string): { stub: string; marker: string } {
 export function argvStub(r: string, name = "zuzuu-argv.sh"): string {
   const stub = path.join(r, name);
   writeFileSync(stub, `#!/bin/sh\nprintf '{"argv":"'\nprintf '%s|' "$@"\nprintf '"}'\n`);
+  chmodSync(stub, 0o755);
+  return stub;
+}
+
+/** A `module items` stub that echoes its argv INTO an item field (+ a fixed `total`) —
+ *  so a READ route shaping `{items,total}` still surfaces exactly which flags reached
+ *  the CLI (argvStub's bare `{argv}` would make the route degrade to peek). */
+export function argvItemsStub(r: string, total = 0, name = "zuzuu-argv-items.sh"): string {
+  const stub = path.join(r, name);
+  writeFileSync(stub, `#!/bin/sh\nprintf '{"items":[{"id":"x","argv":"'\nfor a in "$@"; do printf '%s ' "$a"; done\nprintf '"}],"total":${total},"errors":[]}'\n`);
   chmodSync(stub, 0o755);
   return stub;
 }

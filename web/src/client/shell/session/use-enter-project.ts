@@ -15,17 +15,26 @@ export function useEnterProject() {
   const qc = useQueryClient();
   const refresh = useWorkbench((s) => s.refresh);
   const select = useWorld((s) => s.select);
-  const setScreen = useAppSurface((s) => s.setScreen);
+  const open = useAppSurface((s) => s.open);
   return useCallback(
     async (path: string) => {
       try {
         await api.switchWorkspace(path);
         select(null); // land on the Overview (home base)
+        // CRITICAL — discard the PREVIOUS project's cached brain + identity before the
+        // new project renders. The brain query keys (["zuzuu", …], ["workspace"]) are NOT
+        // root-scoped — same key, new root — so invalidate alone would flash the old
+        // project's notes/instructions on an inactive view (it only refetches ACTIVE
+        // queries; the rest keep their stale cache). removeQueries drops the data outright,
+        // so the new project starts clean (loading → fresh), never polluted. (Global
+        // ["projects", …] recents/list are left intact — they're machine-wide, not per-project.)
+        qc.removeQueries({ queryKey: ["zuzuu"] });
+        qc.removeQueries({ queryKey: ["workspace"] });
         await refresh(); // the new root's sessions
-        await qc.invalidateQueries(); // refetch the new root's brain
-        setScreen("project");
+        await qc.invalidateQueries(); // refetch the new root's data
+        open(path); // record the active project's path (drives browser-history sync)
       } catch { toast(`Couldn’t open ${path}`, "error"); }
     },
-    [qc, refresh, select, setScreen],
+    [qc, refresh, select, open],
   );
 }

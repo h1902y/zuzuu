@@ -14,26 +14,26 @@
 //       Fail-soft: outside a git repo / on git error the ledger still advances
 //       (the files are the source of truth) — rollback just needs a real repo.
 
-import { existsSync, readFileSync, readdirSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { spawnSync } from 'node:child_process';
 import { itemsDir } from './store.mjs';
 import { parse } from './note.mjs';
+import { out } from '../metal/git.mjs';
+import { readText, writeText, mkdirp, list } from '../metal/fs.mjs';
 
-const git = (root, args) => {
-  const r = spawnSync('git', ['-C', root, ...args], { encoding: 'utf8' });
-  return r.status === 0 ? r.stdout.trim() : null;
-};
+// generation is read-only over git (`out` = stdout-or-null); the `-C root` form
+// becomes `cwd: root`. Keep the local 2-arg shape so the many call sites read clean.
+const git = (root, args) => out(args, root);
 const rootOf = (home) => dirname(home);                       // home = <root>/.zuzuu
 const ledgerPath = (home, module) => join(home, module, 'generations.json');
 
 const readLedger = (home, module) => {
-  try { return JSON.parse(readFileSync(ledgerPath(home, module), 'utf8')); } catch { return []; }
+  try { return JSON.parse(readText(ledgerPath(home, module))); } catch { return []; }
 };
 function writeLedger(home, module, entries) {
   const p = ledgerPath(home, module);
-  mkdirSync(dirname(p), { recursive: true });
-  writeFileSync(p, JSON.stringify(entries, null, 2) + '\n');
+  mkdirp(dirname(p));
+  writeText(p, JSON.stringify(entries, null, 2) + '\n');
 }
 
 /** The module's generation lineage (ledger entries) + the active (latest) n. */
@@ -118,30 +118,42 @@ export function mint(home, module, { mintedFrom = [], label = null } = {}) {
 }
 
 /**
- * Roll a module back to generation n: restore its items from that generation's
- * commit, prune any note added since, and record the restore as a NEW generation
- * (forward motion — immutable history, never a `git revert`). Needs a real repo.
+ * PURE: the op batch that rolls a module back to generation `n` — restore every note to
+ * its gen-`n` bytes (a full-replace `create` op carrying the pinned note) and prune any
+ * note added since (a `delete` op). Reads the gen-`n` tree from git; writes NOTHING.
+ * The orchestrator (`grow/commit.rollback`) feeds this batch to the one write boundary,
+ * which writes it atomically and mints the new generation (forward motion — never a
+ * `git revert`). This split keeps the Data layer from importing the write boundary (the
+ * import graph stays acyclic). @returns {{ ok, module?, n?, batch?, restored?, pruned?, error? }}
  */
-export function rollback(home, module, n) {
+export function expandRollback(home, module, n) {
   const gens = readLedger(home, module);
   if (!gens.find((g) => g.n === n)) return { ok: false, error: `no generation ${n} for ${module}` };
   const root = rootOf(home);
   const commit = commitForN(root, module, n);
   if (!commit) return { ok: false, error: `no commit for ${module} generation ${n} (needs a git repo)` };
 
-  const idir = itemsDir(home, module);
-  const onDisk = () => (existsSync(idir) ? readdirSync(idir).filter((f) => f.endsWith('.md')).map((f) => f.slice(0, -3)) : []);
-  const before = onDisk();
-  // restore the items tree from gen n's commit (git restore also removes files
-  // absent in that tree, so it prunes for us; the manual sweep is belt-and-suspenders)
-  git(root, ['restore', '--source', commit, '--', `.zuzuu/${module}/items`]);
+  // the pinned state = the module's items as of gen n's commit (git holds the bytes)
   const tree = git(root, ['ls-tree', '-r', '--name-only', commit, `.zuzuu/${module}/items/`]) || '';
-  const pinned = new Set(tree.split('\n').filter((p) => p.endsWith('.md')).map((p) => p.split('/').pop().slice(0, -3)));
-  if (existsSync(idir)) for (const f of readdirSync(idir)) {
-    if (f.endsWith('.md') && !pinned.has(f.slice(0, -3))) rmSync(join(idir, f));
+  const pinned = new Map();
+  for (const f of tree.split('\n').filter((p) => p.endsWith('.md'))) {
+    const id = f.split('/').pop().slice(0, -3);
+    const { note } = parse(git(root, ['show', `${commit}:${f}`]) ?? '', { id });
+    if (note) pinned.set(id, note);
   }
-  const pruned = before.filter((id) => !pinned.has(id)).length;
-  // commit the restored state as the next generation (its content == gen n)
-  const entry = mint(home, module, { mintedFrom: [`rollback:${n}`], label: `rollback ${module} to gen ${n}` });
-  return { ok: true, module, n, newGeneration: entry.n, restored: pinned.size, pruned };
+  const idir = itemsDir(home, module);
+  const onDisk = existsSync(idir) ? list(idir).filter((f) => f.endsWith('.md')).map((f) => f.slice(0, -3)) : [];
+
+  const batch = [];
+  // restore every pinned note (a `create` op = full replace — drops any field added since)
+  for (const [id, note] of pinned) batch.push({ module, op: 'create', target: id, change: note, log: { rollback: `to gen ${n}` } });
+  // prune any note added after gen n
+  let pruned = 0;
+  for (const id of onDisk) if (!pinned.has(id)) { batch.push({ module, op: 'delete', target: id, log: { rollback: `prune (not in gen ${n})` } }); pruned++; }
+  // the manifest (module.md) is part of the module's pinned state too — its `fields`
+  // schema rode in gen n's commit. Return the gen-n bytes so the orchestrator restores
+  // the SCHEMA along with the rows (a schema alter-then-rollback round-trips). Null when
+  // the manifest didn't exist at gen n (older lineage) — then we leave the live one alone.
+  const manifest = git(root, ['show', `${commit}:.zuzuu/${module}/module.md`]) ?? null;
+  return { ok: true, module, n, batch, restored: pinned.size, pruned, manifest };
 }

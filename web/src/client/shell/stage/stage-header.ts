@@ -24,15 +24,16 @@ export interface StageHeaderModel {
 }
 
 /** The selection → header morph. Overview shows no governed header (it's the home
- *  base); a module offers "New note" (a create → a PENDING proposal); a row + a
- *  session show the header (breadcrumb + tabs) but no primary — the Form wing is the
- *  row's editor, and the session's tabs carry Terminal·Changes. */
+ *  base); a module offers "New note" (a create → a PENDING proposal); a session
+ *  offers "End session" (the canonical end affordance — where you work); a row shows
+ *  the header (breadcrumb + tabs) but no primary — the Form wing is its editor. */
 export function stageHeaderModel(node: NavNode | null): StageHeaderModel {
   switch (node?.kind) {
     case "module":
       return { show: true, primary: { key: "new-note", label: "New note" } };
-    case "row":
     case "session":
+      return { show: true, primary: { key: "end-session", label: "End session" } };
+    case "row":
       return { show: true, primary: null };
     default:
       return { show: false, primary: null };

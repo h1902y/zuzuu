@@ -26,6 +26,9 @@ export interface ModuleItem {
   provenance?: Record<string, string>[];
   payload?: Record<string, unknown>;
   body?: string;
+  /** where this note was born — the session(s) it was mined from (U6 / R6). Present
+   *  only on a mined note that landed after U4 carried provenance through evolve. */
+  source?: ProvenanceSource;
 }
 
 /** An envelope file the CLI could not parse (fail-soft listing). */
@@ -34,19 +37,66 @@ export interface ModuleItemError {
   error: string;
 }
 
+/** A provenance pointer (U6 / R6): where a note/proposal was BORN — the session(s)
+ *  observe mined it from. `sessions` are host-prefixed transcript session ids (e.g.
+ *  `claude-code:abc`), NOT daemon PTY ids. The locator is session-ids-only today
+ *  (no finer transcript offset is resolvable — see R-B); `locator.kind` leaves room
+ *  for a richer offset later. Absent/null when a note wasn't mined (hand-authored,
+ *  pre-U4, or a producer that omits it). */
+export interface ProvenanceSource {
+  /** what produced it — "observe" today. */
+  producer?: string;
+  /** the ROUTE kind it was mined as (command | entity | fact | guardrail | …). */
+  kind?: string;
+  /** the originating session ids (host-prefixed). */
+  sessions?: string[];
+  locator?: { kind?: string; sessions?: string[]; [k: string]: unknown };
+  [k: string]: unknown;
+}
+
+/** One piece of corroborating evidence behind a mined proposal — the array observe
+ *  writes (`evidence: [{ kind, occurrences, sessions, … }]`). The session count is
+ *  what the reason line counts; extra keys (failures, …) ride through untyped. */
+export interface StagedEvidence {
+  /** the ROUTE kind: command | entity | fact | guardrail | correction | workflow */
+  kind?: string;
+  occurrences?: number;
+  /** distinct sessions the signal corroborated across (a count today; see U4) */
+  sessions?: number;
+  [k: string]: unknown;
+}
+
 export interface StagedSummary {
   id: string;
   module: string;
   title: string;
+  /** create | update | delete | relate | deprecate — the staged op. */
+  op?: string;
+  /** the note id this change targets (for an update: the current note whose body is
+   *  the diff's "before"; null/absent for a create). */
+  target?: string | null;
   /** a short preview of the content being approved — best-effort */
   preview?: string;
-  /** the persisted confidence bucket (high|med|low), when present */
+  /** why this was proposed (observe writes the candidate body here). */
+  rationale?: string;
+  /** the corroborating evidence behind the proposal — feeds the reason line. */
+  evidence?: StagedEvidence[];
+  /** the staged change body (the note that lands on approve: type/title/body/…). */
+  change?: Record<string, unknown>;
+  /** the persisted confidence bucket, when a producer sets it (null today — never
+   *  faked from `score`, which is a number). */
   confidence?: string | null;
+  /** where this proposal was born — the session(s) observe mined it from (U6 / R6).
+   *  Feeds the card's "born from N session(s)" line and the session↔proposal cross-ref. */
+  source?: ProvenanceSource;
 }
 
 export interface ModuleDetail {
   key: string;
   items: ModuleItem[];
+  /** the PRE-paginate match count (the index COUNT over the same filter) — `items` is
+   *  one page of it. The client paginates off this; absent ⇒ fall back to items.length. */
+  total?: number;
   staged: StagedSummary[];
   errors?: ModuleItemError[];
   /** true = zuzuu CLI absent; items are a best-effort frontmatter peek */
@@ -130,7 +180,7 @@ export interface RollbackResult {
  *  queue and lands only on approve. The handle the DataProvider returns from a write. */
 export interface StagedChange {
   id: string;
-  op: "create" | "update" | "delete" | "relate" | "deprecate";
+  op: "create" | "update" | "delete" | "relate" | "unrelate" | "deprecate";
   module: string;
   target: string | null;
   status: "pending";
@@ -157,9 +207,69 @@ export interface SessionMergeResult {
   restoredTo?: string | null;
 }
 
-/** Stored on a daemon session after the agent-exit auto-merge ran; read via
- *  GET /api/sessions/:id. */
+// ── The held-session merge gate (the CODE queue, mirroring the brain queue) ───
+
+/** One session awaiting a merge decision — GET /api/zuzuu/held (shells `zz session
+ *  status --json` → its `held[]`). The code-gate queue: each held branch with its
+ *  pure-read review (U4 — diff summary + mergeability). `id` is the session id the
+ *  merge/discard actions take, derived from the branch namespace: `zz/session-<id>`
+ *  (worktree-backed — the workbench's agents) vs `zz/held-<id>` (in-place fallback). */
+export interface HeldSession {
+  id: string;
+  branch: string;
+  /** worktree = a `zz/session-<id>` worktree-backed hold (merge via `worktree close`);
+   *  inplace = a `zz/held-<id>` in-place hold (merge via `session merge`). */
+  kind: "worktree" | "inplace";
+  checkpoints: number;
+  files: number;
+  added: number;
+  removed: number;
+  mergeability: "ready" | "conflict" | "unknown";
+  /** workspace-relative path of the worktree holding this branch (U8 / R9) —
+   *  present only for a `worktree`-kind hold git reports a worktree for. It lets a
+   *  `conflict` route to resolution: the workbench opens a shell session AT the
+   *  worktree (cwd) so the user can fix the merge in place, then `zz session merge`.
+   *  Undefined for in-place holds (no worktree) or when the dir can't be expressed
+   *  safely under root (then the conflict routes to the CLI instruction instead). */
+  worktreePath?: string;
+}
+
+export interface HeldSessionList {
+  held: HeldSession[];
+}
+
+/** The result of a held-session merge/discard action (POST /api/sessions/held/:id/*).
+ *  The daemon shells the `zz` verb and passes its JSON through; shape varies by verb
+ *  (a merge carries `mergedAs`/`commits`, a discard `branch`), so it's read tolerantly. */
+export type HeldActionResult = { ok?: boolean } & Record<string, unknown>;
+
+/** Stored on a daemon session after the agent-exit close hook ran; read via
+ *  GET /api/sessions/:id. `pending` is the count of staged proposals AFTER the
+ *  close-time `zz observe` ran (U5/KTD5) — the signal the "what this session
+ *  taught" close card keys off (`pending > 0` → fire once). Present only on a
+ *  success arm (the close hook ran → observe ran → the count is meaningful);
+ *  absent when the CLI was absent or the close failed.
+ *
+ *  U3: END now FINALIZES (holds) — the daemon shells `zz session worktree finalize`
+ *  on PTY exit, so the live arm is the `held` variant (`branch` = the held
+ *  `zz/session-*` branch). The squash-merge moved behind the explicit `zz session
+ *  merge` verb (U6 enriches this with the diff summary + mergeability). The `merge`
+ *  variant stays for the explicit-merge path. */
 export type SessionCloseResult =
   | { cliAbsent: true }
-  | { ok: true; merge: SessionMergeResult }
+  | { ok: true; merge: SessionMergeResult; pending?: number }
+  | {
+      ok: true;
+      held: true;
+      branch: string;
+      pending?: number;
+      /** U4: the pure-read review of the held branch (`zz session review`) — the
+       *  data the merge card needs. Optional here: U4 ships the CLI read + the
+       *  type; U6 wires the daemon to populate it on the close hook. */
+      diffSummary?: { files: number; added: number; removed: number; checkpoints: number };
+      /** mergeability of the held branch vs current `main`, computed at read time
+       *  via the pure-read `git merge-tree --write-tree` probe. 'unknown' = git
+       *  < 2.38 or an un-probeable state. */
+      mergeability?: "ready" | "conflict" | "unknown";
+    }
   | { ok: false; stderr?: string; refusal?: Record<string, unknown> };

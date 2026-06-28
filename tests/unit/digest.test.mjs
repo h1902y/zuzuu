@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { serialize } from '../../src/notes/note.mjs';
 import { toon } from '../../src/notes/toon.mjs';
 import { ensureModuleManifest } from '../../src/notes/module-templates.mjs';
@@ -76,6 +77,51 @@ test('digest: the Instructions module folds in as Standing guidance (top-8 + tru
     assert.match(out, /## Standing guidance/);
     assert.equal((out.match(/^- rule /gm) || []).length, 8, 'only the top 8 shown');
     assert.match(out, /- … \(\+4 more\)/, 'the remaining count is signalled');
+  });
+});
+
+// ── the code gate (U5): held sessions awaiting merge ─────────────────────────
+
+const sh = (cwd, ...a) => spawnSync(a[0], a.slice(1), { cwd, encoding: 'utf8' });
+
+/** A git-backed home: the digest counts held branches from the cwd's git repo. */
+function withGitHome(fn) {
+  const root = mkdtempSync(join(tmpdir(), 'zz-digest-git-'));
+  sh(root, 'git', 'init', '-q', '-b', 'main');
+  sh(root, 'git', 'config', 'user.email', 't@t.co');
+  sh(root, 'git', 'config', 'user.name', 't');
+  sh(root, 'git', 'config', 'commit.gpgsign', 'false');
+  const home = join(root, '.zuzuu');
+  mkdirSync(home, { recursive: true });
+  writeFileSync(join(root, 'a.txt'), 'hello');
+  sh(root, 'git', 'add', '-A'); sh(root, 'git', 'commit', '-qm', 'init');
+  try { return fn(home, root); } finally { rmSync(root, { recursive: true, force: true }); }
+}
+
+test('digest: held sessions add an "awaiting merge" line, mirroring the proposals line', () => {
+  withGitHome((home, root) => {
+    project(home, { title: 'demo' });
+    note(home, 'knowledge', 'a', { type: 'knowledge', title: 'A' });
+    // 0 held → no line (parallel to: 0 pending → no review line)
+    assert.doesNotMatch(digestText(root), /awaiting merge/);
+    // 2 held → the count line appears
+    sh(root, 'git', 'branch', 'zz/held-aaaa1111');
+    sh(root, 'git', 'branch', 'zz/held-bbbb2222');
+    assert.match(digestText(root), /\n2 session\(s\) awaiting merge: zz session merge/);
+  });
+});
+
+test('digest: the awaiting-merge line carries the U7 escape-hatch hint (END holds; autoMerge restores auto-land)', () => {
+  withGitHome((home, root) => {
+    project(home, { title: 'demo' });
+    note(home, 'knowledge', 'a', { type: 'knowledge', title: 'A' });
+    // no held → no hint (the hint only stands beside a real awaiting-merge line)
+    assert.doesNotMatch(digestText(root), /autoMerge/);
+    sh(root, 'git', 'branch', 'zz/held-aaaa1111');
+    const out = digestText(root);
+    assert.match(out, /1 session\(s\) awaiting merge: zz session merge/);
+    assert.match(out, /END now holds for review/);
+    assert.match(out, /"autoMerge": true in \.zuzuu\/agent\.json to restore auto-land/);
   });
 });
 

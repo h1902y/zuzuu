@@ -6,7 +6,8 @@ import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { serialize, parse } from '../../src/notes/note.mjs';
-import { mint, generations, rollback } from '../../src/notes/generation.mjs';
+import { mint, generations } from '../../src/notes/generation.mjs';
+import { rollback } from '../../src/grow/commit.mjs';
 import { stageChange, listStaged, readStaged } from '../../src/grow/stage.mjs';
 import { approve, reject } from '../../src/grow/review.mjs';
 import { evolve } from '../../src/grow/evolve.mjs';
@@ -38,6 +39,30 @@ test('evolve: writes + mints but does NOT archive (archiving is review.approve�
     assert.equal(readZu(home, 'knowledge', 'fact').title, 'A', 'evolve wrote the note');
     assert.equal(generations(home, 'knowledge').active, 1, 'evolve minted a generation');
     assert.ok(readStaged(home, 'knowledge', p.id), 'proposal still pending — evolve does not archive');
+  });
+});
+
+// ── provenance: a landed note links back to where it was born (U6 / R6) ──────
+
+test('evolve: carries the staged change’s `source` onto the landed note frontmatter', () => {
+  withHome((home) => {
+    const source = {
+      producer: 'observe', kind: 'entity', sessions: ['claude-code:s1', 'claude-code:s2'],
+      locator: { kind: 'session-ids', sessions: ['claude-code:s1', 'claude-code:s2'] },
+    };
+    const p = stageChange(home, 'knowledge', { op: 'create', target: 'fact', change: { type: 'knowledge', title: 'Born' }, source });
+    assert.equal(evolve(home, 'knowledge', readStaged(home, 'knowledge', p.id)).ok, true);
+    const note = readZu(home, 'knowledge', 'fact');
+    assert.deepEqual(note.source, source, 'the note frontmatter carries the provenance pointer, round-trip exact');
+    assert.deepEqual(note.source.sessions, ['claude-code:s1', 'claude-code:s2'], 'the originating session ids survive');
+  });
+});
+
+test('evolve: a change with NO source lands a note without a source key (no spurious field)', () => {
+  withHome((home) => {
+    const p = stageChange(home, 'knowledge', { op: 'create', target: 'plain', change: { type: 'knowledge', title: 'Plain' } });
+    assert.equal(evolve(home, 'knowledge', readStaged(home, 'knowledge', p.id)).ok, true);
+    assert.equal('source' in readZu(home, 'knowledge', 'plain'), false, 'no source persisted when the producer omitted it');
   });
 });
 

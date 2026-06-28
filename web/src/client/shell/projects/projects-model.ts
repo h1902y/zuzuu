@@ -70,3 +70,11 @@ export function relativeTime(ms: number, nowMs: number): string {
   const months = Math.floor(days / 30);
   return `${months}mo ago`;
 }
+
+/** The footer count label: "1 project" / "12 projects", or "3 of 12 projects" when a
+ *  search has narrowed the list. `shown` is the post-filter count, `total` the full set. */
+export function projectCountLabel(shown: number, total: number): string {
+  if (total === 0) return "No projects";
+  if (shown < total) return `${shown} of ${total} projects`;
+  return `${total} ${total === 1 ? "project" : "projects"}`;
+}

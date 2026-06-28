@@ -15,6 +15,7 @@ export function ReviewQueue({ keyboard }: { keyboard?: boolean } = {}) {
   const { queue, grouped, total, loading, approve, reject } = useReviewQueue();
   const [focus, setFocus] = useState(0);
   const [decided, setDecided] = useState(0);
+  const [diffOpenId, setDiffOpenId] = useState<string | null>(null);
 
   const focusIdx = clampFocus(total, focus);
   const focusId = keyboard ? focusedId(queue, focusIdx) : null;
@@ -32,6 +33,10 @@ export function ReviewQueue({ keyboard }: { keyboard?: boolean } = {}) {
       else if (e.key === "a" || e.key === "Enter") {
         const target = queue.find((q) => q.id === focusedId(queue, clampFocus(total, focus)));
         if (target) { e.preventDefault(); setDecided((n) => n + 1); approve(target.id, target.module); }
+      }
+      else if (e.key === "d") {
+        const id = focusedId(queue, clampFocus(total, focus));
+        if (id) { e.preventDefault(); setDiffOpenId((cur) => (cur === id ? null : id)); }
       }
     };
     window.addEventListener("keydown", onKey);
@@ -51,7 +56,7 @@ export function ReviewQueue({ keyboard }: { keyboard?: boolean } = {}) {
       <Stack gap="md">
         <Inline gap="sm" justify="between">
           <Text size="meta" tone="subtle" weight="semibold">REVIEW · {total} pending</Text>
-          {keyboard && <Text size="meta" tone="muted">j/k move · a approve</Text>}
+          {keyboard && <Text size="meta" tone="muted">j/k move · a approve · d diff</Text>}
         </Inline>
         {Object.entries(grouped).map(([module, items]) => (
           <Stack key={module} gap="sm">
@@ -61,6 +66,7 @@ export function ReviewQueue({ keyboard }: { keyboard?: boolean } = {}) {
                 key={it.id}
                 item={it}
                 focused={it.id === focusId}
+                {...(keyboard ? { diffOpen: it.id === diffOpenId, onDiffOpenChange: (o: boolean) => setDiffOpenId(o ? it.id : null) } : {})}
                 onApprove={approve}
                 onReject={rejectAndCount}
               />

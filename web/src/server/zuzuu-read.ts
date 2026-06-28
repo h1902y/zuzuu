@@ -7,10 +7,12 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import { Hono } from "hono";
 import { resolveSafe } from "./safe-path.js";
-import { runZuzuu } from "./zuzuu-cli.js";
+import { runCommand, runCommandText } from "./zuzuu-catalog.js";
+import { readHeld } from "./held-sessions.js";
 import {
   SAFE_SLUG,
   SAFE_ID,
+  buildModuleQueryFlags,
   listModuleDirs,
   moduleEnvelopeItems,
   peekModuleItems,
@@ -29,7 +31,7 @@ export function createZuzuuReadApi(getRoot: () => string, binary?: string): Hono
   // kit's built-in metadata).
   app.get("/overview", async (c) => {
     const root = getRoot();
-    const viaCli = await runZuzuu(root, ["module", "overview"], { binary }) as { modules?: unknown[] } | null;
+    const viaCli = await runCommand(root, "module.overview", {}, { binary }) as { modules?: unknown[] } | null;
     if (viaCli && Array.isArray(viaCli.modules)) return c.json(viaCli);
     const home = await homeDir(root);
     const ids = await listModuleDirs(home); // real dirs on disk, not a hardcoded list
@@ -52,9 +54,16 @@ export function createZuzuuReadApi(getRoot: () => string, binary?: string): Hono
     if (!SAFE_SLUG.test(key)) return c.json({ error: "unknown module" }, 404);
     const root = getRoot();
     const home = await homeDir(root);
-    const { items, errors, degraded } = await moduleEnvelopeItems(root, home, key, binary);
+    // server-side filter·sort·paginate: the URL query → validated `module items` flags
+    // (the index does the SELECT). `where` repeats; everything else is single-valued.
+    const flags = buildModuleQueryFlags({
+      text: c.req.query("text"), type: c.req.query("type"), status: c.req.query("status"),
+      tag: c.req.query("tag"), sort: c.req.query("sort"), where: c.req.queries("where"),
+      limit: c.req.query("limit"), offset: c.req.query("offset"),
+    });
+    const { items, total, errors, degraded } = await moduleEnvelopeItems(root, home, key, binary, flags);
     const staged = (await stagedOf(home, key)).map((p) => stagedSummary(p, key));
-    return c.json({ key, items, staged, errors, ...(degraded ? { degraded: true } : {}) });
+    return c.json({ key, items, total, staged, errors, ...(degraded ? { degraded: true } : {}) });
   });
 
   // One record (getOne) — CLI `zz module item <key> <id>`. Absent/unknown → 404.
@@ -63,7 +72,7 @@ export function createZuzuuReadApi(getRoot: () => string, binary?: string): Hono
     const id = c.req.param("id");
     if (!SAFE_SLUG.test(key)) return c.json({ error: "unknown module" }, 404);
     if (!SAFE_ID.test(id)) return c.json({ error: "bad id" }, 400);
-    const viaCli = await runZuzuu(getRoot(), ["module", "item", key, id], { binary });
+    const viaCli = await runCommand(getRoot(), "module.item", { key, id }, { binary });
     if (viaCli) return c.json(viaCli);
     return c.json({ error: "not found" }, 404);
   });
@@ -72,7 +81,7 @@ export function createZuzuuReadApi(getRoot: () => string, binary?: string): Hono
     const key = c.req.param("key");
     if (!SAFE_SLUG.test(key)) return c.json({ error: "unknown module" }, 404);
     const root = getRoot();
-    const viaCli = await runZuzuu(root, ["module", "schema", key], { binary });
+    const viaCli = await runCommand(root, "module.schema", { key }, { binary });
     if (viaCli) return c.json({ key, schema: viaCli, source: "cli" });
     // CLI absent → the seeded payload schema in the home (zuzuu init writes it)
     const home = await homeDir(root);
@@ -91,7 +100,7 @@ export function createZuzuuReadApi(getRoot: () => string, binary?: string): Hono
     const key = c.req.param("key");
     if (!SAFE_SLUG.test(key)) return c.json({ error: "unknown module" }, 404);
     const root = getRoot();
-    const viaCli = await runZuzuu(root, ["module", key, "generations"], { binary });
+    const viaCli = await runCommand(root, "module.generations", { key }, { binary });
     if (viaCli) return c.json(viaCli);
     const home = await homeDir(root);
     const dir = path.join(home, ".generations", key);
@@ -105,6 +114,28 @@ export function createZuzuuReadApi(getRoot: () => string, binary?: string): Hono
         .sort((a, b) => (a.n as number) - (b.n as number))
         .map((g) => ({ id: String(g.n), mintedAt: (g.mintedAt as string) ?? null, mintedFrom: (g.mintedFrom as string[]) ?? [] })),
     });
+  });
+
+  // The session-start readiness brief: the human-readable `zz doctor` health check +
+  // `zz digest` (where the project stands), shelled as raw text (neither has a --json
+  // mode). The workbench embeds this in the agent's first turn (the session kickoff).
+  // Either field is null when the CLI is absent / the verb produced nothing.
+  app.get("/readiness", async (c) => {
+    const root = getRoot();
+    const [doctor, digest] = await Promise.all([
+      runCommandText(root, "doctor", {}, { binary }),
+      runCommandText(root, "digest", {}, { binary }),
+    ]);
+    return c.json({ doctor, digest });
+  });
+
+  // The CODE gate queue: the workspace's held sessions awaiting a merge decision
+  // (shells `zz session status --json` → its `held[]`, id-enriched). The close card's
+  // code section reads this to surface the diff summary + mergeability beside the
+  // brain proposals; the merge/discard actions live on /api/sessions (they mutate).
+  // CLI absent / non-git → { held: [] } (degrades to "nothing held," never errors).
+  app.get("/held", async (c) => {
+    return c.json({ held: await readHeld(getRoot(), binary) });
   });
 
   return app;

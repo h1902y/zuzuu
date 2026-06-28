@@ -16,12 +16,17 @@
 // Rendered only for type:"agent" sessions; shell sessions keep the raw terminal.
 
 import { useEffect, useRef, useState } from "react";
+import { Circle } from "lucide-react";
 import { PromptInput } from "./PromptInput.js";
 import { HostPill } from "./HostPill.js";
 import { inputFrames, isReady, SUBMIT_DELAY_MS, type InputOpts } from "./composer-logic.js";
+import { composerStatus } from "./composer-status.js";
+import { kickoffMessage, shouldFireKickoff, isKickoffPending, takeKickoff, type Readiness } from "./session-kickoff.js";
 import { hostInputProfile } from "./host-input.js";
 import { getTermConn } from "../term/connections.js";
 import { useWorkbench } from "../state/store.js";
+import { api } from "../lib/api.js";
+import { Inline, Text, Icon, Button } from "../ds/index.js";
 
 /** Deliver one message to the session's PTY as a remote keyboard: the body now,
  *  then the submit key after a settle delay (re-looked-up so a dispose mid-delay is
@@ -33,6 +38,15 @@ function deliverTo(sessionId: string, text: string, opts: InputOpts): void {
   const { body, submit } = inputFrames(text, opts);
   conn.sendInput(body);
   window.setTimeout(() => getTermConn(sessionId)?.sendInput(submit), SUBMIT_DELAY_MS);
+}
+
+/** Fetch the readiness brief (best-effort) and deliver the ONE session-start kickoff.
+ *  The kickoff is already consumed (takeKickoff) before this runs, so an in-flight
+ *  fetch can't double-fire. CLI absent / fetch failure → the self-check fallback. */
+async function deliverKickoff(sessionId: string, opts: InputOpts): Promise<void> {
+  let readiness: Readiness | undefined;
+  try { readiness = await api.zuzuu.readiness(); } catch { readiness = undefined; }
+  deliverTo(sessionId, kickoffMessage({ readiness }), opts);
 }
 
 export function Composer({ sessionId }: { sessionId: string }) {
@@ -65,13 +79,24 @@ export function Composer({ sessionId }: { sessionId: string }) {
     const tick = () => {
       const conn = getTermConn(sessionId);
       conn?.onActivity(onAct);
-      setTuiActive(conn?.isAltScreen?.() ?? false); // optional-call: tolerate a stale conn (HMR/version skew)
+      const altNow = conn?.isAltScreen?.() ?? false; // optional-call: tolerate a stale conn (HMR/version skew)
+      setTuiActive(altNow);
       const r = readyNow();
       setReady(r);
-      // Drain ONE queued message per tick: sending body+submit for each makes the
-      // agent busy again, so the next flush waits for the next ready edge — natural
-      // backpressure, and no interleaving of bodies/submits across messages.
-      if (r && queue.current.length) deliverTo(sessionId, queue.current.shift()!, profileRef.current);
+      // Session-start kickoff: once the agent CLI is up (alt-screen on, or it has
+      // emitted output) AND idle, deliver the ONE kickoff message, then consume it.
+      // Exclusive with the queue drain this tick so the two body+submit pairs never
+      // fuse (the kickoff makes the agent busy → the queue waits for the next edge).
+      const agentUp = altNow || lastOutputAt.current > 0;
+      if (conn && shouldFireKickoff({ ready: r, agentUp, pending: isKickoffPending(sessionId) })) {
+        takeKickoff(sessionId); // consume now → no double-fire while readiness loads
+        void deliverKickoff(sessionId, profileRef.current);
+      } else if (r && queue.current.length) {
+        // Drain ONE queued message per tick: sending body+submit for each makes the
+        // agent busy again, so the next flush waits for the next ready edge — natural
+        // backpressure, and no interleaving of bodies/submits across messages.
+        deliverTo(sessionId, queue.current.shift()!, profileRef.current);
+      }
       setQueued(queue.current.length);
     };
     const id = setInterval(tick, 200);
@@ -79,6 +104,7 @@ export function Composer({ sessionId }: { sessionId: string }) {
   }, [sessionId]);
 
   const submit = (text: string) => {
+    takeKickoff(sessionId); // the user is driving — cancel any pending auto-kickoff
     // The terminal IS the transcript — the host TUI echoes the submitted message,
     // so the composer renders no echo of its own (no duplicate, no pile-up).
     if (readyNow()) deliverTo(sessionId, text, profile);
@@ -86,6 +112,9 @@ export function Composer({ sessionId }: { sessionId: string }) {
   };
 
   const clearQueue = () => { queue.current = []; setQueued(0); };
+
+  // What the user SEES: Ready · Working… · N queued, with a dot that warms while busy.
+  const status = composerStatus(ready, queued);
 
   return (
     <PromptInput
@@ -95,37 +124,25 @@ export function Composer({ sessionId }: { sessionId: string }) {
       footer={
         <>
           <HostPill sessionId={sessionId} />
-          <span
-            className={`text-meta ${ready && queued === 0 ? "text-muted" : "text-accent"}`}
+          {/* status: a passive dot + label (warms to accent while the agent works) —
+              kept visually distinct from the controls so it never reads as a button. */}
+          <Inline
+            gap="xs"
+            align="center"
             aria-live="polite"
             title={profile.verified ? undefined : `input timing not yet verified for ${host ?? "this host"} — using defaults`}
           >
-            {!ready ? (queued > 0 ? `working… · ${queued} queued` : "working…") : queued > 0 ? `${queued} queued` : "ready"}
-            {!profile.verified && " · ?"}
-          </span>
+            <Text tone={status.busy ? "accent" : "muted"}><Icon icon={Circle} size={8} fill="currentColor" /></Text>
+            <Text size="meta" tone="muted">{status.label}{!profile.verified && " · ?"}</Text>
+          </Inline>
           {queued > 0 && (
-            <button
-              onClick={clearQueue}
-              title="discard queued messages"
-              className="rounded-ui px-2 py-1 text-meta text-muted hover:text-danger"
-            >
-              clear
-            </button>
+            <Button variant="ghost" size="sm" onClick={clearQueue} title="discard queued messages">Clear</Button>
           )}
-          <button
-            onClick={() => send("\x03")}
-            title="interrupt the agent (Ctrl-C)"
-            className="rounded-ui px-2 py-1 text-meta text-muted hover:text-danger"
-          >
-            Stop
-          </button>
-          <button
-            onClick={() => send("\x1b")}
-            title="send Escape"
-            className="rounded-ui px-2 py-1 text-meta text-muted hover:text-subtle"
-          >
-            Esc
-          </button>
+          {/* Stop only matters mid-turn — surface it while busy, so the calm state stays calm. */}
+          {status.busy && (
+            <Button variant="ghost" size="sm" onClick={() => send("\x03")} title="interrupt the agent (Ctrl-C)">Stop</Button>
+          )}
+          <Button variant="ghost" size="sm" onClick={() => send("\x1b")} title="send Escape — answer a prompt or close a menu">Esc</Button>
         </>
       }
     />

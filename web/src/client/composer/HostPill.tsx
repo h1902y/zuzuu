@@ -17,7 +17,7 @@ export function HostPill({ sessionId }: { sessionId: string }) {
     <div className="relative">
       <button
         onClick={() => setMenu((o) => !o)}
-        className="rounded-ui bg-elevated px-2 py-1 text-meta text-subtle hover:text-ink-100"
+        className="flex h-7 items-center rounded-ui px-2 text-meta text-subtle transition-colors hover:bg-hover hover:text-ink-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-focus"
         title="active agent — click to start another"
       >
         {label} ▾

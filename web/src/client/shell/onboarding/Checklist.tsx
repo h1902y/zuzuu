@@ -1,61 +1,60 @@
-// shell/onboarding/Checklist.tsx — the in-canvas onboarding checklist (R4–R7).
-// The real setup verbs as buttons, advancing on TRUE state (the daemon-observed
-// ProjectState → rungStatus). Completed rungs collapse to ✓ receipts; the current
-// rung shows its CTA. Teaching is by-doing — rung ④ (review) has no CTA: it
-// completes when the first proposal lands (the ribbon carries it). Notion-calm:
-// color marks state only. Composes only from ds primitives + kit.
+// shell/onboarding/Checklist.tsx — the in-canvas onboarding, streamlined. The
+// mechanical prep (git-init → init → enable) runs AUTOMATICALLY when a folder is
+// opened (WorkbenchShell's auto-prep effect advances the ProjectState), so this
+// surface has just two faces: a brief "Setting up…" while prep runs, then the ONE
+// decision — pick a host and the first session starts. The old five-step Stepper
+// (manual git/init/enable/review clicks) is gone. Thin .tsx; HOSTS is the data.
 import type { ProjectStateKind } from "#shared/index.js";
-import { Check, Circle, CircleDot, type LucideIcon } from "lucide-react";
-import { RUNGS, rungStatus, type RungId } from "../project-home-state.js";
-import { Stack, Inline, Text, Button, Icon } from "../../ds/index.js";
+import { HOSTS } from "../../app/hosts.js";
+import { Stack, Inline, Text, Button } from "../../ds/index.js";
 
-const META: Record<RungId, { label: string; why: string; cta?: string }> = {
-  "git-init": { label: "Make this folder a repository", why: "a session is a git branch", cta: "git init" },
-  init: { label: "Initialize the Project", why: "plant .zuzuu/ and the instructions floor", cta: "Initialize" },
-  enable: { label: "Enable your agent", why: "wire your host’s lifecycle hooks", cta: "Enable" },
-  session: { label: "Start a session", why: "zuzuu watches it and proposes", cta: "Start a session" },
-  review: { label: "Review your first proposal", why: "nothing is written without your yes" },
-};
+// the prep states the auto-prep effect drives through before the project is ready;
+// `no-activity` (prepped, no session yet) is where the user picks a host.
+const PREP_STATES = new Set<ProjectStateKind>(["not-a-repo", "no-project", "hooks-off"]);
 
-const MARK: Record<"done" | "current" | "upcoming", LucideIcon> = { done: Check, current: CircleDot, upcoming: Circle };
-
-export function Checklist({ state, onRung, busy }: {
+export function Checklist({ projectName, state, onStartSession, starting }: {
+  projectName: string;
   state: ProjectStateKind;
-  onRung: (r: RungId) => void;
-  busy: RungId | null;
+  /** pick a host (an agent session — zuzuu only observes agents) or a plain shell. */
+  onStartSession: (type: "shell" | "agent", host?: string) => void;
+  /** a session is being started (the host picker is disabled while it spins up). */
+  starting: boolean;
 }) {
+  const preparing = PREP_STATES.has(state);
+
   return (
     <div className="h-full overflow-y-auto p-10">
-      <Stack gap="xl">
-        <Stack gap="xs">
-          <Text size="xl" font="display">Set up this Project</Text>
-          <Text size="ui" tone="muted">zuzuu grows a brain for this folder from how you work — every change human-gated.</Text>
-        </Stack>
-        <Stack gap="md">
-          {RUNGS.map((r) => {
-            const st = rungStatus(state, r);
-            const meta = META[r];
-            return (
-              <Inline key={r} gap="sm" align="start">
-                <Text tone={st === "done" ? "accent" : st === "current" ? "default" : "muted"}><Icon icon={MARK[st]} size={15} /></Text>
-                <Stack gap="xs">
-                  <Text size="ui" weight={st === "current" ? "medium" : "normal"} tone={st === "upcoming" ? "muted" : "default"}>
-                    {meta.label}
-                  </Text>
-                  <Text size="meta" tone="muted">{meta.why}</Text>
-                  {st === "current" && meta.cta && (
-                    <Inline gap="xs">
-                      <Button variant="primary" onClick={() => onRung(r)} disabled={busy === r}>
-                        {busy === r ? "…" : meta.cta}
-                      </Button>
-                    </Inline>
-                  )}
-                </Stack>
+      <div className="mx-auto w-full max-w-lg">
+        <Stack gap="xl">
+          <Stack gap="sm">
+            <Text size="2xl" font="display">
+              {preparing ? `Setting up ${projectName}…` : `Start working on ${projectName}`}
+            </Text>
+            <Text size="ui" tone="muted">
+              {preparing
+                ? "Preparing the project — git, the brain (.zuzuu/), and your agent's hooks. One moment."
+                : "Everything's set up. Pick your coding agent to begin — zuzuu watches the session and proposes changes you review, every one human-gated."}
+            </Text>
+          </Stack>
+
+          {preparing ? (
+            <Text size="ui" tone="subtle">setting up…</Text>
+          ) : (
+            <Stack gap="sm">
+              <Inline gap="xs" wrap>
+                {HOSTS.map((h) => (
+                  <Button key={h.id} variant="outline" size="md" disabled={starting} onClick={() => onStartSession("agent", h.id)}>
+                    {h.label}
+                  </Button>
+                ))}
               </Inline>
-            );
-          })}
+              <Text as="button" interactive size="meta" tone="muted" onClick={() => onStartSession("shell")}>
+                or start a plain shell
+              </Text>
+            </Stack>
+          )}
         </Stack>
-      </Stack>
+      </div>
     </div>
   );
 }

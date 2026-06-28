@@ -70,14 +70,28 @@ test('review --json → a JSON array of pending changes', async () => {
   });
 });
 
-test('review approve --json → ONE json line (integrity nudge suppressed) + approves', async () => {
+test('review approve --json → ONE json line (no warnings field when the brain stays clean)', async () => {
   await withRepo(async ({ home, io, out }) => {
     initHome(io.cwd);
     stageChange(home, 'knowledge', { op: 'create', target: 'fact-x', change: { type: 'knowledge', title: 'Fact X', body: 'hi' } });
     out.length = 0;
     assert.equal(await run(['review', 'approve', 'knowledge', 'fact-x', '--json'], io), 0);
-    assert.equal(out.length, 1, 'exactly one line — the integrity nudge must be suppressed under --json');
+    assert.equal(out.length, 1, 'exactly one parseable line under --json');
     assert.deepEqual(JSON.parse(out[0]), { action: 'approve', module: 'knowledge', id: 'fact-x', ok: true });
+  });
+});
+
+test('review approve --json rides the integrity nudge as a WARNINGS field — still one parseable line', async () => {
+  await withRepo(async ({ home, io, out }) => {
+    initHome(io.cwd);
+    // a note whose relation points at a non-existent note → a broken link once it lands
+    stageChange(home, 'knowledge', { op: 'create', target: 'dangling', change: { type: 'knowledge', title: 'Dangling', relations: { 'related-to': 'ghost' } } });
+    out.length = 0;
+    assert.equal(await run(['review', 'approve', 'knowledge', 'dangling', '--json'], io), 0);
+    assert.equal(out.length, 1, 'the nudge rides as a field, NOT a 2nd stdout line (the daemon JSON.parses this)');
+    const parsed = JSON.parse(out[0]);
+    assert.equal(parsed.ok, true);
+    assert.ok(Array.isArray(parsed.warnings) && /broken link/.test(parsed.warnings[0]), 'the broken-link nudge is on warnings[]');
   });
 });
 

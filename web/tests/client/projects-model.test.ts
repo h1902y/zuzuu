@@ -7,6 +7,7 @@ import {
   groupProjects,
   projectsView,
   relativeTime,
+  projectCountLabel,
 } from "../../src/client/shell/projects/projects-model.js";
 
 const p = (over: Partial<ProjectSummary>): ProjectSummary => ({
@@ -18,6 +19,7 @@ const p = (over: Partial<ProjectSummary>): ProjectSummary => ({
   pending: 0,
   guarded: false,
   lastActivityMs: 0,
+  emoji: "🚀",
   ...over,
 });
 
@@ -88,4 +90,11 @@ describe("relativeTime", () => {
   it("days", () => expect(relativeTime(now - 2 * 86_400_000, now)).toBe("2d ago"));
   it("months", () => expect(relativeTime(now - 60 * 86_400_000, now)).toBe("2mo ago"));
   it("clamps a future timestamp to just now", () => expect(relativeTime(now + 5000, now)).toBe("just now"));
+});
+
+describe("projectCountLabel", () => {
+  it("empty → No projects", () => expect(projectCountLabel(0, 0)).toBe("No projects"));
+  it("one → singular", () => expect(projectCountLabel(1, 1)).toBe("1 project"));
+  it("many → plural", () => expect(projectCountLabel(12, 12)).toBe("12 projects"));
+  it("filtered → N of M", () => expect(projectCountLabel(3, 12)).toBe("3 of 12 projects"));
 });

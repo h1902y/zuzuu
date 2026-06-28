@@ -14,7 +14,7 @@ interface StageHeaderProps {
   tabs?: StageTab[];
   activeTab?: string;
   onTab?: (key: string) => void;
-  primary?: { label: string; icon?: ComponentType<LucideProps>; onClick: () => void } | null;
+  primary?: { label: string; icon?: ComponentType<LucideProps>; variant?: "primary" | "outline"; onClick: () => void } | null;
 }
 
 export function StageHeader({ crumb, tabs, activeTab, onTab, primary }: StageHeaderProps) {
@@ -48,7 +48,7 @@ export function StageHeader({ crumb, tabs, activeTab, onTab, primary }: StageHea
 
       <div className="ml-auto" />
       {primary && (
-        <Button variant="primary" size="sm" onClick={primary.onClick}>
+        <Button variant={primary.variant ?? "primary"} size="sm" onClick={primary.onClick}>
           {primary.icon && <Icon icon={primary.icon} size={15} />} {primary.label}
         </Button>
       )}

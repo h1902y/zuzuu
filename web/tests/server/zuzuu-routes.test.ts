@@ -6,7 +6,8 @@ import { mkdtempSync, rmSync, mkdirSync, writeFileSync, realpathSync, existsSync
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createZuzuuApi } from "../../src/server/zuzuu-routes.js";
-import { envelope, fixtureHome, jsonStub, failStub, markerStub, argvStub } from "./zuzuu-fixtures.js";
+import { buildModuleQueryFlags } from "../../src/server/zuzuu-peek.js";
+import { envelope, fixtureHome, jsonStub, failStub, markerStub, argvStub, argvItemsStub } from "./zuzuu-fixtures.js";
 
 let root: string;
 // realpath the temp root: resolveSafe requires an already-realpath'd root (the
@@ -21,13 +22,19 @@ describe("createZuzuuApi file routes", () => {
     const body = await (await app.request("/module/knowledge")).json();
     expect(body.degraded).toBe(true);
     expect(body.items[0]).toMatchObject({ id: "k1", module: "knowledge", kind: "fact", title: "fact one", status: "active" });
+    expect(body.items[0].priority).toBe("high"); // a custom column survives even the degraded peek (no PEEK_KEYS allowlist)
     expect(body.items[0].payload).toBeUndefined(); // detail degrades, counts survive
     expect(body.staged[0].title).toMatch(/node:sqlite/);
-    // staged enrich from disk: payload preview + persisted confidence (the rendered fields)
+    // staged enrich from disk: title + preview from the change body, rationale +
+    // evidence (the WHY, feeding the reason line), and an honest confidence (null
+    // today — never faked from `score`, which is a number).
     expect(body.staged[0]).toMatchObject({
-      id: "p1", module: "knowledge",
+      id: "p1", module: "knowledge", op: "create",
+      title: "use node:sqlite",
       preview: "use node:sqlite",
-      confidence: "high",
+      rationale: "recurring + cross-session",
+      evidence: [{ kind: "fact", occurrences: 12, sessions: 3 }],
+      confidence: null,
     });
     // Any valid slug is now accepted (N-module: unknown slugs return empty results, not 404).
     // Unsafe slugs (traversal, shell meta) are still rejected.
@@ -49,6 +56,41 @@ describe("createZuzuuApi file routes", () => {
     expect(body.degraded).toBeUndefined();
     expect(body.items[0]).toEqual(item); // THE ENVELOPE, untouched
     expect(body.errors).toEqual([]);
+  });
+  it("GET /module/:key forwards filter·sort·paginate query params to `module items` flags + returns total (Rung 7)", async () => {
+    fixtureHome(root);
+    const app = createZuzuuApi(() => root, { binary: argvItemsStub(root, 42) });
+    const res = await app.request("/module/knowledge?text=blue&type=fact&status=active&tag=client-acme&where=priority%3Dhigh&where=owner%3Dalice&sort=title%3Adesc&limit=2&offset=4");
+    const body = await res.json();
+    expect(body.total).toBe(42); // the pre-paginate count rides through for the grid's pagination
+    const argv: string = body.items[0].argv;
+    // every axis reached the CLI as the matching flag (spawn is argv-array → injection-safe)
+    expect(argv).toContain("module items knowledge");
+    expect(argv).toContain("--text blue");
+    expect(argv).toContain("--type fact");
+    expect(argv).toContain("--status active");
+    expect(argv).toContain("--tag client-acme");
+    expect(argv).toContain("--where priority=high");
+    expect(argv).toContain("--where owner=alice"); // repeatable EAV filter
+    expect(argv).toContain("--sort title:desc");
+    expect(argv).toContain("--limit 2");
+    expect(argv).toContain("--offset 4");
+  });
+  it("GET /module/:key/item/:id surfaces the current note body (the update diff's 'before' source)", async () => {
+    fixtureHome(root);
+    // The update diff (U3) reads the CURRENT note body as its 'before'. The item
+    // route shells `zz module item <key> <id>` and passes the envelope through whole,
+    // so `body` rides to the client (which diffs it against the staged change).
+    const note = {
+      id: "fact-node-sqlite", module: "knowledge", kind: "fact", title: "use node:sqlite",
+      status: "active", body: "use node:sqlite — it ships in the runtime",
+    };
+    const app = createZuzuuApi(() => root, { binary: jsonStub(root, JSON.stringify(note)) });
+    const res = await app.request("/module/knowledge/item/fact-node-sqlite");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(note); // body surfaced for the before/after diff
+    // an unsafe id never reaches the CLI
+    expect((await app.request("/module/knowledge/item/..%2fevil")).status).toBe(400);
   });
   it("GET /module/:key/schema: CLI → builtin/home schema; absent CLI → seeded file; else null", async () => {
     const agent = fixtureHome(root);
@@ -84,6 +126,25 @@ describe("createZuzuuApi file routes", () => {
     fixtureHome(root);
     const app = createZuzuuApi(() => root, { binary: "x" });
     expect((await app.request("/module/..%2f..%2fetc")).status).toBe(404);
+  });
+
+  it("GET /held shells `zz session status --json` → the id-enriched held[] (U6)", async () => {
+    fixtureHome(root);
+    const status = JSON.stringify({
+      enabled: true, main: "main", active: null, onSessionBranch: false,
+      held: [{ branch: "zz/session-abc", checkpoints: 2, files: 3, added: 9, removed: 2, mergeability: "ready" }],
+    });
+    const app = createZuzuuApi(() => root, { binary: jsonStub(root, status) });
+    const body = await (await app.request("/held")).json();
+    expect(body.held).toEqual([
+      { id: "abc", branch: "zz/session-abc", kind: "worktree", checkpoints: 2, files: 3, added: 9, removed: 2, mergeability: "ready" },
+    ]);
+  });
+
+  it("GET /held degrades to { held: [] } when the CLI is absent", async () => {
+    fixtureHome(root);
+    const app = createZuzuuApi(() => root, { binary: "definitely-not-a-real-binary-zzz" });
+    expect(await (await app.request("/held")).json()).toEqual({ held: [] });
   });
 });
 
@@ -296,3 +357,24 @@ describe("createZuzuuApi POST /module/new (WS-D guided creation)", () => {
   });
 });
 
+
+// The pure param → flags mapping (buildModuleQueryFlags): each axis guarded
+// independently; an invalid value is dropped, never a hard error (degrade).
+describe("buildModuleQueryFlags — query params → `module items` flags", () => {
+  it("maps every axis; `where` repeats; an empty query yields no flags", () => {
+    expect(buildModuleQueryFlags({})).toEqual([]);
+    expect(buildModuleQueryFlags({
+      text: "blue deck", type: "fact", status: "active", tag: "client-acme",
+      sort: "title:desc", where: ["priority=high", "owner=alice"], limit: "20", offset: "40",
+    })).toEqual([
+      "--text", "blue deck", "--type", "fact", "--status", "active", "--tag", "client-acme",
+      "--sort", "title:desc", "--where", "priority=high", "--where", "owner=alice",
+      "--limit", "20", "--offset", "40",
+    ]);
+  });
+  it("drops invalid axes (bad slug/sort/int, malformed where) instead of forwarding them", () => {
+    expect(buildModuleQueryFlags({ type: "../evil", status: "a b", sort: "title;drop", where: ["noeq", "=v"], limit: "-1", offset: "x" })).toEqual([]);
+    // a control char in free text is stripped to a space (spawn is argv-array, but clamp anyway)
+    expect(buildModuleQueryFlags({ text: "a\nb" })).toEqual(["--text", "a b"]);
+  });
+});

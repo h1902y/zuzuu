@@ -368,7 +368,10 @@ The substrate beneath the conversation. A **session ≡ a git branch** (`zz/sess
 lifecycle unit *and* the record (the branch IS the record — no separate index). One working branch
 at a time (the **single-branch invariant**): a leftover `zz/session-*` **blocks** opening a new
 session until it's continued, merged, or discarded — the teeth behind drop-recovery, not just its
-prompt. Code: `src/sessions/`.
+prompt. On a clean END a session is instead **held** out of the active namespace (renamed `zz/held-*`,
+or a worktree branch marked held) so it queues for the merge gate **without** blocking the next
+session — the merge/continue/discard verbs resolve both namespaces (and take an optional `<id>` when
+several are held). Code: `src/sessions/`.
 
 **Enablement & hosts** — the lifecycle is dormant until **`zz enable`** installs the `#zz-hook`
 block into the host's settings (idempotent; never clobbers your hooks — `zz disable` removes only
@@ -379,7 +382,7 @@ drive); the core iterates *detected* hosts, never a host name (`hosts/registry �
 **The lifecycle** — driven automatically by the host **hook** (*fail-open*, never blocks the agent):
 - **open** → cut the session branch + **ground** (inject the brief — the steering above).
 - **turn** → **checkpoint**: commit the turn's dirty state to the session branch, **secrets excluded** (`.env` · `*.pem/*.key` · `id_rsa*` · `credentials` …; an all-secret diff yields *no* commit) — nothing is lost mid-session, and no key ever lands in a commit.
-- **end** → **squash-merge** every checkpoint into one `session: <title>` commit on the working branch, then **observe** (mine the transcript → staged proposals, Plane 2) + refresh the brief.
+- **end** → **finalize and hold**: fold the checkpoints, then hold the session branch out of the active namespace (in-place → renamed `zz/held-*` + base checked out; worktree → left in its own checkout, marked held), then **observe** (mine the transcript → staged proposals, Plane 2) + refresh the brief. The squash-merge onto the working branch is **no longer automatic** — it's an explicit human gate (**`zz session merge`**), symmetric with the brain's review gate (nothing lands without your yes). *(Opt back into the old auto-land per-project with `"autoMerge": true` in `.zuzuu/agent.json` — mirrors the `"sessionGit": false` opt-out, fail-soft.)*
 
 **Drop & recovery** *(#7)* — a session that drops mid-task (crash · closed terminal · walk-away)
 leaves a leftover branch with uncommitted checkpoints and no clean end. It **never corrupts the
@@ -413,7 +416,7 @@ Two paths to a Project through **one door** (`serve/api`); a session is a git br
 ```
    CLI (zz) ─────────────────────────────────►  serve/api  ──►  a PROJECT   (direct, in-process)
    Workbench (browser) ─► daemon ─(shells zz)─►  serve/api  ──►  a PROJECT   (same door, gated)
-   A SESSION ≡ a git branch:  a host runs in a session → its own worktree → squash-merged on exit
+   A SESSION ≡ a git branch:  a host runs in a session → its own worktree → HELD on exit → merged at the gate
 ```
 
 **One door to every write:** the daemon shells the gated `zz` CLI (never imports `grow/`), so the

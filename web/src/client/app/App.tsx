@@ -7,14 +7,20 @@
 import { WorkbenchShell } from "../shell/WorkbenchShell.js";
 import { ProjectsHome } from "../shell/projects/ProjectsHome.js";
 import { useAppSurface } from "../state/app-surface.js";
+import { useSurfaceHistory } from "./use-surface-history.js";
 import { Toaster } from "../ds/index.js";
+import { SessionCloseCard } from "../shell/review/SessionCloseCard.js";
+import { useSessionCloseDetector } from "../shell/review/use-session-close.js";
 
 export function App() {
   const screen = useAppSurface((s) => s.screen);
+  useSurfaceHistory(); // tie browser Back/Forward to the home↔project surface
+  useSessionCloseDetector(); // U5: an agent session-end surfaces the close card
   return (
     <>
       {screen === "projects" ? <ProjectsHome /> : <WorkbenchShell />}
       <Toaster />
+      <SessionCloseCard />
     </>
   );
 }

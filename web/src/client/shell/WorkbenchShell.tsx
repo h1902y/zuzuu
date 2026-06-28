@@ -4,7 +4,7 @@
 // Composer unchanged; grid/record/wing are placeholders until U5–U8 fill them. The
 // frame uses static layout utilities (no inline styles / arbitrary values); content
 // composes from ds primitives.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ProjectStateKind } from "#shared/index.js";
 import { TermView } from "../term/TermView.js";
@@ -31,12 +31,14 @@ import { ReviewQueue } from "./review/ReviewQueue.js";
 import { Form } from "./wing/Form.js";
 import { Schema } from "./wing/Schema.js";
 import { dataProvider } from "../data/provider.js";
-import { Plus } from "lucide-react";
+import { Plus, Power } from "lucide-react";
 import { Palette } from "../palette/Palette.js";
-import { Loading, ThemeToggle } from "../ds/index.js";
+import { useEndSession } from "../state/end-session.js";
+import { EndSessionDialog } from "./session/EndSessionDialog.js";
+import { Loading, ThemeToggle, AppHeader, Text } from "../ds/index.js";
 import { useReview } from "../state/review.js";
-import { Text } from "../ds/index.js";
 import { NavTree } from "./NavTree.js";
+import { Switcher } from "./switcher/Switcher.js";
 import { Ribbon } from "./Ribbon.js";
 
 /** Terse ribbon nudge per current rung (R8) — shown only when home isn't visible. */
@@ -68,6 +70,7 @@ export function WorkbenchShell() {
   const reviewOpen = useReview((s) => s.open);
   const setReview = useReview((s) => s.setOpen);
   const setPalette = useWorld((s) => s.setPalette);
+  const requestEnd = useEndSession((s) => s.request);
 
   useEffect(() => { void refresh(); }, [refresh]); // load sessions; home is the database (no auto-open)
 
@@ -92,16 +95,14 @@ export function WorkbenchShell() {
     return () => window.removeEventListener("keydown", onKey);
   }, [setReview, setPalette]);
 
-  // Fire a real setup verb, then refetch so the home advances on TRUE state (D4).
-  async function onRung(r: RungId) {
-    setBusy(r);
+  // The setup→work stitch: onboarding picks a HOST (an agent session — zuzuu only
+  // observes agents), then drops into the terminal AND teaches the loop just entered.
+  async function onStartSession(type: "shell" | "agent", host?: string) {
+    setBusy("session");
     try {
-      if (r === "git-init") await api.setup.gitInit();
-      else if (r === "init") await api.setup.init();
-      else if (r === "enable") await api.setup.enable();
-      else if (r === "session") await startSession();
-      // review: the by-doing handoff — the first proposal lands in the ribbon (R7)
-    } catch { toast(`Couldn't ${r}`, "error"); }
+      await startSession(type, host);
+      toast("Session started — zuzuu is watching. It proposes changes you review (press R).");
+    } catch { toast("Couldn't start a session", "error"); }
     finally { setBusy(null); void qc.invalidateQueries({ queryKey: ["zuzuu"] }); }
   }
 
@@ -126,6 +127,30 @@ export function WorkbenchShell() {
   // ribbon setup nudge (R8) — only when home (the checklist) isn't the current view, so the same prompt never double-surfaces
   const setupHint = pState !== undefined && pState !== "steady" && selected !== null ? RUNG_HINT[currentRung(pState)] : undefined;
 
+  // Auto-prep: the mechanical setup steps (git-init → init → enable) run automatically
+  // when a folder is opened — they're plumbing, not decisions. The ONLY thing the user
+  // does is pick a host (no-activity → the Checklist's host picker). Each verb advances
+  // the state; the effect re-fires for the next until the Project is prepped. A ref
+  // guards re-entry; a failed step toasts and stops (no spin).
+  const prepping = useRef(false);
+  useEffect(() => {
+    if (prepping.current) return;
+    const verb = pState === "not-a-repo" ? api.setup.gitInit
+      : pState === "no-project" ? api.setup.init
+      : pState === "hooks-off" ? api.setup.enable
+      : null;
+    if (!verb) return;
+    prepping.current = true;
+    void (async () => {
+      try { await verb(); }
+      catch { toast("A setup step failed — see Settings", "error"); }
+      finally {
+        prepping.current = false;
+        await qc.invalidateQueries({ queryKey: ["zuzuu", "project-state"] });
+      }
+    })();
+  }, [pState, qc]);
+
   // the governed stage-header (P2.1): a friendly breadcrumb + the stage's primary action.
   const header = stageHeaderModel(selected);
   const moduleTitle = (id: string) => modules.find((m) => m.id === id)?.title ?? id;
@@ -137,7 +162,9 @@ export function WorkbenchShell() {
   const stagePrimary =
     header.primary?.key === "new-note" && selected?.kind === "module"
       ? { label: "New note", icon: Plus, onClick: () => void onNewNote(selected.id) }
-      : null;
+      : header.primary?.key === "end-session" && activeSession
+        ? { label: "End session", icon: Power, variant: "outline" as const, onClick: () => requestEnd(activeSession) }
+        : null;
   // the stage tab strips: a module's Table·Graph (P2.7), a session's Terminal·Changes (P2.8).
   const MODULE_TABS: StageTab[] = [{ key: "table", label: "Table" }, { key: "graph", label: "Graph" }];
   const totalPending = Object.values(pendingByModule).reduce((n, v) => n + v, 0);
@@ -150,10 +177,15 @@ export function WorkbenchShell() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-12 shrink-0 items-center gap-3 border-b border-border bg-surface px-5">
-        <Text as="button" interactive size="meta" tone="muted" onClick={() => setPalette(true)}>⌘K</Text>
-        <div className="ml-auto"><ThemeToggle /></div>
-      </div>
+      <AppHeader
+        leading={<Switcher />}
+        actions={
+          <>
+            <Text as="button" interactive size="meta" tone="muted" onClick={() => setPalette(true)}>⌘K</Text>
+            <ThemeToggle />
+          </>
+        }
+      />
 
       <div className="flex min-h-0 flex-1">
         <NavTree />
@@ -169,7 +201,21 @@ export function WorkbenchShell() {
                 <ReviewQueue />
               ) : (
                 <>
-                  <div className="min-h-0 flex-1"><TermView key={sessionNode.id} sessionId={sessionNode.id} /></div>
+                  {/* One terminal pane PER session, kept mounted — only the active is
+                      visible. Switching toggles visibility, never remounts, so a switch
+                      never reattaches/replays (no flicker, and the live alt-screen TUI
+                      is preserved instead of replayed-without-alt-buffer). */}
+                  <div className="relative min-h-0 flex-1">
+                    {sessions.map((s) => (
+                      <div
+                        key={s.id}
+                        aria-hidden={s.id !== sessionNode.id}
+                        className={s.id === sessionNode.id ? "absolute inset-0 z-10" : "invisible absolute inset-0"}
+                      >
+                        <TermView sessionId={s.id} active={s.id === sessionNode.id} />
+                      </div>
+                    ))}
+                  </div>
                   {activeSession?.type === "agent" && <Composer key={sessionNode.id} sessionId={sessionNode.id} />}
                 </>
               )
@@ -184,12 +230,13 @@ export function WorkbenchShell() {
             ) : sel.stage === "settings" ? (
               <Settings />
             ) : onboarding && pState ? (
-              <Checklist state={pState} onRung={onRung} busy={busy} />
+              <Checklist projectName={workspace.data?.name ?? "this project"} state={pState} onStartSession={onStartSession} starting={busy === "session"} />
             ) : projectState.isLoading || overview.isLoading ? (
               <Loading />
             ) : (
               <Overview
                 name={workspace.data?.name ?? "this project"}
+                emoji={workspace.data?.emoji}
                 path={workspace.data?.root ?? ""}
                 enabled={projectState.data?.host.enabled ?? false}
                 modules={modules}
@@ -230,6 +277,7 @@ export function WorkbenchShell() {
       )}
 
       <Palette />
+      <EndSessionDialog />
     </div>
   );
 }

@@ -14,6 +14,7 @@ import { ClipboardAddon } from "@xterm/addon-clipboard";
 import { TermConnection } from "./connection.js";
 import { registerTermConn, unregisterTermConn } from "./connections.js";
 import { useWorkbench } from "../state/store.js";
+import { reportAgentExit } from "../state/session-close.js";
 
 // the terminal is a deep-ebony island in BOTH themes (#14170f, per the design tokens);
 // Anonymous Pro for the coder character. ANSI palette tuned to the mint/coral system.
@@ -30,9 +31,18 @@ const THEME = {
   brightBlue: "#a8aee4", brightMagenta: "#ccc0dd", brightCyan: "#b9d79a", brightWhite: "#eafdcf",
 };
 
-export function TermView({ sessionId }: { sessionId: string }) {
+export function TermView({ sessionId, active = true }: { sessionId: string; active?: boolean }) {
   const hostRef = useRef<HTMLDivElement>(null);
+  const termRef = useRef<Terminal | null>(null);
   const setStatus = useWorkbench((s) => s.setStatus);
+
+  // Focus the terminal when this pane becomes the active session. Panes are kept
+  // MOUNTED across session switches (the shell stacks one per session and toggles
+  // visibility) — so a switch never reattaches/replays (no flicker, no lost
+  // alt-screen TUI). Focus therefore follows selection, not mount.
+  useEffect(() => {
+    if (active) termRef.current?.focus();
+  }, [active]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -70,7 +80,13 @@ export function TermView({ sessionId }: { sessionId: string }) {
     const conn = new TermConnection(sessionId, term, {
       onStatus: setStatus,
       onTitle: () => {},
-      onExit: () => {},
+      // Agent PTY exit = the reflective moment (U5): report it so the close-card
+      // detector can poll the close result. Read the type at exit-time from the
+      // store (the session list is authoritative); a shell exit is a no-op.
+      onExit: () => {
+        const session = useWorkbench.getState().sessions.find((s) => s.id === sessionId);
+        if (session?.type === "agent") reportAgentExit(sessionId);
+      },
       onCwd: () => {},
     });
     const inputSub = term.onData((d) => conn.sendInput(d));
@@ -87,7 +103,8 @@ export function TermView({ sessionId }: { sessionId: string }) {
 
     conn.connect();
     registerTermConn(sessionId, conn); // so the composer can send to this session's PTY
-    term.focus();
+    termRef.current = term;
+    if (active) term.focus(); // focus on mount only when this is the visible pane
 
     return () => {
       webglDisposed = true;
@@ -96,6 +113,7 @@ export function TermView({ sessionId }: { sessionId: string }) {
       inputSub.dispose();
       conn.dispose();
       term.dispose();
+      termRef.current = null;
     };
   }, [sessionId, setStatus]);
 

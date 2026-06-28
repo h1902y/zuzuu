@@ -23,6 +23,12 @@ export class SessionManager {
     return this.sessions.get(id);
   }
 
+  /** Drop a session from the registry without killing it — for the graceful-end
+   *  path, where endGraceful() has already killed the PTY and awaited the merge. */
+  drop(id: string): boolean {
+    return this.sessions.delete(id);
+  }
+
   list(): SessionInfo[] {
     return [...this.sessions.values()]
       .sort((a, b) => a.createdAt - b.createdAt)

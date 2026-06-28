@@ -41,7 +41,7 @@ export function aggregate(sessions, { minCmdCount = 3, minCmdSessions = 2, minFi
         kind: 'command', id: 'command-' + slugify(cmd, 40),
         title: `Run \`${cmd}\``, attributes: { command: cmd },
         body: `Recurring project command: \`${cmd}\` (used ${st.count}× across ${st.sessions.size} sessions${st.failures ? `, failed ${st.failures}×` : ''}).`,
-        evidence: { occurrences: st.count, sessions: st.sessions.size, failures: st.failures },
+        evidence: { occurrences: st.count, sessions: st.sessions.size, sessionIds: [...st.sessions], failures: st.failures },
         score: st.count * 10 + st.sessions.size,
       });
     }
@@ -60,7 +60,7 @@ export function aggregate(sessions, { minCmdCount = 3, minCmdSessions = 2, minFi
         kind: 'entity', id: 'file-' + slugify(base, 40),
         title: `Hot file: ${base}`, attributes: { path },
         body: `Hot file in this project: \`${path}\` (touched ${st.count}× across ${st.sessions.size} sessions).`,
-        evidence: { occurrences: st.count, sessions: st.sessions.size },
+        evidence: { occurrences: st.count, sessions: st.sessions.size, sessionIds: [...st.sessions] },
         score: st.count,
       });
     }
@@ -68,14 +68,17 @@ export function aggregate(sessions, { minCmdCount = 3, minCmdSessions = 2, minFi
 
   // frequently-failing tools → a fact worth knowing (knowledge)
   const failStats = new Map();
-  for (const s of sessions) for (const t of s.failures ?? []) failStats.set(t, (failStats.get(t) ?? 0) + 1);
-  for (const [tool, n] of failStats) {
-    if (n >= minFailures) {
+  for (const s of sessions) for (const t of s.failures ?? []) {
+    const st = failStats.get(t) ?? { count: 0, sessions: new Set() };
+    st.count++; st.sessions.add(s.sessionId); failStats.set(t, st);
+  }
+  for (const [tool, st] of failStats) {
+    if (st.count >= minFailures) {
       out.push({
         kind: 'fact', id: 'failing-tool-' + slugify(tool, 30),
         title: `${tool} fails frequently`, attributes: {},
-        body: `Tool \`${tool}\` fails frequently in this project (${n} failures observed) — worth investigating why.`,
-        evidence: { occurrences: n }, score: n,
+        body: `Tool \`${tool}\` fails frequently in this project (${st.count} failures observed) — worth investigating why.`,
+        evidence: { occurrences: st.count, sessionIds: [...st.sessions] }, score: st.count,
       });
     }
   }
@@ -95,7 +98,7 @@ export function aggregate(sessions, { minCmdCount = 3, minCmdSessions = 2, minFi
         kind: 'guardrail', id: 'guard-' + slugify(cmd, 30),
         title: `Confirm before \`${cmd}\``, attributes: { command: cmd, pattern: escapeRe(cmd) },
         body: `\`${cmd}\` is a destructive command that failed across ${st.sessions.size} sessions — propose an ask-gate so it's confirmed, not run unprompted.`,
-        evidence: { occurrences: st.count, sessions: st.sessions.size }, score: st.count + st.sessions.size,
+        evidence: { occurrences: st.count, sessions: st.sessions.size, sessionIds: [...st.sessions] }, score: st.count + st.sessions.size,
       });
     }
   }
@@ -114,7 +117,7 @@ export function aggregate(sessions, { minCmdCount = 3, minCmdSessions = 2, minFi
         kind: 'correction', id: 'instruction-' + slugify(text, 40),
         title: `Standing guidance: ${text.slice(0, 60)}`, attributes: { text },
         body: `You corrected this across ${st.sessions.size} sessions: "${text}". Consider it standing guidance.`,
-        evidence: { occurrences: st.count, sessions: st.sessions.size }, score: st.count + st.sessions.size,
+        evidence: { occurrences: st.count, sessions: st.sessions.size, sessionIds: [...st.sessions] }, score: st.count + st.sessions.size,
       });
     }
   }
@@ -131,7 +134,7 @@ export function aggregate(sessions, { minCmdCount = 3, minCmdSessions = 2, minFi
         kind: 'workflow', id: 'workflow-' + slugify(seq, 40),
         title: `Workflow: ${seq}`, attributes: { command: seq },
         body: `Recurring two-step sequence: \`${seq}\` (${st.count}× across ${st.sessions.size} sessions).`,
-        evidence: { occurrences: st.count, sessions: st.sessions.size }, score: st.count * 10 + st.sessions.size,
+        evidence: { occurrences: st.count, sessions: st.sessions.size, sessionIds: [...st.sessions] }, score: st.count * 10 + st.sessions.size,
       });
     }
   }
@@ -168,10 +171,20 @@ export function observe(home, opts = {}) {
   for (const c of candidates) {
     const route = ROUTE[c.kind]?.(c);
     if (!route) continue;
+    // Provenance (U4 / R6): pin the contributing session ids so a note can link
+    // back to where it was born. OQ1 — the only locator every adapter resolves is
+    // the session id (capture discards the transcript ref before mining), so the
+    // locator IS the session-id set; `kind` leaves room for a finer offset later.
+    // Degrade to session-only (the producers always retain at least the ids).
+    const sessionIds = c.evidence?.sessionIds ?? [];
+    const source = {
+      producer: 'observe', kind: c.kind, sessions: sessionIds,
+      locator: { kind: 'session-ids', sessions: sessionIds },
+    };
     const p = stageChange(home, route.module, {
       op: 'create', target: c.id, change: route.change,
       rationale: c.body, evidence: [{ kind: c.kind, ...c.evidence }],
-      source: 'observe', score: c.score ?? 1,
+      source, score: c.score ?? 1,
     });
     if (p && !p.duplicate) staged.push({ module: route.module, ...p });
   }

@@ -13,8 +13,8 @@ describe("stageHeaderModel", () => {
   it("a row → header but no primary (the Form wing is the editor)", () => {
     expect(stageHeaderModel({ kind: "row", id: "n1", module: "knowledge" })).toEqual({ show: true, primary: null });
   });
-  it("a session → header but no primary", () => {
-    expect(stageHeaderModel({ kind: "session", id: "s1" })).toEqual({ show: true, primary: null });
+  it("a session → End session primary (the canonical end affordance)", () => {
+    expect(stageHeaderModel({ kind: "session", id: "s1" })).toEqual({ show: true, primary: { key: "end-session", label: "End session" } });
   });
 });
 

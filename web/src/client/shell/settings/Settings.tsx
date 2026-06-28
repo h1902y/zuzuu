@@ -8,6 +8,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/api.js";
 import { toast } from "../../state/toast.js";
 import { hostStatusLabel, canEnable, projectStateLabel } from "./settings-model.js";
+import { useKickoffPref } from "../../state/kickoff-pref.js";
 import { Stack, Inline, Text, Button, Loading } from "../../ds/index.js";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -33,6 +34,7 @@ export function Settings() {
   const workspace = useQuery({ queryKey: ["workspace"], queryFn: api.workspace });
   const projectState = useQuery({ queryKey: ["zuzuu", "project-state"], queryFn: api.zuzuu.projectState });
   const instructions = useQuery({ queryKey: ["zuzuu", "module", "instructions"], queryFn: () => api.zuzuu.module("instructions") });
+  const kickoff = useKickoffPref();
 
   if (projectState.isLoading) return <Loading label="reading settings…" />;
   const host = projectState.data?.host ?? { kind: null, enabled: false };
@@ -63,6 +65,19 @@ export function Settings() {
               <Text size="ui">{hostStatusLabel(host)}</Text>
               {canEnable(host) && <Button variant="primary" size="sm" onClick={() => void enable()}>Enable</Button>}
             </Inline>
+          </Section>
+
+          <Section title="Sessions">
+            <Stack gap="sm">
+              <Row label="Auto session-start check">
+                <Button variant="outline" size="sm" onClick={() => kickoff.setEnabled(!kickoff.enabled)}>
+                  {kickoff.enabled ? "On" : "Off"}
+                </Button>
+              </Row>
+              <Text size="meta" tone="muted">
+                When on, starting an agent session sends it a first message — a short orientation plus a readiness line (the zz doctor verdict + pending-review count) — so the agent confirms the workspace is in place before your first task.
+              </Text>
+            </Stack>
           </Section>
 
           <Section title="Instructions">

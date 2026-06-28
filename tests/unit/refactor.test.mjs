@@ -26,7 +26,7 @@ test('rename: moves the note AND rewrites every inbound reference (no broken lin
   withRepo((home, done) => {
     put(home, 'knowledge', 'old', { type: 'knowledge', title: 'Old' });
     put(home, 'knowledge', 'ref', { type: 'knowledge', relations: { uses: 'knowledge:old' } });    // full addr
-    put(home, 'actions', 'cross', { type: 'action', relations: { 'related-to': 'knowledge:old' } }); // cross-module
+    put(home, 'actions', 'cross', { type: 'action', run: 'echo', relations: { 'related-to': 'knowledge:old' } }); // cross-module (run: refactor now validates)
     const r = renameNote(home, 'knowledge', 'old', 'new');
     assert.equal(r.ok, true);
     assert.equal(existsSync(join(home, 'knowledge', 'items', 'old.md')), false, 'old file gone');

@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ideation: The Workbench Project Experience</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Abel&family=Alata&display=swap">
+<style>
+  :root{
+    --paper:#f6f3ea; --surface:#fffdf6; --ink:#2b3324; --muted:#6a7060; --subtle:#8a8f7e;
+    --line:#e1ddcf; --coral:#e0463d; --coral-soft:#fbe6e2; --mint:#eafdcf; --periwinkle:#8e95d8;
+    --display:"Abel","Trebuchet MS",sans-serif; --body:"Alata","Segoe UI",system-ui,sans-serif;
+    --mono:"SFMono-Regular",ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);line-height:1.6;font-size:16px}
+  .wrap{max-width:900px;margin-inline:auto;padding:48px 24px 80px}
+  p,li{max-width:72ch}
+  h1,h2,h3{font-family:var(--display);font-weight:400;line-height:1.2;letter-spacing:.01em}
+  h1{font-size:2.5rem;margin:0 0 .3em}
+  h2{font-size:1.7rem;margin:2.4em 0 .6em;padding-bottom:.25em;border-bottom:2px solid var(--line)}
+  h3{font-size:1.3rem;margin:0 0 .2em}
+  a{color:var(--coral);text-decoration:none}
+  a:hover{text-decoration:underline}
+  code{font-family:var(--mono);font-size:.85em;background:#efece0;padding:.08em .35em;border-radius:4px}
+  .meta{color:var(--muted);font-size:.92rem;margin-top:.4em}
+  .meta b{color:var(--ink);font-weight:400;font-family:var(--display)}
+  .lede{font-size:1.12rem;color:#3c4433;border-left:3px solid var(--coral);padding-left:18px;margin:1.4em 0}
+  .ground{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px 24px}
+  .axes{list-style:none;padding:0;margin:0;display:grid;gap:8px}
+  .axes li{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 14px;max-width:none}
+  .axes b{font-family:var(--display);color:var(--coral)}
+  .jump{font-size:.95rem;color:var(--muted);margin:.4em 0 1.6em;padding:0;list-style:none;display:grid;gap:4px}
+  .jump li::before{content:"→ ";color:var(--subtle)}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:24px 26px;margin:18px 0;box-shadow:0 1px 2px rgba(40,45,30,.04)}
+  .card.top{border-color:var(--coral);box-shadow:0 2px 14px rgba(224,70,61,.10)}
+  .rank{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;background:var(--ink);color:var(--mint);font-family:var(--display);font-size:1.05rem;margin-right:10px;vertical-align:-6px}
+  .top .rank{background:var(--coral);color:#fff}
+  .chips{margin:.5em 0 1em}
+  .chip{display:inline-block;font-size:.78rem;font-family:var(--mono);background:#efece0;color:var(--muted);border-radius:999px;padding:3px 11px;margin:3px 6px 3px 0}
+  .chip.axis{background:#e7e9f7;color:#4a4f86}
+  .chip.pick{background:var(--coral);color:#fff}
+  .chip.cx-High{background:#f4e2df;color:#b03a32}
+  .chip.cx-Medium,.chip.cx-Med-High{background:#f1ecd9;color:#8a6d28}
+  .field{margin:.7em 0}
+  .field .k{font-family:var(--display);color:var(--coral);font-size:.95rem;display:block;margin-bottom:.1em}
+  .basis{background:#f3f0e6;border-radius:8px;padding:10px 14px;font-size:.95rem}
+  .basis .tag{font-family:var(--mono);font-size:.78rem;color:#fff;background:var(--periwinkle);border-radius:4px;padding:1px 6px;margin-right:6px}
+  .basis .tag.direct{background:#5b9a4e}.basis .tag.external{background:#c08a2a}.basis .tag.reasoned{background:var(--periwinkle)}
+  .down{color:var(--muted);font-size:.97rem}
+  figure{margin:1.2em 0;text-align:center}
+  figure svg{max-width:100%;height:auto;background:#fbf9f1;border:1px solid var(--line);border-radius:10px;padding:14px}
+  figcaption{font-size:.85rem;color:var(--subtle);margin-top:.4em}
+  table{border-collapse:collapse;width:100%;font-size:.95rem;margin-top:.6em}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-family:var(--display);color:var(--muted);font-weight:400}
+  td:first-child{font-family:var(--mono);color:var(--subtle);white-space:nowrap}
+  .composition-signal{margin-top:60px;padding-top:18px;border-top:1px solid var(--line);color:var(--subtle);font-size:.85rem}
+  .svg-ink{fill:var(--ink)}.svg-muted{fill:var(--muted)}.svg-coral{fill:var(--coral)}
+  text{font-family:var(--display)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>The Workbench Project Experience</h1>
+<p class="meta"><b>Date</b> 2026-06-26 &nbsp;·&nbsp; <b>Topic</b> workbench-project-experience &nbsp;·&nbsp; <b>Focus</b> the workbench project experience (Projects Home · project page · navigation · setup→working) &nbsp;·&nbsp; <b>Mode</b> repo-grounded</p>
+
+<p class="lede">Five ideation frames ran independently over this surface. They converged — hard — on one place: <b>the review gate</b>. Pain, inversion, leverage, cross-domain analogy, and assumption-breaking all, separately, named the gate's <em>burden</em>, the <em>trust</em> it asks for, and the <em>Work&nbsp;⇄&nbsp;Brain perception gap</em> as the experience's real fault line. That convergence is the headline finding: the workbench's chrome is polished; its <em>moat is under-exercised</em> because the loop's payoff moment is silent, blind, and a chore. The seven survivors below all push on that.</p>
+
+<h2>Grounding Context</h2>
+<div class="ground">
+<p><b>Subject.</b> The browser workbench (<code>web/src/client/</code>) a local daemon serves: landing, project selection, orientation, setup, and working. zuzuu grows a per-project <em>brain</em> (modules of notes) from real coding sessions via <strong>observe → propose → review → evolve</strong>, every write <strong>human-gated</strong> (the review gate is the moat). Sessions = git branches. Locked vision: <em>CRUD-to-app over Project-as-DB</em>, two worlds <em>Work (terminal/sessions) ⇄ Brain (notes/modules dashboard)</em>.</p>
+<p><b>Built &amp; current.</b> Projects Home (<code>ProjectsHome.tsx</code>: registry-backed list, emoji+health rows, search/sort/group); the Stage+Wings project page (<code>WorkbenchShell.tsx</code>: header picker, NavTree, stage = terminal/grid/record/graph/overview, a review/form/schema wing, the <code>Ribbon</code> footer with "press R to review"); a guided setup <code>Stepper</code> (git-init→init→enable→session→review); the <code>Overview</code> home base (SESSIONS ⇄ THE BRAIN); the review gate; per-module generations + rollback; per-project emoji + theme; browser back/forward tied to home↔project + path.</p>
+<p><b>Load-bearing facts the ideas exploit.</b> <code>grow/observe.mjs</code> holds a declarative <code>ROUTE</code> table that already computes <em>why</em> each proposal exists (recurring command → action; repeated destructive command → ask-guardrail) — and the UI discards it. Generations are content-addressed; rollback = pointer-flip (most writes are cheaply reversible). The brain is git-native and portable. Observe runs at session-end, untended. <code>zz init</code> ships only a safety floor; modules materialize on demand. The "review" rung has no CTA — first value is gated on real observed work (cold-start).</p>
+<p class="meta">Verification note: load-bearing <code>direct:</code> bases were checked against first-hand knowledge of the cited files (authored/modified this session) rather than a fresh verifier — the lower-bias path here; <code>reasoned:</code>/<code>external:</code> bases arbitrated directly.</p>
+</div>
+
+<h2>Topic Axes</h2>
+<ul class="axes">
+<li><b>A1 · Project selection &amp; launch</b> — Projects Home: list/cards, search/sort/group, create/open, the registry source, groups.</li>
+<li><b>A2 · Orientation &amp; navigation</b> — header (logo/picker), nav tree, browser history, switching, "where am I / what now".</li>
+<li><b>A3 · Setup → first value</b> — onboarding stepper, cold-start to first-proposal, the setup→working stitch, time-to-aha.</li>
+<li><b>A4 · The working-loop surface</b> — sessions/terminal, the Work⇄Brain bridge, the brain dashboard, the review gate, the Overview, the Ribbon.</li>
+<li><b>A5 · Identity &amp; personalization</b> — emoji, theme, project metadata, groups/workspaces, multi-project.</li>
+</ul>
+
+<h2>Ranked Ideas</h2>
+<ul class="jump">
+<li><a href="#i1">1. The legible gate — every proposal states its reason and shows its diff</a> &nbsp;<span class="chip pick">top pick</span></li>
+<li><a href="#i2">2. The attention-feed landing — the launcher becomes a "what needs me" queue</a></li>
+<li><a href="#i3">3. Confidence-tiered review — the brain reviews itself; you ratify</a></li>
+<li><a href="#i4">4. The session-close bridge + provenance threads</a></li>
+<li><a href="#i5">5. Setup as the brain's first proposals</a></li>
+<li><a href="#i6">6. The brain as a "what I learned" feed</a></li>
+<li><a href="#i7">7. Identity from the brain — the project names itself</a></li>
+</ul>
+
+<!-- 1 -->
+<div class="card top" id="i1">
+<h3><span class="rank">1</span>The legible gate — every proposal states its reason and shows its diff</h3>
+<div class="chips"><span class="chip pick">TOP PICK</span><span class="chip axis">A4 · working-loop</span><span class="chip">Confidence 90%</span><span class="chip cx-Medium">Complexity Medium</span></div>
+<div class="field"><span class="k">Description</span>Today a proposal card asks for a yes/no with almost no information: the user can't see <em>why</em> zuzuu wants this or <em>what</em> exactly lands if they approve. Make every card self-explaining: (a) a plain-English headline drawn from the <code>ROUTE</code> rule that produced it — <em>"Because you ran <code>rm -rf dist</code> in 3 sessions, I want to add a confirm-guardrail"</em>; (b) a before/after generation diff of the note body, pulled from the content-addressed store; (c) a small type chip (Knowledge / Guardrail / Instruction) so a safety-relevant ask reads differently from a low-stakes fact. The gate stops being a blind consent and becomes an actual decision.</div>
+<div class="field"><span class="k">Basis</span><div class="basis"><span class="tag direct">direct</span> <code>grow/observe.mjs</code>'s declarative <code>ROUTE</code> table already maps each mined signal → module + a reason string (it produced the proposal); the UI never surfaces it. Generations are content-addressed, so a before/after diff is a read the daemon can already serve. <span class="tag external">external</span> Recommender "Because you watched X" rationale lines as the trust-through-explanation pattern (Netflix/Spotify).</div></div>
+<div class="field"><span class="k">Rationale</span>This is the cheapest, highest-leverage lever in the set and it sits squarely on the moat. A proposal with no stated reason is a demand for blind trust, and the rational response is the reject-everything reflex — which kills the loop. The data already exists and is thrown away; surfacing it turns each review from "do I trust this black box?" into "do I agree with this stated reasoning?" — a faster, higher-quality judgment that <em>raises</em> approval accuracy in both directions.</div>
+<div class="field"><span class="k">Downsides</span><span class="down">The diff view adds card height (manage with collapse-by-default for long bodies); the <code>ROUTE</code>→prose translation needs a small templating layer per signal kind; a poorly-worded rationale could mislead, so the copy is load-bearing.</span></div>
+</div>
+
+<!-- 2 -->
+<div class="card" id="i2">
+<h3><span class="rank">2</span>The attention-feed landing — the launcher becomes a "what needs me" queue</h3>
+<div class="chips"><span class="chip axis">A1 · selection &amp; launch</span><span class="chip">Confidence 70%</span><span class="chip cx-High">Complexity High</span></div>
+<figure>
+<svg viewBox="0 0 560 150" role="img" aria-label="A project grid reframed into a cross-project attention queue.">
+<text x="92" y="20" text-anchor="middle" font-size="13" class="svg-muted">today: a project grid</text>
+<rect x="20" y="32" width="64" height="40" rx="6" fill="#fffdf6" stroke="#d8d3c2"/><rect x="92" y="32" width="64" height="40" rx="6" fill="#fffdf6" stroke="#d8d3c2"/>
+<rect x="20" y="80" width="64" height="40" rx="6" fill="#fffdf6" stroke="#d8d3c2"/><rect x="92" y="80" width="64" height="40" rx="6" fill="#fffdf6" stroke="#d8d3c2"/>
+<text x="92" y="142" text-anchor="middle" font-size="11" class="svg-muted">"which one had pending review?"</text>
+<path d="M192 76 L246 76" stroke="#e0463d" stroke-width="2" marker-end="url(#a)"/>
+<defs><marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#e0463d"/></marker></defs>
+<text x="430" y="20" text-anchor="middle" font-size="13" class="svg-coral">a cross-project attention queue</text>
+<rect x="280" y="32" width="260" height="22" rx="5" fill="#fbe6e2" stroke="#e0463d"/><text x="292" y="47" font-size="11" class="svg-ink">api-svc · 5 proposals · 1 Guardrail</text>
+<rect x="280" y="58" width="260" height="22" rx="5" fill="#fffdf6" stroke="#d8d3c2"/><text x="292" y="73" font-size="11" class="svg-ink">deck-game · session ended · 2 to review</text>
+<rect x="280" y="84" width="260" height="22" rx="5" fill="#fffdf6" stroke="#d8d3c2"/><text x="292" y="99" font-size="11" class="svg-ink">docs · caught up ✓</text>
+<text x="410" y="128" text-anchor="middle" font-size="11" class="svg-muted">"clear what grew while I was gone"</text>
+</svg>
+<figcaption>The landing reorganizes around <em>attention owed</em>, not folder-recency. The grid becomes a filter.</figcaption>
+</figure>
+<div class="field"><span class="k">Description</span>Invert the Projects Home from a launcher into a single cross-project <em>attention feed</em>: a unified, bounded stream of every project's pending proposals, just-ended sessions, and stale-brain flags, sorted by what needs a human — with a satisfying "caught up" terminal state. You descend into a full Project page only when an item needs context. The project grid still exists, demoted to a filter/secondary view. This folds in the warm-return digest ("4 sessions observed, 9 proposals while you were away"), per-row resume context, and group-level triage.</div>
+<div class="field"><span class="k">Basis</span><div class="basis"><span class="tag reasoned">reasoned</span> The product's scarce resource is <em>human gate decisions</em>, not folder navigation — every project accrues proposals in the background via observe. A launcher organized by project forces the user to remember which of N projects owes review (the surface itself admits review is "something users must remember to do, press R"). Organizing the landing by attention owed matches the system's real output, and it's the only model that survives past ~3 projects. <span class="tag external">external</span> Anki's bounded "due today" + "0 left" rhythm as the proven anti-backlog mechanism.</div></div>
+<div class="field"><span class="k">Rationale</span>Changes what the user does <em>first</em> every day — from "navigate to a project" to "clear what the brains grew." It makes the gate the front door, which is also the moat, and converts the loop's burden from an ever-climbing dread-counter into a daily ritual with an end.</div>
+<div class="field"><span class="k">Downsides</span><span class="down">A bold reframe of the product's identity surface — the project grid is a familiar, reassuring metaphor; burying it risks disorientation for new users. Needs the per-project pending/session signal on the cross-project list payload (already mostly present). Best shipped behind a "Home view: Projects / Attention" toggle first.</span></div>
+</div>
+
+<!-- 3 -->
+<div class="card" id="i3">
+<h3><span class="rank">3</span>Confidence-tiered review — the brain reviews itself; you ratify</h3>
+<div class="chips"><span class="chip axis">A4 · working-loop</span><span class="chip">Confidence 75%</span><span class="chip cx-High">Complexity High</span></div>
+<figure>
+<svg viewBox="0 0 560 132" role="img" aria-label="Proposals sorted by confidence and reversibility into three lanes.">
+<text x="280" y="16" text-anchor="middle" font-size="12" class="svg-muted">one queue → three lanes (by confidence × reversibility)</text>
+<rect x="20" y="30" width="166" height="84" rx="8" fill="#eef6e7" stroke="#5b9a4e"/><text x="103" y="50" text-anchor="middle" font-size="12" fill="#3f6e36">auto-promoted</text><text x="103" y="68" text-anchor="middle" font-size="10" class="svg-muted">high conf · reversible</text><text x="103" y="92" text-anchor="middle" font-size="10" class="svg-muted">"already done — undo?"</text>
+<rect x="197" y="30" width="166" height="84" rx="8" fill="#fbe6e2" stroke="#e0463d"/><text x="280" y="50" text-anchor="middle" font-size="12" class="svg-coral">must decide</text><text x="280" y="68" text-anchor="middle" font-size="10" class="svg-muted">destructive · irreversible</text><text x="280" y="92" text-anchor="middle" font-size="10" class="svg-muted">the human gate stays here</text>
+<rect x="374" y="30" width="166" height="84" rx="8" fill="#f1ecd9" stroke="#c08a2a"/><text x="457" y="50" text-anchor="middle" font-size="12" fill="#8a6d28">hold — not yet</text><text x="457" y="68" text-anchor="middle" font-size="10" class="svg-muted">borderline · rising</text><text x="457" y="92" text-anchor="middle" font-size="10" class="svg-muted">re-surfaces if corroboration climbs</text>
+</svg>
+<figcaption>The moat moves from "approve every write" to "own the irreversible writes."</figcaption>
+</figure>
+<div class="field"><span class="k">Description</span>Stop treating every proposal as an equal-weight human decision. Score each by confidence × reversibility and route it: clearly-good, cheaply-reversible ones (a filepath fact corroborated 10×) <em>auto-evolve</em> into an "already promoted — undo?" lane; ambiguous or destructive ones (a new guardrail, a table split) sit in a must-decide lane; borderline-but-rising ones get a third verb — <em>hold</em> — and re-surface only if corroboration climbs (instead of forcing a premature coin-flip). Rejection leaves a memory so the same signal isn't re-proposed identically.</div>
+<div class="field"><span class="k">Basis</span><div class="basis"><span class="tag reasoned">reasoned</span> A corroborated-10× filepath fact and a new destructive guardrail carry wildly different risk, yet the gate weights them identically — that's what makes humans rubber-stamp and stop reading. Generations make most writes cheaply reversible ("rollback = flip pointer"), so "approve" is recoverable for the easy class; the gate's value concentrates on the irreversible/protective writes. <span class="tag external">external</span> The newsroom wire-desk's third verb (run / hold / spike) — separating arrival from decision so borderline signal isn't lost.</div></div>
+<div class="field"><span class="k">Rationale</span>Directly attacks "review, never-as-a-chore" without abandoning the gate — it reallocates human attention to the decisions that are actually decisions. The reject-with-reason stream and corroboration counts the loop already produces are exactly the training signal the confidence model needs.</div>
+<div class="field"><span class="k">Downsides</span><span class="down">The riskiest idea to get wrong — auto-promote on the wrong class erodes the moat and trust. Must ship conservative (default everything to must-decide; auto-promote is opt-in per module, and the "undo" lane must be one click). A miscalibrated confidence score is worse than none. Pairs hard with idea #1 (the diff is what makes "undo?" safe).</span></div>
+</div>
+
+<!-- 4 -->
+<div class="card" id="i4">
+<h3><span class="rank">4</span>The session-close bridge + provenance threads</h3>
+<div class="chips"><span class="chip axis">A4 · working-loop</span><span class="chip">Confidence 85%</span><span class="chip cx-Medium">Complexity Medium</span></div>
+<div class="field"><span class="k">Description</span>Two halves of one move that closes the Work⇄Brain gap. <b>(a) Session-close brief:</b> when a session transitions live→ended with pending&nbsp;&gt;&nbsp;0, surface a lightweight card — "this session generated 3 proposals: 2 actions, 1 guardrail, from debugging the auth flow" + a "Review now" CTA — at the exact reflective moment the user just finished work. <b>(b) Provenance threads:</b> every note carries a "born here" link that jumps to the precise transcript moment (the command, the correction, the file-edit) the observe loop mined it from, plus a session↔proposals cross-reference both ways. Trace "this guardrail came from the session where I nearly deleted prod."</div>
+<div class="field"><span class="k">Basis</span><div class="basis"><span class="tag direct">direct</span> Observe runs at session-end (squash-merge → mine), and the Ribbon only shows a passive pending count after the user has left the terminal — no component listens for the live→dead session transition. The Overview's SESSIONS and THE BRAIN columns are visually severed with no path between them. <span class="tag external">external</span> <code>git bisect</code> — making any point in history one jump from its cause; ported to "note → the moment it was born."</div></div>
+<div class="field"><span class="k">Rationale</span>The Work⇄Brain gap is a <em>perception</em> gap as much as a navigation one — the user doesn't feel observed while working, and never gets a "look what I taught it" moment. The most bridgeable instant is session-close: the user just did the work and is in a reflective state. Provenance is also the single strongest antidote to the "creepy black box" failure mode of silent observation — trust collapses if the user can't answer "why does it think this?"</div>
+<div class="field"><span class="k">Downsides</span><span class="down">Needs a daemon→client event on session-state transition (the turn/end hooks fire today but are discarded client-side). Linking notes to transcript offsets requires observe to record the source span (it has the data; it may not persist the pointer yet). Risk of a nagging close-card — make it dismissible and quiet.</span></div>
+</div>
+
+<!-- 5 -->
+<div class="card" id="i5">
+<h3><span class="rank">5</span>Setup as the brain's first proposals</h3>
+<div class="chips"><span class="chip axis">A3 · setup → first value</span><span class="chip">Confidence 75%</span><span class="chip cx-Medium">Complexity Medium</span></div>
+<figure>
+<svg viewBox="0 0 560 96" role="img" aria-label="A five-rung setup checklist collapsing into the review gate.">
+<g font-size="10" class="svg-muted">
+<rect x="14" y="34" width="58" height="26" rx="5" fill="#fffdf6" stroke="#d8d3c2"/><text x="43" y="51" text-anchor="middle">git init</text>
+<rect x="78" y="34" width="48" height="26" rx="5" fill="#fffdf6" stroke="#d8d3c2"/><text x="102" y="51" text-anchor="middle">init</text>
+<rect x="132" y="34" width="56" height="26" rx="5" fill="#fffdf6" stroke="#d8d3c2"/><text x="160" y="51" text-anchor="middle">enable</text>
+<rect x="194" y="34" width="60" height="26" rx="5" fill="#fffdf6" stroke="#d8d3c2"/><text x="224" y="51" text-anchor="middle">session</text>
+<rect x="260" y="34" width="56" height="26" rx="5" fill="#fffdf6" stroke="#d8d3c2"/><text x="288" y="51" text-anchor="middle">review</text>
+</g>
+<text x="165" y="22" text-anchor="middle" font-size="11" class="svg-muted">two interaction models the user must learn</text>
+<path d="M326 47 L372 47" stroke="#e0463d" stroke-width="2" marker-end="url(#b)"/>
+<defs><marker id="b" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#e0463d"/></marker></defs>
+<rect x="384" y="22" width="162" height="52" rx="8" fill="#fbe6e2" stroke="#e0463d"/>
+<text x="465" y="42" text-anchor="middle" font-size="11" class="svg-coral">one gate, from turn zero</text>
+<text x="465" y="60" text-anchor="middle" font-size="9" class="svg-muted">"protect secrets? · watch app.tsx? · enable observe?"</text>
+</svg>
+<figcaption>Setup stops being a wizard you drive and becomes the brain's day-zero proposals.</figcaption>
+</figure>
+<div class="field"><span class="k">Description</span>Replace the linear setup Stepper with the project's <em>first proposals</em>, reviewed through the same gate the user will use forever: a just-opened folder shows a tiny review queue — "I'd like to: protect against secret reads · watch <code>app.tsx</code> · enable observe." Configuration enters through the one mechanism, so the user learns the moat on turn zero and never meets a second interaction grammar. The first real session then hands off to a narrated "here are the first 3 things I noticed about <em>your</em> code" — the docent walk that makes the cold-start aha land on the user's own work, not canned copy.</div>
+<div class="field"><span class="k">Basis</span><div class="basis"><span class="tag reasoned">reasoned</span> Setup and Review are two different interaction models (a checklist vs an approval queue) for the same thing — "human consents to a change to the project." <code>zz init</code> already ships only a guardrails floor and modules "materialize on demand," so setup is <em>already</em> a sequence of first proposals; the Stepper is a redundant wrapper. Every rung is deterministic — the only thing the human contributes is consent, which is exactly what the gate is for. <span class="tag external">external</span> The museum docent's narrated first-three as the cold-start mental-model bootstrap.</div></div>
+<div class="field"><span class="k">Rationale</span>One interaction model instead of two; the user's first action and their thousandth are the same gesture (approve a proposal). It collapses the highest-drop-off surface and teaches the moat mechanic immediately — and the narrated first session is the only proof that converts (the loop demonstrated on the user's own code).</div>
+<div class="field"><span class="k">Downsides</span><span class="down">"Silent/auto setup" reads as spooky if over-done — keep each step a visible consent, never invisible. Enabling host hooks is a real system change the user should understand; the proposal copy must explain it. The narrated-first-session depends on observe producing legible first-run signal, which is itself cold.</span></div>
+</div>
+
+<!-- 6 -->
+<div class="card" id="i6">
+<h3><span class="rank">6</span>The brain as a "what I learned" feed</h3>
+<div class="chips"><span class="chip axis">A2 · orientation &amp; nav</span><span class="chip">Confidence 70%</span><span class="chip cx-Med-High">Complexity Medium-High</span></div>
+<div class="field"><span class="k">Description</span>Offer the Brain world a feed/timeline lens as the <em>default</em>, instead of tables-first. The brain presents as a reverse-chronological stream of "what I learned" cards — <em>"Learned: <code>app.tsx</code> is the hot file · 3 sessions ago"</em>, <em>"Promoted a guardrail: no secret reads"</em> — narrative, scannable, weighted by corroboration so load-bearing knowledge renders bolder and one-off notes fainter (a "desire-path" map of where work actually flowed). The grid / table / ER views stay, one toggle away, as the power lens. The database is the source of truth; the feed is the humane surface over it.</div>
+<div class="field"><span class="k">Basis</span><div class="basis"><span class="tag reasoned">reasoned</span> The locked design optimizes for the admin/CRUD model (tables-first), but a user's relationship to their project's brain is closer to "what does it know / what did it just learn" than "let me query a table." A grid answers <em>retrieval</em>; a feed answers <em>awareness</em>, and most of the time the user wants awareness. The append-only mutation log is already chronological and timestamped — the feed is a reframe of existing data, not new data. <span class="tag external">external</span> Campus "desire paths" — let usage reveal structure (corroboration as trail-weight) before committing to it.</div></div>
+<div class="field"><span class="k">Rationale</span>Reframes the brain from an admin tool you operate into a companion whose growth you witness — the emotional core of "watch a brain grow from your work," and plausibly a bigger retention lever than any single feature. The corroboration-weighting answers "which of these 200 notes actually matter?" at a glance, which a flat table never does.</div>
+<div class="field"><span class="k">Downsides</span><span class="down">A second lens to build and keep in sync with the grid (more surface). A feed is worse than a grid for the actual editing/fixing task, so the toggle must be obvious and fast. Risk of feeling like a "toy" to power users if the grid is hard to reach.</span></div>
+</div>
+
+<!-- 7 -->
+<div class="card" id="i7">
+<h3><span class="rank">7</span>Identity from the brain — the project names itself</h3>
+<div class="chips"><span class="chip axis">A5 · identity &amp; personalization</span><span class="chip">Confidence 65%</span><span class="chip cx-Medium">Complexity Medium</span></div>
+<div class="field"><span class="k">Description</span>Replace user-chosen project identity (an emoji + theme picked at creation) with an identity the project <em>earns from its own brain</em>: the emoji, color, and a one-line "what I am" descriptor are derived and <em>proposed</em> from what the brain has learned (a project that grew card-mechanics notes proposes 🃏 and "a card-game engine"). The user ratifies or overrides through the gate. Identity becomes another evolving, reviewed artifact rather than a cosmetic decision made at the moment the user knows least about the project.</div>
+<div class="field"><span class="k">Basis</span><div class="basis"><span class="tag reasoned">reasoned</span> Identity is currently a user input at creation — made when the user knows least — yet the brain accumulates exactly the signal that <em>defines</em> the project (hot files, dominant module, recurring vocabulary). Letting the project name and color itself from its own knowledge makes personalization a consequence of work, and routes even identity through observe→propose→review — reinforcing the gate as the one universal grammar (cousin to idea #5). The per-project emoji/health data and the deterministic-default mechanism already exist as the seam.</div></div>
+<div class="field"><span class="k">Rationale</span>Personalization stops being a setup tax and becomes a delightful payoff — "my project named itself" — and demonstrates the loop's reach by applying it to the project's own identity. A small, memorable proof that the brain understands the project.</div>
+<div class="field"><span class="k">Downsides</span><span class="down">The smallest, most "gimmick-risk" bet of the set — some users want to name their own things and will find auto-naming presumptuous (override must be trivial). Depends on enough brain signal to derive a non-generic identity, so it's empty until real work accrues. Lower confidence; best as a delight layer once #1/#5 land.</span></div>
+</div>
+
+<h2>Rejection Summary</h2>
+<table>
+<tr><th>Cut idea</th><th>Reason</th></tr>
+<tr><td>Team-shared brain with attributed proposals</td><td>Scope-overrun — a team-product expansion beyond "the workbench project experience"; strong, but its own ideation (the git-native substrate makes it nearly free, worth a dedicated pass).</td></tr>
+<tr><td>Folder drop-to-open</td><td>Table-stakes IDE affordance; a tactical quick win, not a direction-changing idea.</td></tr>
+<tr><td>Deep-link in-project selection into the URL</td><td>A real fix but a tactical increment on the browser-history work just shipped — quick win, not a direction.</td></tr>
+<tr><td>Session auto-open / "last open wins" · switcher-first resume</td><td>Subsumed by the attention-feed landing (#2), which makes resume the front door.</td></tr>
+<tr><td>Checklist collapse to one "Bootstrap" button</td><td>The milder version of "setup as first proposals" (#5), which dominates it.</td></tr>
+<tr><td>Bulk "Approve N" with digest · Anki due-today rhythm</td><td>Folded into confidence-tiered review (#3) and the attention feed's "caught up" state (#2).</td></tr>
+<tr><td>Mission-control telemetry strip · brain-pulse · mid-session "signal detected"</td><td>Implementation flavors of the Work⇄Brain bridge (#4) — the live heartbeat is the same direction.</td></tr>
+<tr><td>Typed proposal indicators · generation diff (standalone) · "Because you…" (standalone)</td><td>Combined into the legible gate (#1) — stronger as one coherent "make the gate a real decision" move.</td></tr>
+<tr><td>Kintsugi rejection-memory · decision-stream timeline · rollback UI gesture</td><td>Folded into confidence-tiered review (#3) — rejection memory and reversibility are its enablers.</td></tr>
+<tr><td>Desire-paths overview · approval-velocity sparkline</td><td>Folded into the brain-as-feed lens (#6) — visual encodings of the same compounding signal.</td></tr>
+<tr><td>Health-score sort · cross-project pulse · resume-context row · switcher tooltip · group review</td><td>The pragmatic increments toward the attention-feed landing (#2); subsumed.</td></tr>
+<tr><td>Ghost module rows · first-proposal demo · navtree inline onboarding</td><td>Subsumed by setup-as-first-proposals (#5); the synthetic "demo proposal" risks a fake feel vs the real narrated first session.</td></tr>
+<tr><td>Cross-project subscription badge</td><td>Narrower than the cross-project directions surfaced; defer behind the feed/team threads.</td></tr>
+</table>
+
+<footer class="composition-signal">Composed 2026-06-26 by compound-engineering ce-ideate · subject: the zuzuu workbench project experience · 43 raw candidates across 5 frames → 7 survivors.</footer>
+
+</div>
+</body>
+</html>

@@ -6,9 +6,31 @@ import { mkdtempSync, rmSync, mkdirSync, writeFileSync, existsSync } from 'node:
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { repoRoot, homeDir, readJson, writeJson } from '../../src/notes/store.mjs';
+import { repoRoot, homeDir, readJson, writeJson, isGitRepo, gitInfo } from '../../src/notes/store.mjs';
 
 const tmp = (p) => mkdtempSync(join(tmpdir(), p));
+
+test('isGitRepo: distinguishes not-a-repo, a commitless repo, and a repo with commits', () => {
+  const nogit = tmp('zz-store-nogit2-');
+  const fresh = tmp('zz-store-fresh-');
+  const committed = tmp('zz-store-committed-');
+  try {
+    assert.equal(isGitRepo(nogit), false, 'a plain dir is not a repo');
+
+    execFileSync('git', ['init', '-q'], { cwd: fresh });
+    // the bug this guards: a fresh `git init` (no commits) IS a repo, but gitInfo().commit
+    // is null — doctor used to read that as "not a git repo".
+    assert.equal(isGitRepo(fresh), true, 'a commitless repo is still a repo');
+    assert.equal(gitInfo(fresh).commit, null, 'a commitless repo has no HEAD commit');
+
+    execFileSync('git', ['init', '-q'], { cwd: committed });
+    execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '--allow-empty', '-m', 'init'], { cwd: committed });
+    assert.equal(isGitRepo(committed), true);
+    assert.ok(gitInfo(committed).commit, 'a committed repo has a HEAD commit');
+  } finally {
+    for (const d of [nogit, fresh, committed]) rmSync(d, { recursive: true, force: true });
+  }
+});
 
 test('repoRoot: outside a git repo falls back to cwd', () => {
   const d = tmp('zz-store-nogit-');

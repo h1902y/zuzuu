@@ -6,7 +6,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ModuleItem } from "#shared/index.js";
-import { buildForm, dirtyFields, toChange } from "./form-model.js";
+import { buildForm, dirtyFields, toChange, relationOps } from "./form-model.js";
 import { editableFieldDefs } from "../stage/property-stack.js";
 import { fieldsFromSchema } from "../stage/schema-fields.js";
 import { api } from "../../lib/api.js";
@@ -26,7 +26,14 @@ function FormInner({ module, id, item, fields }: { module: string; id: string; i
   async function save() {
     setSaving(true);
     try {
-      await dataProvider.update(module, id, toChange(original, edited));
+      // scalar fields → an update proposal; link fields → relate/unrelate edge proposals
+      // (a relation isn't a scalar frontmatter field). Each is a PENDING staged change.
+      const change = toChange(original, edited);
+      if (Object.keys(change).length) await dataProvider.update(module, id, change);
+      for (const r of relationOps(original, edited, id)) {
+        if (r.op === "relate") await dataProvider.relate(module, r.change);
+        else await dataProvider.unrelate(module, r.change);
+      }
       toast("Change staged for review");
       setEdited({});
       void qc.invalidateQueries({ queryKey: ["zuzuu"] });

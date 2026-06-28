@@ -7,6 +7,7 @@ import { serve } from "@hono/node-server";
 import type { ServerType } from "@hono/node-server";
 import { WebSocketServer } from "ws";
 import type { WorkspaceInfo } from "#shared/index.js";
+import { emojiForProject } from "#shared/project-emoji.js";
 import { SessionManager } from "./session-manager.js";
 import { AuthGate } from "./auth.js";
 import { createFsApi } from "./fs-api.js";
@@ -14,6 +15,7 @@ import { createZuzuuApi } from "./zuzuu-routes.js";
 import { createProjectsApi } from "./projects-routes.js";
 import { createSessionsApi } from "./sessions-routes.js";
 import { createAgentCloser, type AgentCloser } from "./agent-close.js";
+import { createMainTreeLock, type MainTreeLock } from "./main-tree-lock.js";
 import { serveStatic } from "./static.js";
 import { search } from "./search.js";
 import { listFiles } from "./file-list.js";
@@ -61,11 +63,17 @@ export class WebcodeServer {
   private server: ServerType | null = null;
   /** the agent-exit squash-merge orchestration (serializes worktree closes) */
   private readonly agentCloser: AgentCloser;
+  /** ONE main-tree serializer shared by the agent-exit auto-merge AND the explicit
+   *  held-merge route, so the two main-tree writers can't race on `main` (KTD6). */
+  private readonly mainTreeLock: MainTreeLock = createMainTreeLock();
 
   constructor(private readonly cfg: ServerConfig) {
     this.root = cfg.root;
     this.commandAllowlist = new Set(cfg.commandAllowlist ?? DEFAULT_COMMAND_ALLOWLIST);
-    this.agentCloser = createAgentCloser(() => this.root, cfg.zuzuuBinary);
+    this.agentCloser = createAgentCloser(() => this.root, {
+      ...(cfg.zuzuuBinary !== undefined ? { binary: cfg.zuzuuBinary } : {}),
+      lock: this.mainTreeLock,
+    });
     this.sessions = new SessionManager(cfg.root);
     this.auth = new AuthGate({
       port: cfg.port,
@@ -101,11 +109,13 @@ export class WebcodeServer {
     app.use("*", this.auth.gate());
     app.use("/api/*", this.auth.requireAuth());
 
-    app.get("/api/workspace", (c) => {
+    app.get("/api/workspace", async (c) => {
+      const overrides = (await config.load()).emojis;
       const body: WorkspaceInfo = {
         root: this.root,
         name: path.basename(this.root) || this.root,
         version: cfg.version,
+        emoji: emojiForProject(this.root, overrides[this.root]),
       };
       return c.json(body);
     });
@@ -116,6 +126,7 @@ export class WebcodeServer {
       commandAllowlist: this.commandAllowlist,
       ...(cfg.zuzuuBinary !== undefined ? { zuzuuBinary: cfg.zuzuuBinary } : {}),
       closeAgentSession: (s) => this.agentCloser.close(s),
+      mainTreeLock: this.mainTreeLock,
     }));
 
     app.get("/api/search", async (c) => {

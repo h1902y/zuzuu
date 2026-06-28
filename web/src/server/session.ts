@@ -82,6 +82,8 @@ export class Session {
   closeResult: unknown;
   private closeRan = false;
   private closeSettled: Promise<void> = Promise.resolve();
+  /** resolvers for callers awaiting the PTY exit (endGraceful) */
+  private readonly exitWaiters: Array<() => void> = [];
   private readonly pty: IPty;
   private readonly mirror: HeadlessTerminal;
   private readonly serializer = new SerializeAddon();
@@ -205,6 +207,9 @@ export class Session {
       this.exitPayload = JSON.stringify({ exitCode, signal });
       this.send(encodeFrame(ServerOp.Exit, this.exitPayload));
       this.onUpdate();
+      // resolve anyone awaiting the exit (endGraceful) — AFTER runCloseHook has set
+      // closeSettled, so a following whenClosed() awaits the real merge, not nothing.
+      for (const w of this.exitWaiters.splice(0)) w();
     });
   }
 
@@ -226,6 +231,33 @@ export class Session {
   /** Resolves once any pending agent close hook has settled (immediately otherwise). */
   whenClosed(): Promise<void> {
     return this.closeSettled;
+  }
+
+  /**
+   * End the session and, for an agent, WAIT for its squash-merge close hook to
+   * settle — so an explicit end from the UI is as complete as a natural exit
+   * (the merge + close-time `zz observe` land before we report back). Kills the
+   * PTY, waits for the exit to fire the close hook, then for the merge to finish.
+   * A 5s SIGKILL fallback guards a PTY that ignores the first signal. Returns the
+   * close result (merge outcome + post-close pending count), or null for a shell /
+   * an agent that produced none. The manager drops the session AFTER this resolves.
+   */
+  async endGraceful(): Promise<unknown> {
+    if (this.type !== "agent") {
+      this.kill();
+      return null;
+    }
+    if (this.alive) {
+      const exited = new Promise<void>((resolve) => this.exitWaiters.push(resolve));
+      this.kill();
+      const timer = setTimeout(() => {
+        try { this.pty.kill("SIGKILL"); } catch { /* already gone */ }
+      }, 5000);
+      await exited;
+      clearTimeout(timer);
+    }
+    await this.whenClosed();
+    return this.closeResult ?? null;
   }
 
   /** Single-attachment model: a new client takes over the session. */
