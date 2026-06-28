@@ -194,13 +194,14 @@ without traversing it all).
 ```
 .zuzuu/
   project.md                 ← the Project manifest (type: project)
-  guardrails/                ← the ONLY module that ships — the safety floor
+  instructions/              ← the ONLY module that ships — the safety floor + guidance
     module.md
-    items/{no-root-wipe, no-secret-reads, confirm-force-push}.md   ← seed rules (type: rule)
+    items/{no-root-wipe, protect-brain-writes, review-the-gate, …}.md   ← seed rules + guidance (type: rule / instruction)
 ```
 
-Only **Guardrails** ships (protection must hold from byte one); the four content kinds
-start absent.
+Only **Instructions** ships at init — the enforced safety floor (guardrail rule-notes incl.
+`.zuzuu/` write-protection) plus best-practice guidance; the other content kinds
+(knowledge · memory · actions) start absent.
 
 **Grows on demand.** As the loop runs, a **module** materializes the first time `observe`
 routes a staged change to it (its `module.md` minted from a template), and **notes** accumulate
@@ -211,9 +212,9 @@ legible, every path a plain file you can open:
 .zuzuu/
   project.md                          ← the Project manifest (type: project)
 
-  guardrails/                         ← shipped at init, then grown
+  instructions/                       ← shipped at init, then grown
     module.md
-    items/ no-root-wipe.md · no-secret-reads.md · confirm-force-push.md · ask-before-rm.md
+    items/ no-root-wipe.md · protect-brain-writes.md · review-the-gate.md · sessions-are-branches.md
     log.jsonl                         ← mutations (create/update/delete) — git-tracked provenance
     runs.jsonl                        ← runs + queries — local telemetry, gitignored (observe's feedback edge)
     generations.json                  ← the lineage ledger ({n, mintedAt, mintedFrom}; git holds the bytes)
