@@ -156,8 +156,10 @@ export const api = {
     schema: (key: string) => request<ModuleSchema>(`/api/zuzuu/module/${key}/schema`),
     generations: (key: string) => request<ModuleGenerationList>(`/api/zuzuu/module/${key}/generations`),
     // a write resolves to a PENDING proposal (a staged change), not a landed row — it
-    // surfaces in the review queue and lands only on approve (the gate, as data-provider semantics).
-    stage: (key: string, body: { op: "create" | "update"; target: string; change: Record<string, unknown> }) =>
+    // surfaces in the review queue and lands only on approve (the gate, as data-provider
+    // semantics). All 6 ops route here: create/update/delete/deprecate carry a `target`
+    // note; relate/unrelate carry the edge in `change` ({from,type,to}) and need no target.
+    stage: (key: string, body: { op: StagedChange["op"]; target?: string; change?: Record<string, unknown> }) =>
       request<StagedChange>(`/api/zuzuu/module/${key}/stage`, json(body)),
     // the daemon route requires { module } in the body (it 400s without it) — the
     // mutation request body isn't in #shared, so this contract is enforced by hand.

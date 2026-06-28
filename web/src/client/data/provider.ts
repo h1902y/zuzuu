@@ -13,6 +13,9 @@ import type { ListQuery } from "./list-state.js";
 
 type ZuzuuApi = typeof api.zuzuu;
 
+/** A relation edge: relate adds it, unrelate prunes it (the `link` FieldType's write). */
+export interface RelationChange { from: string; type: string; to: string }
+
 export interface ListResult {
   /** ONE page of the module's notes (the server already filtered·sorted·sliced). */
   items: ModuleItem[];
@@ -57,10 +60,21 @@ export function makeDataProvider(zuzuu: ZuzuuApi = api.zuzuu) {
     },
 
     // ── writes resolve to a PENDING proposal, never a landed row (the gate) ──
+    // Every row op inherits THE INVERSION cleanly: create/update/delete/deprecate target
+    // a note by id; relate/unrelate carry a relation EDGE ({from,type,to}) — the `link`
+    // FieldType writes through these. None ever writes a row directly; all stage a proposal.
     create: (module: string, target: string, change: Record<string, unknown>): Promise<StagedChange> =>
       zuzuu.stage(module, { op: "create", target, change }),
     update: (module: string, target: string, change: Record<string, unknown>): Promise<StagedChange> =>
       zuzuu.stage(module, { op: "update", target, change }),
+    remove: (module: string, target: string): Promise<StagedChange> =>
+      zuzuu.stage(module, { op: "delete", target }),
+    deprecate: (module: string, target: string): Promise<StagedChange> =>
+      zuzuu.stage(module, { op: "deprecate", target }),
+    relate: (module: string, change: RelationChange): Promise<StagedChange> =>
+      zuzuu.stage(module, { op: "relate", change: { ...change } }),
+    unrelate: (module: string, change: RelationChange): Promise<StagedChange> =>
+      zuzuu.stage(module, { op: "unrelate", change: { ...change } }),
 
     // ── the gate (approve lands it; reject teaches via a reason) ──
     approve: (id: string, module: string) => zuzuu.approve(id, module),

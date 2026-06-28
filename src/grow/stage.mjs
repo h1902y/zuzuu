@@ -1,7 +1,7 @@
 // src/grow/stage.mjs — the staged-change queue (the loop's 2nd beat).
 //
 // what: a staged change is an evidence-backed, typed change to a module's notes
-//       (create · update · delete · relate · deprecate) awaiting human review.
+//       (create · update · delete · relate · unrelate · deprecate) awaiting human review.
 // why:  the bridge from observation to the Project. NOTHING is written without a
 //       human approving a staged change — the moat. Staged, not applied. (Named to
 //       mirror git: staged → review → evolved, as staged → commit.)
@@ -14,7 +14,7 @@ import { createHash } from 'node:crypto';
 import { readJson, writeJson } from '../notes/store.mjs';
 import { ensureModuleManifest } from '../notes/module-templates.mjs';
 
-const OPS = new Set(['create', 'update', 'delete', 'relate', 'deprecate']);
+const OPS = new Set(['create', 'update', 'delete', 'relate', 'unrelate', 'deprecate']);
 const stagedDir = (home, module) => join(home, module, 'staged');
 const archiveDir = (home, module) => join(stagedDir(home, module), 'archive');
 

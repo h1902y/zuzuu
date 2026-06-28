@@ -100,8 +100,8 @@ export function createZuzuuWriteApi(getRoot: () => string, binary?: string): Hon
     if (!isModule(key)) return c.json({ error: "bad module" }, 400);
     const body = await readBody(c);
     const op = body.op;
-    if (op !== "create" && op !== "update" && op !== "delete" && op !== "relate" && op !== "deprecate")
-      return c.json({ error: "op must be create|update|delete|relate|deprecate" }, 400);
+    if (op !== "create" && op !== "update" && op !== "delete" && op !== "relate" && op !== "unrelate" && op !== "deprecate")
+      return c.json({ error: "op must be create|update|delete|relate|unrelate|deprecate" }, 400);
     const { target, change } = body;
     if ((op === "create" || op === "update") && (typeof target !== "string" || !SAFE_ID.test(target)))
       return c.json({ error: "create/update need a valid target id" }, 400);

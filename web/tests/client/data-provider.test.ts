@@ -54,6 +54,22 @@ describe("DataProvider — server-side list + writes as pending proposals", () =
     expect((await dp.update("knowledge", "demo", { title: "New" })).op).toBe("update");
   });
 
+  it("remove/deprecate/relate/unrelate each resolve to a PENDING staged change (the gate), never a row", async () => {
+    const { zuzuu, stage } = mockZuzuu();
+    const dp = makeDataProvider(zuzuu);
+    // delete/deprecate target a note by id
+    expect((await dp.remove("knowledge", "old")).status).toBe("pending");
+    expect(stage).toHaveBeenCalledWith("knowledge", { op: "delete", target: "old" });
+    expect((await dp.deprecate("knowledge", "old")).op).toBe("deprecate");
+    expect(stage).toHaveBeenCalledWith("knowledge", { op: "deprecate", target: "old" });
+    // relate/unrelate carry the edge in `change` (no target) — the link FieldType's write
+    const edge = { from: "a", type: "related-to", to: "b" };
+    expect((await dp.relate("knowledge", edge)).op).toBe("relate");
+    expect(stage).toHaveBeenCalledWith("knowledge", { op: "relate", change: edge });
+    expect((await dp.unrelate("knowledge", edge)).op).toBe("unrelate");
+    expect(stage).toHaveBeenCalledWith("knowledge", { op: "unrelate", change: edge });
+  });
+
   it("getOne reads a record; getMany filters by ids (no N+1)", async () => {
     const items = [item("a"), item("b"), item("c")];
     const { zuzuu } = mockZuzuu({ items });

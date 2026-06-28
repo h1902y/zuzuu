@@ -42,8 +42,8 @@ function mergeEdit(cur, change) {
   return out;
 }
 
-// the note a change reads/edits: relate edits the `from` note; the rest, the target.
-const lookupId = (staged, change) => staged.op === 'relate' ? change?.from : (staged.target ?? change?.id ?? staged.id);
+// the note a change reads/edits: relate/unrelate edit the `from` note; the rest, the target.
+const lookupId = (staged, change) => (staged.op === 'relate' || staged.op === 'unrelate') ? change?.from : (staged.target ?? change?.id ?? staged.id);
 
 /**
  * PURE: project a staged change onto the current note. `after === null` means the
@@ -72,6 +72,21 @@ export function projectChange(staged, current, edit = null) {
       if (!current) return { target: from, error: `relate: no note '${from}'` };
       const rel = current.relations?.[type];
       return { target: from, after: { ...current, relations: { ...(current.relations ?? {}), [type]: rel ? [...new Set([].concat(rel, to))] : to } } };
+    }
+    case 'unrelate': {
+      // the inverse of relate: prune `to` from relations[type]. Drop the key when it
+      // empties, and drop `relations` entirely when its last edge goes — so a relate
+      // then unrelate round-trips to the original bytes (no orphaned empty block).
+      const { from, type, to } = change;
+      if (!current) return { target: from, error: `unrelate: no note '${from}'` };
+      const rel = current.relations?.[type];
+      const remaining = rel == null ? [] : [].concat(rel).filter((x) => x !== to);
+      const relations = { ...(current.relations ?? {}) };
+      if (remaining.length) relations[type] = remaining.length === 1 ? remaining[0] : remaining; // collapse a singleton back to a scalar (mirror relate's shape)
+      else delete relations[type];
+      const after = { ...current };
+      if (Object.keys(relations).length) after.relations = relations; else delete after.relations;
+      return { target: from, after };
     }
     case 'delete':
       return current ? { target: staged.target, after: null } : { target: staged.target, error: `no note '${staged.target}'` };
@@ -112,8 +127,9 @@ function applyOp(home, op) {
     // field-rewrite can no longer write a note validateNote would reject (Rung 5).
     if (after === null) removeNote(home, op.module, target);
     else { const w = writeNote(home, op.module, target, after); if (!w.ok) return { ok: false, error: w.error }; }
-    const kind = op.op === 'relate' ? 'update' : op.op;
-    logMutation(home, op.module, kind, target, op.log ?? { proposal: op.id, ...(op.op === 'relate' ? { relation: op.change?.type } : {}) });
+    const isRel = op.op === 'relate' || op.op === 'unrelate';
+    const kind = isRel ? 'update' : op.op; // an (un)relate edits the `from` note → logged as an update
+    logMutation(home, op.module, kind, target, op.log ?? { proposal: op.id, ...(isRel ? { relation: op.change?.type } : {}) });
     return { ok: true, op: op.op, note: target };
   } catch (e) {
     return { ok: false, error: e?.message ?? String(e) };

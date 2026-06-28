@@ -180,7 +180,7 @@ export interface RollbackResult {
  *  queue and lands only on approve. The handle the DataProvider returns from a write. */
 export interface StagedChange {
   id: string;
-  op: "create" | "update" | "delete" | "relate" | "deprecate";
+  op: "create" | "update" | "delete" | "relate" | "unrelate" | "deprecate";
   module: string;
   target: string | null;
   status: "pending";
