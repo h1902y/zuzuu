@@ -33,8 +33,8 @@ thing has a home). When a new info-type appears, give it one home and add a row 
 | The vocabulary — load-bearing **terms + relations** (the registry) | **`README.md` § The model** | all | overloaded/code-internal terms (→ learn glossary), user phrasing (→ wiki Glossary) |
 | **Overloaded / code-internal** term disambiguation | **`docs/learn/glossary.md`** | contributors | the core definitions (→ README "The model") |
 | The vocabulary in **plain language** (user view) | **`docs/guide/Glossary.md`** | users | the precise/canonical defs (→ README "The model") |
-| How to **use** it (tasks · per-host · workbench · troubleshooting) | **the wiki** (`docs/guide/`) | users | architecture, rationale |
-| How it **works** — the code map | **`CLAUDE.md`** | agent + contributors | the decisions list (→ Decision Log), the why (→ DESIGN), definitions (→ glossary) |
+| How to **use** it — the guide *pages* (tasks · per-host · workbench · troubleshooting) | **the wiki** (`docs/guide/`) | users | architecture, deep rationale (the Decision/Inspiration logs & Roadmap are their own rows below — also sourced from `docs/guide/`) |
+| How it **works** — the code map | **`CLAUDE.md`** | agent + contributors | decision *rationale/status* (→ Decision Log; keeps only a terse title index), the why (→ DESIGN), definitions (→ glossary) |
 | How it **works** — the educative walk | **`docs/learn/`** (lessons 00–09) | contributors | — |
 | The `src/` layout | **`src/README.md`** | contributors | — |
 | **Why** — hypothesis & strategy | **`docs/DESIGN.md`** | strategy | the decisions list (→ Decision Log), prior art (→ inspiration) |
@@ -44,7 +44,7 @@ thing has a home). When a new info-type appears, give it one home and add a row 
 | **History** — the dated build journal | **`docs/LOG.md`** (append-only) | all | — |
 | **Future** — unshipped designs | **`docs/specs/`** | contributors | — |
 | Future — the user-facing roadmap (index) | **the Roadmap** (`docs/guide/Roadmap.md`) | users | the detailed designs (→ `docs/specs/`) |
-| In-flight **working artifacts** (transient) | **`docs/{brainstorms,ideation,plans}/`** | the author | — (scratch, not canonical reference) |
+| In-flight **working artifacts** (transient) | **`docs/{brainstorms,ideation,plans,design-research}/`** | the author | — (scratch, not canonical reference) |
 
 The wiki is **generated from `docs/guide/`** on merge (see `docs/guide/README.md`) — so
 the Decision/Inspiration/Roadmap "wiki pages" are in-repo, reviewed, and shared by both
@@ -56,8 +56,9 @@ the user (rendered) and contributor (source) audiences. One source, two surfaces
 - `README.md` — front door: the pitch, the loop, "The model" (term relations), and a pointer here.
 - `CLAUDE.md` — the architecture map for the agent (the `src/` structure + conventions).
 - `src/README.md` — the code-layout map.
-- `docs/learn/` — the educative walk: lessons `00`–`09`, `glossary.md` (canonical definitions),
-  `reading-the-code.md`, `the-terminal-mechanically.md`, `README.md` (the book's index).
+- `docs/learn/` — the educative walk: lessons `00`–`09`, `glossary.md` (overloaded/code-internal
+  term disambiguation — the canonical registry is README "The model"), `reading-the-code.md`,
+  `the-terminal-mechanically.md`, `README.md` (the book's index).
 - `docs/DESIGN.md` — strategy & rationale (the *why*).
 - `docs/LOG.md` — the append-only build journal (history).
 - `docs/inspiration/` — the prior-art research shelf (the deep audits).
@@ -75,28 +76,27 @@ the user (rendered) and contributor (source) audiences. One source, two surfaces
 - `docs/plans/` — execution plans (ce-plan). **Gitignored** (local-only).
 - `docs/design-research/` — the workbench redesign briefs (a specific research effort).
 
-## MECE consolidation plan (the violations to fix — execute next)
+## How this map was reached (the consolidations applied)
 
-This map is the *target*; the restructure pass that aligns the files to it:
+The docs had grown the same info-type into 3 places. The restructure that produced the homes
+above — done in the same change as this map (so the table reflects reality, not a plan):
 
-1. **Glossary 3 → distinct roles.** The canonical term registry stays **README "The model"**
-   (the front-door nomenclature, unchanged). `docs/learn/glossary.md` is scoped to *overloaded /
+1. **Glossary 3 → distinct roles.** The canonical term registry stays **README "The model"** (the
+   front-door nomenclature, unchanged). `docs/learn/glossary.md` was scoped to *overloaded /
    code-internal* terms — it disambiguates and links to the registry, never redefining a core term.
-   The wiki `Glossary.md` becomes a plain-language *view* that links to the registry for the precise
-   version. Registry / disambiguator / plain-view — three distinct purposes, zero duplicated definitions.
-2. **Decisions 3 → 1.** The Decision Log is canonical. `CLAUDE.md` "Key fixed decisions" and
-   `DESIGN.md`'s decision lists become a one-line pointer ("the committed decisions live in the
-   Decision Log"). Rationale prose stays in DESIGN; the *list* lives once.
-3. **Prior art 3 → 1 (+index).** `docs/inspiration/` is the canonical deep shelf; the Inspiration
-   Log is its readable index; `DESIGN.md`'s prior-art section points to `docs/inspiration/`.
-4. **Roadmap / future.** The wiki Roadmap is the user-facing index; each item links to its
-   `docs/specs/` design. No design detail duplicated in the Roadmap.
-5. **Architecture overlap.** `CLAUDE.md` = the map, `docs/learn/` = the walk, `README.md` = the
-   planes. `DESIGN.md`'s v1 architecture sections (already marked superseded) are trimmed to the
-   *why*, pointing to CLAUDE/learn for the *how*.
-6. **Working folders.** Group `brainstorms/ · ideation/ · plans/` as clearly-transient artifacts
-   (this map names them as such); fold `design-research/` into `docs/inspiration/` or keep it as a
-   dated research effort — decide at execution.
+   The wiki `Glossary.md` is a plain-language *view* that links to the registry. Registry / disambiguator
+   / plain-view — three distinct purposes, zero duplicated definitions.
+2. **Decisions 3 → 1.** The Decision Log is canonical (the committed-decisions list with rationale +
+   status). `CLAUDE.md` keeps a terse **title index** (titles only, no rationale/status) + a pointer;
+   `DESIGN.md` points to it. The *list with rationale* lives once.
+3. **Prior art 3 → 1 (+index).** `docs/inspiration/` is the canonical deep shelf; the Inspiration Log
+   is its readable index; `DESIGN.md`'s §11 points there and keeps only its strategic synthesis.
+4. **Roadmap / future.** The wiki Roadmap is the user-facing index; items with a `docs/specs/` design
+   link to it. No design detail duplicated in the Roadmap.
+5. **Architecture overlap.** `CLAUDE.md` = the map, `docs/learn/` = the walk, `README.md` = the planes;
+   `DESIGN.md`'s v1 architecture sections point to CLAUDE/learn via its top banner (the *why* stays).
+6. **Working folders.** `brainstorms/ · ideation/ · plans/ · design-research/` are named here as
+   transient working artifacts — `design-research/` is kept as a dated research effort (not folded).
 
 ## Adding a doc — keep it MECE
 

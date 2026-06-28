@@ -463,7 +463,8 @@ How zuzuu is packaged & sold is *strategy*, not core ontology — the full model
 | [`docs/README.md`](docs/README.md) | the **doc-map** — where every kind of doc lives (read first to find or place one) |
 | [`docs/learn/`](docs/learn/) | the educative book — read in order; lessons 02–09 walk the v2 code file-by-file |
 | [`docs/LOG.md`](docs/LOG.md) | the build journal (append-only — what shipped, verified) |
-| [`docs/DESIGN.md`](docs/DESIGN.md) | strategy & rationale (the *why*: hypothesis, decisions, prior art) |
+| [`docs/DESIGN.md`](docs/DESIGN.md) | strategy & rationale (the *why*: hypothesis, be/run/evolve) — the decisions *list* lives in the [Decision Log](docs/guide/Decision-Log.md), prior art in [`docs/inspiration/`](docs/inspiration/) |
+| [`docs/README.md`](docs/README.md) | the **docs map** — where every kind of info lives (read this to find your way around) |
 | [`docs/design-research/`](docs/design-research/) | workbench design research (the [`workbench/`](docs/design-research/workbench/) set drives the next phase) |
 | [`docs/specs/`](docs/specs/) | live specs — designs for work *not yet shipped* (shipped specs are retired into `LOG.md`) |
 | [`docs/inspiration/`](docs/inspiration/) | the research shelf — prior-art audits & syntheses |

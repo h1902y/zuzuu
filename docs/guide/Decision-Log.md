@@ -100,7 +100,7 @@ Several variants exist (zuzuu-as-gateway, Zen-reseller, internal-LLM-ops credits
 Status: **flagged, undecided, unbuilt.**
 
 **Product-experience build order — six workstreams in dependency order; `zuzuu-web` becomes the one workbench.**
-Decided 2026-06-12: the experience ships in order — home/onboarding → workbench → module-health UX → marketplace templates → tasks module → benchmark — and there is no separate web surface (`zuzuu-web` evolves *into* the workbench). The deeper rationale is [DESIGN §13](https://github.com/h1902y/zuzuu/blob/main/docs/DESIGN.md).
+Decided 2026-06-12: the experience ships in order — home/onboarding → workbench → module-health UX → marketplace templates → tasks module → benchmark — and there is no separate web surface (`zuzuu-web` evolves *into* the workbench). The deeper rationale is [DESIGN §13](https://github.com/h1902y/zuzuu/blob/main/docs/DESIGN.md#13-product-experience--roadmap--the-six-workstreams-added-2026-06-12).
 Status: **partially shipped** (onboarding + the workbench are built; the later workstreams are ahead).
 
 ---
