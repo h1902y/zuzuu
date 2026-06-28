@@ -28,7 +28,7 @@ Session = branch, generation = content-addressed snapshot, rollback = restore. N
 Status: **shipped**.
 
 **One package, one repo for the workbench.**
-The workbench ships *inside* `@zuzuucodes/cli` as `web-app/` (staged at publish), not as a separate published package. `npm i -g @zuzuucodes/cli` is the whole product — CLI + workbench, one install, one version, one OIDC pipeline. There is no `@zuzuucodes/web` npm package.
+The workbench ships *inside* `@zuzuucodes/cli` as `web-app/` (staged at publish), not as a separate published package. `npm i -g @zuzuucodes/cli` is the whole product — CLI + workbench, one install, one version, one OIDC pipeline. There is no *separately published* `@zuzuucodes/web` package — the workbench source folds into one internal package of that name (`"private": true`, never published), staged into the CLI as `web-app/`.
 Status: **shipped** (decided 2026-06-12).
 
 ---

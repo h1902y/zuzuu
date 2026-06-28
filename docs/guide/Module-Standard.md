@@ -23,16 +23,16 @@ allows deletes under a path like `/tmp/x`.
 | level | what it is | on disk |
 |---|---|---|
 | **note** | the atom — one fact, optionally runnable | `<module>/items/<id>.md` |
-| **module** | a goal-shaped collection of notes | `<module>/module.md` (the manifest) + `items/` + `proposals/` |
+| **module** | a goal-shaped collection of notes | `<module>/module.md` (the manifest) + `items/` (notes) + `staged/` (pending changes) |
 | **project** | the home for one repo | `.zuzuu/` (git-citizen, at the repo root) |
 
-A **module is generic** — it differs from another only by its `module.md` manifest, which declares `zu_type`/`note_type`, an `enhance.goal`, and which **capabilities** it exposes. There is no per-module code: adding a module is dropping a `module.md` in.
+A **module is generic** — it differs from another only by its `module.md` manifest, which declares its `note_type`, a `goal`, and which **capabilities** it exposes. There is no per-module code: adding a module is dropping a `module.md` in.
 
 A **runnable note** carries a `run` (and an optional `policy` with a `run.allow` allowlist) — that's how `zz act` executes a curated procedure. See [[Knowledge]] and [[Guardrails]] for typed examples.
 
 ## A module is a table (optional schema)
 
-Think of a module as a **table** and each note as a **row**. A module's `module.md` can declare a typed-column **schema** — a `fields` block naming each column and its type (`text`, `number`, `date`, `select` with a fixed option list, `link`, …) and whether it's required:
+Think of a module as a **table** and each note as a **row**. A module's `module.md` can declare a typed-column **schema** — a `fields` block naming each column and its type (one of the eight: `text`, `longtext`, `select` with a fixed option list, `multi`, `link`, `date`, `number`, `bool`) and whether it's required:
 
 ```yaml
 fields:

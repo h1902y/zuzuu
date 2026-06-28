@@ -51,9 +51,9 @@ zz act actions <id>              # run the procedure it just learned
 Other verbs: `zz query <module> [text]` (FTS + graph) · `zz check` (broken links · orphans · stale) · `zz observe` (mine real sessions → proposals) · `zz digest` (the session-start brief) · `zz session` (every session is a git branch) · `zz gen list <m>` / `zz gen rollback <m> <n>` (a module's generation lineage).
 
 ## Where your data lives
-- `.zuzuu/<module>/items/<id>.md` — your notes, plain text, tracked in git.
-- `.zuzuu/sessions.json` — a small **tracked** index; each session linked to the git commit it ran at.
-- `.zuzuu/.live/` — transient session state, **git-ignored**.
+- `.zuzuu/<module>/items/<id>.md` — your notes, plain text, **tracked** in git.
+- `.zuzuu/<module>/staged/` — pending changes awaiting `zz review`; `generations.json` + `log.jsonl` — each module's tracked lineage + mutation journal.
+- A **session is a git branch** (`zz/session-*`) — the branch *is* the record, so there's no session index file. Transient session + gate state lives **outside** the repo, in your XDG cache/state dirs; the only git-ignored entries in `.zuzuu/` are `worktrees/` and each module's `runs.jsonl`.
 - Nothing leaves your machine; transcripts are read **read-only**.
 
 ## Verify
