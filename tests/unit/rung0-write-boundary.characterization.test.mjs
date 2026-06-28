@@ -312,11 +312,30 @@ test('gate: a shell REDIRECT into .zuzuu/ is denied by rule `protect-brain-shell
   assert.equal(decide(home, 'Bash', { command: 'echo x | tee .zuzuu/knowledge/items/x.md' })?.rule, 'protect-brain-shell');
 }));
 
-test('CHARACTERIZATION (the gap a later rung closes): non-redirect shell writes into .zuzuu/ are NOT denied', () => withInit((root, home) => {
-  // The shell guard only matches >, >>, tee, sed -i. A copy/move into the brain — or
-  // any `zz` command — defers (null). `zz` deferring is intended; cp/mv slipping
-  // through is the HOLE. Pinned so closing it is a conscious, test-breaking change.
-  assert.equal(decide(home, 'Bash', { command: 'zz stage knowledge --op create --target foo' }), null, 'a zz command defers (intended)');
-  assert.equal(decide(home, 'Bash', { command: 'cp /etc/hosts .zuzuu/knowledge/items/x.md' }), null, 'GAP: cp into the brain is not caught');
-  assert.equal(decide(home, 'Bash', { command: 'mv foo.md .zuzuu/knowledge/items/x.md' }), null, 'GAP: mv into the brain is not caught');
+test('UPDATED (Rung 9 — the GAP is now CLOSED, deliberately): cp/mv into .zuzuu/ are DENIED', () => withInit((root, home) => {
+  // Rung 0 PINNED that the shell guard only caught >, >>, tee, sed -i — a copy/move into
+  // the brain slipped through (the HOLE). Rung 9 closes it: protect-brain-shell now denies a
+  // `cp`/`mv` whose DESTINATION is under .zuzuu/. The agent's SANCTIONED `zz stage` channel
+  // (a proposal, not a write) still defers — that's the one path left open by design.
+  assert.equal(decide(home, 'Bash', { command: 'zz stage knowledge --op create --target foo' }), null, 'a zz stage proposal still defers (the sanctioned channel)');
+  assert.equal(decide(home, 'Bash', { command: 'cp /etc/hosts .zuzuu/knowledge/items/x.md' })?.action, 'deny', 'CLOSED: cp into the brain is denied');
+  assert.equal(decide(home, 'Bash', { command: 'mv foo.md .zuzuu/knowledge/items/x.md' })?.action, 'deny', 'CLOSED: mv into the brain is denied');
+  // …but a read-OUT copy (the brain is the SOURCE) stays allowed — reads are never gated.
+  assert.equal(decide(home, 'Bash', { command: 'cp .zuzuu/knowledge/items/x.md /tmp/y' }), null, 'cp OUT of the brain (a read) is allowed');
+}));
+
+test('UPDATED (Rung 9): shelling a `zz` WRITE verb is DENIED by protect-brain-exec; reads/stage defer', () => withInit((root, home) => {
+  // The Bash-bypass hole: `zz <writeverb>` spawns a fresh operator process the in-process
+  // moat can't tell from a human's. The execution gate now denies it (pattern generated from
+  // the command table). Read verbs + the sanctioned stage/observe channels stay allowed.
+  for (const cmd of [
+    'zz note set rule action allow',
+    'zuzuu review approve instructions foo',
+    'node /path/bin/zuzuu.mjs rollback knowledge 1',
+    'zz gen mint knowledge',
+    'zz module add-column knowledge col text',
+  ]) assert.equal(decide(home, 'Bash', { command: cmd })?.rule, 'protect-brain-exec', `denied: ${cmd}`);
+  for (const cmd of ['zz observe', 'zz query knowledge x', 'zz review knowledge', 'zz note view knowledge x', 'zz gen list knowledge']) {
+    assert.equal(decide(home, 'Bash', { command: cmd }), null, `allowed: ${cmd}`);
+  }
 }));

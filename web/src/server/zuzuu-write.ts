@@ -130,7 +130,9 @@ export function createZuzuuWriteApi(getRoot: () => string, binary?: string): Hon
         (!Array.isArray(from) || from.length > 200 || !from.every((f) => typeof f === "string" && SAFE_ID.test(f))))
       return c.json({ error: "bad from ids" }, 400);
     const fromIds = (from as string[] | undefined) ?? [];
-    return mutate(c, ["module", key, "generation", "mint", ...(fromIds.length ? ["--from", fromIds.join(",")] : [])]);
+    // the real CLI verb is `zz gen mint <key> [--from a,b]` (the old `module <key>
+    // generation mint` shape never existed — that was the live daemon bug Rung 9 fixes).
+    return mutate(c, ["gen", "mint", key, ...(fromIds.length ? ["--from", fromIds.join(",")] : [])]);
   });
 
   // Per-module rollback (restore ONE module's bytes + active to a past gen).

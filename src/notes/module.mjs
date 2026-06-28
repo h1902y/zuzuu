@@ -28,7 +28,7 @@ const UNIVERSAL = ['query', 'check', 'view', 'flow', 'validate'];
  * @returns {{ id, title, note_type, goal, policy, capabilities, fields }}
  */
 export function readManifest(home, module) {
-  const fallback = { id: module, title: module, note_type: null, goal: null, policy: null, capabilities: UNIVERSAL.slice(), fields: [] };
+  const fallback = { id: module, title: module, note_type: null, goal: null, policy: null, capabilities: UNIVERSAL.slice(), fields: [], enabled: true };
   // truly fail-soft: an unsafe/empty module segment (e.g. the project-wide `''` that
   // `validate` passes through `invoke`) has no manifest — yield the universal fallback
   // rather than throwing out of seg(). Reads nothing, so there's no path-escape risk.
@@ -48,6 +48,9 @@ export function readManifest(home, module) {
     // the optional typed-column schema (KTD5): absent ⇒ [] (schemaless cards);
     // present ⇒ a typed table. Tolerant — the parser holds it round-trip-exact.
     fields: Array.isArray(note.fields) ? note.fields : [],
+    // the enabled flag (default true): `zz module disable <m>` sets `enabled:false`;
+    // enabling drops the key. Surfaced so the dashboard can grey a disabled module.
+    enabled: note.enabled !== false,
   };
 }
 

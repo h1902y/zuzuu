@@ -3,7 +3,8 @@
 // write-protection and reconcile its provenance, then report what still needs review.
 //
 // what: for each project path (default: cwd) — (1) re-run init (idempotent + additive)
-//       so the protect-brain rules + the propose-never-write instruction land and every
+//       so the protect-brain rules (writes · shell · the Rung-9 exec guard that denies
+//       shelling `zz` WRITE verbs) + the propose-never-write instruction land and every
 //       seed gets back-filled provenance; (2) run check and report the `ungated` notes
 //       (added outside the gate) so you can re-gate them.
 // why:  Projects created before the .zuzuu/ write-protection (and before seed-provenance
@@ -19,7 +20,7 @@ import { initHome } from '../src/cli/init.mjs';
 import { check } from '../src/use/check.mjs';
 import { repoRoot } from '../src/notes/store.mjs';
 
-const PROTECT = ['protect-brain-writes', 'protect-brain-shell', 'propose-never-write'];
+const PROTECT = ['protect-brain-writes', 'protect-brain-shell', 'protect-brain-exec', 'propose-never-write'];
 const tail = (label) => String(label).split('/').pop();
 
 function reconcile(cwd) {

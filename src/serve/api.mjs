@@ -23,6 +23,8 @@ import { patchNote, appendNote } from '../grow/edit.mjs';
 import { generations, diffGenerations, notesAsOf } from '../notes/generation.mjs';
 import { rollback } from '../grow/commit.mjs';
 import { addColumn, alterColumn, dropColumn } from '../grow/schema.mjs';
+import { createModuleManifest, setModuleEnabled } from '../notes/module-templates.mjs';
+import { mint } from '../notes/generation.mjs';
 import { timeline } from './timeline.mjs';
 import { existsSync } from 'node:fs';
 import { readProjectRefs, readLibraryModules, registryIdentity, mintRegistry, newIdentity, addProject, syncRegistry, ensureLocalRegistry } from '../notes/registry.mjs';
@@ -67,6 +69,15 @@ export function open(cwd = process.cwd(), { actor = 'operator' } = {}) {
     addColumn: (module, name, type, opts) => addColumn(home, module, name, type, opts),
     alterColumn: (module, name, opts) => alterColumn(home, module, name, opts),
     dropColumn: (module, name) => dropColumn(home, module, name),
+
+    // ── module lifecycle: create a manifest · toggle enabled (operator-gated, like a
+    //    manifest write — the gate itself; never routes through commit()). These back the
+    //    workbench's guided module creation + the dashboard's enable/disable toggle. ──
+    moduleNew: (id, opts) => createModuleManifest(home, id, opts),
+    moduleSetEnabled: (id, enabled) => setModuleEnabled(home, id, enabled),
+    // mint a generation for ONE module (freeze its current items). The daemon's
+    // per-module mint shells this; rollback is the inverse (`rollback` above).
+    mintGeneration: (module, opts = {}) => mint(home, module, opts),
 
     // ── the read/run verbs (all dispatched through the one registry; actor in ctx) ──
     query: (module, opts = {}) => invoke(home, module, 'query', { actor }, opts),

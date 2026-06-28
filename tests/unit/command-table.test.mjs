@@ -12,7 +12,7 @@ import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readdirSync, readFileSyn
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { run } from '../../src/cli/index.mjs';
-import { COMMANDS, helpText } from '../../src/cli/commands.mjs';
+import { COMMANDS, helpText, writeVerbPaths, gateWriteVerbPattern } from '../../src/cli/commands.mjs';
 import { initHome } from '../../src/cli/init.mjs';
 import { serialize } from '../../src/notes/note.mjs';
 import { ensureModuleManifest } from '../../src/notes/module-templates.mjs';
@@ -278,6 +278,47 @@ test('daemon-shelled verbs keep clean single-line JSON on stdout (deprecations �
       assert.equal(warn.length, expectWarn, `${argv.join(' ')} → ${expectWarn} stderr deprecation(s)`);
     }
   });
+});
+
+// ── 5. the execution-gate deny set is GENERATED FROM THE TABLE (Rung 9) ──────────
+// The same table that drives the router drives the guardrails exec gate, so the moat's
+// "agent can't shell `zz <writeverb>`" invariant can't drift. These pin the generation
+// rule: every durable-mutation row (write|admin, non-agent-invokable, not a namespace
+// root) + its aliases is covered; the sanctioned channels are NOT.
+
+const WRITE_PERMS = new Set(['write', 'admin']);
+const isNamespaceRoot = (row) =>
+  row.path.length === 1 && COMMANDS.some((o) => !o.alias && o !== row && o.path.length > 1 && o.path[0] === row.path[0]);
+
+test('the gate pattern covers EVERY write/admin durable-mutation row + its aliases (no silent escape)', () => {
+  const re = new RegExp(gateWriteVerbPattern(), 'i');
+  const mustDeny = COMMANDS.filter((c) =>
+    !c.alias && WRITE_PERMS.has(c.permission) && c.agentInvokable === false && !isNamespaceRoot(c));
+  assert.ok(mustDeny.length >= 12, 'a representative set of write rows exists');
+  for (const c of mustDeny) {
+    assert.ok(re.test(`zz ${c.path.join(' ')} x y`), `gate denies 'zz ${c.path.join(' ')}'`);
+  }
+  // every back-compat alias pointing at a denied path is covered too
+  const denied = new Set(mustDeny.map((c) => c.path.join(' ')));
+  for (const c of COMMANDS) {
+    if (c.alias && denied.has(c.alias.join(' '))) assert.ok(re.test(`zz ${c.path.join(' ')} x y`), `gate denies alias 'zz ${c.path.join(' ')}'`);
+  }
+  // the gate-WRITE subcommands a `gate` row declares (review approve|apply)
+  for (const c of COMMANDS.filter((c) => c.writeSubcommands)) {
+    for (const sub of c.writeSubcommands) assert.ok(re.test(`zz ${c.path.join(' ')} ${sub} m id`), `gate denies 'zz ${c.path.join(' ')} ${sub}'`);
+  }
+});
+
+test('the deny set EXCLUDES the agent-sanctioned channels and read/list verbs', () => {
+  const re = new RegExp(gateWriteVerbPattern(), 'i');
+  // stage/observe are write-PERMISSION but agent-invokable (a proposal / a mine) → allowed
+  for (const cmd of ['zz stage knowledge --op create --target x', 'zz observe', 'zz query knowledge x', 'zz check', 'zz review knowledge', 'zz note view knowledge x', 'zz gen list knowledge', 'zz module items knowledge', 'zz session status']) {
+    assert.equal(re.test(cmd), false, `'${cmd}' is NOT denied`);
+  }
+  // and the deny PATHS never include stage/observe
+  const paths = writeVerbPaths().map((p) => p.join(' '));
+  assert.ok(!paths.includes('stage') && !paths.includes('observe'), 'stage/observe are never in the deny set');
+  assert.ok(paths.includes('note set') && paths.includes('review approve') && paths.includes('gen mint'), 'the durable writes ARE in the deny set');
 });
 
 test('stage rescans raw argv for repeated --field k=v (the quirk survives)', async () => {

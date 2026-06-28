@@ -11,9 +11,9 @@
 //       SHIPPING them prebuilt.
 // how:  pure data + a fail-soft, idempotent mint. Zero-dep.
 
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
-import { dirname } from 'node:path';
-import { serialize } from './note.mjs';
+import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { parse, serialize } from './note.mjs';
 import { manifestPath } from './store.mjs';
 
 // The rule gate-verb options — the closed set a `select` column validates against (the
@@ -90,4 +90,48 @@ export function ensureModuleManifest(home, id) {
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, manifestFor(id));
   return true;
+}
+
+/**
+ * Create a NEW module manifest with operator-supplied metadata (the workbench's
+ * guided creation, WS-D). Refuses if the module already exists (additive, never
+ * clobbers). Builds on `templateFor` defaults, overlaying the provided title /
+ * tagline (→ `goal`) / capabilities / kinds (→ `note_type`) / required (→ a `fields`
+ * schema of required text columns). Operator-gated at the boundary — a manifest write
+ * IS the gate (like `zz init` / a rollback), so it does NOT route through `commit()`.
+ * @returns {{ ok, id?, module?, error? }}
+ */
+export function createModuleManifest(home, id, opts = {}) {
+  const path = manifestPath(home, id);
+  if (existsSync(path)) return { ok: false, error: `module '${id}' already exists` };
+  const base = templateFor(id); // sensible defaults (a standard kind, or the generic fallback)
+  const env = {
+    id, type: 'module',
+    title: opts.title || base.title,
+    note_type: (Array.isArray(opts.kinds) && opts.kinds[0]) || base.note_type,
+    capabilities: (Array.isArray(opts.capabilities) && opts.capabilities.length) ? opts.capabilities : base.capabilities,
+    goal: opts.tagline || base.goal,
+  };
+  if (Array.isArray(opts.required) && opts.required.length) {
+    env.fields = opts.required.map((name) => ({ name, type: 'text', required: true }));
+  }
+  mkdirSync(join(dirname(path), 'items'), { recursive: true }); // the module dir + its items/
+  writeFileSync(path, serialize(env));
+  return { ok: true, id, module: id };
+}
+
+/**
+ * Toggle a module's `enabled` flag in its manifest. `enabled` is the DEFAULT (true),
+ * so enabling DROPS the key (the clean round-trip) and disabling sets `enabled:false`.
+ * Operator-gated (a manifest write). @returns {{ ok, id?, enabled?, error? }}
+ */
+export function setModuleEnabled(home, id, enabled) {
+  const path = manifestPath(home, id);
+  if (!existsSync(path)) return { ok: false, error: `no module '${id}' (its module.md is absent)` };
+  const { note } = parse(readFileSync(path, 'utf8'), { id });
+  if (!note) return { ok: false, error: `unparseable module.md for '${id}'` };
+  const next = { ...note };
+  if (enabled) delete next.enabled; else next.enabled = false;
+  writeFileSync(path, serialize(next));
+  return { ok: true, id, enabled: !!enabled };
 }

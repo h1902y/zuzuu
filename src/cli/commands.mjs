@@ -134,6 +134,37 @@ function genRollback({ args, cwd, log, json }) {
   emit(log, json, { module: m, rolledTo: Number(n), ok: true }, ['rollback', [{ module: m, generation: n }], ['module', 'generation']]);
   return 0;
 }
+function genMint({ args, cwd, log, json }) {
+  const m = args._[0];
+  if (!m) return fail(log, 'usage: zz gen mint <module> [--from id,id]', json);
+  const mintedFrom = args.from && args.from !== true ? String(args.from).split(',').map((s) => s.trim()).filter(Boolean) : [];
+  const g = open(cwd).mintGeneration(m, { mintedFrom });
+  emit(log, json, { id: String(g.n), module: m, mintedFrom: g.mintedFrom ?? mintedFrom },
+    ['mint', [{ module: m, generation: g.n }], ['module', 'generation']]);
+  return 0;
+}
+// `module new <id>` / `module enable|disable <id>` — the module-lifecycle writes (manifest
+// create + the enabled toggle). Operator-gated like the schema alter-table ops above.
+function moduleNew({ args, cwd, log, json }) {
+  const id = args._[0];
+  if (!id) return fail(log, 'usage: zz module new <id> [--title t --tagline t --capabilities a,b --kinds k --required a,b]', json);
+  const list = (v) => (v && v !== true ? String(v).split(',').map((s) => s.trim()).filter(Boolean) : []);
+  const str = (v) => (v && v !== true ? String(v) : '');
+  const r = open(cwd).moduleNew(id, { title: str(args.title), tagline: str(args.tagline), capabilities: list(args.capabilities), kinds: list(args.kinds), required: list(args.required) });
+  if (!r.ok) return fail(log, r.error, json);
+  emit(log, json, { ok: true, id: r.id }, ['module', [{ id: r.id }], ['id']]);
+  return 0;
+}
+function moduleToggle(enabled) {
+  return ({ args, cwd, log, json }) => {
+    const id = args._[0];
+    if (!id) return fail(log, `usage: zz module ${enabled ? 'enable' : 'disable'} <id>`, json);
+    const r = open(cwd).moduleSetEnabled(id, enabled);
+    if (!r.ok) return fail(log, r.error, json);
+    emit(log, json, { ok: true, id, enabled }, ['module', [{ id, enabled }], ['id', 'enabled']]);
+    return 0;
+  };
+}
 
 // ── the table ──────────────────────────────────────────────────────────────────
 // `plane` folds the FLAT (Tier-1) help; a multi-element `path` renders under its
@@ -338,6 +369,21 @@ export const COMMANDS = [
     },
   },
 
+  // ── module: create + enable/disable (the lifecycle writes the workbench shells) ──
+  {
+    path: ['module', 'new'], plane: 'data', json: true, permission: 'admin', agentInvokable: false,
+    usage: 'module new <id> [--title t --tagline t --capabilities a,b --kinds k --required a,b]',
+    summary: 'create a new module manifest', handler: moduleNew,
+  },
+  {
+    path: ['module', 'enable'], plane: 'data', json: true, permission: 'admin', agentInvokable: false,
+    usage: 'module enable <id>', summary: "set a module's enabled flag on", handler: moduleToggle(true),
+  },
+  {
+    path: ['module', 'disable'], plane: 'data', json: true, permission: 'admin', agentInvokable: false,
+    usage: 'module disable <id>', summary: "set a module's enabled flag off", handler: moduleToggle(false),
+  },
+
   // ── note: edit notes (gated writes) — the Tier-2 `note …` namespace ──
   {
     path: ['note', 'view'], plane: 'data', json: false, permission: 'read', agentInvokable: true,
@@ -473,6 +519,10 @@ export const COMMANDS = [
   },
   {
     path: ['review'], plane: 'evolution', json: true, permission: 'gate', agentInvokable: false,
+    // `review` is ONE row: the bare form lists/reads (allowed), but `approve`/`apply` LAND
+    // changes — the execution gate denies those two subcommands to the agent. Declared here
+    // so the deny set stays table-driven (writeVerbPaths reads `writeSubcommands`).
+    writeSubcommands: ['approve', 'apply'],
     usage: 'review [module | plan <m> | apply <m> | approve <m> <id> | reject <m> <id>]',
     summary: 'THE human gate — list · preview · apply staged changes',
     handler: ({ args, cwd, log, json }) => {
@@ -535,6 +585,11 @@ export const COMMANDS = [
     path: ['gen', 'rollback'], plane: 'evolution', json: true, permission: 'admin', agentInvokable: false,
     usage: 'gen rollback <m> <n>', summary: 'roll a module back to generation n (pointer-flip)',
     handler: genRollback,
+  },
+  {
+    path: ['gen', 'mint'], plane: 'evolution', json: true, permission: 'admin', agentInvokable: false,
+    usage: 'gen mint <m> [--from id,id]', summary: "freeze a module's current items into a new generation",
+    handler: genMint,
   },
 
   // ── inspection: integrity · health · porcelain ──
@@ -738,6 +793,57 @@ export const COMMANDS = [
     [['subscribe'], ['registry', 'subscribe']],
   ].map(([path, alias]) => ({ path, alias })),
 ];
+
+// ── the moat's execution-gate deny set — GENERATED FROM THE TABLE ────────────────
+// The same table that drives the router AND help also drives the guardrails gate, so the
+// "agent can't shell `zz <writeverb>` to mutate its own brain" invariant CANNOT drift: add
+// a write verb to the table and it's denied automatically; no second list to keep in sync.
+//
+// A verb is DENIED when it DURABLY mutates the Project's notes/manifests — `permission ∈
+// {write, admin}` AND NOT `agentInvokable` (so the agent's SANCTIONED channels, `stage`
+// (a proposal) and `observe` (a mine), which are write-permission but agent-invokable, stay
+// ALLOWED). A bare NAMESPACE-ROOT row (`session`/`registry`, whose subcommands carry their
+// own permission and include reads like `session status`) is excluded — only its write
+// LEAVES (`session land`, `registry subscribe`, …) are denied. Plus the gate-WRITE
+// subcommands a `gate` row declares (`review approve|apply`), and every back-compat alias
+// pointing at a denied canonical path.
+
+const WRITE_PERMS = new Set(['write', 'admin']);
+
+/** The verb paths the execution gate denies the agent from shelling, as arrays of path
+ *  segments (canonical paths + gate-write subcommands + their aliases). Derived purely
+ *  from COMMANDS — the single source of truth the gate pattern is built from. */
+export function writeVerbPaths() {
+  const canon = COMMANDS.filter((c) => !c.alias);
+  const isNamespaceRoot = (row) =>
+    row.path.length === 1 && canon.some((o) => o !== row && o.path.length > 1 && o.path[0] === row.path[0]);
+  // 1. the durable-mutation canonical paths (write/admin, not agent-invokable, not a root)
+  const paths = canon
+    .filter((c) => WRITE_PERMS.has(c.permission) && c.agentInvokable === false && !isNamespaceRoot(c))
+    .map((c) => c.path.slice());
+  // 2. gate-WRITE subcommands a `gate` row declares (review approve|apply)
+  for (const c of canon) for (const sub of c.writeSubcommands ?? []) paths.push([...c.path, sub]);
+  // 3. every back-compat alias that points at one of the denied canonical paths
+  const denied = new Set(paths.map((p) => p.join(' ')));
+  for (const c of COMMANDS) if (c.alias && denied.has(c.alias.join(' '))) paths.push(c.path.slice());
+  return paths;
+}
+
+/** The seeded execution-gate pattern (the string the `protect-brain-exec` rule note carries):
+ *  DENY a Bash command that invokes the zz CLI (`zz` / `zuzuu` / `node …/bin/zuzuu.mjs`) with a
+ *  WRITE verb. The verb is anchored right after the binary (zz has no pre-verb global flags); a
+ *  `gen` write (rollback · mint) also matches its bare leaf and the deprecated `module <m> <leaf>`
+ *  form — the muscle-memory + daemon shapes — so they can't slip the gate either. */
+export function gateWriteVerbPattern() {
+  const phrases = new Set();
+  for (const p of writeVerbPaths()) {
+    phrases.add(p.join('\\s+')); // `note set` → note\s+set (segments are [a-z-] verbs — regex-safe literally)
+    if (p[0] === 'gen' && p.length === 2) phrases.add(`(?:module\\s+\\S+\\s+)?${p[1]}`); // gen leaf, bare + `module <m> <leaf>`
+  }
+  // longest phrase first (a benign ordering habit — alternatives are distinct verbs anyway)
+  const alt = [...phrases].sort((a, b) => b.length - a.length).join('|');
+  return `(?:\\bzz|\\bzuzuu(?:\\.mjs)?)\\s+(?:${alt})\\b`;
+}
 
 // ── help: fold the table by plane (Tier-1) then by namespace (Tier-2) ────────────
 // The single rendering of the table — every NON-ALIAS row appears exactly once, so

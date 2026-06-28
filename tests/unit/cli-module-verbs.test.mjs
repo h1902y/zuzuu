@@ -11,6 +11,7 @@ import { run } from '../../src/cli/index.mjs';
 import { initHome } from '../../src/cli/init.mjs';
 import { serialize } from '../../src/notes/note.mjs';
 import { ensureModuleManifest } from '../../src/notes/module-templates.mjs';
+import { readManifest } from '../../src/notes/module.mjs';
 import { stageChange } from '../../src/grow/stage.mjs';
 import { resetCapabilities } from '../../src/serve/wire.mjs';
 
@@ -149,6 +150,53 @@ test('module schema <key> --json → {key, fields:[]} (schemaless until U10)', a
     out.length = 0;
     assert.equal(await run(['module', 'schema', 'knowledge', '--json'], io), 0);
     assert.deepEqual(JSON.parse(out[0]), { key: 'knowledge', fields: [] });
+  });
+});
+
+// ── Rung 9: the module-lifecycle writes the daemon shells (module new/enable/disable,
+//    gen mint) — previously NONEXISTENT verbs (the live daemon-write bug). ────────────
+
+test('module new <id> materializes a manifest that then LISTS (the daemon-shelled creation)', async () => {
+  await withRepo(async ({ home, io, out }) => {
+    initHome(io.cwd);
+    out.length = 0;
+    assert.equal(await run(['module', 'new', 'recipes', '--title', 'Recipes', '--tagline', 'cook things', '--capabilities', 'query,check', '--kinds', 'note', '--required', 'body', '--json'], io), 0);
+    assert.deepEqual(JSON.parse(out[0]), { ok: true, id: 'recipes' });
+    // it now appears in `module list`
+    out.length = 0;
+    await run(['module', 'list', '--json'], io);
+    assert.ok(JSON.parse(out[0]).some((r) => r.id === 'recipes'), 'the new module lists');
+    // a second create refuses (additive, never clobbers)
+    out.length = 0;
+    assert.equal(await run(['module', 'new', 'recipes', '--json'], io), 1);
+    assert.match(JSON.parse(out[0]).error, /already exists/);
+  });
+});
+
+test('module enable/disable toggles the manifest enabled flag (round-trips)', async () => {
+  await withRepo(async ({ home, io, out }) => {
+    initHome(io.cwd);
+    await run(['module', 'new', 'recipes', '--json'], io);
+    out.length = 0;
+    assert.equal(await run(['module', 'disable', 'recipes', '--json'], io), 0);
+    assert.deepEqual(JSON.parse(out[0]), { ok: true, id: 'recipes', enabled: false });
+    assert.equal(readManifest(home, 'recipes').enabled, false, 'disabled persisted');
+    out.length = 0;
+    assert.equal(await run(['module', 'enable', 'recipes', '--json'], io), 0);
+    assert.equal(readManifest(home, 'recipes').enabled, true, 'enabled again (key dropped)');
+  });
+});
+
+test('gen mint <m> mints a generation (the per-module freeze the daemon shells)', async () => {
+  await withRepo(async ({ home, io, out }) => {
+    initHome(io.cwd);
+    await run(['module', 'new', 'recipes', '--json'], io);
+    out.length = 0;
+    assert.equal(await run(['gen', 'mint', 'recipes', '--json'], io), 0);
+    assert.deepEqual(JSON.parse(out[0]), { id: '1', module: 'recipes', mintedFrom: [] });
+    out.length = 0;
+    await run(['gen', 'list', 'recipes', '--json'], io);
+    assert.equal(JSON.parse(out[0]).active, 1, 'generation 1 is active');
   });
 });
 

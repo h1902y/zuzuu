@@ -49,16 +49,19 @@ test('Layer 1: writing inside a session worktree is allowed (that is where the a
   assert.equal(v, null);
 }));
 
-test('Layer 1: shell — a redirect into the brain is denied (absolute + relative); a read / zz are allowed', () => withInit((root, home) => {
+test('Layer 1: shell — a redirect into the brain is denied (absolute + relative); a read is allowed, a zz WRITE verb is denied (Rung 9)', () => withInit((root, home) => {
   assert.equal(decide(home, 'Bash', { command: `echo x > ${home}/instructions/items/y.md` })?.action, 'deny');
   assert.equal(decide(home, 'Bash', { command: 'echo x > .zuzuu/instructions/items/y.md' })?.action, 'deny');
-  assert.equal(decide(home, 'Bash', { command: `cat ${home}/instructions/items/review-the-gate.md` }), null);
-  assert.equal(decide(home, 'Bash', { command: 'zz review approve instructions foo' }), null);
+  assert.equal(decide(home, 'Bash', { command: `cat ${home}/instructions/items/review-the-gate.md` }), null, 'a read defers');
+  // Rung 9 closed the gap: `zz review approve` (a WRITE) is now denied; a bare `zz review`
+  // (the read/list) still defers — the agent can inspect the queue, not approve from it.
+  assert.equal(decide(home, 'Bash', { command: 'zz review approve instructions foo' })?.action, 'deny');
+  assert.equal(decide(home, 'Bash', { command: 'zz review instructions' }), null, 'the bare review list defers');
 }));
 
-test('Layer 3: init seeds the protect rules + the propose-never-write instruction', () => withInit((root, home) => {
+test('Layer 3: init seeds the protect rules (incl. the exec guard) + the propose-never-write instruction', () => withInit((root, home) => {
   const items = join(home, 'instructions', 'items');
-  for (const id of ['protect-brain-writes', 'protect-brain-shell', 'propose-never-write']) {
+  for (const id of ['protect-brain-writes', 'protect-brain-shell', 'protect-brain-exec', 'propose-never-write']) {
     assert.ok(existsSync(join(items, `${id}.md`)), `missing seed ${id}`);
   }
 }));

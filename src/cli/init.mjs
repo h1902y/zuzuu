@@ -21,6 +21,7 @@ import { serialize } from '../notes/note.mjs';
 import { manifestFor } from '../notes/module-templates.mjs';
 import { homeDir, repoRoot } from '../notes/store.mjs';
 import { logMutation, read as readLog } from '../notes/log.mjs';
+import { gateWriteVerbPattern } from './commands.mjs';
 
 // Seed guardrail rules — the hard-won patterns (harvested verbatim, incl. the
 // no-root-wipe negative-lookahead anchor: the gate matches over JSON.stringify,
@@ -49,10 +50,27 @@ const RULES = [
     reason: 'the brain (.zuzuu/) changes only through review — stage a proposal with `zz stage <module> --op create --target <id> --field title=… --field body=…`, then approve it; never edit .zuzuu/ files directly',
     body: "Denies the agent's DIRECT file writes (Write/Edit/… canonicalized across hosts) into the brain. Path-scoped so it tests the file path, not the content. Session worktrees (.zuzuu/worktrees/) are excluded — that's where the agent works. The only door to the brain is the gate: `zz stage` proposes, `zz review approve` lands it. Reads stay allowed; `zz` itself is unaffected (its commands don't reference the path); human edits aren't gated." },
   { id: 'protect-brain-shell', type: 'rule', title: 'No shell writes into .zuzuu/ — propose instead', action: 'deny', tool: 'Bash',
-    pattern: '(?:>>?|\\btee\\b|\\bsed\\s+-i\\b)[^\\n]*\\.zuzuu/(?!worktrees/)',
+    // Two shapes: (a) a redirect/`tee`/`sed -i` whose TARGET is under .zuzuu/, and (b) a
+    // `cp`/`mv` whose DESTINATION is under .zuzuu/ — the dest is the last path, so we require
+    // a SOURCE token (`\s\S*`) before the .zuzuu/ path, which keeps a read-OUT copy
+    // (`cp .zuzuu/x /tmp/y`) allowed. Session worktrees stay excepted in both.
+    pattern: '(?:(?:>>?|\\btee\\b|\\bsed\\s+-i\\b)[^\\n]*\\.zuzuu/(?!worktrees/))|(?:\\b(?:cp|mv)\\s+[^\\n]*\\s\\S*\\.zuzuu/(?!worktrees/))',
     reason: 'the brain changes only through review — use `zz stage` to propose, never write .zuzuu/ from the shell',
-    body: 'Companion to protect-brain-writes for the shell path: denies a redirect (`> …/.zuzuu/…`, absolute or relative), `tee`, or `sed -i` that targets the brain, excluding session worktrees. A plain read (`cat .zuzuu/…`, `cat .zuzuu/x > out`) and `zz` commands are unaffected.' },
+    body: 'Companion to protect-brain-writes for the shell path: denies a redirect (`> …/.zuzuu/…`, absolute or relative), `tee`, `sed -i`, or a `cp`/`mv` INTO the brain (the destination under .zuzuu/), excluding session worktrees. A plain read (`cat .zuzuu/…`, `cat .zuzuu/x > out`) and a read-out copy (`cp .zuzuu/x /tmp/y`) are unaffected; the `zz` write verbs are denied by the companion protect-brain-exec rule.' },
 ];
+
+// The execution-gate companion (protect-brain-exec): deny the agent shelling a `zz`/`zuzuu`
+// WRITE verb — the Bash-bypass hole, since `zz <writeverb>` spawns a fresh OPERATOR process
+// the in-process moat can't tell from a human's. Built as a FUNCTION (not a const in RULES)
+// because its pattern is generated from the command table (`gateWriteVerbPattern`), and
+// calling that at init.mjs module-eval would hit COMMANDS' TDZ under the init↔commands import
+// cycle — so it's resolved LAZILY, only when initHome() actually runs.
+const execGuardRule = () => ({
+  id: 'protect-brain-exec', type: 'rule', title: 'No shelling `zz` WRITE verbs — propose, never mutate via the CLI', action: 'deny', tool: 'Bash',
+  pattern: gateWriteVerbPattern(),
+  reason: 'a `zz`/`zuzuu` write verb mutates the brain outside review — stage a proposal with `zz stage <module> --op create --target <id> --field title=… --field body=…`, then a human approves it; the read/inspect verbs (query · review · status · gen list · note view · module items) and the sanctioned channels (`zz stage`, `zz observe`) stay allowed',
+  body: "Closes the Bash-bypass hole in the moat: the agent reaches the system via Bash, and `zz <writeverb>` spawns a fresh CLI process stamped `operator`, so the in-process actor check (Rung 8) can't stop it. This rule denies any Bash command invoking a zz/zuzuu/`node …/bin/zuzuu.mjs` verb that DURABLY mutates notes/manifests (note set/append/rename/fold/retype, review approve/apply, gen rollback/mint, module new/enable/disable + the schema alter-table ops, …). The pattern is generated from the command table (permission write|admin, non-agent-invokable, + aliases), so it tracks the table automatically. The agent's sanctioned channel — `zz stage` → human `zz review approve` — and every read verb stay allowed.",
+});
 
 // Best-practice INSTRUCTIONS — directive guidance (type: instruction, no `action`, so the
 // gate skips them). They ride alongside the enforced rules in the same `instructions`
@@ -145,7 +163,9 @@ export function initHome(cwd = process.cwd()) {
   ensureDir(join(home, 'instructions', 'items'));
   ensureDir(join(home, 'instructions', 'staged'));
   writeOnce(join(home, 'instructions', 'module.md'), manifestFor('instructions'), 'instructions/module.md');
-  for (const r of [...RULES, ...INSTRUCTIONS]) {
+  // RULES + the table-generated exec guard (resolved here, lazily — see execGuardRule) + the
+  // best-practice instructions. Each is seeded once (idempotent) with provenance.
+  for (const r of [...RULES, execGuardRule(), ...INSTRUCTIONS]) {
     writeOnce(join(home, 'instructions', 'items', `${r.id}.md`), serialize(r), `instructions/${r.id}`);
     ensureSeedLogged(home, 'instructions', r.id); // Layer 4: provenance for the seed
   }
