@@ -99,6 +99,10 @@ Status: **design** (today's shipped substrate is the markdown/`node:sqlite` tier
 Several variants exist (zuzuu-as-gateway, Zen-reseller, internal-LLM-ops credits, cloud sandboxes, a zuzuu-codes broker). Open-source + local-native stays free; any paid layer is convenience on top. Parked behind the product, deliberately undecided.
 Status: **flagged, undecided, unbuilt.**
 
+**Product-experience build order — six workstreams in dependency order; `zuzuu-web` becomes the one workbench.**
+Decided 2026-06-12: the experience ships in order — home/onboarding → workbench → module-health UX → marketplace templates → tasks module → benchmark — and there is no separate web surface (`zuzuu-web` evolves *into* the workbench). The deeper rationale is [DESIGN §13](https://github.com/h1902y/zuzuu/blob/main/docs/DESIGN.md).
+Status: **partially shipped** (onboarding + the workbench are built; the later workstreams are ahead).
+
 ---
 
 ## Conventions (hard-won — violating these has bitten us)

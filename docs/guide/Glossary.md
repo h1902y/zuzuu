@@ -1,6 +1,6 @@
 # Glossary
 
-The words zuzuu uses, in plain terms. For the deep, contributor-facing version (with the code-internal terms), see [docs/learn/glossary](https://github.com/h1902y/zuzuu/blob/main/docs/learn/glossary.md) in the repo.
+The words zuzuu uses, in plain terms — a friendly *view*, not a third definition source. The **precise, canonical definitions** (every load-bearing term + how they relate) live in the repo's model: [The model](https://github.com/h1902y/zuzuu/blob/main/README.md#the-model). For the contributor-facing disambiguator of the overloaded / code-internal terms, see [docs/learn/glossary](https://github.com/h1902y/zuzuu/blob/main/docs/learn/glossary.md).
 
 ## The shape of things
 

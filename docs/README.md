@@ -30,8 +30,9 @@ thing has a home). When a new info-type appears, give it one home and add a row 
 | Information-type | The ONE home | Audience | Does **not** contain (it links instead) |
 |---|---|---|---|
 | What it is · quickstart · "where to find X" | **`README.md`** | everyone (front door) | architecture, the decisions list, user how-tos |
-| The vocabulary (term **definitions**) | **`docs/learn/glossary.md`** | all | term *relations* (those are README "The model") |
-| The model — how the terms **relate** (the planes) | **`README.md` § The model** | all | definitions (→ the glossary) |
+| The vocabulary — load-bearing **terms + relations** (the registry) | **`README.md` § The model** | all | overloaded/code-internal terms (→ learn glossary), user phrasing (→ wiki Glossary) |
+| **Overloaded / code-internal** term disambiguation | **`docs/learn/glossary.md`** | contributors | the core definitions (→ README "The model") |
+| The vocabulary in **plain language** (user view) | **`docs/guide/Glossary.md`** | users | the precise/canonical defs (→ README "The model") |
 | How to **use** it (tasks · per-host · workbench · troubleshooting) | **the wiki** (`docs/guide/`) | users | architecture, rationale |
 | How it **works** — the code map | **`CLAUDE.md`** | agent + contributors | the decisions list (→ Decision Log), the why (→ DESIGN), definitions (→ glossary) |
 | How it **works** — the educative walk | **`docs/learn/`** (lessons 00–09) | contributors | — |
@@ -78,9 +79,11 @@ the user (rendered) and contributor (source) audiences. One source, two surfaces
 
 This map is the *target*; the restructure pass that aligns the files to it:
 
-1. **Glossary 3 → 1.** Definitions live ONLY in `docs/learn/glossary.md` (canonical). README
-   "The model" keeps the term *relations* and links there. The wiki `Glossary.md` becomes a
-   plain-language *view* that links to the canonical for the precise version — it does not redefine.
+1. **Glossary 3 → distinct roles.** The canonical term registry stays **README "The model"**
+   (the front-door nomenclature, unchanged). `docs/learn/glossary.md` is scoped to *overloaded /
+   code-internal* terms — it disambiguates and links to the registry, never redefining a core term.
+   The wiki `Glossary.md` becomes a plain-language *view* that links to the registry for the precise
+   version. Registry / disambiguator / plain-view — three distinct purposes, zero duplicated definitions.
 2. **Decisions 3 → 1.** The Decision Log is canonical. `CLAUDE.md` "Key fixed decisions" and
    `DESIGN.md`'s decision lists become a one-line pointer ("the committed decisions live in the
    Decision Log"). Rationale prose stays in DESIGN; the *list* lives once.
