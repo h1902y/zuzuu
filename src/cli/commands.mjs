@@ -1,17 +1,21 @@
-// src/cli/commands.mjs — the command table: ONE declarative row per verb, the
+// src/cli/commands.mjs — the command table: ONE declarative row per command, the
 // single source of truth the router (index.mjs) and `zz help` both read.
 //
 // what: an array of `{ path, plane, summary, usage, handler, …metadata }` rows.
 //       `path` is the argv prefix the router longest-prefix-matches; `handler`
-//       receives a `ctx` ({ args, cwd, log, json, rest }) and returns an exit
-//       code. The handler bodies are the old flat switch's arms, lifted verbatim.
-// why:  a hand-maintained switch + a hand-maintained HELP const drift apart (the
-//       audit found ~8 verbs in the switch but missing from help). Folding the
-//       table BY PLANE to generate help means an unlisted verb can't exist — the
-//       table is the spec the router executes AND the help renders.
+//       receives a `ctx` ({ args, cwd, log, json, rest, warn }) and returns an exit
+//       code. The grammar is TWO-TIER: Tier-1 hot-loop verbs stay FLAT (querying
+//       them every turn must stay cheap on tokens), Tier-2 cold verbs live under
+//       NOUN namespaces (`note · gen · session · host · registry`).
+// why:  a hand-maintained switch + a hand-maintained HELP const drift apart. Folding
+//       the table BY PLANE/NAMESPACE to generate help means an unlisted command can't
+//       exist — the table is the spec the router executes AND the help renders. And
+//       back-compat is data, not code: an old verb is an `alias` ROW pointing at its
+//       canonical path; the router emits ONE stderr deprecation note and dispatches
+//       the SAME handler — no per-verb wrapper boilerplate.
 // how:  the rows carry display metadata (plane · summary · usage) the help reader
 //       folds, plus capability metadata (json · permission · agentInvokable) that
-//       RECORDS today's reality and is ENFORCED in later rungs (not here). Zero-dep.
+//       RECORDS today's reality. Alias rows carry only `{ path, alias }`. Zero-dep.
 
 import { open } from '../serve/api.mjs';
 import { initHome } from './init.mjs';
@@ -74,10 +78,44 @@ function integrityNudge(zz, log) {
   if (broken) log(`⚠ ${broken} broken link(s) after this change — run zz check`);
 }
 
+// ── gen: the per-module generation lineage ───────────────────────────────────────
+// Canonical handlers for the `gen …` namespace. The `module <m> generations|diff|
+// rollback` key-first forms (daemon-shelled + human muscle-memory) delegate to these
+// as deprecating aliases — one source of truth for the generation reads/writes.
+
+function genLog({ args, cwd, log }) {
+  const rows = open(cwd).timeline({ module: args._[0] || '', limit: Number(args.limit) || 50 });
+  log(toon('timeline', rows, ['at', 'module', 'gen', 'active', 'from']));
+  return 0;
+}
+function genList({ args, cwd, log, json }) {
+  const m = args._[0];
+  if (!m) return fail(log, 'usage: zz gen list <module>', json);
+  const g = open(cwd).generations(m);
+  emit(log, json, { active: g.active, generations: g.generations ?? [] },
+    ['generations', (g.generations ?? []).map((x) => ({ n: x.n, active: x.n === g.active, from: (x.mintedFrom || []).join('|') })), ['n', 'active', 'from']]);
+  return 0;
+}
+function genDiff({ args, cwd, log, json }) {
+  const [m, a, b] = args._;
+  if (!m) return fail(log, 'usage: zz gen diff <module> <a> <b>', json);
+  const r = open(cwd).diff(m, Number(a), Number(b));
+  if (!r.ok) return fail(log, r.error || 'diff failed', json);
+  emit(log, json, r.changes, ['diff', r.changes, ['status', 'id']]);
+  return 0;
+}
+function genRollback({ args, cwd, log, json }) {
+  const [m, n] = args._;
+  if (!m) return fail(log, 'usage: zz gen rollback <module> <n>', json);
+  const r = open(cwd).rollback(m, Number(n));
+  if (!r.ok) return fail(log, r.error || 'rollback failed', json);
+  emit(log, json, { module: m, rolledTo: Number(n), ok: true }, ['rollback', [{ module: m, generation: n }], ['module', 'generation']]);
+  return 0;
+}
+
 // ── the table ──────────────────────────────────────────────────────────────────
-// Each row's `handler` is the old switch arm verbatim. `plane` folds the help;
-// `usage`/`summary` render its line. `json`/`permission`/`agentInvokable` record
-// reality (what the verb does TODAY) — pinned now, enforced in a later rung.
+// `plane` folds the FLAT (Tier-1) help; a multi-element `path` renders under its
+// NAMESPACE heading. `json`/`permission`/`agentInvokable` record reality.
 
 export const COMMANDS = [
   // ── setup ──
@@ -92,28 +130,8 @@ export const COMMANDS = [
       return 0;
     },
   },
-  {
-    path: ['enable'], plane: 'setup', json: true, permission: 'admin', agentInvokable: false,
-    usage: 'enable', summary: 'install the lifecycle + guardrails hooks',
-    handler: ({ cwd, log, json }) => {
-      const r = enable(cwd);
-      emit(log, json, { ok: true, path: r.path, installed: r.installed },
-        ['enable', [{ path: r.path, installed: r.installed }], ['path', 'installed']]);
-      return 0;
-    },
-  },
-  {
-    path: ['disable'], plane: 'setup', json: true, permission: 'admin', agentInvokable: false,
-    usage: 'disable', summary: 'remove the lifecycle + guardrails hooks',
-    handler: ({ cwd, log, json }) => {
-      const r = disable(cwd);
-      emit(log, json, { ok: true, path: r.path, removed: r.removed },
-        ['disable', [{ path: r.path, removed: r.removed }], ['path', 'removed']]);
-      return 0;
-    },
-  },
 
-  // ── data: use the Project (read · run · edit notes) ──
+  // ── data: use the Project (read · run) ──
   {
     path: ['query'], plane: 'data', json: false, permission: 'read', agentInvokable: true,
     usage: 'query <module> [text]', summary: 'search  (--from walk · --to backlinks · --as-of <n> · --tag t · --full)',
@@ -168,97 +186,10 @@ export const COMMANDS = [
     },
   },
   {
-    path: ['flow'], plane: 'data', json: false, permission: 'run', agentInvokable: true,
-    usage: 'flow <module> <id>', summary: 'run a workflow note (a DAG of gated run-steps)',
-    handler: ({ args, cwd, log }) => {
-      const [m, id] = args._;
-      if (!m || !id) return fail(log, 'usage: zz flow <module> <id>');
-      const { _: _d, ...inputs } = args;
-      const r = open(cwd).flow(m, id, inputs);
-      if (!r.ok && !r.steps) return fail(log, r.error);
-      log(toon('flow', r.steps, ['id', 'success', 'exitCode']));
-      if (!r.ok) { log(`✗ failed at step '${r.failedStep}'${r.compensations?.length ? ` — compensated ${r.compensations.length} step(s)` : ''}`); return 1; }
-      return 0;
-    },
-  },
-  {
-    path: ['view'], plane: 'data', json: false, permission: 'read', agentInvokable: true,
-    usage: 'view <module> <id>', summary: 'read a note body windowed (--offset n · --limit n)',
-    handler: ({ args, cwd, log }) => {
-      const [m, id] = args._;
-      if (!m || !id) return fail(log, 'usage: zz view <module> <id> [--offset n] [--limit n]');
-      const r = open(cwd).view(m, id, { offset: Number(args.offset) || 0, limit: Number(args.limit) || 0 });
-      if (!r.ok) return fail(log, r.error);
-      log(toon('view', [{ addr: r.addr, title: r.title ?? '', lines: r.total, shown: `${r.offset}–${r.offset + r.shown}${r.partial ? ' (PARTIAL)' : ''}` }], ['addr', 'title', 'lines', 'shown']));
-      if (r.body) log(r.body);
-      return 0;
-    },
-  },
-  {
-    path: ['patch'], plane: 'data', json: false, permission: 'write', agentInvokable: false,
-    usage: 'patch <m> <id> <key> <v>', summary: 'set one frontmatter field',
-    handler: ({ args, cwd, log }) => {
-      const [m, id, key, ...rest] = args._;
-      if (!m || !id || !key || !rest.length) return fail(log, 'usage: zz patch <module> <id> <key> <value>');
-      const r = open(cwd).patch(m, id, key, rest.join(' '));
-      if (!r.ok) return fail(log, r.error);
-      log(`patched ${m}:${id} ${key}`);
-      return 0;
-    },
-  },
-  {
-    path: ['append'], plane: 'data', json: false, permission: 'write', agentInvokable: false,
-    usage: 'append <m> <id> <text>', summary: 'append text to a note body',
-    handler: ({ args, cwd, log }) => {
-      const [m, id, ...rest] = args._;
-      if (!m || !id || !rest.length) return fail(log, 'usage: zz append <module> <id> <text>');
-      const r = open(cwd).append(m, id, rest.join(' '));
-      if (!r.ok) return fail(log, r.error);
-      log(`appended to ${m}:${id}`);
-      return 0;
-    },
-  },
-  {
-    path: ['rename'], plane: 'data', json: false, permission: 'write', agentInvokable: false,
-    usage: 'rename <m> <old> <new>', summary: 'rename a note + rewrite every inbound link',
-    handler: ({ args, cwd, log }) => {
-      const [m, oldId, newId] = args._;
-      if (!m || !oldId || !newId) return fail(log, 'usage: zz rename <module> <old-id> <new-id>');
-      const r = open(cwd).rename(m, oldId, newId);
-      if (!r.ok) return fail(log, r.error);
-      log(`renamed ${r.renamed} — ${r.refs} referrer(s) updated, ${r.generations.length} generation(s)`);
-      return 0;
-    },
-  },
-  {
-    path: ['merge'], plane: 'data', json: false, permission: 'write', agentInvokable: false,
-    usage: 'merge <m> <src> <dst>', summary: 'merge two notes (re-point referrers to dst)',
-    handler: ({ args, cwd, log }) => {
-      const [m, src, dst] = args._;
-      if (!m || !src || !dst) return fail(log, 'usage: zz merge <module> <src-id> <dst-id>');
-      const r = open(cwd).merge(m, src, dst);
-      if (!r.ok) return fail(log, r.error);
-      log(`merged ${r.merged} — ${r.refs} referrer(s) re-pointed`);
-      return 0;
-    },
-  },
-  {
-    path: ['refactor'], plane: 'data', json: false, permission: 'write', agentInvokable: false,
-    usage: 'refactor <m> --field k --from v --to v', summary: 'rewrite a field across the module',
-    handler: ({ args, cwd, log }) => {
-      const [m] = args._;
-      if (!m || !args.field || args.from === undefined || args.to === undefined) return fail(log, 'usage: zz refactor <module> --field <key> --from <v> --to <v>');
-      const r = open(cwd).refactor(m, args.field, args.from, args.to);
-      if (!r.ok) return fail(log, r.error);
-      log(`refactored ${m}.${r.field} — ${r.changed} note(s) rewritten`);
-      return 0;
-    },
-  },
-  {
     path: ['module'], plane: 'data', json: true, permission: 'read', agentInvokable: true,
-    usage: 'module [list | overview | items <k> | item <k> <id> | schema <k> | <m> generations | <m> diff <a> <b> | <m> rollback <n>]',
-    summary: 'inspect modules · notes · generations',
-    handler: ({ args, cwd, log, json }) => {
+    usage: 'module [list | overview | items <k> | item <k> <id> | schema <k>]',
+    summary: 'inspect modules · notes  (generations → the `gen` namespace)',
+    handler: ({ args, cwd, log, json, warn }) => {
       const zz = open(cwd);
       const [a, b, c] = args._;
 
@@ -303,7 +234,10 @@ export const COMMANDS = [
         return 0;
       }
 
-      // key-first (existing): list | <m> generations | <m> diff <a> <b> | <m> rollback <n>
+      // key-first: `list` stays; generations|diff|rollback are now DEPRECATING ALIASES
+      // for the `gen` namespace (emit one stderr note, delegate to the gen handler).
+      // The module-literally-named-`generations` resolution is preserved: action is
+      // args._[1], so `module generations generations` still lists that module's lineage.
       const [m, action, n] = args._;
       if (!m || m === 'list') {
         const rows = zz.modules().map((x) => ({ id: x.id, type: x.note_type ?? '', capabilities: (x.capabilities || []).join('|') }));
@@ -311,37 +245,111 @@ export const COMMANDS = [
         return 0;
       }
       if (action === 'generations') {
-        const g = zz.generations(m);
-        emit(log, json, { active: g.active, generations: g.generations ?? [] },
-          ['generations', (g.generations ?? []).map((x) => ({ n: x.n, active: x.n === g.active, from: (x.mintedFrom || []).join('|') })), ['n', 'active', 'from']]);
-        return 0;
+        warn?.(`zz: 'module <m> generations' is deprecated — use 'gen list <m>'`);
+        return genList({ args: { ...args, _: [m] }, cwd, log, json });
       }
       if (action === 'rollback') {
-        const r = zz.rollback(m, Number(n));
-        if (!r.ok) return fail(log, r.error || 'rollback failed', json);
-        emit(log, json, { module: m, rolledTo: Number(n), ok: true }, ['rollback', [{ module: m, generation: n }], ['module', 'generation']]);
-        return 0;
+        warn?.(`zz: 'module <m> rollback <n>' is deprecated — use 'gen rollback <m> <n>'`);
+        return genRollback({ args: { ...args, _: [m, n] }, cwd, log, json });
       }
       if (action === 'diff') {
-        const r = zz.diff(m, Number(n), Number(args._[3]));
-        if (!r.ok) return fail(log, r.error || 'diff failed', json);
-        emit(log, json, r.changes, ['diff', r.changes, ['status', 'id']]);
-        return 0;
+        warn?.(`zz: 'module <m> diff <a> <b>' is deprecated — use 'gen diff <m> <a> <b>'`);
+        return genDiff({ args: { ...args, _: [m, n, args._[3]] }, cwd, log, json });
       }
-      return fail(log, 'usage: zz module [list | overview | items <k> | item <k> <id> | schema <k> | <m> generations | <m> diff <a> <b> | <m> rollback <n>]', json);
+      return fail(log, 'usage: zz module [list | overview | items <k> | item <k> <id> | schema <k>]', json);
+    },
+  },
+
+  // ── note: edit notes (gated writes) — the Tier-2 `note …` namespace ──
+  {
+    path: ['note', 'view'], plane: 'data', json: false, permission: 'read', agentInvokable: true,
+    usage: 'note view <m> <id>', summary: 'read a note body windowed (--offset n · --limit n)',
+    handler: ({ args, cwd, log }) => {
+      const [m, id] = args._;
+      if (!m || !id) return fail(log, 'usage: zz note view <module> <id> [--offset n] [--limit n]');
+      const r = open(cwd).view(m, id, { offset: Number(args.offset) || 0, limit: Number(args.limit) || 0 });
+      if (!r.ok) return fail(log, r.error);
+      log(toon('view', [{ addr: r.addr, title: r.title ?? '', lines: r.total, shown: `${r.offset}–${r.offset + r.shown}${r.partial ? ' (PARTIAL)' : ''}` }], ['addr', 'title', 'lines', 'shown']));
+      if (r.body) log(r.body);
+      return 0;
+    },
+  },
+  {
+    path: ['note', 'flow'], plane: 'data', json: false, permission: 'run', agentInvokable: true,
+    usage: 'note flow <m> <id>', summary: 'run a workflow note (a DAG of gated run-steps)',
+    handler: ({ args, cwd, log }) => {
+      const [m, id] = args._;
+      if (!m || !id) return fail(log, 'usage: zz note flow <module> <id>');
+      const { _: _d, ...inputs } = args;
+      const r = open(cwd).flow(m, id, inputs);
+      if (!r.ok && !r.steps) return fail(log, r.error);
+      log(toon('flow', r.steps, ['id', 'success', 'exitCode']));
+      if (!r.ok) { log(`✗ failed at step '${r.failedStep}'${r.compensations?.length ? ` — compensated ${r.compensations.length} step(s)` : ''}`); return 1; }
+      return 0;
+    },
+  },
+  {
+    path: ['note', 'set'], plane: 'data', json: false, permission: 'write', agentInvokable: false,
+    usage: 'note set <m> <id> <key> <v>', summary: 'set one frontmatter field',
+    handler: ({ args, cwd, log }) => {
+      const [m, id, key, ...rest] = args._;
+      if (!m || !id || !key || !rest.length) return fail(log, 'usage: zz note set <module> <id> <key> <value>');
+      const r = open(cwd).patch(m, id, key, rest.join(' '));
+      if (!r.ok) return fail(log, r.error);
+      log(`patched ${m}:${id} ${key}`);
+      return 0;
+    },
+  },
+  {
+    path: ['note', 'append'], plane: 'data', json: false, permission: 'write', agentInvokable: false,
+    usage: 'note append <m> <id> <text>', summary: 'append text to a note body',
+    handler: ({ args, cwd, log }) => {
+      const [m, id, ...rest] = args._;
+      if (!m || !id || !rest.length) return fail(log, 'usage: zz note append <module> <id> <text>');
+      const r = open(cwd).append(m, id, rest.join(' '));
+      if (!r.ok) return fail(log, r.error);
+      log(`appended to ${m}:${id}`);
+      return 0;
+    },
+  },
+  {
+    path: ['note', 'rename'], plane: 'data', json: false, permission: 'write', agentInvokable: false,
+    usage: 'note rename <m> <old> <new>', summary: 'rename a note + rewrite every inbound link',
+    handler: ({ args, cwd, log }) => {
+      const [m, oldId, newId] = args._;
+      if (!m || !oldId || !newId) return fail(log, 'usage: zz note rename <module> <old-id> <new-id>');
+      const r = open(cwd).rename(m, oldId, newId);
+      if (!r.ok) return fail(log, r.error);
+      log(`renamed ${r.renamed} — ${r.refs} referrer(s) updated, ${r.generations.length} generation(s)`);
+      return 0;
+    },
+  },
+  {
+    path: ['note', 'fold'], plane: 'data', json: false, permission: 'write', agentInvokable: false,
+    usage: 'note fold <m> <src> <dst>', summary: 'fold two notes into one (re-point referrers to dst)',
+    handler: ({ args, cwd, log }) => {
+      const [m, src, dst] = args._;
+      if (!m || !src || !dst) return fail(log, 'usage: zz note fold <module> <src-id> <dst-id>');
+      const r = open(cwd).merge(m, src, dst);
+      if (!r.ok) return fail(log, r.error);
+      log(`merged ${r.merged} — ${r.refs} referrer(s) re-pointed`);
+      return 0;
+    },
+  },
+  {
+    path: ['note', 'retype'], plane: 'data', json: false, permission: 'write', agentInvokable: false,
+    usage: 'note retype <m> --field k --from v --to v', summary: 'rewrite a field across the module',
+    handler: ({ args, cwd, log }) => {
+      const [m] = args._;
+      if (!m || !args.field || args.from === undefined || args.to === undefined) return fail(log, 'usage: zz note retype <module> --field <key> --from <v> --to <v>');
+      const r = open(cwd).refactor(m, args.field, args.from, args.to);
+      if (!r.ok) return fail(log, r.error);
+      log(`refactored ${m}.${r.field} — ${r.changed} note(s) rewritten`);
+      return 0;
     },
   },
 
   // ── evolution: grow the Project (observe → propose → review → evolve) ──
-  {
-    path: ['log'], plane: 'evolution', json: false, permission: 'read', agentInvokable: true,
-    usage: 'log [module]', summary: 'the generation timeline — how the brain evolved',
-    handler: ({ args, cwd, log }) => {
-      const rows = open(cwd).timeline({ module: args._[0] || '', limit: Number(args.limit) || 50 });
-      log(toon('timeline', rows, ['at', 'module', 'gen', 'active', 'from']));
-      return 0;
-    },
-  },
   {
     path: ['observe'], plane: 'evolution', json: true, permission: 'write', agentInvokable: true,
     usage: 'observe', summary: 'mine real sessions → staged changes (the cold-start)',
@@ -429,6 +437,28 @@ export const COMMANDS = [
     },
   },
 
+  // ── gen: the per-module generation lineage — the Tier-2 `gen …` namespace ──
+  {
+    path: ['gen', 'log'], plane: 'evolution', json: false, permission: 'read', agentInvokable: true,
+    usage: 'gen log [module]', summary: 'the generation timeline — how the brain evolved',
+    handler: genLog,
+  },
+  {
+    path: ['gen', 'list'], plane: 'evolution', json: true, permission: 'read', agentInvokable: true,
+    usage: 'gen list <m>', summary: "a module's generation lineage + the active one",
+    handler: genList,
+  },
+  {
+    path: ['gen', 'diff'], plane: 'evolution', json: true, permission: 'read', agentInvokable: true,
+    usage: 'gen diff <m> <a> <b>', summary: 'diff two generations of a module',
+    handler: genDiff,
+  },
+  {
+    path: ['gen', 'rollback'], plane: 'evolution', json: true, permission: 'admin', agentInvokable: false,
+    usage: 'gen rollback <m> <n>', summary: 'roll a module back to generation n (pointer-flip)',
+    handler: genRollback,
+  },
+
   // ── inspection: integrity · health · porcelain ──
   {
     path: ['check'], plane: 'inspection', json: false, permission: 'read', agentInvokable: true,
@@ -478,9 +508,29 @@ export const COMMANDS = [
   // ── session: the per-session git surface ──
   {
     path: ['session'], plane: 'session', json: true, permission: 'admin', agentInvokable: false,
-    usage: 'session [status | merge | continue | discard --yes | worktree … | label]',
+    usage: 'session [status | land | hold | resume | drop | worktree … | label]',
     summary: 'inspect & steer the per-session git substrate',
-    handler: ({ args, cwd, log }) => sessionCommand(args, cwd, log),
+    handler: ({ args, cwd, log, warn }) => sessionCommand(args, cwd, log, warn),
+  },
+  {
+    path: ['session', 'land'], plane: 'session', json: true, permission: 'admin', agentInvokable: false,
+    usage: 'session land [id]', summary: 'land a session — squash-merge (auto-detects worktree vs in-place)',
+    handler: ({ args, cwd, log, warn }) => sessionCommand({ ...args, _: ['land', ...args._] }, cwd, log, warn),
+  },
+  {
+    path: ['session', 'hold'], plane: 'session', json: true, permission: 'admin', agentInvokable: false,
+    usage: 'session hold [id]', summary: 'hold a session for the merge gate (auto-detects worktree)',
+    handler: ({ args, cwd, log, warn }) => sessionCommand({ ...args, _: ['hold', ...args._] }, cwd, log, warn),
+  },
+  {
+    path: ['session', 'resume'], plane: 'session', json: true, permission: 'admin', agentInvokable: false,
+    usage: 'session resume [id]', summary: 'resume a held session (back onto its branch)',
+    handler: ({ args, cwd, log, warn }) => sessionCommand({ ...args, _: ['resume', ...args._] }, cwd, log, warn),
+  },
+  {
+    path: ['session', 'drop'], plane: 'session', json: true, permission: 'admin', agentInvokable: false,
+    usage: 'session drop [id] --yes', summary: 'drop a session — DELETE its branch + checkpoints',
+    handler: ({ args, cwd, log, warn }) => sessionCommand({ ...args, _: ['drop', ...args._] }, cwd, log, warn),
   },
 
   // ── registry: the project registry ──
@@ -491,11 +541,11 @@ export const COMMANDS = [
     handler: ({ args, cwd, log }) => registryCommand(args, cwd, log),
   },
   {
-    path: ['subscribe'], plane: 'registry', json: true, permission: 'write', agentInvokable: false,
-    usage: 'subscribe <module>', summary: 'subscribe to a published module (stages its notes)',
+    path: ['registry', 'subscribe'], plane: 'registry', json: true, permission: 'write', agentInvokable: false,
+    usage: 'registry subscribe <module>', summary: 'subscribe to a published module (stages its notes)',
     handler: ({ args, cwd, log, json }) => {
       const m = args._[0];
-      if (!m) return fail(log, 'usage: zz subscribe <module>', json);
+      if (!m) return fail(log, 'usage: zz registry subscribe <module>', json);
       try {
         const r = open(cwd).registry.subscribe(m);
         if (!r.ok) return fail(log, r.error, json);
@@ -545,15 +595,35 @@ export const COMMANDS = [
     },
   },
 
-  // ── host: launch / lifecycle ──
+  // ── host: launch / lifecycle — the Tier-2 `host …` namespace ──
   {
-    path: ['code'], plane: 'host', json: false, permission: 'run', agentInvokable: false,
-    usage: 'code [dir]', summary: 'launch OpenCode (the bundled host)',
+    path: ['host', 'enable'], plane: 'host', json: true, permission: 'admin', agentInvokable: false,
+    usage: 'host enable', summary: 'install the lifecycle + guardrails hooks',
+    handler: ({ cwd, log, json }) => {
+      const r = enable(cwd);
+      emit(log, json, { ok: true, path: r.path, installed: r.installed },
+        ['enable', [{ path: r.path, installed: r.installed }], ['path', 'installed']]);
+      return 0;
+    },
+  },
+  {
+    path: ['host', 'disable'], plane: 'host', json: true, permission: 'admin', agentInvokable: false,
+    usage: 'host disable', summary: 'remove the lifecycle + guardrails hooks',
+    handler: ({ cwd, log, json }) => {
+      const r = disable(cwd);
+      emit(log, json, { ok: true, path: r.path, removed: r.removed },
+        ['disable', [{ path: r.path, removed: r.removed }], ['path', 'removed']]);
+      return 0;
+    },
+  },
+  {
+    path: ['host', 'code'], plane: 'host', json: false, permission: 'run', agentInvokable: false,
+    usage: 'host code [dir]', summary: 'launch OpenCode (the bundled host)',
     handler: ({ args, log }) => code({ ...args, _: args._ }, { log }),
   },
   {
-    path: ['web'], plane: 'host', json: false, permission: 'run', agentInvokable: false,
-    usage: 'web', summary: 'launch the workbench',
+    path: ['host', 'web'], plane: 'host', json: false, permission: 'run', agentInvokable: false,
+    usage: 'host web', summary: 'launch the workbench',
     handler: ({ args }) => web({ ...args, _: args._ }) ?? 0,
   },
   {
@@ -565,13 +635,37 @@ export const COMMANDS = [
       return 0; // unreachable (runHook exits), but keeps the router total
     },
   },
+
+  // ── back-compat aliases ─────────────────────────────────────────────────────
+  // Each maps an OLD flat verb to its canonical Tier-2 path. The router emits ONE
+  // stderr deprecation note, then dispatches the canonical handler with the SAME ctx
+  // — data, not 20 wrappers. Excluded from `zz help` (they don't clutter the surface).
+  ...[
+    [['merge'], ['note', 'fold']],
+    [['patch'], ['note', 'set']],
+    [['append'], ['note', 'append']],
+    [['rename'], ['note', 'rename']],
+    [['refactor'], ['note', 'retype']],
+    [['view'], ['note', 'view']],
+    [['flow'], ['note', 'flow']],
+    [['log'], ['gen', 'log']],
+    [['enable'], ['host', 'enable']],
+    [['disable'], ['host', 'disable']],
+    // `hook` stays FLAT + canonical — it's the machine lifecycle callback `enable`
+    // installs, fired on EVERY tool event; a deprecation here would be hot-path noise.
+    // `host hook` is the cold alias (namespace discoverability), never the hot path.
+    [['host', 'hook'], ['hook']],
+    [['code'], ['host', 'code']],
+    [['web'], ['host', 'web']],
+    [['subscribe'], ['registry', 'subscribe']],
+  ].map(([path, alias]) => ({ path, alias })),
 ];
 
-// ── help: fold the table by plane ───────────────────────────────────────────────
-// The single rendering of the table — every row appears exactly once under its
-// plane, so help cannot omit a verb that the router can reach (the audit's gap,
-// closed structurally). Planes are listed in this reading order; unknown planes
-// (should none exist) fall to the end.
+// ── help: fold the table by plane (Tier-1) then by namespace (Tier-2) ────────────
+// The single rendering of the table — every NON-ALIAS row appears exactly once, so
+// help cannot omit a command the router can reach. Flat verbs fold under their plane;
+// namespaced verbs (a multi-element path) group under their noun heading. Aliases are
+// deliberately absent (they're back-compat, not surface).
 
 const PLANE_ORDER = ['setup', 'data', 'evolution', 'inspection', 'session', 'registry', 'steer', 'host'];
 const PLANE_LABEL = {
@@ -579,22 +673,40 @@ const PLANE_LABEL = {
   inspection: 'inspect', session: 'sessions', registry: 'registry',
   steer: 'session briefs', host: 'hosts',
 };
+const NS_ORDER = ['note', 'gen', 'session', 'host', 'registry'];
+const NS_LABEL = {
+  note: 'note — edit notes (gated writes)',
+  gen: 'gen — generations (the lineage)',
+  session: 'session — the per-session git surface',
+  host: 'host — launch & lifecycle',
+  registry: 'registry — published modules',
+};
 
 /** Build `zz help` from the command table (replaces the hand-maintained const).
  *  The usage column aligns to the widest *short* usage (capped — a few rich
  *  signatures like `module [...]` overflow the column and carry their summary
  *  two spaces along, never stretching every other row to match). */
 export function helpText() {
+  const visible = COMMANDS.filter((c) => !c.alias);
+  const flat = visible.filter((c) => c.path.length === 1);
+  const namespaced = visible.filter((c) => c.path.length > 1);
   const CAP = 42;
-  const pad = Math.min(CAP, Math.max(...COMMANDS.map((c) => (c.usage.length <= CAP ? c.usage.length : 0))));
+  const pad = Math.min(CAP, Math.max(...visible.map((c) => (c.usage.length <= CAP ? c.usage.length : 0))));
   const order = (p) => { const i = PLANE_ORDER.indexOf(p); return i === -1 ? PLANE_ORDER.length : i; };
-  const planes = [...new Set(COMMANDS.map((c) => c.plane))].sort((a, b) => order(a) - order(b));
+  const planes = [...new Set(flat.map((c) => c.plane))].sort((a, b) => order(a) - order(b));
   const lines = ["zz — your repo's Project (envelopes, queried/run/grown, human-gated)"];
   for (const plane of planes) {
+    const rows = flat.filter((c) => c.plane === plane);
+    if (!rows.length) continue;
     lines.push('', `  ${PLANE_LABEL[plane] ?? plane}`);
-    for (const c of COMMANDS.filter((c) => c.plane === plane)) {
-      lines.push(`  zz ${c.usage.padEnd(pad)}  ${c.summary}`);
-    }
+    for (const c of rows) lines.push(`  zz ${c.usage.padEnd(pad)}  ${c.summary}`);
+  }
+  // the Tier-2 noun namespaces, grouped by their leading token
+  const nsOrder = (n) => { const i = NS_ORDER.indexOf(n); return i === -1 ? NS_ORDER.length : i; };
+  const namespaces = [...new Set(namespaced.map((c) => c.path[0]))].sort((a, b) => nsOrder(a) - nsOrder(b));
+  for (const ns of namespaces) {
+    lines.push('', `  ${NS_LABEL[ns] ?? ns}`);
+    for (const c of namespaced.filter((c) => c.path[0] === ns)) lines.push(`  zz ${c.usage.padEnd(pad)}  ${c.summary}`);
   }
   return lines.join('\n');
 }

@@ -44,6 +44,9 @@ function resolve(words) {
 
 export async function run(argv, io = {}) {
   const log = io.log ?? console.log;
+  // the deprecation sink: STDERR-only (injectable for tests), kept OFF `log` so the
+  // daemon's JSON.parse-of-stdout stays clean even when an old verb routes via an alias.
+  const warn = io.warn ?? ((s) => process.stderr.write(s.endsWith('\n') ? s : s + '\n'));
   const cwd = io.cwd ?? process.cwd();
   let [verb, ...rest] = argv;
   if (verb === undefined || verb === '--help' || verb === '-h') verb = 'help';
@@ -52,11 +55,23 @@ export async function run(argv, io = {}) {
 
   if (verb === 'help') { log(helpText()); return 0; }
 
-  const cmd = resolve([verb, ...args._]);
-  if (!cmd) return fail(log, `unknown verb '${verb}' — try: zz help`);
+  const matched = resolve([verb, ...args._]);
+  if (!matched) return fail(log, `unknown verb '${verb}' — try: zz help`);
+
+  // a deprecating alias → its canonical row: one stderr note, then dispatch the SAME
+  // handler. The MATCHED path's length (the words actually typed) sets how many leading
+  // positionals belong to the path, so a namespaced handler sees clean args (`note fold
+  // m s d` → ['m','s','d'], exactly like the old `merge m s d`).
+  let target = matched;
+  if (matched.alias) {
+    warn(`zz: '${matched.path.join(' ')}' is deprecated — use '${matched.alias.join(' ')}'`);
+    target = COMMANDS.find((c) => c.path.length === matched.alias.length && c.path.every((p, i) => p === matched.alias[i]));
+    if (!target) return fail(log, `alias '${matched.path.join(' ')}' has no canonical target`);
+  }
+  const ctx = { args: { ...args, _: args._.slice(matched.path.length - 1) }, cwd, log, json, rest, verb, warn };
 
   try {
-    return await cmd.handler({ args, cwd, log, json, rest, verb });
+    return await target.handler(ctx);
   } catch (e) {
     return fail(log, e?.message ?? String(e));
   }

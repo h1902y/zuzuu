@@ -22,9 +22,13 @@ export function leftoverWarning(ss) {
   return `leftover session branch ${ss.active.branch} (${ss.active.checkpoints} checkpoint(s)) — zz session continue | merge | discard`;
 }
 
-export function sessionCommand(args, cwd, log) {
+export function sessionCommand(args, cwd, log, warn) {
   const sub = args._[0] ?? 'status';
   const fail = (m) => { log(toon('error', [{ message: m }], ['message'])); return 1; };
+  // the renamed verbs (merge/finalize/continue/discard → land/hold/resume/drop) still
+  // work; they emit ONE stderr deprecation and run unchanged. The new names auto-detect
+  // worktree vs in-place (land/hold) — the only behaviour the rename adds.
+  const deprecate = (to) => { if (warn) warn(`zz: 'session ${sub}' is deprecated — use 'session ${to}'`); };
 
   switch (sub) {
     case 'status': {
@@ -54,39 +58,55 @@ export function sessionCommand(args, cwd, log) {
       if (w) log(w);
       return 0;
     }
+    // ── land/hold/resume/drop (canonical) + merge/finalize/continue/discard (aliases) ──
+    case 'land':
     case 'merge': {
-      // optional id (`zz session merge [<id>]`) resolves a SPECIFIC held/active
-      // branch; without it, the single active-or-held one (ambiguous → refuse).
+      if (sub === 'merge') deprecate('land');
+      // optional id (`zz session land [<id>]`) resolves a SPECIFIC held/active branch;
+      // without it, the single active-or-held one (ambiguous → refuse). Auto-detect: a
+      // worktree-held session (by id, or the sole one) lands via the worktree close path.
       const id = args._[1];
+      const wt = heldSessions(cwd).filter((e) => e.kind === 'worktree');
+      const match = id != null ? wt.find((e) => e.id === id) : (wt.length === 1 ? wt[0] : null);
+      if (match) return worktree({ ...args, _: ['close', match.id] }, cwd, log, fail);
       const r = closeSession(cwd, { title: args.title, id });
       if (args.json) { log(JSON.stringify(r)); return r.ok ? 0 : 1; }
       if (r.ok) { log(r.mergedAs ? `✓ squashed ${r.commits} checkpoint(s) into ${r.mergedAs.slice(0, 8)} — branch removed` : '✓ nothing to merge'); return 0; }
-      if (r.reason === 'ambiguous-session') return fail('multiple held sessions — name one: `zz session merge <id>` (see `zz session status`)');
-      return fail(r.conflict ? `conflict squashing ${r.branch} — aborted, branch intact; resolve with \`zz session continue\`, then \`zz session merge\`` : (r.reason ?? 'cannot merge'));
+      if (r.reason === 'ambiguous-session') return fail('multiple held sessions — name one: `zz session land <id>` (see `zz session status`)');
+      return fail(r.conflict ? `conflict squashing ${r.branch} — aborted, branch intact; resolve with \`zz session resume\`, then \`zz session land\`` : (r.reason ?? 'cannot merge'));
     }
+    case 'hold':
     case 'finalize': {
-      // END holds (never merges) the in-place session: fold uncommitted work, hold
-      // the branch out of the active namespace for the explicit merge gate. The
-      // daemon (agent-close) shells this with --json on PTY exit for an in-place
-      // (worktree-fallback) agent; humans see the prose.
+      if (sub === 'finalize') deprecate('hold');
+      // END holds (never merges): fold uncommitted work, hold the branch out of the
+      // active namespace for the explicit merge gate. Auto-detect: a worktree session
+      // (named by id) holds via the worktree finalize path. The daemon (agent-close)
+      // shells this with --json on PTY exit for an in-place agent; humans see the prose.
+      const id = args._[1];
+      const wtIds = listSessionWorktrees(cwd).map((w) => (w.branch ?? '').slice('zz/session-'.length));
+      if (id != null && wtIds.includes(id)) return worktree({ ...args, _: ['finalize', id] }, cwd, log, fail);
       const r = finalizeSession(cwd);
       if (args.json) { log(JSON.stringify(r)); return r.ok ? 0 : 1; }
-      if (r.ok) { log(`✓ held ${r.held} (${r.checkpoints} checkpoint(s)) — \`zz session merge\` to land`); return 0; }
+      if (r.ok) { log(`✓ held ${r.held} (${r.checkpoints} checkpoint(s)) — \`zz session land\` to land`); return 0; }
       return fail(r.reason ?? 'cannot finalize');
     }
+    case 'resume':
     case 'continue': {
+      if (sub === 'continue') deprecate('resume');
       const id = args._[1];
       const r = continueSession(cwd, id);
-      if (r.ok) { log(`✓ back on ${r.branch} — finish, then \`zz session merge\``); return 0; }
-      if (r.reason === 'ambiguous-session') return fail('multiple held sessions — name one: `zz session continue <id>`');
+      if (r.ok) { log(`✓ back on ${r.branch} — finish, then \`zz session land\``); return 0; }
+      if (r.reason === 'ambiguous-session') return fail('multiple held sessions — name one: `zz session resume <id>`');
       return fail(r.reason ?? 'cannot continue');
     }
+    case 'drop':
     case 'discard': {
+      if (sub === 'discard') deprecate('drop');
       if (!args.yes) return fail('refusing without --yes — DELETES the session branch and its checkpoints');
       const id = args._[1];
       const r = discardSession(cwd, id);
       if (r.ok) { log(`✓ discarded ${r.branch}`); return 0; }
-      if (r.reason === 'ambiguous-session') return fail('multiple held sessions — name one: `zz session discard <id> --yes`');
+      if (r.reason === 'ambiguous-session') return fail('multiple held sessions — name one: `zz session drop <id> --yes`');
       return fail(r.reason ?? 'cannot discard');
     }
     case 'worktree': return worktree({ ...args, _: args._.slice(1) }, cwd, log, fail);
@@ -98,7 +118,7 @@ export function sessionCommand(args, cwd, log) {
       return 0;
     }
     default:
-      return fail(`unknown: zz session ${sub} — try: status|merge|continue|discard|worktree|label`);
+      return fail(`unknown: zz session ${sub} — try: status|land|hold|resume|drop|worktree|label`);
   }
 }
 
