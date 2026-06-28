@@ -44,6 +44,46 @@ test('module items <key> --json → notes as id/type/title/status/body', async (
   });
 });
 
+test('module items <key> carries CUSTOM frontmatter columns (the lossless projection)', async () => {
+  await withRepo(async ({ home, io, out }) => {
+    initHome(io.cwd);
+    // a note with custom columns beyond the indexed five — these round-trip on disk
+    // but were truncated by the old index-row projection (the data-loss-in-view bug).
+    writeNote(home, 'knowledge', 'a', { type: 'knowledge', title: 'A', status: 'active', body: 'Alpha', priority: 'high', owner: 'alice' });
+    writeNote(home, 'knowledge', 'b', { type: 'knowledge', title: 'B', body: 'Beta', priority: 'low' });
+    out.length = 0;
+    assert.equal(await run(['module', 'items', 'knowledge', '--json'], io), 0);
+    const res = JSON.parse(out[0]);
+    const a = res.items.find((x) => x.id === 'a');
+    // the custom columns survive end to end
+    assert.equal(a.priority, 'high');
+    assert.equal(a.owner, 'alice');
+    assert.equal(a.kind, 'knowledge'); // type → kind (the daemon's ModuleItem shape)
+    assert.equal(a.body, 'Alpha');
+    // and the TOON column set unions the custom keys (minus the body/module internals)
+    out.length = 0;
+    assert.equal(await run(['module', 'items', 'knowledge'], io), 0);
+    const header = out.join('\n').match(/items\[\d+\]\{([^}]*)\}/)[1].split(',');
+    assert.deepEqual(header, ['id', 'kind', 'title', 'status', 'priority', 'owner']);
+    assert.ok(!header.includes('body') && !header.includes('module'), 'body/module are not columns');
+  });
+});
+
+test('module item <key> <id> returns the FULL envelope incl. custom keys', async () => {
+  await withRepo(async ({ home, io, out }) => {
+    initHome(io.cwd);
+    writeNote(home, 'knowledge', 'a', { type: 'knowledge', title: 'A', status: 'active', body: 'Alpha', priority: 'high', owner: 'alice' });
+    out.length = 0;
+    assert.equal(await run(['module', 'item', 'knowledge', 'a', '--json'], io), 0);
+    const item = JSON.parse(out[0]);
+    assert.equal(item.id, 'a');
+    assert.equal(item.kind, 'knowledge');
+    assert.equal(item.priority, 'high');
+    assert.equal(item.owner, 'alice');
+    assert.equal(item.body, 'Alpha');
+  });
+});
+
 test('module item <key> <id> --json → one record; unknown id → JSON error', async () => {
   await withRepo(async ({ home, io, out }) => {
     initHome(io.cwd);

@@ -45,8 +45,6 @@ const ITEM_DIRS: Record<string, string[]> = {
   guardrails: ["guardrails", "items"],
 };
 
-const PEEK_KEYS = new Set(["id", "module", "kind", "title", "status", "created_at", "updated_at"]);
-
 function unquoteScalar(s: string): string {
   const t = s.trim();
   if (t.startsWith('"') && t.endsWith('"') && t.length >= 2) {
@@ -56,7 +54,11 @@ function unquoteScalar(s: string): string {
   return t;
 }
 
-/** Best-effort peek at an envelope's top-level frontmatter scalars. */
+/** Best-effort peek at an envelope's top-level frontmatter scalars. Lifts EVERY
+ *  top-level scalar (no allowlist) so even this CLI-absent fallback is lossless — a
+ *  custom column survives to the grid. Block parents (`provenance:`/`payload:`, with
+ *  indented children + an empty own value) are skipped: their children are indented
+ *  (caught above) and their own line carries no scalar value. */
 export function peekFrontmatter(text: string): Record<string, string> {
   const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!m) return {};
@@ -64,7 +66,7 @@ export function peekFrontmatter(text: string): Record<string, string> {
   for (const raw of (m[1] ?? "").split("\n")) {
     if (/^\s/.test(raw)) continue; // indented = provenance/payload children
     const kv = raw.match(/^([A-Za-z_][\w-]*):\s*(.*)$/);
-    if (kv && PEEK_KEYS.has(kv[1]!)) out[kv[1]!] = unquoteScalar(kv[2] ?? "");
+    if (kv && kv[2]) out[kv[1]!] = unquoteScalar(kv[2]); // skip block parents (no scalar value)
   }
   return out;
 }

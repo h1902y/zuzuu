@@ -28,21 +28,32 @@ import { digestText } from '../serve/digest.mjs';
 import { openerText, closerText, steerText, writeHandoff, parkItem, clearParking } from '../serve/steering.mjs';
 import { renderNoteDiff } from '../use/diff.mjs';
 import { toon } from '../notes/toon.mjs';
-import { existsSync, readFileSync } from 'node:fs';
-import { itemPath } from '../notes/store.mjs';
-import { parse } from '../notes/note.mjs';
+import { searchRows, readEnvelopes } from '../notes/rows.mjs';
 
+// The read projection's column SKIP set — mirrors the client grid's `inferKeys`
+// (web/src/client/shell/stage/grid-columns.ts): `module` is implicit, `body` is the
+// record, `provenance`/`payload` are nested objects. They still ride in the item
+// (the record needs them); they're just not displayed AS columns.
+const COLUMN_SKIP = new Set(['module', 'body', 'provenance', 'payload']);
 
-/** Read a landed note's `source` provenance pointer off disk (U6 / R6) — the search
- *  index only carries the indexed columns, so the record view's "born here" link
- *  reads the frontmatter directly. Returns null when absent/unreadable (fail-soft). */
-function readNoteSource(home, module, id) {
-  try {
-    const p = itemPath(home, module, id);
-    if (!existsSync(p)) return null;
-    const { note } = parse(readFileSync(p, 'utf8'), { id });
-    return note?.source ?? null;
-  } catch { return null; }
+/** Map a hydrated envelope to the daemon's ModuleItem shape: `type` → `kind`, the
+ *  `module` injected, every other frontmatter column (incl. custom ones + `source`)
+ *  carried through whole. The lossless row the grid renders. */
+function projectRow(note, module) {
+  const { type, ...rest } = note; // rest: id · title · status · body · custom columns…
+  return { id: rest.id, module, kind: type ?? '', title: rest.title ?? '', status: rest.status ?? '', ...rest };
+}
+
+/** The displayable column set across a set of items: the union of their keys minus
+ *  the SKIP internals (matches the client's `inferKeys`), so a custom frontmatter
+ *  column surfaces as a column. Insertion order preserved; null/absent values skip. */
+function columnsFor(items) {
+  const cols = [];
+  const seen = new Set();
+  for (const it of items) for (const k of Object.keys(it)) {
+    if (!COLUMN_SKIP.has(k) && !seen.has(k) && it[k] != null) { seen.add(k); cols.push(k); }
+  }
+  return cols;
 }
 
 /** Structured one-line error → exit 1. JSON under --json (the daemon JSON.parses it). */
@@ -263,26 +274,25 @@ export const COMMANDS = [
       }
       if (a === 'items') {
         if (!b) return fail(log, 'usage: zz module items <key>', json);
-        const r = zz.query(b, { text: '', full: true, limit: 10000 });
-        if (!r.ok) return fail(log, r.error, json);
-        const items = (r.value.rows ?? []).map((row) => ({ id: row.addr.split(':').pop(), module: b, kind: row.type, title: row.title ?? '', status: row.status ?? '', body: row.body ?? '' }));
+        // Hydrate the FULL envelopes (every frontmatter column), not the index's five.
+        // The index search gives the matching addr set + relevance order; rows.mjs
+        // re-reads each off disk (the lossless source of truth) so a custom column
+        // round-tripped on disk is no longer truncated here — the silent data-loss-in-view.
+        const items = searchRows(zz.home, { module: b }).map((note) => projectRow(note, b));
         // shape: { items, errors } + `kind` — the daemon's moduleEnvelopeItems passes this
         // straight through as the shared ModuleItem[] (otherwise it degrades to peek)
-        emit(log, json, { items, errors: [] }, ['items', items, ['id', 'kind', 'title', 'status']]);
+        emit(log, json, { items, errors: [] }, ['items', items, columnsFor(items)]);
         return 0;
       }
       if (a === 'item') {
         if (!b || !c) return fail(log, 'usage: zz module item <key> <id>', json);
-        const r = zz.query(b, { text: '', full: true, limit: 10000 });
-        if (!r.ok) return fail(log, r.error, json);
-        const row = (r.value.rows ?? []).find((x) => x.addr.split(':').pop() === c);
-        if (!row) return fail(log, `no note '${c}' in ${b}`, json);
-        // Provenance (U6 / R6): the search row carries only the indexed columns, so
-        // lift the note's `source` pointer (where it was born — see evolve.projectChange)
-        // straight off disk so the record view can render its "born here" link.
-        const src = readNoteSource(zz.home, b, c);
-        const item = { id: c, module: b, kind: row.type, title: row.title ?? '', status: row.status ?? '', body: row.body ?? '', ...(src ? { source: src } : {}) };
-        emit(log, json, item, ['item', [{ id: c, kind: row.type, title: row.title ?? '' }], ['id', 'kind', 'title']]);
+        // The full envelope, lossless: every frontmatter column rides through (incl.
+        // custom ones and the `source` provenance pointer the record view's "born
+        // here" link reads — no longer a special-cased off-disk lift).
+        const [note] = readEnvelopes(zz.home, [`${b}:${c}`]);
+        if (!note) return fail(log, `no note '${c}' in ${b}`, json);
+        const item = projectRow(note, b);
+        emit(log, json, item, ['item', [item], columnsFor([item])]);
         return 0;
       }
       if (a === 'schema') {

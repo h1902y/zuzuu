@@ -25,6 +25,14 @@ describe("gridColumns", () => {
     expect(names).not.toContain("body");
   });
 
+  it("a CUSTOM frontmatter column surfaces as a grid column (lossless read projection)", () => {
+    // once the read path carries the full envelope, inferKeys unions the custom keys.
+    const items = [item({ id: "a", ...({ priority: "high", owner: "alice" } as Partial<ModuleItem>) })];
+    const names = inferKeys(items);
+    expect(names).toContain("priority");
+    expect(names).toContain("owner");
+  });
+
   it("inferKeys snake/kebab → title-cased labels; empty items → no columns", () => {
     expect(gridColumns([{ name: "created_at", type: "date" }], []).find((c) => c.name === "created_at")!.label).toBe("Created At");
     expect(gridColumns([], []).length).toBe(0);

@@ -21,6 +21,7 @@ describe("createZuzuuApi file routes", () => {
     const body = await (await app.request("/module/knowledge")).json();
     expect(body.degraded).toBe(true);
     expect(body.items[0]).toMatchObject({ id: "k1", module: "knowledge", kind: "fact", title: "fact one", status: "active" });
+    expect(body.items[0].priority).toBe("high"); // a custom column survives even the degraded peek (no PEEK_KEYS allowlist)
     expect(body.items[0].payload).toBeUndefined(); // detail degrades, counts survive
     expect(body.staged[0].title).toMatch(/node:sqlite/);
     // staged enrich from disk: title + preview from the change body, rationale +

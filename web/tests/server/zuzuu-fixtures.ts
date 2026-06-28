@@ -26,7 +26,9 @@ export function fixtureHome(r: string): string {
   mkdirSync(path.join(agent, ".live"), { recursive: true });
   writeFileSync(path.join(agent, "sessions.json"), JSON.stringify({ version: 1, sessions: [{ id: "s1", host: "claude-code" }] }));
   writeFileSync(path.join(agent, "knowledge", "items", "k1.md"),
-    envelope({ id: "k1", module: "knowledge", kind: "fact", title: '"fact one"', status: "active", created_at: "2026-06-12T00:00:00Z" }, "fact one\n"));
+    // `priority` is a CUSTOM column (beyond the old PEEK_KEYS allowlist) — it proves
+    // even the CLI-absent peek is lossless now (every top-level scalar surfaces).
+    envelope({ id: "k1", module: "knowledge", kind: "fact", title: '"fact one"', status: "active", created_at: "2026-06-12T00:00:00Z", priority: "high" }, "fact one\n"));
   // A real observe-written staged record (body under `change`, top-level numeric
   // `score`, `confidence: null` until a producer sets it, `evidence` as an array) —
   // matches src/grow/stage.mjs (see the golden shape pinned in zuzuu-staged-summary.test.ts).
