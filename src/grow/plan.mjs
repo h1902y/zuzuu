@@ -51,14 +51,14 @@ export function planFor(home, module) {
  * failure commit reverts the items tree and nothing is archived (a retry is safe).
  * @returns {{ ok, module?, planId?, applied?, generation?, stale?, error?, reverted? }}
  */
-export function applyPlan(home, module, expectedId = null) {
+export function applyPlan(home, module, expectedId = null, actor = 'operator') {
   const staged = listStaged(home, module);
   if (!staged.length) return { ok: false, error: 'nothing staged' };
   const actualId = planId(staged.map((s) => s.id));
   if (expectedId && expectedId !== actualId) {
     return { ok: false, stale: true, error: `plan ${expectedId} is stale (now ${actualId}) — re-plan` };
   }
-  const res = commit(home, { actor: 'operator' }, staged, {
+  const res = commit(home, { actor }, staged, {
     label: `apply ${staged.length} change(s) to ${module}`,
     mintedFrom: staged.map((s) => s.id),
   });

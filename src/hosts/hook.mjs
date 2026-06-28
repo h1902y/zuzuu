@@ -80,7 +80,12 @@ export function handleHook({ event, payload = {}, cwd = process.cwd(), host = 'c
   if (OPEN.has(event)) {
     // In a daemon-owned worktree the agent is already on its branch — defer.
     try { if (id && sessionGitEnabled(cwd) && !inSessionWorktree(cwd)) openSession(cwd, id); } catch { /* git trouble never blocks grounding */ }
-    try { apiOpen(cwd).registry.touch(); } catch { /* auto-track is best-effort, never blocks the host */ }
+    // THE MOAT boundary: the hook IS the agent's entry point, so it stamps actor:'agent'
+    // on the façade. Any Project write it could reach would be REFUSED by commit — none
+    // today (registry.touch writes registry refs, not Project notes via commit; the agent's
+    // sanctioned write channel is observe → stage → review). The brain's notes change only
+    // through the human gate, never the agent's hook path.
+    try { apiOpen(cwd, { actor: 'agent' }).registry.touch(); } catch { /* auto-track is best-effort, never blocks the host */ }
     writeDigest(cwd);
   } else if (TURN.has(event)) {
     try { if (sessionGitEnabled(cwd)) checkpoint(cwd); } catch { /* fail-open — commits only on the session branch */ }

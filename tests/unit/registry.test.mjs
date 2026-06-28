@@ -40,15 +40,17 @@ test('readManifest: missing manifest → minimal fallback, never throws', () => 
   withHome({}, (home) => {
     const m = readManifest(home, 'ghost');
     assert.equal(m.id, 'ghost');
-    assert.deepEqual(m.capabilities, ['query', 'check']);
+    // the UNIVERSAL set (Rung 8 folded in view/flow/validate — see notes/module.mjs)
+    assert.deepEqual(m.capabilities, ['query', 'check', 'view', 'flow', 'validate']);
   });
 });
 
 test('capabilitiesOf: explicit list wins; else derived from nature', () => {
-  assert.deepEqual(capabilitiesOf({ capabilities: ['act'] }).sort(), ['act', 'check', 'query']);
+  // explicit caps union the UNIVERSAL set (query·check·view·flow·validate, Rung 8)
+  assert.deepEqual(capabilitiesOf({ capabilities: ['act'] }).sort(), ['act', 'check', 'flow', 'query', 'validate', 'view']);
   // derived: a policy → act
   assert.ok(capabilitiesOf({ policy: { run: { allow: ['echo'] } } }).includes('act'));
-  assert.deepEqual(capabilitiesOf({}).sort(), ['check', 'query']);
+  assert.deepEqual(capabilitiesOf({}).sort(), ['check', 'flow', 'query', 'validate', 'view']);
 });
 
 test('listModules: only dirs with a module.md', () => {

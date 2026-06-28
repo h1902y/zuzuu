@@ -13,8 +13,14 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { parse } from './note.mjs';
 import { homeDir, manifestPath } from './store.mjs';
 
-// Capabilities every module has (reading + integrity are universal).
-const UNIVERSAL = ['query', 'check'];
+// The UNIVERSAL verbs — available on EVERY module without a manifest opt-in. They
+// target any module's notes generically: reading (query), integrity (check), a windowed
+// read (view), schema validation (validate), and running a workflow note (flow). Opt-in
+// verbs (act, gate, custom) still must be listed in the manifest. (Rung 8 folded view/
+// flow/validate in when they joined the one dispatch registry — they were direct façade
+// bindings before, an audit smell; now every `use/` verb that targets a module rides
+// `invoke`, and the universal ones pass its manifest-exposure gate here.)
+const UNIVERSAL = ['query', 'check', 'view', 'flow', 'validate'];
 
 /**
  * Read a module's manifest. Fail-soft: a missing/broken manifest yields a
@@ -22,8 +28,12 @@ const UNIVERSAL = ['query', 'check'];
  * @returns {{ id, title, note_type, goal, policy, capabilities, fields }}
  */
 export function readManifest(home, module) {
-  const path = manifestPath(home, module);
   const fallback = { id: module, title: module, note_type: null, goal: null, policy: null, capabilities: UNIVERSAL.slice(), fields: [] };
+  // truly fail-soft: an unsafe/empty module segment (e.g. the project-wide `''` that
+  // `validate` passes through `invoke`) has no manifest — yield the universal fallback
+  // rather than throwing out of seg(). Reads nothing, so there's no path-escape risk.
+  let path;
+  try { path = manifestPath(home, module); } catch { return fallback; }
   if (!existsSync(path)) return fallback;
   const { ok, note } = parse(readFileSync(path, 'utf8'), { id: module });
   if (!ok || !note) return { ...fallback, manifestError: 'unparseable module.md' };

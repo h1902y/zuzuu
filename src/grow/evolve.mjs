@@ -17,10 +17,11 @@ import { commit } from './commit.mjs';
  * (review.approve, grow/edit). A multi-change batch goes straight to `commit` (grow/plan).
  * @returns {{ ok, op?, note?, error? }}
  */
-export function evolve(home, module, staged) {
-  const res = commit(home, { actor: 'operator' }, [{ ...staged, module }], {
+export function evolve(home, module, staged, actor = 'operator') {
+  const res = commit(home, { actor }, [{ ...staged, module }], {
     mintedFrom: [staged.id],
     label: `${staged.op} ${module}`,
   });
-  return res.ok ? res.results[0] : { ok: false, error: res.error };
+  if (!res.ok) return { ok: false, error: res.error, refused: res.refused };
+  return res.results[0];
 }

@@ -20,9 +20,6 @@ import { approve, reject } from '../grow/review.mjs';
 import { planFor, applyPlan } from '../grow/plan.mjs';
 import { renameNote, mergeNotes, refactorField } from '../grow/refactor.mjs';
 import { patchNote, appendNote } from '../grow/edit.mjs';
-import { viewNote } from '../use/view.mjs';
-import { validateProject } from '../use/check.mjs';
-import { runWorkflow } from '../use/workflow.mjs';
 import { generations, diffGenerations, notesAsOf } from '../notes/generation.mjs';
 import { rollback } from '../grow/commit.mjs';
 import { addColumn, alterColumn, dropColumn } from '../grow/schema.mjs';
@@ -33,11 +30,28 @@ import { activeRegistryPath, setActiveRegistry } from '../notes/registry-pointer
 import { subscribeModule } from '../grow/subscribe.mjs';
 import { generationCommit } from '../notes/generation.mjs';
 
+// flow/view/validate ride the one registry now (Rung 8) but expose their RAW verb
+// result, not the {ok,value} dispatch envelope — unwrap on success so the façade's return
+// shape is unchanged for the CLI/web consumers that read it directly (behavior-neutral);
+// a dispatch refusal (missing/denied) surfaces {ok:false,error} so `!r.ok` handling holds.
+const unwrap = (r) => (r.ok ? r.value : r);
+
 /**
  * Open the Project rooted at `cwd` (git-citizen: the `.zuzuu/` at the repo root).
+ *
+ * THE MOAT (Rung 8): `actor` is the trust context — stamped at the entry boundary, never
+ * forwarded from agent-controllable input. `operator` (a human at the CLI, or the daemon a
+ * human triggered) MAY write; `agent` (the host LLM in a turn, reaching us via the host
+ * hook) MAY NOT — it proposes via observe → stage → review. It rides the handle's WRITE
+ * methods into `commit` (the sole note-writer), which REFUSES a non-operator. The default
+ * is `operator` (the fail-open compat default — every existing caller is an operator); the
+ * in-process agent boundary, `hosts/hook`, explicitly stamps `agent`. This is the IN-PROCESS
+ * guarantee; the agent shelling `zz <writeverb>` via Bash is a fresh operator process —
+ * that path is closed by the guardrails execution gate (Rung 9), not here.
+ * @param {{actor?: 'operator'|'agent'}} [opts]
  * @returns a handle bound to that home — the host's entire dependency surface.
  */
-export function open(cwd = process.cwd()) {
+export function open(cwd = process.cwd(), { actor = 'operator' } = {}) {
   registerAll(); // idempotent
   const root = repoRoot(cwd);
   const home = homeDir(root);
@@ -54,34 +68,35 @@ export function open(cwd = process.cwd()) {
     alterColumn: (module, name, opts) => alterColumn(home, module, name, opts),
     dropColumn: (module, name) => dropColumn(home, module, name),
 
-    // ── the read/run verbs (dispatched through the one registry) ────────────
-    query: (module, opts = {}) => invoke(home, module, 'query', opts),
-    check: (module, opts = {}) => invoke(home, module, 'check', opts),
-    act: (module, id, inputs = {}) => invoke(home, module, 'act', id, inputs),
-    flow: (module, id, inputs = {}) => runWorkflow(home, module, id, inputs),
+    // ── the read/run verbs (all dispatched through the one registry; actor in ctx) ──
+    query: (module, opts = {}) => invoke(home, module, 'query', { actor }, opts),
+    check: (module, opts = {}) => invoke(home, module, 'check', { actor }, opts),
+    act: (module, id, inputs = {}) => invoke(home, module, 'act', { actor }, id, inputs),
+    flow: (module, id, inputs = {}) => unwrap(invoke(home, module, 'flow', { actor }, id, inputs)),
+    view: (module, id, opts) => unwrap(invoke(home, module, 'view', { actor }, id, opts)),
+    validate: (module = '') => unwrap(invoke(home, module, 'validate', { actor })),
 
     // ── the human gate (review is interactive — not a registry verb) ────────
-    stage: (module, p) => stageChange(home, module, p),
+    // The WRITE methods thread `actor` into `commit`, which refuses a non-operator.
+    stage: (module, p) => stageChange(home, module, p),  // stage writes staged JSON, not notes — the agent's sanctioned channel, never gated
     staged: (module) => listStaged(home, module),
-    approve: (module, id, opts) => approve(home, module, id, opts),
-    reject: (module, id, reason) => reject(home, module, id, reason),
-    plan: (module) => planFor(home, module),
-    apply: (module, planId) => applyPlan(home, module, planId),
+    approve: (module, id) => approve(home, module, id, actor),
+    reject: (module, id, reason) => reject(home, module, id, reason),  // reject writes nothing
+    plan: (module) => planFor(home, module),                          // dry-run, writes nothing
+    apply: (module, planId) => applyPlan(home, module, planId, actor),
 
     // ── graph-safe refactors (multi-note, link-updating) ────────────────────
-    rename: (module, oldId, newId) => renameNote(home, module, oldId, newId),
-    merge: (module, src, dst) => mergeNotes(home, module, src, dst),
-    refactor: (module, key, from, to) => refactorField(home, module, key, from, to),
+    rename: (module, oldId, newId) => renameNote(home, module, oldId, newId, actor),
+    merge: (module, src, dst) => mergeNotes(home, module, src, dst, actor),
+    refactor: (module, key, from, to) => refactorField(home, module, key, from, to, actor),
 
-    // ── scoped edits + windowed read ────────────────────────────────────────
-    patch: (module, id, key, value) => patchNote(home, module, id, key, value),
-    append: (module, id, text) => appendNote(home, module, id, text),
-    view: (module, id, opts) => viewNote(home, module, id, opts),
-    validate: (module = '') => validateProject(home, module),
+    // ── scoped edits ────────────────────────────────────────────────────────
+    patch: (module, id, key, value) => patchNote(home, module, id, key, value, actor),
+    append: (module, id, text) => appendNote(home, module, id, text, actor),
 
     // ── snapshots (per-module generations) ─────────────────────────────────
     generations: (module) => generations(home, module),
-    rollback: (module, n) => rollback(home, module, n),
+    rollback: (module, n) => rollback(home, module, n, actor),
     diff: (module, from, to, opts = {}) => diffGenerations(home, module, from, to, opts),
     asOf: (module, n) => notesAsOf(home, module, n),
     timeline: (opts = {}) => timeline(home, opts),

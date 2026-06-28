@@ -15,17 +15,19 @@ import { commit } from './commit.mjs';
 import { readStaged, archiveStaged } from './stage.mjs';
 
 /**
- * Approve a staged change: hand it to `commit` as a one-op batch (actor `operator` —
- * this IS the human gate), and on success archive it (consumed). A failed commit leaves
- * it staged — a retry is safe (writes are idempotent), so a partial failure never
- * double-applies on re-approve.
- * @returns {{ ok, op?, note?, error? }}
+ * Approve a staged change: hand it to `commit` as a one-op batch and, on success, archive
+ * it (consumed). The `actor` is threaded from the boundary — approve IS the human gate, so
+ * it's `operator` in practice; commit REFUSES a non-operator (an agent can't approve its own
+ * proposal in-process), and a refused/failed commit leaves it staged — a retry is safe
+ * (writes are idempotent), so a partial failure never double-applies on re-approve.
+ * @returns {{ ok, op?, note?, error?, refused? }}
  */
-export function approve(home, module, id) {
+export function approve(home, module, id, actor = 'operator') {
   const p = readStaged(home, module, id);
   if (!p) return { ok: false, error: `no staged change '${id}'` };
-  const res = commit(home, { actor: 'operator' }, [{ ...p, module }], { mintedFrom: [p.id], label: `${p.op} ${module}` });
-  const r = res.ok ? res.results[0] : { ok: false, error: res.error };
+  const res = commit(home, { actor }, [{ ...p, module }], { mintedFrom: [p.id], label: `${p.op} ${module}` });
+  if (!res.ok) return { ok: false, error: res.error, refused: res.refused };
+  const r = res.results[0];
   if (r.ok) archiveStaged(home, module, id, 'approved');
   return r;
 }

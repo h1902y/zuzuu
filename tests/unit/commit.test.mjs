@@ -1,7 +1,7 @@
-// Rung 5 — the ONE write boundary: commit() is the sole writer + minter.
-// Focused tests for the new primitive: a multi-op batch mints ONE generation per
-// touched module; a mid-batch failure leaves NO partial write (atomic); `actor`
-// threads through the signature without yet changing behavior (Rung 8 enforces it).
+// Rung 5/8 — the ONE write boundary: commit() is the sole writer + minter, operator-only.
+// Focused tests for the primitive: a multi-op batch mints ONE generation per touched
+// module; a mid-batch failure leaves NO partial write (atomic); and THE MOAT — a
+// non-operator (the agent) is refused before any write or mint (Rung 8 enforcement).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, existsSync, readFileSync } from 'node:fs';
@@ -66,17 +66,18 @@ test('commit: a mid-batch failure is ATOMIC — no partial write, no mint, prior
   });
 });
 
-test('commit: `actor` threads through the signature but does NOT change behavior yet (Rung 8 enforces)', () => {
+test('commit: THE MOAT — writing is operator-only; a non-operator is refused (no write, no mint)', () => {
   withRepo((home) => {
-    // default actor (omitted ctx) works
+    // default actor (omitted ctx) is operator → works
     const a = commit(home, undefined, [{ module: 'knowledge', op: 'create', target: 'd1', change: { type: 'knowledge', title: 'D1' }, id: 'op-d1' }]);
     assert.equal(a.ok, true, 'omitting the ctx uses the default actor (operator)');
-    // a passed actor is accepted and does NOT leak into the mutation-log actor (stays `human`)
-    const b = commit(home, { actor: 'someone-else' }, [{ module: 'knowledge', op: 'create', target: 'd2', change: { type: 'knowledge', title: 'D2' }, id: 'op-d2' }]);
-    assert.equal(b.ok, true);
-    const last = readLog(home, 'knowledge', 'mutations').at(-1);
-    assert.equal(last.note, 'd2');
-    assert.equal(last.actor, 'human', 'the logged actor is unchanged this rung — actor stamping is Rung 8');
+    // a non-operator (the agent) is REFUSED before any write or mint
+    const b = commit(home, { actor: 'agent' }, [{ module: 'knowledge', op: 'create', target: 'd2', change: { type: 'knowledge', title: 'D2' }, id: 'op-d2' }]);
+    assert.equal(b.ok, false);
+    assert.equal(b.refused, true, 'a non-operator commit is refused');
+    assert.equal(existsSync(itemPath(home, 'knowledge', 'd2')), false, 'no note written for an agent commit');
+    // the mint stays at d1's generation — no new generation from the refused write
+    assert.equal(generations(home, 'knowledge').active, 1, 'no mint on the refused commit');
   });
 });
 

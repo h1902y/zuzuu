@@ -114,11 +114,11 @@ export function expandRefactor(home, module, key, fromVal, toVal) {
 /**
  * Rename/move a note and rewrite every inbound reference. @returns {{ok, renamed?, refs?, generations?, error?}}
  */
-export function renameNote(home, module, oldId, newId) {
+export function renameNote(home, module, oldId, newId, actor = 'operator') {
   const ex = expandRename(home, module, oldId, newId);
   if (!ex.ok) return ex;
-  const res = commit(home, { actor: 'operator' }, ex.batch, { label: ex.label, mintedFrom: [ex.label] });
-  if (!res.ok) return { ok: false, error: res.error };
+  const res = commit(home, { actor }, ex.batch, { label: ex.label, mintedFrom: [ex.label] });
+  if (!res.ok) return { ok: false, error: res.error, refused: res.refused };
   return { ok: true, renamed: `${module}:${oldId}→${newId}`, refs: ex.refs, generations: res.generations };
 }
 
@@ -126,11 +126,11 @@ export function renameNote(home, module, oldId, newId) {
  * Merge `src` into `dst`: append src's body, union its relations, delete src, and
  * re-point every inbound reference of src → dst. @returns {{ok, merged?, refs?, generations?, error?}}
  */
-export function mergeNotes(home, module, srcId, dstId) {
+export function mergeNotes(home, module, srcId, dstId, actor = 'operator') {
   const ex = expandMerge(home, module, srcId, dstId);
   if (!ex.ok) return ex;
-  const res = commit(home, { actor: 'operator' }, ex.batch, { label: ex.label, mintedFrom: [ex.label] });
-  if (!res.ok) return { ok: false, error: res.error };
+  const res = commit(home, { actor }, ex.batch, { label: ex.label, mintedFrom: [ex.label] });
+  if (!res.ok) return { ok: false, error: res.error, refused: res.refused };
   return { ok: true, merged: `${module}:${srcId}→${dstId}`, refs: ex.refs, generations: res.generations };
 }
 
@@ -140,11 +140,11 @@ export function mergeNotes(home, module, srcId, dstId) {
  * (all-or-nothing) rather than landed — the one intentional behavior change of Rung 5.
  * @returns {{ok, field?, changed?, generations?, error?}}
  */
-export function refactorField(home, module, key, fromVal, toVal) {
+export function refactorField(home, module, key, fromVal, toVal, actor = 'operator') {
   const ex = expandRefactor(home, module, key, fromVal, toVal);
   if (!ex.ok) return ex;
   if (!ex.batch.length) return { ok: true, field: key, changed: 0, generations: [] };
-  const res = commit(home, { actor: 'operator' }, ex.batch, { label: ex.label, mintedFrom: [ex.label] });
-  if (!res.ok) return { ok: false, error: res.error };
+  const res = commit(home, { actor }, ex.batch, { label: ex.label, mintedFrom: [ex.label] });
+  if (!res.ok) return { ok: false, error: res.error, refused: res.refused };
   return { ok: true, field: key, changed: ex.changed, generations: res.generations };
 }

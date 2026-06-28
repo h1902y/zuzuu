@@ -143,9 +143,18 @@ function revert(home, module) {
  * @returns {{ ok, results?, generations?, error?, reverted? }}
  */
 export function commit(home, { actor = 'operator' } = {}, batch = [], { label = null, mintedFrom = null } = {}) {
-  // `actor` rides the signature now but is not yet enforced.
-  // Rung 8 stamps actor at the boundaries + refuses 'agent' here.
-  void actor;
+  // THE MOAT (Rung 8): writing is operator-only. `actor` is stamped at the entry boundary
+  // (CLI = operator, host hook = agent) and threaded here UNCHANGED — never read from
+  // agent-controllable input. A non-operator commit is REFUSED before any write or mint:
+  // the agent's sanctioned channel is observe → stage → review, where a human operator
+  // approves. This is the IN-PROCESS guarantee — it closes every code path where agent
+  // context reaches the sole writer. It does NOT by itself stop the agent shelling
+  // `zz <writeverb>` via Bash (that fresh process is stamped operator); the Bash path is
+  // closed by the guardrails execution gate (Rung 9, protect-brain-writes-shell). The
+  // default stays 'operator' (fail-open compat — every existing caller is an operator).
+  if (actor !== 'operator') {
+    return { ok: false, error: 'write requires an operator (the agent proposes via stage→review)', refused: true };
+  }
   const results = [];
   const dirty = []; // modules written this transaction, first-touch order (= the mint set)
   const mark = (m) => { if (!dirty.includes(m)) dirty.push(m); };
@@ -172,7 +181,12 @@ export function commit(home, { actor = 'operator' } = {}, batch = [], { label = 
  * Lives here (not in notes/generation) so the Data layer never imports the write
  * boundary — the import graph stays acyclic. @returns {{ ok, module?, n?, newGeneration?, restored?, pruned?, error? }}
  */
-export function rollback(home, module, n) {
+export function rollback(home, module, n, actor = 'operator') {
+  // a rollback IS a write — refuse a non-operator up front (before the manifest restore),
+  // so the moat holds for this path too, not only the note batch commit below.
+  if (actor !== 'operator') {
+    return { ok: false, error: 'write requires an operator (the agent proposes via stage→review)', refused: true };
+  }
   const ex = expandRollback(home, module, n);
   if (!ex.ok) return ex;
   // restore the manifest (its `fields` schema) to the gen-n bytes BEFORE the commit, so
@@ -180,7 +194,7 @@ export function rollback(home, module, n) {
   // The manifest is NOT a note, so it doesn't ride the note batch; it's a plain write
   // (the same door init/propose/schema use), gated by the operator-initiated rollback.
   if (ex.manifest != null) { const p = manifestPath(home, module); mkdirp(dirname(p)); writeText(p, ex.manifest); }
-  const res = commit(home, { actor: 'operator' }, ex.batch, { label: `rollback ${module} to gen ${n}`, mintedFrom: [`rollback:${n}`] });
+  const res = commit(home, { actor }, ex.batch, { label: `rollback ${module} to gen ${n}`, mintedFrom: [`rollback:${n}`] });
   if (!res.ok) return { ok: false, error: res.error };
   return { ok: true, module, n, newGeneration: res.generations.find((g) => g.module === module)?.n, restored: ex.restored, pruned: ex.pruned };
 }

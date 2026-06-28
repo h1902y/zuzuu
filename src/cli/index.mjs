@@ -68,6 +68,13 @@ export async function run(argv, io = {}) {
     target = COMMANDS.find((c) => c.path.length === matched.alias.length && c.path.every((p, i) => p === matched.alias[i]));
     if (!target) return fail(log, `alias '${matched.path.join(' ')}' has no canonical target`);
   }
+  // THE MOAT boundary (Rung 8): the CLI process is the OPERATOR entry — a human at the
+  // terminal, or the workbench daemon (a fresh `zz` process a human triggered). Handlers
+  // `open(cwd)` here, and the façade defaults actor:'operator', so every write surface the
+  // CLI reaches is operator-stamped. The only actor that's stamped explicitly is `agent`
+  // (the host hook). (Caveat: the agent shelling `zz <writeverb>` via Bash also lands here
+  // as a fresh operator process — the in-process actor check can't tell it apart; that Bash
+  // path is closed by the guardrails execution gate in Rung 9, not this boundary.)
   const ctx = { args: { ...args, _: args._.slice(matched.path.length - 1) }, cwd, log, json, rest, verb, warn };
 
   try {

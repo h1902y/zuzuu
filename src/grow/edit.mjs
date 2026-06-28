@@ -17,17 +17,17 @@ import { evolve } from './evolve.mjs';
 const coerce = (v) => { try { return JSON.parse(v); } catch { return v; } };
 
 /** Set ONE frontmatter field on an existing note → one generation. */
-export function patchNote(home, module, id, key, value) {
+export function patchNote(home, module, id, key, value, actor = 'operator') {
   if (!existsSync(itemPath(home, module, id))) return { ok: false, error: `no note '${module}:${id}'` };
   if (key === 'id' || key === 'type') return { ok: false, error: `'${key}' is structural — not patchable` };
-  return evolve(home, module, { id: `patch-${id}`, op: 'update', target: id, change: { [key]: coerce(value) } });
+  return evolve(home, module, { id: `patch-${id}`, op: 'update', target: id, change: { [key]: coerce(value) } }, actor);
 }
 
 /** Append text to an existing note's body → one generation. */
-export function appendNote(home, module, id, text) {
+export function appendNote(home, module, id, text, actor = 'operator') {
   const path = itemPath(home, module, id);
   if (!existsSync(path)) return { ok: false, error: `no note '${module}:${id}'` };
   const cur = parse(readFileSync(path, 'utf8'), { id }).note ?? {};
   const body = [cur.body, text].filter((s) => s && s.trim()).join('\n');
-  return evolve(home, module, { id: `append-${id}`, op: 'update', target: id, change: { body } });
+  return evolve(home, module, { id: `append-${id}`, op: 'update', target: id, change: { body } }, actor);
 }
