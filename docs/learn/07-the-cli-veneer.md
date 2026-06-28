@@ -2,18 +2,22 @@
 
 > Six lessons built the Project: an envelope, an index, a registry, a gate, a loop, an observer. This one is the **front door** — how a person (or an agent) actually *uses* it. The surprise: it's the thinnest layer in the whole system, and that's the point.
 
-The code is `cli/init.mjs` (`zz init`) and `cli/index.mjs` (the router). The entry is `bin/zuzuu.mjs`.
+The code is `cli/init.mjs` (`zz init`), `cli/commands.mjs` (the command table), and `cli/index.mjs` (the router). The entry is `bin/zuzuu.mjs`.
 
-## The router owns no logic
+## The router owns no logic — the table does
 
-`cli/index.mjs` is a flat `switch` over the verb, and every case is a one-liner onto the `api` façade (lesson on `api.mjs`):
+`cli/commands.mjs` is a **declarative table**: one row per command (`{ path, plane, summary, usage, handler, …metadata }`), each handler a one-liner onto the `api` façade (lesson on `api.mjs`):
 
 ```js
-case 'query': { const r = open(cwd).query(module, opts); log(toon('notes', r.value.rows, …)); }
-case 'act':   { const r = open(cwd).act(module, id, inputs); … }
+{ path: ['query'], handler: ({ args, cwd, log }) => { const r = open(cwd).query(…); log(toon('notes', …)); } }
+{ path: ['act'],   handler: ({ args, cwd, log }) => { const r = open(cwd).act(…); … } }
 ```
 
-That's deliberate. The dependency rule is `notes ← use · loop ← serve ← hosts · cli` — the CLI is the **outermost** ring and imports only inward. It parses argv, calls the façade, renders the result. If logic ever creeps into the router, it's in the wrong place — it belongs in a capability, where every host (the web daemon, a plugin) gets it too. The CLI is a *veneer*: thin, swappable, opinion-free.
+`cli/index.mjs` is then a ~63-line router: parse argv → resolve the command by **longest-prefix** match against the table → build a `ctx` → call its handler. (This replaced a hand-maintained ~40-verb `switch` + a hand-maintained `HELP` const — the table is the single source of truth that the router, `zz help`, the guardrails gate's brain-write deny set, and the web daemon's spawn catalog *all* read, so they can't drift; 2026-06-28, see `docs/LOG.md`.)
+
+The grammar is **two-tier**: hot-loop verbs stay flat (`query · act · check · review · stage · observe · …` — querying them every turn must stay cheap on tokens), cold verbs live under noun namespaces (`note · gen · session · host · registry`). Every old flat verb survives as a deprecating **alias row** — back-compat is *data*, not a wrapper.
+
+That thinness is deliberate. The dependency rule is `metal ← notes ← use · grow ← serve ← hosts · cli` — the CLI is the **outermost** ring and imports only inward. It parses argv, calls the façade, renders the result. If logic ever creeps into the router, it's in the wrong place — it belongs in a capability, where every host (the web daemon, a plugin) gets it too. The CLI is a *veneer*: thin, swappable, opinion-free.
 
 ## Written for an agent to read (AXI)
 
