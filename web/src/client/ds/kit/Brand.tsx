@@ -2,12 +2,13 @@
 //   "mark"   → the logo only (the glitch-Z mark, /z.png — the real brand asset)
 //   "lockup" → the mark + the "zuzuu" wordmark   (logo + text)
 //   "full"   → the mark + the "zuzuucodes" wordmark (logo + full text)
-// The mark is the actual brand image (never reinvented); the wordmark is Train One
-// (--font-logo, via the Google Fonts CDN link in index.html). Composed from static,
-// token-bound utilities only (guard-safe — no inline styles / arbitrary values).
+// The mark is the actual brand image (never reinvented); the wordmark is the MARVIN
+// logotype face Bagel Fat One (--font-logo, self-hosted via @fontsource — no CDN).
+// Composed from static, token-bound utilities only (guard-safe — no inline styles).
 //
-// Vertical centering: Train One carries heavy top-side bearing, so the wordmark gets a
-// small per-size optical lift to align its center with the square mark.
+// Vertical centering: the chunky rounded logotype carries heavy top-side bearing, so the
+// wordmark gets a small per-size optical lift to align its center with the square mark.
+// (The lift values are tuned by eye — re-check on a visual pass after the face swap.)
 
 export type BrandVariant = "mark" | "lockup" | "full";
 export type BrandSize = "sm" | "md" | "lg";
