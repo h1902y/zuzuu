@@ -176,18 +176,32 @@ test('rename: mints ONE generation per touched module and repoints every referre
   });
 });
 
-test('CHARACTERIZATION (before-state): refactorField writes via raw writeFileSync with NO validate pass', () => {
-  // A later rung routes refactor through the validating write boundary. TODAY it does
-  // not: refactorField can land a note that validateNote would REJECT. This golden
-  // documents that asymmetry so the refactor that closes it fails here on purpose.
+test('UPDATED (Rung 5 — the ONE intentional behavior change): refactorField NOW VALIDATES', () => {
+  // BEFORE Rung 5, refactor wrote RAW (metal/fs.writeText, no validate) and could land a
+  // note validateNote REJECTS — this golden PINNED that asymmetry. Rung 5 folds refactor
+  // into commit() (the single validating writer), so the malformed rewrite is now REFUSED
+  // (all-or-nothing, nothing lands, the note reverts) while a VALID rewrite still lands
+  // identically. This is the SOLE Rung-0 golden Rung 5 changes — deliberately; every
+  // other golden in this file stays byte-for-byte identical (the proof of behavior-neutrality).
   withRepo((home) => {
-    put(home, 'guardrails', 'r1', { type: 'rule', action: 'deny', pattern: 'rm', reason: 'x' });
-    const r = refactorField(home, 'guardrails', 'action', 'deny', 'bogus');
-    assert.equal(r.ok, true, 'refactor reports success');
-    assert.equal(r.changed, 1);
-    assert.equal(readNote(home, 'guardrails', 'r1').action, 'bogus', 'the invalid value is written to disk');
-    assert.equal(validateNote(readNote(home, 'guardrails', 'r1')).ok, false,
-      'the landed note FAILS validateNote — refactor bypassed the schema check (current state)');
+    // r1 committed at gen 1 — so the all-or-nothing revert has a HEAD to restore from
+    evolveOp(home, 'guardrails', { op: 'create', target: 'r1', change: { type: 'rule', action: 'deny', pattern: 'rm', reason: 'x' } });
+    assert.equal(generations(home, 'guardrails').active, 1);
+
+    // an INVALID rewrite (action ∉ deny|ask|allow) is now REFUSED — nothing lands, no mint
+    const bad = refactorField(home, 'guardrails', 'action', 'deny', 'bogus');
+    assert.equal(bad.ok, false, 'refactor validates BEFORE the write and refuses the malformed rewrite');
+    assert.match(bad.error, /invalid note 'guardrails:r1'/);
+    assert.equal(readNote(home, 'guardrails', 'r1').action, 'deny', 'the note on disk is untouched (reverted)');
+    assert.equal(generations(home, 'guardrails').active, 1, 'no generation minted for the refused rewrite');
+
+    // the paired VALID rewrite still lands identically (deny → ask) + mints
+    const ok = refactorField(home, 'guardrails', 'action', 'deny', 'ask');
+    assert.equal(ok.ok, true, 'refactor reports success');
+    assert.equal(ok.changed, 1);
+    assert.equal(readNote(home, 'guardrails', 'r1').action, 'ask', 'the valid value is written to disk');
+    assert.equal(validateNote(readNote(home, 'guardrails', 'r1')).ok, true, 'the landed note PASSES validateNote');
+    assert.equal(generations(home, 'guardrails').active, 2, 'the valid rewrite mints a generation');
   });
 });
 

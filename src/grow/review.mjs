@@ -7,22 +7,25 @@
 //       automated competitor lacks. No write happens without passing here. Keeping
 //       review = decision only (the writing lives in `evolve`) is what makes the
 //       ontology's observe → stage → review → evolve read as four named beats.
-// how:  approve = readStaged → evolve → archive-on-success; reject = archive. The
-//       interactive ceremony is a thin CLI wrapper over these. Zero-dep, fail-soft.
+// how:  approve = readStaged → commit (the one write boundary) → archive-on-success;
+//       reject = archive. The interactive ceremony is a thin CLI wrapper over these.
+//       Zero-dep, fail-soft.
 
-import { evolve } from './evolve.mjs';
+import { commit } from './commit.mjs';
 import { readStaged, archiveStaged } from './stage.mjs';
 
 /**
- * Approve a staged change: hand it to `evolve`, and on success archive it (consumed).
- * A failed evolve leaves it staged — a retry is safe (writes are idempotent), so a
- * partial failure never double-applies on re-approve.
+ * Approve a staged change: hand it to `commit` as a one-op batch (actor `operator` —
+ * this IS the human gate), and on success archive it (consumed). A failed commit leaves
+ * it staged — a retry is safe (writes are idempotent), so a partial failure never
+ * double-applies on re-approve.
  * @returns {{ ok, op?, note?, error? }}
  */
-export function approve(home, module, id, opts = {}) {
+export function approve(home, module, id) {
   const p = readStaged(home, module, id);
   if (!p) return { ok: false, error: `no staged change '${id}'` };
-  const r = evolve(home, module, p, opts);
+  const res = commit(home, { actor: 'operator' }, [{ ...p, module }], { mintedFrom: [p.id], label: `${p.op} ${module}` });
+  const r = res.ok ? res.results[0] : { ok: false, error: res.error };
   if (r.ok) archiveStaged(home, module, id, 'approved');
   return r;
 }
