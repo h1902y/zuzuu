@@ -12,5 +12,13 @@ export default defineConfig({
   },
   test: {
     include: ["tests/**/*.test.ts"],
+    // 5s (Vitest's pure-JS-unit default) is too tight for THIS suite: many server
+    // tests fork a subprocess (the `zz` CLI / a shell stub) or stand up a PTY, and
+    // under full parallel load (70+ files) a cheap `/bin/sh` spawn can transiently
+    // overshoot 5s on a CPU-saturated machine — the `zuzuu-stage` getOne flake. A
+    // genuine hang still fails (it never resolves), so the higher bound only absorbs
+    // scheduling contention, never masks a real deadlock.
+    testTimeout: 15_000,
+    hookTimeout: 15_000,
   },
 });
