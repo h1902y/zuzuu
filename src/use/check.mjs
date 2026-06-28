@@ -9,10 +9,11 @@
 //       not a hidden invariant).
 // how:  reads the index (broken links) + the notes (orphans, stale). Fail-soft.
 
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { parse } from '../notes/note.mjs';
 import { read as readLog } from '../notes/log.mjs';
 import { itemsDir } from '../notes/store.mjs';
+import { readText, list } from '../metal/fs.mjs';
 import { brokenLinks } from '../notes/index.mjs';
 import { listModules } from '../notes/module.mjs';
 import { validateNote } from '../notes/validate.mjs';
@@ -25,10 +26,12 @@ function allNotes(home) {
   for (const m of listModules(home)) {
     const dir = itemsDir(home, m.id);
     if (!existsSync(dir)) continue;
-    for (const f of readdirSync(dir)) {
+    for (const f of list(dir)) {
       if (!f.endsWith('.md')) continue;
       const id = f.slice(0, -3);
-      const { ok, note } = parse(readFileSync(`${dir}/${f}`, 'utf8'), { id });
+      // metal/fs for the bytes; parse locally to keep the strict {ok} skip (a note
+      // that fails to parse is left out of the corpus — fail-soft).
+      const { ok, note } = parse(readText(`${dir}/${f}`), { id });
       if (ok && note) out.push({ addr: `${m.id}:${id}`, note });
     }
   }

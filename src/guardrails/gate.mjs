@@ -10,9 +10,10 @@
 //       (evaluate logic harvested from guardrails/engine.mjs, incl. the
 //       no-root-wipe JSON-anchor fix — rules match over JSON.stringify(input).)
 
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { parse } from '../notes/note.mjs';
 import { itemsDir } from '../notes/store.mjs';
+import { readText, list } from '../metal/fs.mjs';
 
 const SEVERITY = { deny: 3, ask: 2, allow: 1 };
 const ACTIONS = new Set(Object.keys(SEVERITY));
@@ -102,13 +103,16 @@ export const RULE_MODULES = ['instructions', 'guardrails'];
 export function loadRules(home, module = 'instructions') {
   const dir = itemsDir(home, module);
   if (!existsSync(dir)) return [];
-  const files = readdirSync(dir).filter((f) => f.endsWith('.md'));
+  const files = list(dir).filter((f) => f.endsWith('.md'));
   const sig = files.map((f) => { const s = statSync(`${dir}/${f}`); return `${f}:${s.mtimeMs}:${s.size}`; }).sort().join('|');
   const hit = cache.get(dir);
   if (hit && hit.sig === sig) return hit.rules;
   const rules = [];
   for (const f of files) {
-    const { note } = parse(readFileSync(`${dir}/${f}`, 'utf8'), { id: f.slice(0, -3) });
+    // read by filename-stem id (NOT repo.readNote: the gate derives ids from real
+    // filenames and must never let an oddly-named file throw through itemPath's
+    // segment guard — it stays fail-open). Bytes go through metal/fs.
+    const { note } = parse(readText(`${dir}/${f}`), { id: f.slice(0, -3) });
     const r = compile(note);
     if (r) rules.push(r);
   }

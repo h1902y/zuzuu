@@ -1,29 +1,24 @@
-// src/sessions/git.mjs — git plumbing for session-git.
+// src/sessions/git.mjs — session-specific git helpers.
 //
 // what: thin, safe-by-construction git helpers (currentBranch, branchExists,
-//       isDirty, …) — argv arrays only (no shell strings), never throw, return
-//       plain data.
+//       isDirty, …) over the one git primitive — argv arrays only (no shell
+//       strings), never throw, return plain data.
 // why:  isolate raw git from policy. Session POLICY (open/checkpoint/close/status
 //       + the safety gates) lives in session-git.mjs; this file is just the wire.
-// how:  spawnSync over argv arrays; each call returns plain data. Zero-dep.
+//       The `git()` primitive itself now lives in `metal/git.mjs` (the one git
+//       wrapper) and is RE-EXPORTED here byte-for-byte — this file historically owned
+//       the richest wrapper, so promoting it unchanged keeps the safety-critical
+//       session contract (and its characterization) identical.
+// how:  the session helpers spawn through metal/git's `git()`; each returns plain
+//       data. Zero-dep.
 
-import { spawnSync } from 'node:child_process';
 import { rmSync } from 'node:fs';
 import { join, isAbsolute, resolve } from 'node:path';
 
-/** One git call — argv array only (no shell), never throws.
- *  `code` is the raw exit status (null when git couldn't be spawned). Most
- *  callers only need `ok`; the merge-tree mergeability probe (session-git.mjs)
- *  needs the exact code to tell a clean merge (0) from a conflict (1) from a
- *  fatal/usage error (128/129) — it must NEVER report a probe error as a conflict. */
-export function git(args, cwd, input) {
-  try {
-    const r = spawnSync('git', args, { cwd, encoding: 'utf8', input });
-    return { ok: r.status === 0 && !r.error, code: r.status, out: (r.stdout ?? '').trim(), err: (r.stderr ?? '').trim() };
-  } catch (e) {
-    return { ok: false, code: null, out: '', err: String(e) };
-  }
-}
+// THE one git primitive lives in metal/git — re-exported so every `./git.mjs`
+// importer (session-git, session-worktree) keeps the exact same `git()`.
+export { git } from '../metal/git.mjs';
+import { git } from '../metal/git.mjs';
 
 export function gitDir(cwd) {
   const r = git(['rev-parse', '--git-dir'], cwd);

@@ -14,26 +14,26 @@
 //       Fail-soft: outside a git repo / on git error the ledger still advances
 //       (the files are the source of truth) — rollback just needs a real repo.
 
-import { existsSync, readFileSync, readdirSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { spawnSync } from 'node:child_process';
 import { itemsDir } from './store.mjs';
 import { parse } from './note.mjs';
+import { out } from '../metal/git.mjs';
+import { readText, writeText, mkdirp, list, remove } from '../metal/fs.mjs';
 
-const git = (root, args) => {
-  const r = spawnSync('git', ['-C', root, ...args], { encoding: 'utf8' });
-  return r.status === 0 ? r.stdout.trim() : null;
-};
+// generation is read-only over git (`out` = stdout-or-null); the `-C root` form
+// becomes `cwd: root`. Keep the local 2-arg shape so the many call sites read clean.
+const git = (root, args) => out(args, root);
 const rootOf = (home) => dirname(home);                       // home = <root>/.zuzuu
 const ledgerPath = (home, module) => join(home, module, 'generations.json');
 
 const readLedger = (home, module) => {
-  try { return JSON.parse(readFileSync(ledgerPath(home, module), 'utf8')); } catch { return []; }
+  try { return JSON.parse(readText(ledgerPath(home, module))); } catch { return []; }
 };
 function writeLedger(home, module, entries) {
   const p = ledgerPath(home, module);
-  mkdirSync(dirname(p), { recursive: true });
-  writeFileSync(p, JSON.stringify(entries, null, 2) + '\n');
+  mkdirp(dirname(p));
+  writeText(p, JSON.stringify(entries, null, 2) + '\n');
 }
 
 /** The module's generation lineage (ledger entries) + the active (latest) n. */
@@ -130,15 +130,15 @@ export function rollback(home, module, n) {
   if (!commit) return { ok: false, error: `no commit for ${module} generation ${n} (needs a git repo)` };
 
   const idir = itemsDir(home, module);
-  const onDisk = () => (existsSync(idir) ? readdirSync(idir).filter((f) => f.endsWith('.md')).map((f) => f.slice(0, -3)) : []);
+  const onDisk = () => (existsSync(idir) ? list(idir).filter((f) => f.endsWith('.md')).map((f) => f.slice(0, -3)) : []);
   const before = onDisk();
   // restore the items tree from gen n's commit (git restore also removes files
   // absent in that tree, so it prunes for us; the manual sweep is belt-and-suspenders)
   git(root, ['restore', '--source', commit, '--', `.zuzuu/${module}/items`]);
   const tree = git(root, ['ls-tree', '-r', '--name-only', commit, `.zuzuu/${module}/items/`]) || '';
   const pinned = new Set(tree.split('\n').filter((p) => p.endsWith('.md')).map((p) => p.split('/').pop().slice(0, -3)));
-  if (existsSync(idir)) for (const f of readdirSync(idir)) {
-    if (f.endsWith('.md') && !pinned.has(f.slice(0, -3))) rmSync(join(idir, f));
+  if (existsSync(idir)) for (const f of list(idir)) {
+    if (f.endsWith('.md') && !pinned.has(f.slice(0, -3))) remove(join(idir, f));
   }
   const pruned = before.filter((id) => !pinned.has(id)).length;
   // commit the restored state as the next generation (its content == gen n)

@@ -10,16 +10,13 @@
 //       CTE traversal. node:sqlite is lazy-loaded (createRequire) so importing
 //       this never hard-requires sqlite. Rebuilt when any source file changes.
 
-import { createRequire } from 'node:module';
-import { existsSync, readdirSync, statSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { parse } from './note.mjs';
 import { itemsDir, cacheDir } from './store.mjs';
-
-const require = createRequire(import.meta.url);
-let DatabaseSync = null;
-const sqlite = () => (DatabaseSync ??= require('node:sqlite').DatabaseSync);
+import { sqlite } from '../metal/sqlite.mjs';
+import { readText, mkdirp, remove } from '../metal/fs.mjs';
 
 // The cache is a rebuildable derived artifact — it lives OUTSIDE the repo, in the
 // XDG cache dir keyed to this project, never in the tracked `.zuzuu/` tree.
@@ -91,7 +88,7 @@ function build(home, db) {
       if (!f.endsWith('.md')) continue;
       const id = f.slice(0, -3);
       const addr = `${module}:${id}`;
-      const { ok, note } = parse(readFileSync(join(dir, f), 'utf8'), { id });
+      const { ok, note } = parse(readText(join(dir, f)), { id });
       if (!ok || !note) continue; // fail-soft: a bad file just isn't indexed
       insZu.run(addr, module, id, note.type ?? '', note.title ?? '', note.status ?? 'active', note.body ?? '');
       insFts.run(addr, note.title ?? '', note.body ?? '');
@@ -129,9 +126,8 @@ export function open(home) {
     if (db) db.close(); // stale or corrupt → drop it
   }
   // (re)build into the file db — ensure the (out-of-repo) cache dir exists first
-  const { rmSync, mkdirSync } = require('node:fs');
-  if (existsSync(path)) rmSync(path);
-  else mkdirSync(cacheDir(home), { recursive: true });
+  if (existsSync(path)) remove(path);
+  else mkdirp(cacheDir(home));
   return build(home, connect(path));
 }
 

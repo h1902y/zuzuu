@@ -11,14 +11,20 @@
 // how:  gather referrers BEFORE moving (the index is fresh), rewrite each referrer's
 //       relation values, then mint a generation per touched module. Zero-dep, fail-soft.
 
-import { existsSync, readFileSync, writeFileSync, rmSync, readdirSync } from 'node:fs';
-import { parse, serialize } from '../notes/note.mjs';
+import { existsSync } from 'node:fs';
+import { serialize } from '../notes/note.mjs';
 import { itemPath, itemsDir } from '../notes/store.mjs';
+import { readNote, removeNote } from '../notes/repo.mjs';
 import { backlinks } from '../notes/index.mjs';
 import { logMutation } from '../notes/log.mjs';
 import { mint } from '../notes/generation.mjs';
+import { writeText, list } from '../metal/fs.mjs';
 
-const readNote = (home, module, id) => parse(readFileSync(itemPath(home, module, id), 'utf8'), { id }).note;
+// raw write, no validate — Rung 5 folds refactor into commit() which validates. Until
+// then refactor lands bytes through metal/fs.writeText directly (NOT repo.writeNote),
+// so a field-rewrite can produce a note validateNote would reject (pinned by the
+// rung-0 characterization). Centralize the metal here without changing that semantics.
+const writeRaw = (home, module, id, note) => writeText(itemPath(home, module, id), serialize(note));
 
 // rewrite every relation value pointing at `from` → `to` (both the full-addr and,
 // for a same-module referrer, the bare-id form). Returns true iff anything changed.
@@ -49,7 +55,7 @@ function repointReferrers(home, module, oldId, newId) {
     if (rm === module && rid === newId) continue; // don't rewrite the moved note pointing at itself
     const note = readNote(home, rm, rid);
     if (repointRelations(note, `${module}:${oldId}`, `${module}:${newId}`, oldId, newId, rm === module)) {
-      writeFileSync(itemPath(home, rm, rid), serialize(note));
+      writeRaw(home, rm, rid, note);
       logMutation(home, rm, 'update', rid, { repoint: `${module}:${oldId}→${newId}` });
       modules.add(rm);
       count++;
@@ -70,8 +76,8 @@ export function renameNote(home, module, oldId, newId) {
   if (existsSync(itemPath(home, module, newId))) return { ok: false, error: `'${module}:${newId}' already exists` };
   try {
     const { modules, count } = repointReferrers(home, module, oldId, newId);
-    writeFileSync(itemPath(home, module, newId), serialize(readNote(home, module, oldId)));
-    rmSync(itemPath(home, module, oldId));
+    writeRaw(home, module, newId, readNote(home, module, oldId));
+    removeNote(home, module, oldId);
     logMutation(home, module, 'create', newId, { rename: `from ${oldId}` });
     logMutation(home, module, 'delete', oldId, { rename: `to ${newId}` });
     modules.add(module);
@@ -96,9 +102,9 @@ export function mergeNotes(home, module, srcId, dstId) {
       dst.relations[type] = [...new Set([].concat(dst.relations[type] ?? [], v))].filter(Boolean);
       if (dst.relations[type].length === 1) dst.relations[type] = dst.relations[type][0];
     }
-    writeFileSync(itemPath(home, module, dstId), serialize(dst));
+    writeRaw(home, module, dstId, dst);
     const { modules, count } = repointReferrers(home, module, srcId, dstId);
-    rmSync(itemPath(home, module, srcId));
+    removeNote(home, module, srcId);
     logMutation(home, module, 'update', dstId, { merge: `from ${srcId}` });
     logMutation(home, module, 'delete', srcId, { merge: `into ${dstId}` });
     modules.add(module);
@@ -115,13 +121,13 @@ export function refactorField(home, module, key, fromVal, toVal) {
   if (!existsSync(dir)) return { ok: false, error: `no module '${module}'` };
   try {
     let changed = 0;
-    for (const f of readdirSync(dir)) {
+    for (const f of list(dir)) {
       if (!f.endsWith('.md')) continue;
       const id = f.slice(0, -3);
       const note = readNote(home, module, id);
       if (String(note[key]) !== String(fromVal)) continue;
       note[key] = toVal;
-      writeFileSync(itemPath(home, module, id), serialize(note));
+      writeRaw(home, module, id, note);
       logMutation(home, module, 'update', id, { refactor: `${key}: ${fromVal}→${toVal}` });
       changed++;
     }

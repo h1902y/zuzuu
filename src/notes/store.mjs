@@ -12,8 +12,8 @@
 import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { out } from '../metal/git.mjs';
 
 // ── JSON files (the one convention) ───────────────────────────────────────────
 // Every dir read/wrote JSON by hand with a slightly different fallback; these are
@@ -31,10 +31,8 @@ export function writeJson(path, obj) {
   writeFileSync(path, JSON.stringify(obj, null, 2) + '\n');
 }
 
-const git = (args, cwd) => {
-  const r = spawnSync('git', args, { cwd, encoding: 'utf8' });
-  return r.status === 0 ? r.stdout.trim() : null;
-};
+// Read-only git is `out()` from the metal layer (stdout-or-null) — store never needs
+// the {ok,code,err} contract, only the value, so this keeps the old ergonomics.
 
 // The repo root never changes within a process, but git is a process spawn (~10ms)
 // and `repoRoot` is called several times per command — memoize by cwd.
@@ -43,7 +41,7 @@ const rootCache = new Map();
 /** The host repo root via git, falling back to cwd outside a repo. */
 export function repoRoot(cwd = process.cwd()) {
   let root = rootCache.get(cwd);
-  if (root === undefined) { root = git(['rev-parse', '--show-toplevel'], cwd) || cwd; rootCache.set(cwd, root); }
+  if (root === undefined) { root = out(['rev-parse', '--show-toplevel'], cwd) || cwd; rootCache.set(cwd, root); }
   return root;
 }
 
@@ -69,13 +67,13 @@ export const stateDir = (home) => join(xdg('XDG_STATE_HOME', '.local', 'state'),
  *  real repo with NO commits yet (unborn HEAD) — use `isGitRepo` to tell that apart
  *  from not-a-repo. */
 export function gitInfo(cwd = process.cwd()) {
-  return { commit: git(['rev-parse', 'HEAD'], cwd), branch: git(['rev-parse', '--abbrev-ref', 'HEAD'], cwd) };
+  return { commit: out(['rev-parse', 'HEAD'], cwd), branch: out(['rev-parse', '--abbrev-ref', 'HEAD'], cwd) };
 }
 
 /** True when cwd is inside a git work tree — even with NO commits yet (a fresh
  *  `git init`). `gitInfo().commit` can't tell "no commits" from "not a repo"; this can. */
 export function isGitRepo(cwd = process.cwd()) {
-  return git(['rev-parse', '--is-inside-work-tree'], cwd) === 'true';
+  return out(['rev-parse', '--is-inside-work-tree'], cwd) === 'true';
 }
 
 // ── addressing ──────────────────────────────────────────────────────────────

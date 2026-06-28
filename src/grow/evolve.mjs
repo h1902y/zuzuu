@@ -11,12 +11,9 @@
 // how:  one try around the write so a partial failure returns {ok:false} (no
 //       proposal archived → a retry is safe; writes are idempotent). Zero-dep.
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
-import { serialize, parse } from '../notes/note.mjs';
-import { itemPath, itemsDir } from '../notes/store.mjs';
+import { readNote, writeNote, removeNote } from '../notes/repo.mjs';
 import { logMutation } from '../notes/log.mjs';
 import { mint } from '../notes/generation.mjs';
-import { validateNote } from '../notes/validate.mjs';
 
 const isPlainObject = (x) => x != null && typeof x === 'object' && !Array.isArray(x);
 
@@ -31,11 +28,10 @@ function mergeEdit(cur, change) {
   return out;
 }
 
-// itemPath's segment guard throws on an unsafe/`../` id; we deliberately let that
-// propagate to applyChange's try → {ok:false, error:'unsafe id …'} (the moat's
-// explicit refusal), rather than masking it as a generic "no note".
-const readNote = (home, module, id) =>
-  id && existsSync(itemPath(home, module, id)) ? parse(readFileSync(itemPath(home, module, id), 'utf8'), { id }).note : null;
+// `repo.readNote` reads the current note (id-guarded, missing→null) and deliberately
+// lets itemPath's segment guard THROW on an unsafe/`../` id — that propagates to
+// applyChange's try → {ok:false, error:'unsafe id …'} (the moat's explicit refusal),
+// rather than masking it as a generic "no note".
 
 // the note a change reads/edits: relate edits the `from` note; the rest, the target.
 const lookupId = (staged, change) => staged.op === 'relate' ? change?.from : (staged.target ?? change?.id ?? staged.id);
@@ -86,12 +82,10 @@ export function applyChange(home, module, staged, { edit = null } = {}) {
     const current = readNote(home, module, lookupId(staged, change));
     const { target, after, error } = projectChange(staged, current, edit);
     if (error) return { ok: false, error };
-    if (after !== null) { // validate BEFORE the write — reject a malformed note, don't land it
-      const v = validateNote(after);
-      if (!v.ok) return { ok: false, error: `invalid note '${module}:${target}': ${v.errors.join('; ')}` };
-    }
-    if (after === null) rmSync(itemPath(home, module, target));
-    else { mkdirSync(itemsDir(home, module), { recursive: true }); writeFileSync(itemPath(home, module, target), serialize(after)); }
+    // repo.writeNote validates BEFORE the write (the moat's schema gate) and returns
+    // {ok:false} for a malformed note — same refusal evolve made inline before.
+    if (after === null) removeNote(home, module, target);
+    else { const w = writeNote(home, module, target, after); if (!w.ok) return { ok: false, error: w.error }; }
     const logOp = staged.op === 'relate' ? 'update' : staged.op;
     logMutation(home, module, logOp, target, { proposal: staged.id, ...(staged.op === 'relate' ? { relation: change.type } : {}) });
     return { ok: true, op: staged.op, note: target };

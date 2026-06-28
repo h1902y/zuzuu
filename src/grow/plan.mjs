@@ -14,21 +14,19 @@
 //       pure data, so git restore IS the compensation. Zero-dep.
 
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
 import { dirname } from 'node:path';
-import { parse } from '../notes/note.mjs';
-import { itemPath } from '../notes/store.mjs';
+import { readNote as readNoteRaw } from '../notes/repo.mjs';
 import { listStaged, archiveStaged } from './stage.mjs';
 import { applyChange, projectChange } from './evolve.mjs';
 import { mint } from '../notes/generation.mjs';
+import { git } from '../metal/git.mjs';
 import { diffNote } from '../use/diff.mjs';
 
-// fail-soft preview read: an unsafe/`../` id throws in itemPath — for a dry-run we
-// treat it as "no current note" (apply still refuses it via applyChange's guard).
+// fail-soft preview read: an unsafe/`../` id throws in itemPath (inside repo.readNote)
+// — for a dry-run we catch it and treat it as "no current note" (apply still refuses
+// it via applyChange's guard).
 const readNote = (home, module, id) => {
-  try { return id && existsSync(itemPath(home, module, id)) ? parse(readFileSync(itemPath(home, module, id), 'utf8'), { id }).note : null; }
-  catch { return null; }
+  try { return readNoteRaw(home, module, id); } catch { return null; }
 };
 const lookupId = (s) => s.op === 'relate' ? s.change?.from : (s.target ?? s.change?.id ?? s.id);
 // the plan id is the content hash of the pending member set — same trick as stageId
@@ -48,14 +46,14 @@ export function planFor(home, module) {
   return { module, planId: planId(staged.map((s) => s.id)), count: members.length, members };
 }
 
-const git = (root, args) => spawnSync('git', ['-C', root, ...args], { encoding: 'utf8' });
 // revert the module's items to the last committed generation (HEAD) — git IS the
 // compensation for note CRUD (pure data, no external side effects). (The append-only
 // log may retain entries for the reverted attempt — that's an honest trace, not state.)
+// The metal `git()` result is ignored here (best-effort restore), as before.
 function revert(home, module) {
   const root = dirname(home);
-  git(root, ['checkout', 'HEAD', '--', `.zuzuu/${module}/items`]);
-  git(root, ['clean', '-fdq', '--', `.zuzuu/${module}/items`]);
+  git(['checkout', 'HEAD', '--', `.zuzuu/${module}/items`], root);
+  git(['clean', '-fdq', '--', `.zuzuu/${module}/items`], root);
 }
 
 /**
