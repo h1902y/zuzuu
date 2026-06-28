@@ -460,9 +460,11 @@ How zuzuu is packaged & sold is *strategy*, not core ontology — the full model
 | [`src/`](src/) + `bin/zuzuu.mjs` | the CLI — `metal · notes · use · grow · guardrails · hosts · sessions · cli · serve` (zero-dep, filed by concept; `cli/commands.mjs` is the one command table, `grow/commit.mjs` the one write boundary) |
 | [`web/`](web/) | the visual workbench — a nested project (daemon + React SPA), staged into the npm package at publish |
 | [`tests/`](tests/) | hermetic units (`npm test`) + a real-data observe playground (`node tests/playground/run.mjs 5`) |
+| [`docs/README.md`](docs/README.md) | the **doc-map** — where every kind of doc lives (read first to find or place one) |
 | [`docs/learn/`](docs/learn/) | the educative book — read in order; lessons 02–09 walk the v2 code file-by-file |
 | [`docs/LOG.md`](docs/LOG.md) | the build journal (append-only — what shipped, verified) |
-| [`docs/DESIGN.md`](docs/DESIGN.md) | strategy & rationale (the *why*: hypothesis, decisions, prior art) |
+| [`docs/DESIGN.md`](docs/DESIGN.md) | strategy & rationale (the *why*: hypothesis, be/run/evolve) — the decisions *list* lives in the [Decision Log](docs/guide/Decision-Log.md), prior art in [`docs/inspiration/`](docs/inspiration/) |
+| [`docs/README.md`](docs/README.md) | the **docs map** — where every kind of info lives (read this to find your way around) |
 | [`docs/design-research/`](docs/design-research/) | workbench design research (the [`workbench/`](docs/design-research/workbench/) set drives the next phase) |
 | [`docs/specs/`](docs/specs/) | live specs — designs for work *not yet shipped* (shipped specs are retired into `LOG.md`) |
 | [`docs/inspiration/`](docs/inspiration/) | the research shelf — prior-art audits & syntheses |
@@ -470,6 +472,8 @@ How zuzuu is packaged & sold is *strategy*, not core ontology — the full model
 ## How this is built (the method)
 
 **Prove on real data, record in the journal.** Every capability is verified against *real* sessions (never invented fixtures) before it counts; the record lives in [`docs/LOG.md`](docs/LOG.md) (append-only). The core was rebuilt greenfield in 8 rungs — ~13k → ~3.8k lines — each rung green before the next, taught file-by-file in [`docs/learn/`](docs/learn/). Built in public — day-by-day on X ([@h1902y](https://x.com/h1902y)).
+
+**Finding your way around the docs** → [`docs/README.md`](docs/README.md), the doc-map: every kind of information has one canonical home, and that file says which.
 
 ## License & status
 

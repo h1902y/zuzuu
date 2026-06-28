@@ -16,7 +16,7 @@ The core was rebuilt greenfield in 2026-06 — the **envelope/note model**, the 
 - **Real containment for `act`** — bundle a sandbox (e.g. Anthropic's sandbox-runtime — Seatbelt / bubblewrap) so runs can be OS-isolated, not just gated + allowlisted. (The earlier `contained`/`sandboxed` tier stubs were removed; this would reintroduce containment as a real, opt-in backend.)
 - **Conversation mining** — the LLM-judge seam in `observe`: extract durable facts + "avoid X" lessons from the session conversation, not just the command log.
 - **Richer Gemini observe** — recover tool spans from Gemini's checkpoint files (it's the one thin host today).
-- **Cloud session tier** — container-per-worktree + local↔cloud sync (infra-gated).
+- **Cloud session tier** — container-per-worktree + local↔cloud sync (infra-gated). Design: [session-management roadmap L2→L7](https://github.com/h1902y/zuzuu/blob/main/docs/specs/2026-06-16-session-management-roadmap-l2-to-l7.md) (waves E–H).
 - **pi owned harness** — the stage-3 target: granular context/model control, gated on the efficiency benchmark.
 
 ## The spine
