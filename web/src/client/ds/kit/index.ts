@@ -20,3 +20,4 @@ export type { Step, StepStatus } from "./Stepper.js";
 export { Chip } from "./Chip.js";
 export type { ChipTone } from "./Chip.js";
 export { Dialog } from "./Dialog.js";
+export { Markdown } from "./Markdown.js";

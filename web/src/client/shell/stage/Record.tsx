@@ -11,7 +11,7 @@ import { propertyStack } from "./property-stack.js";
 import { describeCell } from "./grid-columns.js";
 import { Cell } from "./Cell.js";
 import { provenanceOf } from "../review/provenance.js";
-import { Stack, Inline, Text, Chip } from "../../ds/index.js";
+import { Stack, Inline, Text, Chip, Markdown } from "../../ds/index.js";
 
 export function Record({ module, id }: { module: string; id: string }) {
   const q = useQuery({ queryKey: ["zuzuu", "item", module, id], queryFn: () => dataProvider.getOne(module, id) });
@@ -50,7 +50,9 @@ export function Record({ module, id }: { module: string; id: string }) {
           </Stack>
         )}
         {item.body && (
-          <div className="whitespace-pre-wrap rounded-ui border border-border bg-surface p-4 text-ui text-subtle">{item.body}</div>
+          <div className="rounded-ui border border-border bg-surface p-4 text-ui">
+            <Markdown>{item.body}</Markdown>
+          </div>
         )}
         {prov && (
           <Stack gap="xs">
