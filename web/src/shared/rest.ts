@@ -89,6 +89,57 @@ export type FsServerMessage = {
   path: string;
 };
 
+// ── ACP bridge WS (/ws/acp/:id) — JSON text frames ────────────────────────────
+// The daemon is the ACP *client*: it spawns the `claude-agent-acp` adapter, runs the
+// protocol over its stdio, and relays the structured `session/update` stream here.
+// The browser is a thin renderer + composer (Spike #2). DTOs sit next to the FS ones
+// so client + server stay in lockstep over `#shared`.
+export type AcpClientMessage =
+  | { type: "prompt"; text: string }
+  | { type: "cancel" }
+  // the human's answer to a gate "ask" (Spike #3)
+  | { type: "permission"; requestId: string; decision: "allow" | "deny" };
+export type AcpServerMessage =
+  | { type: "ready"; sessionId: string }
+  | { type: "update"; update: AcpSessionUpdate }
+  | { type: "turn_end"; stopReason: string; usage?: AcpUsage }
+  | { type: "error"; message: string }
+  // a tool call the guardrails gate routed to the human (Spike #3): the SPA shows
+  // Allow/Deny and replies with an AcpClientMessage `permission`.
+  | { type: "permission"; requestId: string; title: string; toolKind: string; reason?: string }
+  // the gate auto-decided (deny/allow by a rule) — surfaced so the moat is visible
+  | { type: "gate"; decision: "deny" | "allow"; title: string; reason: string };
+
+/** A relayed ACP `session/update`. Structural subset the SPA renders; the
+ *  `sessionUpdate` discriminant + any extra fields pass through unchanged. */
+export interface AcpSessionUpdate {
+  /** e.g. agent_message_chunk · agent_thought_chunk · tool_call · tool_call_update · plan · usage_update · available_commands_update */
+  sessionUpdate: string;
+  content?: { type: string; text?: string };
+  toolCall?: AcpToolCall;
+  /** plan entries (for `plan` updates) */
+  entries?: Array<{ content?: string; status?: string; priority?: string }>;
+  [k: string]: unknown;
+}
+export interface AcpToolCall {
+  toolCallId?: string;
+  title?: string;
+  /** read · edit · delete · move · search · execute · think · fetch · other */
+  kind?: string;
+  /** pending · in_progress · completed · failed */
+  status?: string;
+  /** content blocks: { type: "diff", path, oldText, newText } | { type: "content", ... } | ... */
+  content?: Array<Record<string, unknown>>;
+  [k: string]: unknown;
+}
+export interface AcpUsage {
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+  cachedReadTokens?: number;
+  cachedWriteTokens?: number;
+}
+
 // ── Content search (GET /api/search) ──────────────────────────────────────────
 export interface SearchMatch {
   line: number;

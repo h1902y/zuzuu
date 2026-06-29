@@ -6,7 +6,7 @@
 // Logic-in-.ts (the project's pattern); the <WorkbenchShell> .tsx renders this.
 
 /** What the center stage shows. (ER is deferred — not a stage actor yet.) */
-export type StageActor = "terminal" | "grid" | "record" | "overview" | "graph" | "search" | "settings";
+export type StageActor = "terminal" | "grid" | "record" | "overview" | "graph" | "search" | "settings" | "acp";
 /** What the right wing shows; "none" = the wing retracts (R4). */
 export type WingActor = "review" | "form" | "schema" | "none";
 
@@ -19,7 +19,8 @@ export type NavNode =
   | { kind: "overview" }
   | { kind: "graph" }
   | { kind: "search" }
-  | { kind: "settings" };
+  | { kind: "settings" }
+  | { kind: "acp"; id: string }; // an ACP drive-lane session (Spike #2)
 
 export interface Selection {
   stage: StageActor;
@@ -37,6 +38,7 @@ export function selectActors(node: NavNode | null): Selection {
     case "graph": return { stage: "graph", wing: "none", crumb: ["Graph"] };
     case "search": return { stage: "search", wing: "none", crumb: ["Search"] };
     case "settings": return { stage: "settings", wing: "none", crumb: ["Settings"] };
+    case "acp": return { stage: "acp", wing: "none", crumb: ["Agent", node.id.slice(0, 6)] };
     case "overview":
     default: return { stage: "overview", wing: "none", crumb: [] };
   }
