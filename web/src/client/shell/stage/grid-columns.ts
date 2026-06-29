@@ -73,13 +73,14 @@ const KIND_TONE: Record<string, ChipTone> = {
   instruction: "instructions", steering: "instructions", amendment: "instructions",
 };
 
-/** A row's value for a column → a typed render descriptor. */
-export function cellDescriptor(item: ModuleItem, col: GridColumn): CellDescriptor {
-  const raw = (item as unknown as Record<string, unknown>)[col.name];
+/** The core: a raw value + its field name/type → a typed render descriptor. Shared by
+ *  the grid cell (cellDescriptor) and the record read-view (property stack), so both
+ *  render a value identically. */
+export function describeCell(raw: unknown, name: string, type: string): CellDescriptor {
   if (raw == null || raw === "") return { kind: "empty" };
 
   // 1) a declared FieldType wins
-  switch (col.type) {
+  switch (type) {
     case "bool": return { kind: "bool", value: !!raw };
     case "number": return { kind: "mono", value: String(raw) };
     case "multi": return { kind: "pills", values: Array.isArray(raw) ? raw.map(String) : [String(raw)] };
@@ -87,13 +88,18 @@ export function cellDescriptor(item: ModuleItem, col: GridColumn): CellDescripto
     case "link": return { kind: "pill", value: String(raw), tone: "neutral" };
   }
 
-  // 2) well-known zuzuu domain columns (so a schemaless grid still reads typed)
-  const name = col.name.toLowerCase();
-  const value = fieldConfig(col.type).format(raw);
-  if (name === "id" || name.endsWith("_id")) return { kind: "mono", value };
-  if (name === "kind" || name === "type") return { kind: "pill", value, tone: KIND_TONE[value.toLowerCase()] ?? "neutral" };
-  if (name === "status" || name === "action") return { kind: "pill", value, tone: statusTone(value) };
+  // 2) well-known zuzuu domain fields (so a schemaless module still reads typed)
+  const lname = name.toLowerCase();
+  const value = fieldConfig(type).format(raw);
+  if (lname === "id" || lname.endsWith("_id")) return { kind: "mono", value };
+  if (lname === "kind" || lname === "type") return { kind: "pill", value, tone: KIND_TONE[value.toLowerCase()] ?? "neutral" };
+  if (lname === "status" || lname === "action") return { kind: "pill", value, tone: statusTone(value) };
 
   // 3) plain text
   return { kind: "text", value };
+}
+
+/** A grid row's value for a column → a typed render descriptor. */
+export function cellDescriptor(item: ModuleItem, col: GridColumn): CellDescriptor {
+  return describeCell((item as unknown as Record<string, unknown>)[col.name], col.name, col.type);
 }

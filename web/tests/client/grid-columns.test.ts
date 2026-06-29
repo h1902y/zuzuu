@@ -1,6 +1,6 @@
 // U5 logic — grid column derivation (typed fields vs schemaless inference) + cells.
 import { describe, it, expect } from "vitest";
-import { gridColumns, inferKeys, cellValue, cellDescriptor, statusTone } from "../../src/client/shell/stage/grid-columns.js";
+import { gridColumns, inferKeys, cellValue, cellDescriptor, describeCell, statusTone } from "../../src/client/shell/stage/grid-columns.js";
 import type { GridColumn } from "../../src/client/shell/stage/grid-columns.js";
 import type { ModuleItem } from "#shared/index.js";
 
@@ -66,6 +66,13 @@ describe("cellDescriptor (typed cells)", () => {
   it("plain text otherwise; empty/null → empty", () => {
     expect(cellDescriptor(item({ title: "Hello" }), col("title"))).toEqual({ kind: "text", value: "Hello" });
     expect(cellDescriptor(item({ ...({ note: "" } as object) }), col("note"))).toEqual({ kind: "empty" });
+  });
+
+  it("describeCell is the shared core (the record read-view entry point) — by raw value", () => {
+    expect(describeCell("deny", "action", "text")).toEqual({ kind: "pill", value: "deny", tone: "danger" });
+    expect(describeCell(["a", "b"], "tags", "multi")).toEqual({ kind: "pills", values: ["a", "b"] });
+    expect(describeCell(3, "weight", "number")).toEqual({ kind: "mono", value: "3" });
+    expect(describeCell("", "note", "text")).toEqual({ kind: "empty" });
   });
 
   it("statusTone maps the closed vocabularies", () => {

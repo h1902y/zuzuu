@@ -8,6 +8,8 @@ import { dataProvider } from "../../data/provider.js";
 import { api } from "../../lib/api.js";
 import { fieldsFromSchema } from "./schema-fields.js";
 import { propertyStack } from "./property-stack.js";
+import { describeCell } from "./grid-columns.js";
+import { Cell } from "./Cell.js";
 import { provenanceOf } from "../review/provenance.js";
 import { Stack, Inline, Text, Chip } from "../../ds/index.js";
 
@@ -40,7 +42,9 @@ export function Record({ module, id }: { module: string; id: string }) {
             {props.map((p) => (
               <Inline key={p.name} gap="sm" align="start">
                 <div className="w-32 shrink-0"><Text size="meta" tone="muted">{p.label}</Text></div>
-                <Text size="ui" tone={p.type === "number" ? "default" : "subtle"}>{p.value}</Text>
+                <div className="min-w-0 flex-1 text-ui">
+                  <Cell d={describeCell((item as unknown as Record<string, unknown>)[p.name], p.name, p.type)} />
+                </div>
               </Inline>
             ))}
           </Stack>
