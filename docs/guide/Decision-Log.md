@@ -37,7 +37,11 @@ Status: **shipped** (decided 2026-06-12).
 
 **The observe model (Design B) — re-parse the host's own transcript, never drive the agent loop.**
 zuzuu *wraps and observes* a host it never drives (the entire.io shape, not a goose/hermes streaming bridge). It can't corrupt a live session, and adding a host = one adapter file + one registry line. Live hooks are a *signal + re-capture trigger*, never a span builder.
-Status: **shipped** — observe covers **5 hosts** (Claude Code · Codex · Gemini CLI · OpenCode · pi).
+Status: **shipped** — observe covers **5 hosts** (Claude Code · Codex · Gemini CLI · OpenCode · pi). **Refined (2026-06-29): observe is the _floor_, not the only mode** — see the ACP drive lane below.
+
+**An opt-in ACP "drive" lane — own the workbench UX + build traces, without owning the loop.**
+The absolute reading of "never drive" conflated *don't own the agent loop* (still true) with *don't control the session* (separable). The **Agent Client Protocol (ACP)** lets the workbench drive an ACP-native host (Claude Code, Gemini CLI) over a structured JSON-RPC event stream — tool calls, diffs, plans, thoughts, permission requests — so we can render our own conversation surface (off the host TUI) and build real traces, while the host's own SDK still owns the loop and **rides the user's Claude Code subscription** (not per-token API billing). Observe stays the universal floor for every host; the ACP lane is *additive* and workbench-only. Spec: [`docs/specs/2026-06-29-acp-drive-lane.md`](https://github.com/h1902y/zuzuu/blob/main/docs/specs/2026-06-29-acp-drive-lane.md).
+Status: **exploring — spike-gated.** Decisive unknown: does the `claude-agent-acp` adapter ride a Max/Pro subscription in our setup (not an API key)? Plus a macro risk — Anthropic announced, then *paused* (2026-06-16), splitting Agent-SDK/ACP usage into separate credits. Not adopted until the spikes pass.
 
 **The human gate is the moat.**
 Every write to the brain passes through `review` (the human's approve/reject decision); the agent **proposes**, never commits. The loop is **observe → propose → review → evolve**, every write human-gated.
