@@ -17,8 +17,10 @@ import { useWorkbench } from "../state/store.js";
 import { reportAgentExit } from "../state/session-close.js";
 
 // the terminal is a deep-ebony island in BOTH themes (#14170f, per the design tokens);
-// Anonymous Pro for the coder character. ANSI palette tuned to the mint/coral system.
-const FONT_FAMILY = '"Anonymous Pro", ui-monospace, SFMono-Regular, Menlo, monospace';
+// Space Mono for the coder character (the MARVIN terminal mono — 09 §2.0). ANSI palette
+// tuned to the mint/coral system. (xterm measures glyphs, so the family is set here, not
+// via the CSS token — it mirrors --font-mono-display.)
+const FONT_FAMILY = '"Space Mono", ui-monospace, SFMono-Regular, Menlo, monospace';
 const THEME = {
   background: "#14170f",
   foreground: "#eafdcf",

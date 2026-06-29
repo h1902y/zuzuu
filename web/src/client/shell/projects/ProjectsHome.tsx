@@ -150,7 +150,7 @@ function EmptyProjects({ onNew }: { onNew: () => void }) {
     <div className="grid place-items-center rounded-lg border border-border bg-surface px-8 py-20 text-center">
       <Stack gap="md" align="center">
         <Icon icon={Database} size={20} />
-        <Text size="lg" font="display">No projects yet</Text>
+        <Text size="lg" font="logo">No projects yet</Text>
         <Text size="ui" tone="muted">Open a folder to start. Initialize it, enable your agent, and the brain grows as you work.</Text>
         <Button variant="primary" size="sm" onClick={onNew}><Icon icon={Plus} size={15} /> Open a folder</Button>
       </Stack>

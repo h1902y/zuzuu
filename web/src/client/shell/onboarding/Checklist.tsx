@@ -27,7 +27,7 @@ export function Checklist({ projectName, state, onStartSession, starting }: {
       <div className="mx-auto w-full max-w-lg">
         <Stack gap="xl">
           <Stack gap="sm">
-            <Text size="2xl" font="display">
+            <Text size="2xl" font="logo">
               {preparing ? `Setting up ${projectName}…` : `Start working on ${projectName}`}
             </Text>
             <Text size="ui" tone="muted">

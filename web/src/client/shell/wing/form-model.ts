@@ -6,7 +6,7 @@ import { fieldConfig, type FieldDef } from "../../data/field-registry.js";
 import type { RelationChange } from "../../data/provider.js";
 import type { ModuleItem } from "#shared/index.js";
 
-export interface FormField { name: string; label: string; type: string; value: string; multiline: boolean }
+export interface FormField { name: string; label: string; type: string; value: string; multiline: boolean; options?: string[] }
 
 /** Build the form inputs from a module's fields, seeded from the note's values. */
 export function buildForm(fields: FieldDef[], item: Partial<ModuleItem>): FormField[] {
@@ -18,6 +18,7 @@ export function buildForm(fields: FieldDef[], item: Partial<ModuleItem>): FormFi
       type: f.type,
       value: cfg.format((item as Record<string, unknown>)[f.name]),
       multiline: !!cfg.multiline,
+      ...(f.options && f.options.length ? { options: f.options } : {}),
     };
   });
 }
