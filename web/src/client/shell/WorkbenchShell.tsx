@@ -18,6 +18,8 @@ import { useStartSession } from "./session/use-start-session.js";
 import { sessionTabs } from "./session/session-tabs.js";
 import { toast } from "../state/toast.js";
 import { Checklist } from "./onboarding/Checklist.js";
+import { onboardingStep, recordConsent, reopen, RUNG_ROUTE, type ConsentRecord, type PrepRungId } from "./onboarding/onboarding-state.js";
+import { loadConsent, saveConsent } from "./onboarding/onboarding-consent.js";
 import { Overview } from "./overview/Overview.js";
 import { Grid } from "./stage/Grid.js";
 import { Record } from "./stage/Record.js";
@@ -127,29 +129,40 @@ export function WorkbenchShell() {
   // ribbon setup nudge (R8) — only when home (the checklist) isn't the current view, so the same prompt never double-surfaces
   const setupHint = pState !== undefined && pState !== "steady" && selected !== null ? RUNG_HINT[currentRung(pState)] : undefined;
 
-  // Auto-prep: the mechanical setup steps (git-init → init → enable) run automatically
-  // when a folder is opened — they're plumbing, not decisions. The ONLY thing the user
-  // does is pick a host (no-activity → the Checklist's host picker). Each verb advances
-  // the state; the effect re-fires for the next until the Project is prepped. A ref
-  // guards re-entry; a failed step toasts and stops (no spin).
+  // The per-step CONSENT GATE (U3): setup no longer auto-fires. A durable consent record
+  // (localStorage, per-workspace) + the mechanical state derive the onboarding step; the
+  // Checklist renders each rung's narration + consent affordance, and only an affirmative
+  // flips a rung to "executing" — which the effect below then runs. Resumable across
+  // reload/tabs (PR5); decline → a reversible dormant state (U6).
+  const workspaceRoot = workspace.data?.root ?? "";
+  const [consent, setConsent] = useState<ConsentRecord>({});
+  useEffect(() => { if (workspaceRoot) setConsent(loadConsent(workspaceRoot)); }, [workspaceRoot]);
+  const onboardStep = pState !== undefined ? onboardingStep(pState, consent) : null;
+  const persistConsent = (next: ConsentRecord) => {
+    setConsent(next);
+    if (workspaceRoot) saveConsent(workspaceRoot, next);
+  };
+  const affirmRung = (rung: PrepRungId) => persistConsent(recordConsent(consent, rung, "consented"));
+  const declineRung = (rung: PrepRungId) => persistConsent(recordConsent(consent, rung, "declined"));
+  const reopenRung = (rung: PrepRungId) => persistConsent(reopen(consent, rung));
+
+  // Run a consented setup step (U3): fire its daemon route only once the rung is
+  // "executing" (the user affirmed), then refetch so the next rung surfaces. A ref guards
+  // re-entry; a failed step toasts (U6 will surface it in-conversation with retry).
   const prepping = useRef(false);
+  const executingRung = onboardStep?.kind === "executing" ? onboardStep.rung : null;
   useEffect(() => {
-    if (prepping.current) return;
-    const verb = pState === "not-a-repo" ? api.setup.gitInit
-      : pState === "no-project" ? api.setup.init
-      : pState === "hooks-off" ? api.setup.enable
-      : null;
-    if (!verb) return;
+    if (prepping.current || !executingRung) return;
     prepping.current = true;
     void (async () => {
-      try { await verb(); }
+      try { await api.setup[RUNG_ROUTE[executingRung]](); }
       catch { toast("A setup step failed — see Settings", "error"); }
       finally {
         prepping.current = false;
         await qc.invalidateQueries({ queryKey: ["zuzuu", "project-state"] });
       }
     })();
-  }, [pState, qc]);
+  }, [executingRung, qc]);
 
   // the governed stage-header (P2.1): a friendly breadcrumb + the stage's primary action.
   const header = stageHeaderModel(selected);
@@ -230,7 +243,7 @@ export function WorkbenchShell() {
             ) : sel.stage === "settings" ? (
               <Settings />
             ) : onboarding && pState ? (
-              <Checklist projectName={workspace.data?.name ?? "this project"} state={pState} onStartSession={onStartSession} starting={busy === "session"} />
+              <Checklist projectName={workspace.data?.name ?? "this project"} step={onboardStep} onAffirm={affirmRung} onDecline={declineRung} onReopen={reopenRung} onStartSession={onStartSession} starting={busy === "session"} />
             ) : projectState.isLoading || overview.isLoading ? (
               <Loading />
             ) : (

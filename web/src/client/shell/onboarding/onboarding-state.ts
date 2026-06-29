@@ -27,20 +27,22 @@ export interface RungNarration {
   consentLabel: string;
 }
 
+// Plain prose (no markdown) so it renders cleanly in the Checklist's plain Text today;
+// U4's ACP conversation surface can enrich it later. Each body explains WHAT + WHY.
 export const RUNG_NARRATION: Record<PrepRungId, RungNarration> = {
   "git-init": {
     title: "Put this folder under git",
-    body: "zuzuu tracks each session as a git branch and grows the brain in a tracked `.zuzuu/` folder — so it needs git. I'll run `git init` right here; nothing leaves your machine.",
+    body: "zuzuu tracks each session as a git branch and grows the brain in a tracked .zuzuu/ folder, so it needs git. I'll run git init right here — nothing leaves your machine.",
     consentLabel: "Initialize git",
   },
   init: {
     title: "Create the brain (.zuzuu/)",
-    body: "I'll run `zz init` to plant the Project: an empty brain plus the enforced guardrail safety floor. The brain stays empty until your work teaches it — I never pre-fill it.",
+    body: "I'll create the Project home: an empty brain plus the enforced guardrail safety floor. The brain stays empty until your work teaches it — I never pre-fill it.",
     consentLabel: "Create the brain",
   },
   enable: {
     title: "Let zuzuu watch your sessions",
-    body: "I'll enable your agent's hooks so zuzuu can observe each session and propose changes you review. **This edits your host's config** (e.g. `.claude/settings.json`) to add the zuzuu hook — and every brain change still waits for your approval.",
+    body: "I'll enable your agent's hooks so zuzuu can observe each session and propose changes you review. This edits your host's config (like .claude/settings.json) to add the zuzuu hook — and every brain change still waits for your approval.",
     consentLabel: "Enable observing",
   },
 };

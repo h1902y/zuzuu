@@ -36,9 +36,20 @@ export function createZuzuuSetupApi(getRoot: () => string, binary?: string): Hon
     return c.json(r.data as Record<string, unknown>);
   };
 
-  app.post("/setup/init", (c) => setup(c, ["init"]));        // plant .zuzuu/ + the instructions floor
-  app.post("/setup/enable", (c) => setup(c, ["enable"]));    // wire the host's lifecycle hooks
-  app.post("/setup/observe", (c) => setup(c, ["observe"]));  // mine the session → staged proposals
+  // The consented setup steps (U3): no silent setup. Each requires an explicit
+  // { consent: true } in the body — the server-boundary half of the explain-then-run
+  // contract (R13/R14), mirroring git-init's { confirm: true }. The client only POSTs
+  // these after the user affirms the rung (KTD1); the gate here is defense-in-depth so
+  // the route can never run init/enable without an explicit consent.
+  const consentGated = async (c: Context, args: string[]) => {
+    const body = await readBody(c);
+    if (body.consent !== true) return c.json({ error: `${args[0]} requires { consent: true }` }, 400);
+    return setup(c, args);
+  };
+
+  app.post("/setup/init", (c) => consentGated(c, ["init"]));      // plant .zuzuu/ + the instructions floor (consented)
+  app.post("/setup/enable", (c) => consentGated(c, ["enable"]));  // wire the host's lifecycle hooks (consented — R14)
+  app.post("/setup/observe", (c) => setup(c, ["observe"]));       // mine the session → staged proposals (post-session; not a consented setup step)
 
   // git-init — the one explicit, confirmed filesystem mutation (D6). `zz init`
   // never git-init's, but a session is a git branch, so the not-a-repo rung needs
