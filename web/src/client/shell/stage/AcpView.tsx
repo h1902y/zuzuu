@@ -1,17 +1,17 @@
-// shell/stage/AcpView.tsx — the ACP drive-lane stage (Spike #2). Connects to
-// /ws/acp/:id, folds the structured stream through acp-model (pure), and renders it as
-// a custom conversation surface OFF the host TUI: agent text, thoughts, tool-call cards
-// with a status lifecycle + inline diffs, plans, turn dividers — plus a composer.
-// The in-memory view-model IS the recordable trace. Thin: derivation lives in acp-model.
+// shell/stage/AcpView.tsx — the ACP drive-lane stage. Connects to /ws/acp/:id, folds the
+// structured stream through acp-model (pure), and renders it as a custom conversation
+// surface OFF the host TUI. The block renderers are now the ds CONVERSATION KIT
+// (AgentMessage · Thought · ToolCallCard · PlanList · PermissionCard · GateNotice ·
+// TurnDivider · ErrorNotice) — so the live agent conversation is token-governed like every
+// other surface. This file is thin: derivation lives in acp-model, presentation in the kit.
 import { useEffect, useReducer, useRef, useState } from "react";
-import { Send, Wrench, Brain, ListChecks, TriangleAlert, CircleDot, ShieldQuestion, ShieldX, ShieldCheck } from "lucide-react";
+import { Send, CircleDot } from "lucide-react";
 import { AcpConnection } from "../../lib/acp-client.js";
-import { applyAcpMessage, initialAcpView, type AcpView as AcpVM, type Block } from "./acp-model.js";
-import { Stack, Inline, Text, Button, Icon } from "../../ds/index.js";
-
-const TOOL_STATUS_TONE: Record<string, string> = {
-  completed: "text-success", failed: "text-danger", in_progress: "text-warning", pending: "text-muted",
-};
+import { applyAcpMessage, initialAcpView, type Block } from "./acp-model.js";
+import {
+  Stack, Text, Button, Icon,
+  AgentMessage, Thought, ToolCallCard, PlanList, PermissionCard, GateNotice, TurnDivider, ErrorNotice,
+} from "../../ds/index.js";
 
 export function AcpView({ id }: { id: string }) {
   const [vm, dispatch] = useReducer(applyAcpMessage, initialAcpView);
@@ -81,91 +81,38 @@ export function AcpView({ id }: { id: string }) {
   );
 }
 
+/** A thin dispatcher: each block kind → its conversation-kit component. */
 function BlockView({ b, decided, onDecide }: {
   b: Block;
   decided: Record<string, "allow" | "deny">;
   onDecide: (requestId: string, decision: "allow" | "deny") => void;
 }) {
   switch (b.kind) {
-    case "permission": {
-      const answer = decided[b.requestId];
-      return (
-        <div className="rounded-ui border border-accent-dim bg-surface p-3">
-          <Inline gap="sm" align="center">
-            <Icon icon={ShieldQuestion} size={14} />
-            <Text size="ui" weight="semibold">Permission · {b.title}</Text>
-            <Text size="meta" tone="muted">{b.toolKind}</Text>
-          </Inline>
-          {b.reason && <Text size="meta" tone="muted">{b.reason}</Text>}
-          {answer ? (
-            <Text size="meta" tone={answer === "allow" ? "subtle" : "danger"}>{answer === "allow" ? "✓ allowed" : "✗ denied"}</Text>
-          ) : (
-            <Inline gap="sm">
-              <Button variant="primary" size="sm" onClick={() => onDecide(b.requestId, "allow")}>Allow</Button>
-              <Button variant="outline" size="sm" onClick={() => onDecide(b.requestId, "deny")}>Deny</Button>
-            </Inline>
-          )}
-        </div>
-      );
-    }
-    case "gate":
-      return (
-        <Inline gap="sm" align="center">
-          <Icon icon={b.decision === "deny" ? ShieldX : ShieldCheck} size={14} />
-          <Text size="ui" tone={b.decision === "deny" ? "danger" : "subtle"}>
-            {b.decision === "deny" ? "Blocked" : "Allowed by rule"} · {b.title}
-          </Text>
-          <Text size="meta" tone="muted">{b.reason}</Text>
-        </Inline>
-      );
     case "agent":
-      return <div className="whitespace-pre-wrap text-ui text-ink-100">{b.text}</div>;
+      return <AgentMessage text={b.text} />;
     case "thought":
-      return (
-        <Inline gap="sm" align="start">
-          <Icon icon={Brain} size={14} />
-          <div className="whitespace-pre-wrap text-ui text-muted italic">{b.text}</div>
-        </Inline>
-      );
+      return <Thought text={b.text} />;
     case "tool":
-      return (
-        <div className="rounded-ui border border-border bg-surface p-3">
-          <Inline gap="sm" align="center">
-            <Icon icon={Wrench} size={14} />
-            <Text size="ui" weight="semibold">{b.title || b.id}</Text>
-            <Text size="meta" tone="muted">{b.toolKind}</Text>
-            <span className={`text-meta ${TOOL_STATUS_TONE[b.status] ?? "text-muted"}`}>{b.status}</span>
-          </Inline>
-          {b.diffs.map((d, i) => (
-            <div key={i} className="mt-2">
-              <Text size="meta" tone="subtle" mono>{d.path}</Text>
-              <pre className="mt-1 max-h-48 overflow-auto rounded-sm bg-app p-2 text-meta text-subtle">{d.newText}</pre>
-            </div>
-          ))}
-        </div>
-      );
+      return <ToolCallCard title={b.title || b.id} toolKind={b.toolKind} status={b.status} diffs={b.diffs} />;
     case "plan":
+      return <PlanList entries={b.entries} />;
+    case "permission":
       return (
-        <div className="rounded-ui border border-border bg-surface p-3">
-          <Inline gap="sm" align="center"><Icon icon={ListChecks} size={14} /><Text size="meta" tone="subtle" weight="semibold">PLAN</Text></Inline>
-          <Stack gap="xs">
-            {b.entries.map((e, i) => (
-              <Text key={i} size="ui" tone={e.status === "completed" ? "muted" : "default"}>
-                {e.status === "completed" ? "✓ " : "• "}{e.content}
-              </Text>
-            ))}
-          </Stack>
-        </div>
+        <PermissionCard
+          title={b.title}
+          toolKind={b.toolKind}
+          {...(b.reason ? { reason: b.reason } : {})}
+          {...(decided[b.requestId] ? { decision: decided[b.requestId] } : {})}
+          onAllow={() => onDecide(b.requestId, "allow")}
+          onDeny={() => onDecide(b.requestId, "deny")}
+        />
       );
+    case "gate":
+      return <GateNotice decision={b.decision} title={b.title} reason={b.reason} />;
     case "turn":
-      return <div className="border-t border-border pt-2"><Text size="meta" tone="muted">— {b.stopReason} —</Text></div>;
+      return <TurnDivider stopReason={b.stopReason} />;
     case "error":
-      return (
-        <Inline gap="sm" align="start">
-          <Icon icon={TriangleAlert} size={14} />
-          <Text size="ui" tone="danger">{b.message}</Text>
-        </Inline>
-      );
+      return <ErrorNotice message={b.message} />;
     default:
       return null;
   }

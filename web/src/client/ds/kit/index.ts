@@ -25,3 +25,9 @@ export { Input } from "./Input.js";
 export { Textarea } from "./Textarea.js";
 export { Select } from "./Select.js";
 export { Checkbox } from "./Checkbox.js";
+// the conversation surface — the structured ACP stream's renderable primitives
+export {
+  AgentMessage, Thought, Diff, ToolCallCard, PlanList,
+  PermissionCard, GateNotice, TurnDivider, ErrorNotice, toolStatusTone,
+} from "./conversation.js";
+export type { DiffHunk } from "./conversation.js";

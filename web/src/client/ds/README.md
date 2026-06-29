@@ -58,6 +58,8 @@ Everything derives from one **ink ramp**, swapped per theme; semantic aliases au
 
 **Kit (built)** (`kit/`): `Button` · `Icon` (Lucide) · `Chip` (module + status tones) · `Cell` (typed value) · `Markdown` (lazy) · `Dialog` · `Toaster` · `EmptyState` · `Loading`/`Empty` · `ThemeToggle` · `Brand` · `AppHeader` · `AppFooter` · `ListCard` · `EmojiPicker` · `Stepper`.
 
+**Kit — conversation** (`kit/conversation.tsx`): the **live agent conversation** surface, governed by the same tokens as everything else (no terminal-shaped hole). `AgentMessage` (renders markdown) · `Thought` · `ToolCallCard` (+ `Diff`) · `PlanList` · `PermissionCard` (the in-band human gate) · `GateNotice` · `TurnDivider` · `ErrorNotice`, plus the pure `toolStatusTone` (tool status → `Chip` urgency). The ACP stage (`shell/stage/AcpView.tsx`) is now a thin dispatcher over these; the structured stream → blocks derivation stays in `acp-model.ts`.
+
 **Kit (roadmap):**
 - **Form controls** — `Input · Textarea · Select · Checkbox/Switch · NumberInput · DatePicker · Combobox` → these back the **FieldType registry's input renderer** (the registry's third part: cell · field-config · **input**) and the record edit form.
 - **Overlays** — `Popover · Tooltip · DropdownMenu` (copy-owned over Radix/Base UI).
