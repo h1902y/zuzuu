@@ -1,14 +1,12 @@
 @import "tailwindcss";
-/* the MARVIN type system (docs/design-research/workbench/09 §2.0): a characterful
-   warm-retro voice on brand + headings, calm + legible on dense surfaces.
-   · Space Grotesk (variable) — UI + body; WEIGHT is the hierarchy lever (510 chrome / 590 emphasis)
-   · Sigmar — hero headings / empty states / onboarding (the rounded-retro display face)
-   · Bagel Fat One — the brand logotype only (48px+)
-   · mono split — Space Mono in the terminal (character) · JetBrains Mono in dense grids (legibility)
+/* the type system — a clean variable text face + a characterful display/brand face:
+   · Elms Sans (variable, 100–900 + italic) — UI + body + headings; WEIGHT is the
+     hierarchy lever (510 chrome / 590 emphasis), the full axis makes it expressive.
+   · Train One — the display/brand face: the logotype and hero headings (chunky, retro).
+   · mono split — Space Mono in the terminal (character) · JetBrains Mono in dense grids.
    All self-hosted via @fontsource (no external CDN — the workbench is localhost-only). */
-@import "@fontsource-variable/space-grotesk";
-@import "@fontsource/sigmar";
-@import "@fontsource/bagel-fat-one";
+@import "@fontsource-variable/elms-sans";
+@import "@fontsource/train-one";
 @import "@fontsource/space-mono";
 @import "@fontsource-variable/jetbrains-mono";
 @import "@xterm/xterm/css/xterm.css";
@@ -20,12 +18,12 @@
    declared once here and auto-follow the ramp — no duplication per theme.
    Source of truth: docs/design-research/workbench/09-taste-redesign-direction.md §2.0. */
 @theme {
-  /* the duotype, warmed (09 §2.0): Space Grotesk for chrome/prose (variable → weight is
-     the lever), Sigmar for the retro display headings, Bagel Fat One for the logotype,
-     a mono split (Space Mono terminal · JetBrains Mono dense data). */
-  --font-sans: "Space Grotesk Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; /* UI + body */
-  --font-display: "Sigmar", "Space Grotesk Variable", ui-sans-serif, system-ui; /* hero headings / empty states / onboarding */
-  --font-logo: "Bagel Fat One", "Sigmar", ui-sans-serif, system-ui; /* the brand logotype only (48px+) */
+  /* the duotype: Elms Sans (variable → weight is the lever) for all UI/body/headings,
+     Train One for the display/brand face, a mono split (Space Mono terminal · JetBrains
+     Mono dense data). */
+  --font-sans: "Elms Sans Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; /* UI + body */
+  --font-display: "Elms Sans Variable", ui-sans-serif, system-ui; /* headings — Elms Sans, hierarchy via weight (keeps long titles legible) */
+  --font-logo: "Train One", "Elms Sans Variable", ui-sans-serif, system-ui; /* the brand/hero face — logotype, hero identity, empty states */
   --font-mono-display: "Space Mono", ui-monospace, SFMono-Regular, Menlo, monospace; /* the terminal — character */
   --font-mono-data: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace; /* dense grids — legibility */
   --font-mono: var(--font-mono-data); /* back-compat: existing font-mono utility = dense data */
