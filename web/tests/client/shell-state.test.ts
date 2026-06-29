@@ -21,6 +21,9 @@ describe("selectActors — the selection → stage/wing morph (no modes)", () =>
     expect(selectActors({ kind: "search" })).toEqual({ stage: "search", wing: "none", crumb: ["Search"] });
     expect(selectActors({ kind: "settings" })).toEqual({ stage: "settings", wing: "none", crumb: ["Settings"] });
   });
+  it("acp → the ACP drive-lane stage, wing retracts (Spike #2)", () => {
+    expect(selectActors({ kind: "acp", id: "abcdef123456" })).toEqual({ stage: "acp", wing: "none", crumb: ["Agent", "abcdef"] });
+  });
 });
 
 describe("mostRecentlyActive — concurrency: which session owns the single stage", () => {

@@ -7,6 +7,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ModuleItem } from "#shared/index.js";
 import { buildForm, dirtyFields, toChange, relationOps } from "./form-model.js";
+import { FieldInput } from "./FieldInput.js";
 import { editableFieldDefs } from "../stage/property-stack.js";
 import { fieldsFromSchema } from "../stage/schema-fields.js";
 import { api } from "../../lib/api.js";
@@ -49,19 +50,7 @@ function FormInner({ module, id, item, fields }: { module: string; id: string; i
           {original.map((f) => (
             <Stack key={f.name} gap="xs">
               <Text size="meta" tone="muted">{f.label}</Text>
-              {f.multiline ? (
-                <textarea
-                  value={edited[f.name] ?? f.value}
-                  onChange={(e) => set(f.name, e.target.value)}
-                  className="min-h-24 w-full rounded-ui border border-border bg-app px-2 py-1 text-ui text-ink-100 outline-none focus:border-accent-dim"
-                />
-              ) : (
-                <input
-                  value={edited[f.name] ?? f.value}
-                  onChange={(e) => set(f.name, e.target.value)}
-                  className="w-full rounded-ui border border-border bg-app px-2 py-1 text-ui text-ink-100 outline-none focus:border-accent-dim"
-                />
-              )}
+              <FieldInput field={f} value={edited[f.name] ?? f.value} onChange={(v) => set(f.name, v)} />
             </Stack>
           ))}
         </Stack>

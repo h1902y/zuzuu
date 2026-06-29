@@ -4,7 +4,8 @@
 // Thin: all derivation is in grid-columns.ts / list-state.ts. Static utilities only.
 import { useQuery } from "@tanstack/react-query";
 import { NotesListProvider, useList } from "../../data/ListContext.js";
-import { gridColumns, cellValue } from "./grid-columns.js";
+import { gridColumns, cellDescriptor } from "./grid-columns.js";
+import { Cell } from "./Cell.js";
 import { fieldsFromSchema } from "./schema-fields.js";
 import { emptyCopy } from "../empty-copy.js";
 import { api } from "../../lib/api.js";
@@ -60,11 +61,15 @@ function GridInner() {
                   onClick={() => select({ kind: "row", id: row.id, module })}
                   className="cursor-pointer border-b border-border transition-colors hover:bg-hover"
                 >
-                  {cols.map((c) => (
-                    <td key={c.name} className={`max-w-xs truncate px-6 py-3 text-subtle ${c.align === "right" ? "text-right" : "text-left"}`}>
-                      {cellValue(row, c)}
-                    </td>
-                  ))}
+                  {cols.map((c) => {
+                    const d = cellDescriptor(row, c);
+                    const clamp = d.kind === "text" || d.kind === "mono"; // pills/glyphs aren't clipped
+                    return (
+                      <td key={c.name} className={`px-6 py-3 align-middle ${clamp ? "max-w-xs truncate" : ""} ${c.align === "right" ? "text-right" : "text-left"}`}>
+                        <Cell d={d} />
+                      </td>
+                    );
+                  })}
                 </tr>
               ))}
             </tbody>

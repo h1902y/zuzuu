@@ -20,3 +20,14 @@ export type { Step, StepStatus } from "./Stepper.js";
 export { Chip } from "./Chip.js";
 export type { ChipTone } from "./Chip.js";
 export { Dialog } from "./Dialog.js";
+export { Markdown } from "./Markdown.js";
+export { Input } from "./Input.js";
+export { Textarea } from "./Textarea.js";
+export { Select } from "./Select.js";
+export { Checkbox } from "./Checkbox.js";
+// the conversation surface — the structured ACP stream's renderable primitives
+export {
+  AgentMessage, Thought, Diff, ToolCallCard, PlanList,
+  PermissionCard, GateNotice, TurnDivider, ErrorNotice, toolStatusTone,
+} from "./conversation.js";
+export type { DiffHunk } from "./conversation.js";

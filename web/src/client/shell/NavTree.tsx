@@ -3,9 +3,10 @@
 // Selecting a node drives the stage/wing. Composed from ds primitives.
 import { type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Circle, Table2, Flag, Home, Share2, Search, Settings as SettingsIcon } from "lucide-react";
+import { Circle, Table2, Flag, Home, Share2, Search, Settings as SettingsIcon, Bot } from "lucide-react";
 import type { SessionInfo } from "#shared/index.js";
 import { api } from "../lib/api.js";
+import { toast } from "../state/toast.js";
 import { useWorkbench } from "../state/store.js";
 import { useWorld } from "./world-state.js";
 import { mostRecentlyActive } from "./shell-state.js";
@@ -125,6 +126,17 @@ export function NavTree() {
           icon={<Icon icon={SettingsIcon} size={14} />}
           label="Settings"
           onClick={() => select({ kind: "settings" })}
+        />
+        <NavRow
+          active={selected?.kind === "acp"}
+          icon={<Icon icon={Bot} size={14} />}
+          label="Agent (ACP) · beta"
+          onClick={() => {
+            void api.acp
+              .create()
+              .then((r) => select({ kind: "acp", id: r.id }))
+              .catch(() => toast("Couldn't start the ACP agent", "error"));
+          }}
         />
       </Stack>
     </nav>

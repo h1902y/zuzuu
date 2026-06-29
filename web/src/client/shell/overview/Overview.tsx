@@ -39,7 +39,7 @@ export function Overview(props: OverviewProps) {
           <Stack gap="sm">
             <Inline gap="sm" align="center">
               {emoji ? <Text size="2xl">{emoji}</Text> : <Icon icon={Database} size={20} />}
-              <Text size="2xl" font="display">{name}</Text>
+              <Text size="2xl" font="logo">{name}</Text>
             </Inline>
             <Text size="meta" tone="muted" truncate>{path}</Text>
           </Stack>

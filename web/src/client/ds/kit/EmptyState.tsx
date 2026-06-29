@@ -17,7 +17,7 @@ export function EmptyState({ icon, title, hint, action }: {
     <div className="grid h-full place-items-center px-8 text-center">
       <Stack gap="sm" align="center">
         {icon && <Icon icon={icon} size={20} />}
-        <Text size="lg" font="display">{title}</Text>
+        <Text size="lg" font="logo">{title}</Text>
         {hint && <Text size="ui" tone="muted">{hint}</Text>}
         {action}
       </Stack>

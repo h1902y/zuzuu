@@ -16,6 +16,18 @@ describe("fieldsFromSchema", () => {
       { name: "y", type: "text" },
     ]);
   });
+  it("preserves a select's options (string-only); drops empty/non-string", () => {
+    const schema = { fields: [
+      { name: "status", type: "select", options: ["open", "done"] },
+      { name: "k", type: "select", options: ["a", 2, null] },
+      { name: "tool", type: "text", options: [] },
+    ] };
+    expect(fieldsFromSchema(schema)).toEqual([
+      { name: "status", type: "select", options: ["open", "done"] },
+      { name: "k", type: "select", options: ["a"] },
+      { name: "tool", type: "text" }, // empty options dropped
+    ]);
+  });
   it("skips malformed entries (no name)", () => {
     expect(fieldsFromSchema({ fields: [{ type: "text" }, null, { name: "ok", type: "date" }] })).toEqual([
       { name: "ok", type: "date" },

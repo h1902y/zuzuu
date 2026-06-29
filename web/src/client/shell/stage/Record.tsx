@@ -8,8 +8,10 @@ import { dataProvider } from "../../data/provider.js";
 import { api } from "../../lib/api.js";
 import { fieldsFromSchema } from "./schema-fields.js";
 import { propertyStack } from "./property-stack.js";
+import { describeCell } from "./grid-columns.js";
+import { Cell } from "./Cell.js";
 import { provenanceOf } from "../review/provenance.js";
-import { Stack, Inline, Text, Chip } from "../../ds/index.js";
+import { Stack, Inline, Text, Chip, Markdown } from "../../ds/index.js";
 
 export function Record({ module, id }: { module: string; id: string }) {
   const q = useQuery({ queryKey: ["zuzuu", "item", module, id], queryFn: () => dataProvider.getOne(module, id) });
@@ -40,13 +42,17 @@ export function Record({ module, id }: { module: string; id: string }) {
             {props.map((p) => (
               <Inline key={p.name} gap="sm" align="start">
                 <div className="w-32 shrink-0"><Text size="meta" tone="muted">{p.label}</Text></div>
-                <Text size="ui" tone={p.type === "number" ? "default" : "subtle"}>{p.value}</Text>
+                <div className="min-w-0 flex-1 text-ui">
+                  <Cell d={describeCell((item as unknown as Record<string, unknown>)[p.name], p.name, p.type)} />
+                </div>
               </Inline>
             ))}
           </Stack>
         )}
         {item.body && (
-          <div className="whitespace-pre-wrap rounded-ui border border-border bg-surface p-4 text-ui text-subtle">{item.body}</div>
+          <div className="rounded-ui border border-border bg-surface p-4 text-ui">
+            <Markdown>{item.body}</Markdown>
+          </div>
         )}
         {prov && (
           <Stack gap="xs">

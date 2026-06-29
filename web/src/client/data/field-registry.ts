@@ -6,7 +6,7 @@
 export type FieldType = "text" | "longtext" | "select" | "multi" | "link" | "date" | "number" | "bool";
 
 /** One field's declaration on a module.md `fields` block. */
-export interface FieldDef { name: string; type: FieldType; required?: boolean; label?: string }
+export interface FieldDef { name: string; type: FieldType; required?: boolean; label?: string; options?: string[] }
 
 export interface FieldConfig {
   type: FieldType;
