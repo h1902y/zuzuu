@@ -25,6 +25,7 @@ import { ModuleGraph } from "./stage/ModuleGraph.js";
 import { BrainGraph } from "./graph/BrainGraph.js";
 import { Search } from "./search/Search.js";
 import { Settings } from "./settings/Settings.js";
+import { AcpView } from "./stage/AcpView.js";
 import { StageHeader } from "./stage/StageHeader.js";
 import { stageHeaderModel, newNoteId, resolveTab, type StageTab } from "./stage/stage-header.js";
 import { ReviewQueue } from "./review/ReviewQueue.js";
@@ -229,6 +230,8 @@ export function WorkbenchShell() {
               <Search />
             ) : sel.stage === "settings" ? (
               <Settings />
+            ) : sel.stage === "acp" && selected?.kind === "acp" ? (
+              <AcpView id={selected.id} />
             ) : onboarding && pState ? (
               <Checklist projectName={workspace.data?.name ?? "this project"} state={pState} onStartSession={onStartSession} starting={busy === "session"} />
             ) : projectState.isLoading || overview.isLoading ? (
