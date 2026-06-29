@@ -1,6 +1,6 @@
 ---
 title: "The ACP drive lane — own the workbench UX + build traces, off the host TUI"
-status: subscription premise VALIDATED (Spike #1 passed 2026-06-29) — lane in-build, Spikes 2–3 next
+status: thesis VALIDATED end-to-end (Spikes #1–#3 all PASS 2026-06-29) — substrate proven, lane not yet shipped
 date: 2026-06-29
 supersedes-partially: the absolute reading of "observe, never drive" (Design B)
 ---
@@ -32,12 +32,17 @@ The original decision conflated **"don't own the loop"** (still true — owning 
 undifferentiated part) with **"don't control the session"** (ACP separates these — you control the
 session *over* the host's loop). That conflation is what this spec corrects.
 
-**Status: subscription premise validated, lane in-build.** Spike #1 (§7) **passed 2026-06-29** —
-the adapter drove a full prompt turn with the provider env key scrubbed, on a confirmed Max/Pro
-subscription login, no API key (evidence in §7). The decisive "ride the subscription" question is
-resolved YES for the current stack. The lane is not yet *shipped* — Spikes 2 (bridge + render) and 3
-(gate) remain — but the CLAUDE.md / Decision-Log stance is updated from "never drive" to "observe is
-the floor; an ACP drive lane is validated and in-build." The §4c billing-split risk still stands.
+**Status: thesis validated end-to-end; substrate proven, lane not yet shipped.** All three spikes
+(§7) **passed 2026-06-29** — #1 the adapter drove a full prompt turn on a confirmed Max/Pro
+subscription with the provider env key scrubbed (no API key); #2 the daemon bridged the adapter's
+stdio JSON-RPC ⇄ a WS endpoint and the SPA rendered the structured stream (agent text, tool-call
+cards, inline diffs, plans, usage) live off the TUI; #3 a tool permission was routed through the
+guardrails gate with a human Allow/Deny and a denied write was actually blocked. The decisive "ride
+the subscription" question is resolved YES for the current stack, and the render + gate halves are
+proven. The lane is **not yet shipped** — the `AcpView` is spike-grade (raw utility classes, not
+graduated into the design-system kit) and load/resume + the read-time gate gap (§7 findings) remain
+— but the CLAUDE.md / Decision-Log stance is updated from "never drive" to "observe is the floor; an
+ACP drive lane is validated and in-build." The §4c billing-split risk still stands.
 
 ## 2. Why now — the thesis
 
@@ -177,6 +182,16 @@ Three spikes, **#1 first and decisive**. Each has an explicit kill-criterion.
   reconstruct a full **trace** from the event log (replay a session offline)?
 - **KILL IF:** the structured stream is materially lossier or laggier than the terminal for real
   sessions (unlikely given 4a, but measure).
+- **RESULT — PASS (2026-06-29).** Built the full lane: the daemon relay `web/src/server/acp.ts`
+  (`AcpSession` spawns the adapter via the SDK's `ClientSideConnection` + `ndJsonStream`, runs
+  `initialize`/`session/new`/`prompt`/`cancel`, and records every event into an in-memory `trace`);
+  `handleAcpSocket` bridges it to `/ws/acp/:id` (trace replayed to a joining socket, live events
+  forwarded as JSON). The SPA (`AcpView.tsx` + the pure reducer `acp-model.ts`) folds the stream into
+  renderable blocks — coalesced agent text, tool-call cards with the `pending→completed/failed`
+  lifecycle + inline diffs, plans, thoughts, turn dividers, usage. Verified live in the browser: a
+  prompt turn streamed text, a tool call rendered as a card, and the **in-memory view-model is the
+  recordable trace** (a reconnecting socket replays it intact). No measurable lag vs the terminal
+  path for interactive turns. Tests: `web/tests/server/acp.test.ts` + `web/tests/client/acp-model.test.ts`.
 
 ### Spike #3 — The gate in-band
 - **Goal:** map `session/request_permission` → the guardrails gate (deny/ask/allow), preserving the
@@ -185,8 +200,33 @@ Three spikes, **#1 first and decisive**. Each has an explicit kill-criterion.
   with reason; confirm a denied tool call is actually blocked.
 - **KILL IF:** ACP gives no pre-execution hook we can gate on (it does — `request_permission` — but
   confirm coverage across tool kinds).
+- **RESULT — PASS (2026-06-29).** `AcpSession.requestPermission` maps the ACP tool call → `{tool_name,
+  tool_input}` (`mapToolCall`: execute→Bash, edit/delete/move→Write; the gate canonicalizes the rest)
+  and **shells `zz hook PreToolUse`** to evaluate it against the guardrails gate (the daemon never
+  imports `src/` — it reaches the gate exactly as a host hook would). A rule `deny` auto-denies and a
+  `gate` block renders "Blocked"; **no rule → a Permission card** (Allow/Deny) surfaces to the human
+  and the answer routes back via `resolvePermission`. Verified live: a `/tmp` write raised the
+  Permission card, I clicked **Deny**, the tool went `failed`, and the file was not created. Tests:
+  the permission-routing cases in `web/tests/server/acp.test.ts` + `web/tests/client/acp-model.test.ts`.
+
+### Live findings (from running #1–#3 against the real adapter)
+Three behaviors the docs didn't make obvious, now on record for the build phase:
+1. **The adapter auto-allows by default — you must delegate permission explicitly.** Out of the box
+   the adapter resolves a non-prompting `permissionMode` and never calls `session/request_permission`,
+   so the gate never fires. Fix: `AcpSession.start()` calls `setSessionMode` to a delegating mode so
+   permission decisions are handed to the client. Without this the moat is silently bypassed.
+2. **Safe reads don't trigger `request_permission`** — the adapter only asks for mutating or risky
+   calls (a plain `ls` sailed through). So **read-time rules can't be enforced through the permission
+   hook**: a rule that denies *reading* protected files (the credential-protection class) has **no ACP
+   coverage** in the drive lane. The terminal/observe lane (the `PreToolUse` hook over the host's own
+   tool stream) still covers reads — note the asymmetry; don't assume the in-band gate is a superset.
+3. **No-rule → ask-the-human is conservative by design.** When the gate returns no decision (fail-open,
+   no matching rule) the lane does **not** auto-allow — it surfaces the Permission card. Safe default,
+   but it means an un-ruled Project prompts on every mutating call; the build phase should seed sensible
+   allow rules (or a per-session "allow this kind") so the drive lane isn't prompt-heavy.
 
 **Sequence:** #1 → (if green) #2 → #3. Time-box #1 to ~1–2h; it alone decides whether to continue.
+**Outcome: all three green on 2026-06-29 — the thesis is validated end-to-end on the subscription.**
 
 ## 8. Deferred / out of scope (for now)
 
