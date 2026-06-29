@@ -12,6 +12,8 @@ export type Block =
   | { kind: "thought"; text: string }
   | { kind: "tool"; id: string; title: string; toolKind: string; status: string; diffs: DiffHunk[] }
   | { kind: "plan"; entries: Array<{ content: string; status?: string }> }
+  | { kind: "permission"; requestId: string; title: string; toolKind: string; reason?: string }
+  | { kind: "gate"; decision: "deny" | "allow"; title: string; reason: string }
   | { kind: "turn"; stopReason: string }
   | { kind: "error"; message: string };
 
@@ -97,6 +99,8 @@ export function applyAcpMessage(v: AcpView, msg: AcpServerMessage): AcpView {
   switch (msg.type) {
     case "ready": return { ...v, ready: true, status: v.status === "connecting" ? "ready" : v.status };
     case "update": return applyUpdate(v, msg.update);
+    case "permission": return { ...v, blocks: [...v.blocks, { kind: "permission", requestId: msg.requestId, title: msg.title, toolKind: msg.toolKind, ...(msg.reason ? { reason: msg.reason } : {}) }] };
+    case "gate": return { ...v, blocks: [...v.blocks, { kind: "gate", decision: msg.decision, title: msg.title, reason: msg.reason }] };
     case "turn_end": return { ...v, status: "idle", usage: msg.usage ?? v.usage, blocks: [...v.blocks, { kind: "turn", stopReason: msg.stopReason }] };
     case "error": return { ...v, status: "error", blocks: [...v.blocks, { kind: "error", message: msg.message }] };
     default: return v;

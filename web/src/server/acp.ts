@@ -20,8 +20,56 @@ import { randomBytes } from "node:crypto";
 import type { WebSocket } from "ws";
 import { ClientSideConnection, ndJsonStream, PROTOCOL_VERSION, type Client } from "@agentclientprotocol/sdk";
 import type { AcpClientMessage, AcpServerMessage, AcpSessionUpdate, AcpUsage } from "#shared/index.js";
+import { resolveSpawn } from "./zuzuu-cli.js";
 
 const STDERR_TAIL = 4000;
+
+/** Map an ACP tool call → the {tool_name, tool_input} the guardrails gate evaluates.
+ *  The gate canonicalizes tool names across hosts (execute→Bash, edit/delete/move→Write),
+ *  so its existing rules (no-root-wipe, protect-brain-writes, no-secret-reads …) apply to
+ *  ACP tool calls unchanged. Pure → tested. */
+export function mapToolCall(tc: { kind?: string; title?: string; rawInput?: unknown }): { tool_name: string; tool_input: unknown } {
+  const kind = String(tc.kind ?? "other");
+  const tool_name =
+    kind === "execute" ? "Bash" :
+    kind === "edit" || kind === "delete" || kind === "move" ? "Write" :
+    kind; // read · search · fetch · think · other → matched by tool:'*' rules
+  return { tool_name, tool_input: tc.rawInput ?? { title: tc.title ?? "" } };
+}
+
+/** Evaluate a tool call against the project's guardrails by shelling the SAME entry the
+ *  host hook uses — `zz hook PreToolUse` (reads the payload on stdin, prints a deny/ask
+ *  decision, empty = allow). Keeps the daemon→CLI boundary intact (never imports src/).
+ *  Fail-open: any spawn/parse failure → null (allow/defer), never a wrong block. */
+function gateCheck(cwd: string, binary: string, tool_name: string, tool_input: unknown): Promise<{ action: string; reason: string } | null> {
+  return new Promise((resolve) => {
+    let out = "";
+    let done = false;
+    const finish = (v: { action: string; reason: string } | null) => { if (!done) { done = true; resolve(v); } };
+    let child;
+    try {
+      const { cmd, argv } = resolveSpawn(binary, ["hook", "PreToolUse"]);
+      child = spawn(cmd, argv, { cwd, stdio: ["pipe", "pipe", "ignore"] });
+    } catch { finish(null); return; }
+    const timer = setTimeout(() => { try { child!.kill(); } catch { /* noop */ } finish(null); }, 5000);
+    child.stdout?.on("data", (b: Buffer) => { out += b.toString(); });
+    child.on("error", () => { clearTimeout(timer); finish(null); });
+    child.on("close", () => {
+      clearTimeout(timer);
+      try {
+        const d = JSON.parse(out) as { hookSpecificOutput?: { permissionDecision?: string; permissionDecisionReason?: string } };
+        const pd = d.hookSpecificOutput?.permissionDecision;
+        if (pd === "deny" || pd === "ask" || pd === "allow") {
+          finish({ action: pd, reason: d.hookSpecificOutput?.permissionDecisionReason ?? "" });
+        } else finish(null);
+      } catch { finish(null); } // empty/garbage stdout = no rule matched → allow/defer
+    });
+    try {
+      child.stdin?.write(JSON.stringify({ hook_event_name: "PreToolUse", tool_name, tool_input, session_id: "acp" }));
+      child.stdin?.end();
+    } catch { /* the close/error handler resolves */ }
+  });
+}
 
 /** Resolve the installed adapter's bin entry (dist/index.js) without depending on PATH. */
 function resolveAdapterBin(): string {
@@ -54,8 +102,10 @@ export class AcpSession {
   private stderrTail = "";
   /** the recorded structured stream — the trace; replayed to a (re)joining socket. */
   readonly trace: AcpServerMessage[] = [];
+  /** in-flight gate "ask"s awaiting the human's Allow/Deny (Spike #3). */
+  private readonly pending = new Map<string, (d: "allow" | "deny") => void>();
 
-  constructor(private readonly cwd: string, adapterBin: string) {
+  constructor(private readonly cwd: string, adapterBin: string, private readonly binary: string) {
     this.child = spawn(process.execPath, [adapterBin], { cwd, stdio: ["pipe", "pipe", "pipe"], env: childEnv() });
     this.child.stderr?.on("data", (d: Buffer) => {
       this.stderrTail = (this.stderrTail + d.toString()).slice(-STDERR_TAIL);
@@ -70,13 +120,27 @@ export class AcpSession {
     );
 
     const client: Client = {
-      // Spike #2: auto-approve. Spike #3 routes this through the guardrails gate.
+      // Spike #3: route every permission request through the guardrails gate.
+      // deny → block; allow → proceed; ask / no-rule → the human decides in the UI.
       requestPermission: async (params) => {
-        const opts = params.options ?? [];
-        const pick = opts.find((o) => /allow/i.test(o.kind ?? "")) ?? opts[0];
-        return pick
-          ? { outcome: { outcome: "selected", optionId: pick.optionId } }
-          : { outcome: { outcome: "cancelled" } };
+        const tc = (params.toolCall ?? {}) as { kind?: string; title?: string; rawInput?: unknown };
+        const title = tc.title ?? tc.kind ?? "tool call";
+        const { tool_name, tool_input } = mapToolCall(tc);
+        const verdict = await gateCheck(this.cwd, this.binary, tool_name, tool_input);
+
+        if (verdict?.action === "deny") {
+          this.push({ type: "gate", decision: "deny", title, reason: verdict.reason });
+          return this.outcome(params.options, false);
+        }
+        if (verdict?.action === "allow") {
+          this.push({ type: "gate", decision: "allow", title, reason: verdict.reason });
+          return this.outcome(params.options, true);
+        }
+        // "ask" (a rule), or no rule matched → the human gate, in the drive lane
+        const requestId = randomBytes(6).toString("hex");
+        this.push({ type: "permission", requestId, title, toolKind: tc.kind ?? "other", ...(verdict?.reason ? { reason: verdict.reason } : {}) });
+        const decision = await this.awaitPermission(requestId);
+        return this.outcome(params.options, decision === "allow");
       },
       sessionUpdate: async (params) => {
         this.push({ type: "update", update: params.update as unknown as AcpSessionUpdate });
@@ -90,6 +154,28 @@ export class AcpSession {
     this.emit(msg);
   }
 
+  /** Pick an allow/reject permission option (a deny with no reject option → cancelled,
+   *  which also blocks the turn). */
+  private outcome(options: Array<{ optionId: string; kind?: string }> | undefined, allow: boolean) {
+    const opts = options ?? [];
+    const want = allow ? /allow/i : /reject|deny/i;
+    const pick = opts.find((o) => want.test(o.kind ?? "")) ?? (allow ? opts[0] : undefined);
+    return pick ? { outcome: { outcome: "selected" as const, optionId: pick.optionId } } : { outcome: { outcome: "cancelled" as const } };
+  }
+
+  /** Park a gate "ask" until the human replies (auto-deny after 3 min — fail-safe). */
+  private awaitPermission(id: string): Promise<"allow" | "deny"> {
+    return new Promise((resolve) => {
+      const t = setTimeout(() => { this.pending.delete(id); resolve("deny"); }, 180_000);
+      this.pending.set(id, (d) => { clearTimeout(t); this.pending.delete(id); resolve(d); });
+    });
+  }
+
+  /** The browser's Allow/Deny answer to a pending gate "ask". */
+  resolvePermission(id: string, decision: "allow" | "deny"): void {
+    this.pending.get(id)?.(decision);
+  }
+
   /** Handshake + open a session. Throws (caller maps to an error frame) on auth/spawn failure. */
   async start(): Promise<void> {
     await this.conn.initialize({
@@ -98,6 +184,17 @@ export class AcpSession {
     });
     const s = await this.conn.newSession({ cwd: this.cwd, mcpServers: [] });
     this.sessionId = s.sessionId;
+    // Delegate tool permissions to US (the client) so the guardrails gate is enforced.
+    // The adapter otherwise resolves an auto-allow mode (acceptEdits/bypass) and never
+    // asks the client — picking the mode that prompts makes requestPermission fire. The
+    // mode id varies; prefer one that looks like "default"/"ask", else the first offered.
+    try {
+      const modes = (s as { modes?: { availableModes?: Array<{ id?: string; name?: string }> } }).modes;
+      const avail = modes?.availableModes ?? [];
+      const prompts = avail.find((m) => /default|ask|prompt/i.test(`${m.id ?? ""} ${m.name ?? ""}`));
+      const modeId = prompts?.id ?? avail[0]?.id;
+      if (modeId) await this.conn.setSessionMode({ sessionId: s.sessionId, modeId });
+    } catch { /* mode-setting unsupported → keep the adapter's default */ }
     this.push({ type: "ready", sessionId: s.sessionId });
   }
 
@@ -135,8 +232,11 @@ export class AcpSession {
 export class AcpManager {
   private readonly byId = new Map<string, AcpSession>();
   private adapterBin: string | null = null;
+  private readonly zuzuuBinary: string;
 
-  constructor(private readonly cwd: () => string) {}
+  constructor(private readonly cwd: () => string, opts: { zuzuuBinary?: string } = {}) {
+    this.zuzuuBinary = opts.zuzuuBinary ?? "zuzuu"; // the gate-eval binary (zz hook PreToolUse)
+  }
 
   private bin(): string {
     if (!this.adapterBin) this.adapterBin = resolveAdapterBin();
@@ -144,7 +244,7 @@ export class AcpManager {
   }
 
   async create(): Promise<AcpSession> {
-    const s = new AcpSession(this.cwd(), this.bin());
+    const s = new AcpSession(this.cwd(), this.bin(), this.zuzuuBinary);
     this.byId.set(s.id, s);
     await s.start();
     return s;
@@ -176,6 +276,7 @@ export function handleAcpSocket(ws: WebSocket, session: AcpSession): void {
     try { msg = JSON.parse(raw.toString()); } catch { return; }
     if (msg.type === "prompt") void session.prompt(msg.text);
     else if (msg.type === "cancel") void session.cancel();
+    else if (msg.type === "permission") session.resolvePermission(msg.requestId, msg.decision);
   });
   ws.on("close", () => session.detach());
 }

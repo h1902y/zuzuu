@@ -73,7 +73,7 @@ export class WebcodeServer {
 
   constructor(private readonly cfg: ServerConfig) {
     this.root = cfg.root;
-    this.acp = new AcpManager(() => this.root);
+    this.acp = new AcpManager(() => this.root, cfg.zuzuuBinary !== undefined ? { zuzuuBinary: cfg.zuzuuBinary } : {});
     this.commandAllowlist = new Set(cfg.commandAllowlist ?? DEFAULT_COMMAND_ALLOWLIST);
     this.agentCloser = createAgentCloser(() => this.root, {
       ...(cfg.zuzuuBinary !== undefined ? { binary: cfg.zuzuuBinary } : {}),

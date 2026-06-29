@@ -60,4 +60,12 @@ describe("applyAcpMessage", () => {
     const v = fold([{ type: "update", update: { sessionUpdate: "available_commands_update" } }]);
     expect(v.blocks).toEqual([]);
   });
+
+  it("permission → a pending block (the human gate); gate → an auto-decision block (Spike #3)", () => {
+    const ask = fold([{ type: "permission", requestId: "r1", title: "Edit foo.ts", toolKind: "edit", reason: "no rule" }]);
+    expect(ask.blocks).toEqual([{ kind: "permission", requestId: "r1", title: "Edit foo.ts", toolKind: "edit", reason: "no rule" }]);
+
+    const denied = fold([{ type: "gate", decision: "deny", title: "rm -rf /", reason: "rule no-root-wipe" }]);
+    expect(denied.blocks).toEqual([{ kind: "gate", decision: "deny", title: "rm -rf /", reason: "rule no-root-wipe" }]);
+  });
 });

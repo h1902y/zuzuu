@@ -96,12 +96,19 @@ export type FsServerMessage = {
 // so client + server stay in lockstep over `#shared`.
 export type AcpClientMessage =
   | { type: "prompt"; text: string }
-  | { type: "cancel" };
+  | { type: "cancel" }
+  // the human's answer to a gate "ask" (Spike #3)
+  | { type: "permission"; requestId: string; decision: "allow" | "deny" };
 export type AcpServerMessage =
   | { type: "ready"; sessionId: string }
   | { type: "update"; update: AcpSessionUpdate }
   | { type: "turn_end"; stopReason: string; usage?: AcpUsage }
-  | { type: "error"; message: string };
+  | { type: "error"; message: string }
+  // a tool call the guardrails gate routed to the human (Spike #3): the SPA shows
+  // Allow/Deny and replies with an AcpClientMessage `permission`.
+  | { type: "permission"; requestId: string; title: string; toolKind: string; reason?: string }
+  // the gate auto-decided (deny/allow by a rule) — surfaced so the moat is visible
+  | { type: "gate"; decision: "deny" | "allow"; title: string; reason: string };
 
 /** A relayed ACP `session/update`. Structural subset the SPA renders; the
  *  `sessionUpdate` discriminant + any extra fields pass through unchanged. */
