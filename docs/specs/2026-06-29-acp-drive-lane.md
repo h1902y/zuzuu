@@ -1,6 +1,6 @@
 ---
 title: "The ACP drive lane — own the workbench UX + build traces, off the host TUI"
-status: exploring — spike-gated (NOT adopted)
+status: subscription premise VALIDATED (Spike #1 passed 2026-06-29) — lane in-build, Spikes 2–3 next
 date: 2026-06-29
 supersedes-partially: the absolute reading of "observe, never drive" (Design B)
 ---
@@ -32,9 +32,12 @@ The original decision conflated **"don't own the loop"** (still true — owning 
 undifferentiated part) with **"don't control the session"** (ACP separates these — you control the
 session *over* the host's loop). That conflation is what this spec corrects.
 
-**Status: exploring.** The revision is recorded as a decision to *pursue via spike* (§7). The
-canonical "observe model (Design B — never drive)" line in CLAUDE.md / the Decision Log is
-**not** rewritten until Spike #1 confirms the subscription path holds in our own setup.
+**Status: subscription premise validated, lane in-build.** Spike #1 (§7) **passed 2026-06-29** —
+the adapter drove a full prompt turn with the provider env key scrubbed, on a confirmed Max/Pro
+subscription login, no API key (evidence in §7). The decisive "ride the subscription" question is
+resolved YES for the current stack. The lane is not yet *shipped* — Spikes 2 (bridge + render) and 3
+(gate) remain — but the CLAUDE.md / Decision-Log stance is updated from "never drive" to "observe is
+the floor; an ACP drive lane is validated and in-build." The §4c billing-split risk still stands.
 
 ## 2. Why now — the thesis
 
@@ -153,6 +156,17 @@ Three spikes, **#1 first and decisive**. Each has an explicit kill-criterion.
 - **KILL IF:** it requires an API key / per-token billing with no subscription path → the "ride the
   subscription" premise fails; fall back to (a) Agent SDK direct under the same test, or (b) stay
   observe-only. Also re-check the §4c billing-split status before relying on the result.
+- **RESULT — PASS (2026-06-29).** A ~60-line ACP client (SDK `@agentclientprotocol/sdk@1.0.0`)
+  spawned the adapter (`@agentclientprotocol/claude-agent-acp@0.52.0` → `@anthropic-ai/claude-agent-sdk@0.3.191`),
+  Claude Code `2.1.195`, with `ANTHROPIC_API_KEY`/`AUTH_TOKEN`/`BASE_URL` stripped from the child
+  env. `initialize` returned `protocolVersion: 1, authMethods: []` (no auth demanded — valid local
+  auth present); `session/new` returned no `auth_required`; `session/prompt` completed
+  `stopReason: end_turn` with streamed `agent_message_chunk` + `usage_update` events. The local
+  login was **confirmed Max/Pro subscription** by the operator → the adapter rides the subscription
+  with no API key. Refutes the third-party "bare adapter needs an API key" report for this stack.
+  **Bonus (free):** the structured stream (`agent_message_chunk`, `usage_update` with cached-token
+  breakdown, `available_commands_update`) renders end-to-end — partial validation of Spike #2; and
+  the SDK ships experimental `ws-client`/`http-client` stream helpers, promising for the bridge.
 
 ### Spike #2 — The bridge + structured render
 - **Goal:** prove the daemon can bridge stdio↔WS and the SPA can render the structured stream.
