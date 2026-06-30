@@ -71,7 +71,7 @@ export default function PaletteBody() {
       case "open-module": select({ kind: "module", id: action.id }); break;
       case "switch-project": void enterProject(action.path); break;
       case "open-note": select({ kind: "row", id: action.id, module: action.module }); break;
-      case "see-all-search": select({ kind: "search" }); break; // U4 wires the query into the stage
+      case "see-all-search": select({ kind: "search", query: action.query }); break;
       case "create-note": {
         // THE INVERSION — a create stages a proposal through the review gate, never a
         // direct write. Target the selected module, else default to knowledge.

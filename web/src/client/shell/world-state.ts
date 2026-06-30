@@ -6,6 +6,9 @@ import type { NavNode } from "./shell-state.js";
 
 interface WorldState {
   selected: NavNode | null;
+  /** the previously-selected node — lets a ⌘K-only stage (the search results view, U4)
+   *  dismiss back to where the user was, since the SPA has no browser history. */
+  prev: NavNode | null;
   paletteOpen: boolean;
   select: (node: NavNode | null) => void;
   setPalette: (open: boolean) => void;
@@ -13,7 +16,8 @@ interface WorldState {
 
 export const useWorld = create<WorldState>((set) => ({
   selected: null,
+  prev: null,
   paletteOpen: false,
-  select: (selected) => set({ selected }),
+  select: (selected) => set((s) => ({ selected, prev: s.selected })),
   setPalette: (paletteOpen) => set({ paletteOpen }),
 }));

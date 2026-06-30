@@ -59,6 +59,7 @@ export function NavTree() {
     modules: overview.data?.modules ?? [],
     owner,
     showSetup: projectState.data !== undefined && shouldShowSetupNode(projectState.data.state),
+    showSearch: false, // U4 — Search is no longer a nav destination; it's reached via ⌘K "see all results"
   });
 
   const row = (r: NavRowModel) => (

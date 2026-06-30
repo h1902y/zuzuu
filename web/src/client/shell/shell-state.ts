@@ -18,7 +18,7 @@ export type NavNode =
   | { kind: "row"; id: string; module: string }
   | { kind: "overview" }
   | { kind: "graph" }
-  | { kind: "search" }
+  | { kind: "search"; query?: string }
   | { kind: "settings" };
 
 export interface Selection {
