@@ -27,9 +27,19 @@ interface ChecklistProps {
   onStartSession: (type: "shell" | "agent", host?: string) => void;
   /** a session is being started (the host picker is disabled while it spins up). */
   starting: boolean;
+  /** U5 — render as an in-home companion block (no full-stage takeover), so completing
+   *  the last rung recedes in place rather than snapping to the dashboard. */
+  companion?: boolean;
 }
 
 export function Checklist(props: ChecklistProps) {
+  if (props.companion) {
+    return (
+      <div className="rounded-lg border border-border bg-surface p-6">
+        <Body {...props} />
+      </div>
+    );
+  }
   return (
     <div className="h-full overflow-y-auto p-10">
       <div className="mx-auto w-full max-w-lg">

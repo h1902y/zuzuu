@@ -17,7 +17,6 @@ describe("selectActors — the selection → stage/wing morph (no modes)", () =>
     expect(selectActors(null)).toEqual({ stage: "overview", wing: "none", crumb: [] });
   });
   it("the whole-Project surfaces → their stage, wing retracts", () => {
-    expect(selectActors({ kind: "graph" })).toEqual({ stage: "graph", wing: "none", crumb: ["Graph"] });
     expect(selectActors({ kind: "search" })).toEqual({ stage: "search", wing: "none", crumb: ["Search"] });
     expect(selectActors({ kind: "settings" })).toEqual({ stage: "settings", wing: "none", crumb: ["Settings"] });
   });

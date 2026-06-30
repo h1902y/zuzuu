@@ -18,13 +18,13 @@ import { useStartSession } from "./session/use-start-session.js";
 import { sessionTabs } from "./session/session-tabs.js";
 import { toast } from "../state/toast.js";
 import { Checklist } from "./onboarding/Checklist.js";
+import { companionView } from "./onboarding/companion-state.js";
 import { onboardingStep, recordConsent, reopen, RUNG_ROUTE, describeSetupFailure, type ConsentRecord, type PrepRungId, type SetupFailure } from "./onboarding/onboarding-state.js";
 import { loadConsent, saveConsent } from "./onboarding/onboarding-consent.js";
 import { Overview } from "./overview/Overview.js";
 import { Grid } from "./stage/Grid.js";
 import { Record } from "./stage/Record.js";
 import { ModuleGraph } from "./stage/ModuleGraph.js";
-import { BrainGraph } from "./graph/BrainGraph.js";
 import { Search } from "./search/Search.js";
 import { Settings } from "./settings/Settings.js";
 import { StageHeader } from "./stage/StageHeader.js";
@@ -244,17 +244,16 @@ export function WorkbenchShell() {
               activeModuleTab === "graph" ? <ModuleGraph module={selected.id} /> : <Grid module={selected.id} />
             ) : sel.stage === "record" && selected?.kind === "row" ? (
               <Record module={selected.module} id={selected.id} />
-            ) : sel.stage === "graph" ? (
-              <BrainGraph />
             ) : sel.stage === "search" ? (
               <Search />
             ) : sel.stage === "settings" ? (
               <Settings />
-            ) : onboarding && pState ? (
-              <Checklist projectName={workspace.data?.name ?? "this project"} step={onboardStep} failure={setupError} onAffirm={affirmRung} onDecline={declineRung} onReopen={reopenRung} onRetry={retrySetup} onStartSession={onStartSession} starting={busy === "session"} />
             ) : projectState.isLoading || overview.isLoading ? (
               <Loading />
             ) : (
+              // U5: no hard-swap — the home always renders; onboarding composes IN as a
+              // receding companion block (no full-stage takeover), so completing the last
+              // rung recedes in place instead of snapping to the dashboard.
               <Overview
                 name={workspace.data?.name ?? "this project"}
                 emoji={workspace.data?.emoji}
@@ -262,10 +261,12 @@ export function WorkbenchShell() {
                 enabled={projectState.data?.host.enabled ?? false}
                 modules={modules}
                 sessions={sessions}
-                onPickModule={(id) => select({ kind: "module", id })}
-                onPickSession={(id) => select({ kind: "session", id })}
                 onStartSession={() => void startSession()}
                 onReview={() => setReview(true)}
+                companion={onboarding && pState ? (
+                  <Checklist projectName={workspace.data?.name ?? "this project"} companion step={onboardStep} failure={setupError} onAffirm={affirmRung} onDecline={declineRung} onReopen={reopenRung} onRetry={retrySetup} onStartSession={onStartSession} starting={busy === "session"} />
+                ) : undefined}
+                segue={pState !== undefined && companionView(pState, sessions.length).segue}
               />
             )}
           </div>

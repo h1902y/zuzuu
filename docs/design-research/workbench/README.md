@@ -20,6 +20,10 @@ research. **Read `05` first**; the rest is its evidence base. Generated 2026-06-
 | 06 | [`06-crud-app-inspiration.md`](06-crud-app-inspiration.md) | Refine.dev + open-source CRUD-to-app / DB-as-app / headless-CMS / internal-tool projects, mapped to our build | Refine `DataProvider` over the `zz` CLI; writes resolve to a *pending proposal* (the gate); one `FieldType` registry drives grid+form |
 | 07 | [`07-ui-component-foundation.md`](07-ui-component-foundation.md) | the React UI foundation — headless primitives (shadcn/Radix/React-Aria) vs batteries libs; how React-Admin/dashboards are structured | own a copy-owned shadcn/Radix kit (no batteries lib); ListContext pull-model + one `<WorkbenchShell>` per world |
 | 08 | [`08-design-system.md`](08-design-system.md) | the elegant minimal design system — tokens → primitives → recipes → data-bound components — that composes the workbench with near-zero inline styling | 4 layers from one token source; `FieldType` registry is the joint; zero-inline enforced by `@theme` reset + no-`className` prop types + `tv()` slots |
+| 09 | [`09-taste-redesign-direction.md`](09-taste-redesign-direction.md) | **the visual layer** — type scale, icon system, elevation, the projects surface; why the shipped shell reads premature | apply taste consistently: 5–6 sizes + weight as hierarchy; one icon set; base/raised/overlay elevation |
+| 10 | [`10-experience-rethink.md`](10-experience-rethink.md) | **the IA layer** — surface consolidation (sidebar uniformity · dashboard·search·graph redundancy · onboarding handoff), grounded in Mobbin + a peer-agent sweep (Hermes/Cursor/Replit/Warp/Zed) | sidebar=nav · ⌘K=search · home="what needs me" · graph→contextual · setup recedes (2026-06-30) |
+
+> `09` (taste) + `10` (IA) are a later **experience pass** on the *shipped* shell — orthogonal axes: `09` is how it looks, `10` is how it's structured. Read together before the next workbench rebuild.
 
 ## How to use this for the build phase
 

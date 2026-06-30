@@ -12,7 +12,13 @@ export type PaletteAction =
   | { kind: "new-agent"; host: string }
   | { kind: "open-session"; id: string }
   | { kind: "open-module"; id: string }
-  | { kind: "switch-project"; path: string };
+  | { kind: "switch-project"; path: string }
+  // U3 — the Notes (content) group: open a note, expand to the full results view,
+  // stage a new note from a no-results query, or a non-selecting placeholder (loading).
+  | { kind: "open-note"; module: string; id: string }
+  | { kind: "see-all-search"; query: string }
+  | { kind: "create-note"; query: string }
+  | { kind: "noop" };
 
 export interface PaletteCommand {
   /** the fuzzy-matched haystack (lowercased keywords) */
@@ -49,7 +55,7 @@ export function buildPaletteGroups(ctx: PaletteContext): PaletteGroup[] {
   groups.push({
     heading: "Actions",
     commands: [
-      { value: "review proposals gate pending", label: "Review proposals", action: { kind: "review" } },
+      { value: "review proposals gate pending merge approve", label: "Review proposals", action: { kind: "review" } },
       { value: "new shell session terminal", label: "New shell", action: { kind: "new-shell" } },
       ...ctx.hosts.map((h): PaletteCommand => ({
         value: `new ${h.label.toLowerCase()} agent session`,
@@ -86,7 +92,7 @@ export function buildPaletteGroups(ctx: PaletteContext): PaletteGroup[] {
     groups.push({
       heading: "Tables",
       commands: ctx.modules.map((m): PaletteCommand => ({
-        value: `table ${m.title}`.toLowerCase(),
+        value: `table module ${m.title}`.toLowerCase(),
         label: m.title,
         action: { kind: "open-module", id: m.id },
       })),
