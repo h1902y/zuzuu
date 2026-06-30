@@ -4,6 +4,7 @@
 // notes · tables · pending · protected · last-activity) · the quick actions. The
 // activity/review stream that would replace the columns is a deferred decision (§4.2),
 // not built here. Thin .tsx; overview-model is the tested logic; composes from ds primitives.
+import type { ReactNode } from "react";
 import type { ModuleOverviewEntry, SessionInfo } from "#shared/index.js";
 import { Database, Table2, Clock, Shield, Plus, Circle, ListChecks } from "lucide-react";
 import { brainSummary, lastSessionActivity } from "./overview-model.js";
@@ -20,10 +21,15 @@ interface OverviewProps {
   sessions: SessionInfo[];
   onStartSession: () => void;
   onReview: () => void;
+  /** U5 — the onboarding companion block (consent narration / host picker), rendered
+   *  above identity while setup is incomplete; undefined once steady. */
+  companion?: ReactNode;
+  /** U5 — invite the first session in place (prepped + no session yet). */
+  segue?: boolean;
 }
 
 export function Overview(props: OverviewProps) {
-  const { name, emoji, path, enabled, modules, sessions, onStartSession, onReview } = props;
+  const { name, emoji, path, enabled, modules, sessions, onStartSession, onReview, companion, segue } = props;
   const health = brainSummary(modules);
   const now = Date.now();
   const lastActive = lastSessionActivity(sessions);
@@ -32,6 +38,9 @@ export function Overview(props: OverviewProps) {
     <div className="h-full overflow-y-auto px-10 py-10">
       <div className="mx-auto w-full max-w-5xl">
         <Stack gap="xl">
+          {/* U5 — onboarding composes IN here (above identity) while setup is incomplete,
+              so the last rung recedes in place rather than snapping to the dashboard. */}
+          {companion}
           {/* identity — the project's own emoji is its title glyph (matches the header) */}
           <Stack gap="sm">
             <Inline gap="sm" align="center">
@@ -51,6 +60,10 @@ export function Overview(props: OverviewProps) {
             <Stat icon={Circle} label="last activity" value={lastActive ? relativeTime(lastActive, now) : "never"} />
           </Inline>
 
+          {/* U5 — the in-place segue: prepped, brain empty, no session yet */}
+          {segue && !companion && (
+            <Text size="ui" tone="muted">You're all set — start your first session below.</Text>
+          )}
           {/* quick actions */}
           <Inline gap="sm">
             <Button variant="primary" size="sm" onClick={onStartSession}><Icon icon={Plus} size={15} /> Start a session</Button>

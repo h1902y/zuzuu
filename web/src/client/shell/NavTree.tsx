@@ -13,6 +13,7 @@ import { useWorld } from "./world-state.js";
 import { mostRecentlyActive } from "./shell-state.js";
 import { shouldShowSetupNode } from "./project-home-state.js";
 import { navModel, type NavRowModel } from "./nav-model.js";
+import { companionView } from "./onboarding/companion-state.js";
 import { NewSessionMenu } from "./session/NewSessionMenu.js";
 import { Stack, Text, Icon } from "../ds/index.js";
 
@@ -62,13 +63,18 @@ export function NavTree() {
     showSearch: false, // U4 — Search is no longer a nav destination; it's reached via ⌘K "see all results"
   });
 
+  // U5 — the setup row reads "Setup n/3" (the pinned progress companion) once the rung is
+  // known; navModel ships the generic "Set up this Project" label as the fallback.
+  const setupLabel = projectState.data ? companionView(projectState.data.state, sessions.length).label : null;
+  const topRows = model.top.map((r) => (r.key === "setup" && setupLabel ? { ...r, label: setupLabel } : r));
+
   const row = (r: NavRowModel) => (
     <NavRow key={r.key} active={r.active} icon={rowGlyph(r)} label={r.label} badge={r.badge} onClick={() => select(r.node)} />
   );
 
   return (
     <nav className="flex h-full w-64 shrink-0 flex-col gap-7 overflow-y-auto border-r border-border bg-surface p-4">
-      <Stack gap="xs">{model.top.map(row)}</Stack>
+      <Stack gap="xs">{topRows.map(row)}</Stack>
 
       <Stack gap="xs">
         <Text size="meta" tone="subtle" weight="semibold">SESSIONS</Text>
