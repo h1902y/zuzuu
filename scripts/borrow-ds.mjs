@@ -11,12 +11,12 @@
 // Default source: ~/Documents/studio/ds-bundle. Pass a path to override (e.g. a clone
 // elsewhere). Only the CONSUMABLE artifact is copied; the design-tool-local scratch
 // (.review.html, .ds-build-meta.json, screenshots, the recompile sentinel) is left behind.
-import { cpSync, mkdirSync, rmSync, existsSync, readFileSync } from "node:fs";
+import { cpSync, mkdirSync, rmSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
 const DEST = resolve(import.meta.dirname, "..", "web", "vendor", "zuzuu-ds");
-const SRC = resolve(process.argv[2] ?? join(homedir(), "Documents", "studio", "ds-bundle"));
+const SRC = resolve(process.argv[2] ?? join(homedir(), "Documents", "zuzuu-blogs", "ds-bundle"));
 
 // the durable, consumable bundle — everything a design built with this DS needs at runtime,
 // plus the per-component contracts and the version anchor. (Excludes design-tool scratch.)
@@ -39,6 +39,15 @@ if (!existsSync(SRC)) {
   process.exit(1);
 }
 
+// Preserve zuzuu-authored files the studio bundle doesn't carry (the provenance doc) across
+// the wipe — they aren't in SRC, so a blind rm would drop them on every re-pull.
+const PRESERVE = ["BORROWED.md"];
+const preserved = new Map();
+for (const name of PRESERVE) {
+  const p = join(DEST, name);
+  if (existsSync(p)) preserved.set(name, readFileSync(p, "utf8"));
+}
+
 rmSync(DEST, { recursive: true, force: true });
 mkdirSync(DEST, { recursive: true });
 let copied = 0;
@@ -48,6 +57,7 @@ for (const name of KEEP) {
   cpSync(from, join(DEST, name), { recursive: true });
   copied++;
 }
+for (const [name, content] of preserved) writeFileSync(join(DEST, name), content);
 
 let version = "(no _ds_sync.json)";
 try {

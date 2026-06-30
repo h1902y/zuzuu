@@ -50,7 +50,7 @@ Keep one orange accent per view; lead with type and the blueprint grid, not shad
 # ZuzuuDS (zuzuu-studio@0.1.0)
 
 This design system is the published zuzuu-studio React library, bundled as a single
-browser global. All 16 components are the real upstream code.
+browser global. All 19 components are the real upstream code.
 
 ## Where things are
 
@@ -59,6 +59,7 @@ browser global. All 16 components are the real upstream code.
 - `components/<group>/<Name>/<Name>.prompt.md` (example JSX + variants), `<Name>.d.ts` (types), `<Name>.html` (variant grid).
 - `tokens/*.css` — CSS custom properties, names verbatim from upstream.
 - `fonts/` — `@font-face` files + `fonts.css` (when the package ships fonts).
+- `guidelines/` — the design system's own usage guidance (1 doc(s), see `guidelines/index.md`). Read these before composing larger layouts.
 
 For a specific component, `read_file("components/<group>/<Name>/<Name>.prompt.md")`.
 
@@ -80,15 +81,15 @@ ReactDOM.createRoot(document.getElementById('ds-root')).render(<Badge />);
 
 ## Tokens
 
-105 CSS custom properties from zuzuu-studio. Names are
+139 CSS custom properties from zuzuu-studio. Names are
 preserved verbatim from upstream. They are declared inside `_ds_bundle.css` (this DS ships one compiled stylesheet rather than separate token files).
 
-- **color** (29): `--text-xs`, `--text-xs--line-height`, `--text-sm`, …
+- **color** (38): `--color-amber-50`, `--color-gray-100`, `--color-gray-600`, …
 - **spacing** (5): `--tw-space-y-reverse`, `--tw-inset-shadow`, `--tw-inset-shadow-alpha`, …
-- **typography** (6): `--font-weight-medium`, `--font-weight-bold`, `--default-font-family`, …
+- **typography** (7): `--font-weight-medium`, `--font-weight-bold`, `--tracking-tighter`, …
 - **radius** (1): `--radius`
 - **shadow** (7): `--tw-shadow`, `--tw-ring-shadow`, `--tw-shadow-alpha`, …
-- **other** (57): `--spacing`, `--container-xl`, `--container-3xl`, …
+- **other** (81): `--spacing`, `--container-sm`, `--container-md`, …
 
 ## Components
 
@@ -96,16 +97,19 @@ preserved verbatim from upstream. They are declared inside `_ds_bundle.css` (thi
 - `Badge`
 - `Button`
 - `CardGrid`
-- `FeatureCard`
+- `ComparisonTable`
 - `GridCell`
 - `Hero`
 - `InkCTA`
+- `Lead`
 - `Marquee`
 - `Overline`
+- `PointList`
 - `Section`
 - `SectionHeading`
-- `Statement`
 - `StatStrip`
 - `StepCard`
 - `Tag`
+- `TierCard`
+- `TrustBar`
 - `Wordmark`

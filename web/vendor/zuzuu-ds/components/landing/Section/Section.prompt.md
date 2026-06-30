@@ -4,7 +4,7 @@ Section from zuzuu-studio. Use via `window.ZuzuuDS.Section` (bundle loaded from 
 
 ```ts
 interface SectionProps {
-id?: string; children: React.ReactNode; className?: string;
+id?: string; index?: string; label?: string; lead?: React.ReactNode; leadSize?: "manifesto" | "intro"; action?: React.ReactNode; children?: React.ReactNode; className?: string;
 }
 ```
 
@@ -14,13 +14,11 @@ id?: string; children: React.ReactNode; className?: string;
 
 ```jsx
 () => (
-  <Section>
-    <SectionHeading index="02" label="What we do" />
-    <CardGrid columns={2}>
-      <FeatureCard title="Websites" body="Fast, modern marketing sites and storefronts." />
-      <FeatureCard title="Store setup" body="Catalog, theme, policy pages, payments, shipping." />
-    </CardGrid>
-  </Section>
+  <Section
+    index="02"
+    label="What we do"
+    lead="One canonical frame — eyebrow, lead, body, action — so every section reads the same."
+  />
 )
 ```
 

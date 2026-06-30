@@ -10,15 +10,15 @@ change it upstream in studio and re-pull.
 
 | | |
 |---|---|
-| Source repo | `~/Documents/studio` (its `ds-bundle/`, built by the `/design-sync` skill) |
+| Source repo | `~/Documents/zuzuu-blogs` (its `ds-bundle/`, built by the `/design-sync` skill; was `~/Documents/studio` before the 2026-06-30 rename) |
 | Studio's Claude Design project | `zuzuu studio — design system` (`bff4dc77-2f5e-40c9-9edd-653e56659e6a`) |
-| Vendored version | `_ds_sync.json` `styleSha` = `5804fff5a5bb…` · 16 components |
+| Vendored version | `_ds_sync.json` `styleSha` = `e3568e47c58f…` · 19 components |
 | Pulled by | `scripts/borrow-ds.mjs` |
 
-## Re-sync (re-pull from studio)
+## Re-sync (re-pull from the studio bundle)
 
 ```sh
-node scripts/borrow-ds.mjs                 # default source: ~/Documents/studio/ds-bundle
+node scripts/borrow-ds.mjs                 # default source: ~/Documents/zuzuu-blogs/ds-bundle
 node scripts/borrow-ds.mjs <ds-bundle-dir> # or a clone elsewhere
 ```
 

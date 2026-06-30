@@ -73,14 +73,14 @@ var __dsPreview = (() => {
         var c = p && p.children;
         return c === void 0 ? R.createElement(t, np(p, k)) : R.createElement(t, np(p, k), c);
       }
-      function jsxs2(t, p, k) {
+      function jsxs(t, p, k) {
         return R.createElement.apply(R, [t, np(p, k)].concat(p.children));
       }
       module.exports = R;
       module.exports.jsx = jsx2;
-      module.exports.jsxs = jsxs2;
+      module.exports.jsxs = jsxs;
       module.exports.jsxDEV = function(t, p, k, s) {
-        return (s ? jsxs2 : jsx2)(t, p, k);
+        return (s ? jsxs : jsx2)(t, p, k);
       };
       module.exports.Fragment = R.Fragment;
     }
@@ -105,12 +105,13 @@ var __dsPreview = (() => {
 
   // .design-sync/previews/Section.tsx
   var import_jsx_runtime = __toESM(require_react_shim());
-  var WithHeading = () => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(ds_exports.Section, { children: [
-    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ds_exports.SectionHeading, { index: "02", label: "What we do" }),
-    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(ds_exports.CardGrid, { columns: 2, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ds_exports.FeatureCard, { title: "Websites", body: "Fast, modern marketing sites and storefronts." }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ds_exports.FeatureCard, { title: "Store setup", body: "Catalog, theme, policy pages, payments, shipping." })
-    ] })
-  ] });
+  var WithHeading = () => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+    ds_exports.Section,
+    {
+      index: "02",
+      label: "What we do",
+      lead: "One canonical frame — eyebrow, lead, body, action — so every section reads the same."
+    }
+  );
   return __toCommonJS(Section_exports);
 })();
