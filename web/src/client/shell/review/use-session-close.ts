@@ -12,10 +12,13 @@ import { api } from "../../lib/api.js";
 import { useSessionClose, reportAgentExit } from "../../state/session-close.js";
 import { useWorkbench } from "../../state/store.js";
 import { endedAgentSessions, liveAgentIds } from "./session-liveness.js";
+import { toast } from "../../state/toast.js";
 import {
   closeCardFired,
   markCloseCardFired,
-  shouldFireCloseCard,
+  sessionEndOutcome,
+  brainHasLearned,
+  NOTHING_RECURRED_YET,
   heldChangesOf,
   codeFromHeld,
   pickHeld,
@@ -39,10 +42,27 @@ async function fireCloseCard(sessionId: string, result: SessionCloseResult | und
   if (closeCardFired(sessionId)) return;
   const pending = pendingOf(result) ?? 0;
   const code = await loadCode(sessionId, heldBranchOf(result));
-  if (!shouldFireCloseCard(sessionId, pending, heldChangesOf(code), closeCardFired(sessionId))) return;
-  markCloseCardFired(sessionId); // before show → a remount won't double-fire
+  const heldChanges = heldChangesOf(code);
+  const hasReview = pending > 0 || heldChanges > 0;
+  // U6: the three honest end-states. The overview read is skipped when there's a handoff
+  // (the `learned` arg is then irrelevant), so we never pay it on the common card path.
+  const outcome = sessionEndOutcome(pending, heldChanges, hasReview ? true : await learnedFromOverview());
+  if (outcome === "silent") return; // steady-state zero session — no nag
+  markCloseCardFired(sessionId); // once per session (either surface); a remount won't double-fire
+  if (outcome === "nothing-yet") { toast(NOTHING_RECURRED_YET); return; } // the primary first-run path
   const staged = pending > 0 ? await loadStaged().catch(() => [] as StagedSummary[]) : [];
   useSessionClose.getState().show({ sessionId, pending, staged, code });
+}
+
+/** Has the loop produced any learnings yet (U6)? A failed/absent read assumes "yes" so a
+ *  zero-proposal session never nags when we can't tell. */
+async function learnedFromOverview(): Promise<boolean> {
+  try {
+    const ov = await api.zuzuu.overview();
+    return brainHasLearned(ov.modules);
+  } catch {
+    return true;
+  }
 }
 
 /** The post-close pending count, or null when the close result doesn't carry one

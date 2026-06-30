@@ -5,7 +5,7 @@
 // state after a decline. The old silent auto-prep is gone — every setup step is a VISIBLE
 // CONSENT (R13/R14). Thin: all branching lives in onboarding-state.ts; this composes ds
 // primitives. (U4 layers the ACP agent voice over this; the host picker scopes to Claude.)
-import type { OnboardingStep, PrepRungId } from "./onboarding-state.js";
+import { RUNG_NARRATION, type OnboardingStep, type PrepRungId, type SetupFailure } from "./onboarding-state.js";
 import { HOSTS } from "../../app/hosts.js";
 import { Stack, Inline, Text, Button } from "../../ds/index.js";
 
@@ -13,12 +13,16 @@ interface ChecklistProps {
   projectName: string;
   /** the current onboarding step (null until project-state resolves). */
   step: OnboardingStep | null;
+  /** a failed consented setup step (U6) — surfaced here with a Retry, not a toast. */
+  failure: SetupFailure | null;
   /** affirm a setup rung — the daemon runs it; the conversation advances. */
   onAffirm: (rung: PrepRungId) => void;
   /** decline a setup rung — lands the reversible dormant state. */
   onDecline: (rung: PrepRungId) => void;
   /** re-open a declined rung from the dormant state ("re-enable anytime"). */
   onReopen: (rung: PrepRungId) => void;
+  /** retry the failed setup step (re-fires the consented rung's route). */
+  onRetry: () => void;
   /** pick a host (an agent session — zuzuu only observes agents) or a plain shell. */
   onStartSession: (type: "shell" | "agent", host?: string) => void;
   /** a session is being started (the host picker is disabled while it spins up). */
@@ -35,7 +39,7 @@ export function Checklist(props: ChecklistProps) {
   );
 }
 
-function Body({ projectName, step, onAffirm, onDecline, onReopen, onStartSession, starting }: ChecklistProps) {
+function Body({ projectName, step, failure, onAffirm, onDecline, onReopen, onRetry, onStartSession, starting }: ChecklistProps) {
   if (!step || step.kind === "complete") {
     return <Text size="ui" tone="subtle">Loading…</Text>;
   }
@@ -57,6 +61,21 @@ function Body({ projectName, step, onAffirm, onDecline, onReopen, onStartSession
   }
 
   if (step.kind === "executing") {
+    // U6: a failed step surfaces here (in the onboarding surface) with a Retry — not a toast.
+    if (failure) {
+      return (
+        <Stack gap="xl">
+          <Stack gap="sm">
+            <Text size="2xl" font="display">Couldn't {RUNG_NARRATION[failure.rung].consentLabel.toLowerCase()}</Text>
+            <Text size="ui" tone="danger">{failure.message}</Text>
+          </Stack>
+          <Inline gap="sm">
+            {failure.retryable && <Button variant="primary" size="md" onClick={onRetry}>Try again</Button>}
+            <Button variant="outline" size="md" onClick={() => onDecline(failure.rung)}>Not now</Button>
+          </Inline>
+        </Stack>
+      );
+    }
     return (
       <Stack gap="sm">
         <Text size="2xl" font="display">Setting up {projectName}…</Text>

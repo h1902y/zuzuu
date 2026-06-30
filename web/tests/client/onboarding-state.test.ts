@@ -4,7 +4,7 @@
 // the decline→dormant path, and idempotent consent.
 import { describe, it, expect } from "vitest";
 import {
-  onboardingStep, recordConsent, reopen, prepRungFor, RUNG_NARRATION, RUNG_ROUTE,
+  onboardingStep, recordConsent, reopen, prepRungFor, RUNG_NARRATION, RUNG_ROUTE, describeSetupFailure,
   type ConsentRecord,
 } from "../../src/client/shell/onboarding/onboarding-state.js";
 
@@ -78,5 +78,19 @@ describe("onboardingStep — the consent gate", () => {
     expect(prepRungFor("steady")).toBeNull();
     expect(RUNG_ROUTE["git-init"]).toBe("gitInit");
     expect(Object.keys(RUNG_NARRATION)).toEqual(["git-init", "init", "enable"]);
+  });
+});
+
+describe("describeSetupFailure (U6) — failures surfaced honestly, not a generic toast", () => {
+  it("503 = the CLI is absent: not retryable, with self-heal-impossible copy", () => {
+    const f = describeSetupFailure("init", 503);
+    expect(f).toMatchObject({ rung: "init", cliAbsent: true, retryable: false });
+    expect(f.message.toLowerCase()).toContain("cli");
+  });
+
+  it("other failures (502) are retryable with try-again copy", () => {
+    const f = describeSetupFailure("enable", 502);
+    expect(f).toMatchObject({ rung: "enable", cliAbsent: false, retryable: true });
+    expect(f.message.toLowerCase()).toMatch(/again|retry/);
   });
 });

@@ -21,9 +21,12 @@ import {
   advanceQueue,
   replaceCurrent,
   emptyCloseQueue,
+  sessionEndOutcome,
+  brainHasLearned,
   type CloseCardData,
   type CloseCardCode,
 } from "../../src/client/shell/review/session-close-card.js";
+import type { ModuleOverviewEntry } from "#shared/index.js";
 
 /** A tiny in-memory Storage stub (the dedup is sessionStorage-backed). */
 function memStore(): Storage {
@@ -241,5 +244,30 @@ describe("close-card coalescing (U5) — two sessions never clobber", () => {
     expect(replaceCurrent(ab, collapsed).card).toEqual(collapsed);
     // a's code resolved and nothing left to review → advance to b
     expect(replaceCurrent(ab, null).card).toEqual(card("b"));
+  });
+});
+
+describe("session-end outcome (U6) — nothing-recurred-yet is the primary first-run path", () => {
+  const mod = (id: string, items: number): ModuleOverviewEntry =>
+    ({ id, counts: { items, pending: 0, errors: 0 } } as ModuleOverviewEntry);
+
+  it("handoff when there are proposals or held code (regardless of learned)", () => {
+    expect(sessionEndOutcome(2, 0, false)).toBe("handoff");
+    expect(sessionEndOutcome(0, 3, true)).toBe("handoff");
+  });
+
+  it("nothing-yet when the session taught nothing AND the loop hasn't learned (first run)", () => {
+    expect(sessionEndOutcome(0, 0, false)).toBe("nothing-yet");
+  });
+
+  it("silent once the brain has learned — a steady-state zero session doesn't nag", () => {
+    expect(sessionEndOutcome(0, 0, true)).toBe("silent");
+  });
+
+  it("brainHasLearned: only CONTENT notes count — the seeded instructions floor doesn't", () => {
+    expect(brainHasLearned([mod("instructions", 6)])).toBe(false);                      // fresh: only the floor
+    expect(brainHasLearned([mod("instructions", 6), mod("knowledge", 0)])).toBe(false); // materialized, empty
+    expect(brainHasLearned([mod("instructions", 6), mod("knowledge", 1)])).toBe(true);  // a real learning
+    expect(brainHasLearned([])).toBe(false);
   });
 });

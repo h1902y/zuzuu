@@ -114,3 +114,30 @@ export function reopen(record: ConsentRecord, rung: PrepRungId): ConsentRecord {
 export function isOnboarding(step: OnboardingStep): boolean {
   return step.kind !== "complete";
 }
+
+/** A failed consented setup step, surfaced IN the onboarding surface (U6) — not a
+ *  detached toast. A 503 means the zuzuu CLI is absent (the workbench can't self-heal
+ *  that, so it isn't retryable); anything else is a command failure the user can retry. Pure. */
+export interface SetupFailure {
+  rung: PrepRungId;
+  message: string;
+  cliAbsent: boolean;
+  retryable: boolean;
+}
+
+export function describeSetupFailure(rung: PrepRungId, status: number): SetupFailure {
+  if (status === 503) {
+    return {
+      rung,
+      cliAbsent: true,
+      retryable: false,
+      message: "The zuzuu CLI isn't available, so the workbench can't run this step. Install zuzuu and reopen the project.",
+    };
+  }
+  return {
+    rung,
+    cliAbsent: false,
+    retryable: true,
+    message: "That step didn't complete. You can try again — or check Settings if it keeps failing.",
+  };
+}

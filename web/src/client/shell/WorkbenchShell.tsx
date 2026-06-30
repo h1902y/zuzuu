@@ -9,7 +9,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ProjectStateKind } from "#shared/index.js";
 import { TermView } from "../term/TermView.js";
 import { Composer } from "../composer/Composer.js";
-import { api } from "../lib/api.js";
+import { api, ApiError } from "../lib/api.js";
 import { useWorkbench } from "../state/store.js";
 import { useWorld } from "./world-state.js";
 import { selectActors } from "./shell-state.js";
@@ -18,7 +18,7 @@ import { useStartSession } from "./session/use-start-session.js";
 import { sessionTabs } from "./session/session-tabs.js";
 import { toast } from "../state/toast.js";
 import { Checklist } from "./onboarding/Checklist.js";
-import { onboardingStep, recordConsent, reopen, RUNG_ROUTE, type ConsentRecord, type PrepRungId } from "./onboarding/onboarding-state.js";
+import { onboardingStep, recordConsent, reopen, RUNG_ROUTE, describeSetupFailure, type ConsentRecord, type PrepRungId, type SetupFailure } from "./onboarding/onboarding-state.js";
 import { loadConsent, saveConsent } from "./onboarding/onboarding-consent.js";
 import { Overview } from "./overview/Overview.js";
 import { Grid } from "./stage/Grid.js";
@@ -144,25 +144,33 @@ export function WorkbenchShell() {
   };
   const affirmRung = (rung: PrepRungId) => persistConsent(recordConsent(consent, rung, "consented"));
   const declineRung = (rung: PrepRungId) => persistConsent(recordConsent(consent, rung, "declined"));
-  const reopenRung = (rung: PrepRungId) => persistConsent(reopen(consent, rung));
+  const reopenRung = (rung: PrepRungId) => { setSetupError(null); persistConsent(reopen(consent, rung)); };
+
+  // U6: a failed setup step surfaces IN the onboarding surface (the Checklist), not a
+  // detached toast — with a Retry. 503 (CLI absent) is non-retryable; other failures retry
+  // by bumping the nonce (re-runs the effect against the still-consented rung).
+  const [setupError, setSetupError] = useState<SetupFailure | null>(null);
+  const [retryNonce, setRetryNonce] = useState(0);
+  const retrySetup = () => { setSetupError(null); setRetryNonce((n) => n + 1); };
 
   // Run a consented setup step (U3): fire its daemon route only once the rung is
   // "executing" (the user affirmed), then refetch so the next rung surfaces. A ref guards
-  // re-entry; a failed step toasts (U6 will surface it in-conversation with retry).
+  // re-entry; a failure lands in setupError (U6) for the Checklist to surface with retry.
   const prepping = useRef(false);
   const executingRung = onboardStep?.kind === "executing" ? onboardStep.rung : null;
   useEffect(() => {
     if (prepping.current || !executingRung) return;
+    const rung = executingRung;
     prepping.current = true;
     void (async () => {
-      try { await api.setup[RUNG_ROUTE[executingRung]](); }
-      catch { toast("A setup step failed — see Settings", "error"); }
+      try { await api.setup[RUNG_ROUTE[rung]](); setSetupError(null); }
+      catch (e) { setSetupError(describeSetupFailure(rung, e instanceof ApiError ? e.status : 0)); }
       finally {
         prepping.current = false;
         await qc.invalidateQueries({ queryKey: ["zuzuu", "project-state"] });
       }
     })();
-  }, [executingRung, qc]);
+  }, [executingRung, retryNonce, qc]);
 
   // the governed stage-header (P2.1): a friendly breadcrumb + the stage's primary action.
   const header = stageHeaderModel(selected);
@@ -243,7 +251,7 @@ export function WorkbenchShell() {
             ) : sel.stage === "settings" ? (
               <Settings />
             ) : onboarding && pState ? (
-              <Checklist projectName={workspace.data?.name ?? "this project"} step={onboardStep} onAffirm={affirmRung} onDecline={declineRung} onReopen={reopenRung} onStartSession={onStartSession} starting={busy === "session"} />
+              <Checklist projectName={workspace.data?.name ?? "this project"} step={onboardStep} failure={setupError} onAffirm={affirmRung} onDecline={declineRung} onReopen={reopenRung} onRetry={retrySetup} onStartSession={onStartSession} starting={busy === "session"} />
             ) : projectState.isLoading || overview.isLoading ? (
               <Loading />
             ) : (
