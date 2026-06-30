@@ -1,18 +1,23 @@
 // shell/NavTree.tsx — ONE nav tree, sessions + modules as siblings (no modes, R2).
-// Sessions show liveness (● owner / • other-live / ○ idle); modules show pending.
-// Selecting a node drives the stage/wing. Composed from ds primitives.
+// Every entry — Overview, the setup row, sessions, tables, project nav — renders through
+// the SINGLE `NavRow` primitive (R1): one height, one glyph size, one type size, one
+// active/hover treatment. Row composition (which rows, badges, liveness, active) is the
+// pure `navModel`; this file only maps a row's glyph/liveness to a ds Icon and wires the
+// node into select(). Composed from ds primitives (no inline styles / arbitrary values).
 import { type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Circle, Table2, Flag, Home, Share2, Search, Settings as SettingsIcon } from "lucide-react";
-import type { SessionInfo } from "#shared/index.js";
 import { api } from "../lib/api.js";
 import { useWorkbench } from "../state/store.js";
 import { useWorld } from "./world-state.js";
 import { mostRecentlyActive } from "./shell-state.js";
 import { shouldShowSetupNode } from "./project-home-state.js";
+import { navModel, type NavRowModel } from "./nav-model.js";
 import { NewSessionMenu } from "./session/NewSessionMenu.js";
-import { Stack, Inline, Text, Icon } from "../ds/index.js";
+import { Stack, Text, Icon } from "../ds/index.js";
 
+/** The one row primitive. Leading glyph is a ReactNode (a Lucide icon or the session
+ *  liveness dot); the optional badge is the pending-proposal count. */
 function NavRow({ active, icon, label, badge, onClick }: {
   active: boolean; icon: ReactNode; label: string; badge?: number; onClick: () => void;
 }) {
@@ -29,24 +34,15 @@ function NavRow({ active, icon, label, badge, onClick }: {
   );
 }
 
-/** A session row: select-only. Ending a session is the stage header's single "End
- *  session" button (the canonical, where-you-work affordance) — there's deliberately
- *  no per-row ✕, so there's exactly one way to end a session. */
-function SessionRow({ s, active, owner, onSelect }: {
-  s: SessionInfo; active: boolean; owner: string | null; onSelect: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={`flex h-10 w-full items-center gap-3 rounded-ui px-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-focus ${active ? "bg-selected text-ink-100" : "text-subtle hover:bg-hover hover:text-ink-100"}`}
-    >
-      <Text tone={s.alive ? (s.id === owner ? "accent" : "subtle") : "muted"}>
-        <Icon icon={Circle} size={9} fill={s.alive ? "currentColor" : "none"} />
-      </Text>
-      <span className="min-w-0 flex-1 truncate text-ui">{s.title || s.id}</span>
-    </button>
-  );
+const GLYPH = { overview: Home, setup: Flag, table: Table2, graph: Share2, search: Search, settings: SettingsIcon } as const;
+
+/** A row's leading glyph: the session liveness dot (status-toned) or a uniform 14px nav icon. */
+function rowGlyph(row: NavRowModel): ReactNode {
+  if (row.glyph === "session") {
+    const tone = row.liveness === "owner" ? "accent" : row.liveness === "live" ? "subtle" : "muted";
+    return <Text tone={tone}><Icon icon={Circle} size={9} fill={row.liveness === "idle" ? "none" : "currentColor"} /></Text>;
+  }
+  return <Icon icon={GLYPH[row.glyph]} size={14} />;
 }
 
 export function NavTree() {
@@ -54,78 +50,41 @@ export function NavTree() {
   const selected = useWorld((s) => s.selected);
   const select = useWorld((s) => s.select);
   const overview = useQuery({ queryKey: ["zuzuu", "overview"], queryFn: api.zuzuu.overview });
-
   const projectState = useQuery({ queryKey: ["zuzuu", "project-state"], queryFn: api.zuzuu.projectState });
+
   const owner = mostRecentlyActive(sessions.map((s) => ({ id: s.id, live: s.alive, lastActiveAt: s.createdAt })));
-  const modules = overview.data?.modules ?? [];
-  const showSetup = projectState.data !== undefined && shouldShowSetupNode(projectState.data.state);
+  const model = navModel({
+    selected,
+    sessions: sessions.map((s) => ({ id: s.id, title: s.title, alive: s.alive })),
+    modules: overview.data?.modules ?? [],
+    owner,
+    showSetup: projectState.data !== undefined && shouldShowSetupNode(projectState.data.state),
+  });
+
+  const row = (r: NavRowModel) => (
+    <NavRow key={r.key} active={r.active} icon={rowGlyph(r)} label={r.label} badge={r.badge} onClick={() => select(r.node)} />
+  );
 
   return (
     <nav className="flex h-full w-64 shrink-0 flex-col gap-7 overflow-y-auto border-r border-border bg-surface p-4">
-      <NavRow
-        active={selected === null || selected.kind === "overview"}
-        icon={<Icon icon={Home} size={14} />}
-        label="Overview"
-        onClick={() => select({ kind: "overview" })}
-      />
-      {showSetup && (
-        <Text as="button" interactive size="meta" tone="accent" weight="semibold" onClick={() => select(null)}>
-          <Inline gap="xs"><Icon icon={Flag} size={12} /> Set up this Project</Inline>
-        </Text>
-      )}
+      <Stack gap="xs">{model.top.map(row)}</Stack>
 
       <Stack gap="xs">
         <Text size="meta" tone="subtle" weight="semibold">SESSIONS</Text>
-        {sessions.map((s) => (
-          <SessionRow
-            key={s.id}
-            s={s}
-            active={selected?.kind === "session" && selected.id === s.id}
-            owner={owner}
-            onSelect={() => select({ kind: "session", id: s.id })}
-          />
-        ))}
-        {!sessions.length && <Text size="meta" tone="muted">none yet</Text>}
+        {model.sessions.map(row)}
+        {!model.sessions.length && <Text size="meta" tone="muted">none yet</Text>}
         <NewSessionMenu />
       </Stack>
 
       <Stack gap="xs">
         <Text size="meta" tone="subtle" weight="semibold">TABLES</Text>
-        {modules.map((m) => (
-          <NavRow
-            key={m.id}
-            active={selected?.kind === "module" && selected.id === m.id}
-            icon={<Text tone={selected?.kind === "module" && selected.id === m.id ? "accent" : "muted"}>
-              <Icon icon={Table2} size={14} />
-            </Text>}
-            label={m.title}
-            badge={m.counts?.pending || undefined}
-            onClick={() => select({ kind: "module", id: m.id })}
-          />
-        ))}
-        {!modules.length && <Text size="meta" tone="muted">{overview.isLoading ? "…" : "none yet"}</Text>}
+        {model.tables.map(row)}
+        {!model.tables.length && <Text size="meta" tone="muted">{overview.isLoading ? "…" : "none yet"}</Text>}
       </Stack>
 
       <Stack gap="xs">
         <Text size="meta" tone="subtle" weight="semibold">PROJECT</Text>
-        <NavRow
-          active={selected?.kind === "graph"}
-          icon={<Icon icon={Share2} size={14} />}
-          label="Graph"
-          onClick={() => select({ kind: "graph" })}
-        />
-        <NavRow
-          active={selected?.kind === "search"}
-          icon={<Icon icon={Search} size={14} />}
-          label="Search"
-          onClick={() => select({ kind: "search" })}
-        />
-        <NavRow
-          active={selected?.kind === "settings"}
-          icon={<Icon icon={SettingsIcon} size={14} />}
-          label="Settings"
-          onClick={() => select({ kind: "settings" })}
-        />
+        {model.project.map(row)}
       </Stack>
     </nav>
   );
