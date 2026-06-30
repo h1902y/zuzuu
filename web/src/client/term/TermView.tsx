@@ -16,19 +16,20 @@ import { registerTermConn, unregisterTermConn } from "./connections.js";
 import { useWorkbench } from "../state/store.js";
 import { reportAgentExit } from "../state/session-close.js";
 
-// the terminal is a deep-ebony island in BOTH themes (#14170f, per the design tokens);
-// Anonymous Pro for the coder character. ANSI palette tuned to the mint/coral system.
-const FONT_FAMILY = '"Anonymous Pro", ui-monospace, SFMono-Regular, Menlo, monospace';
+// the terminal is a deep-ink island in BOTH themes (#161510, the borrowed DS's dark
+// register); JetBrains Mono for the coder character. ANSI palette tuned to the bible —
+// warm ink/paper, the orange accent, a functional teal.
+const FONT_FAMILY = '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace';
 const THEME = {
-  background: "#14170f",
-  foreground: "#eafdcf",
-  cursor: "#f25c54",
-  cursorAccent: "#14170f",
-  selectionBackground: "#4e554399",
-  black: "#1b1f15", red: "#ef5350", green: "#7fb069", yellow: "#e0a83c",
-  blue: "#8e95d8", magenta: "#b6a9c9", cyan: "#9fc27a", white: "#ccddb4",
-  brightBlack: "#6e7860", brightRed: "#f25c54", brightGreen: "#9fc27a", brightYellow: "#ecc36a",
-  brightBlue: "#a8aee4", brightMagenta: "#ccc0dd", brightCyan: "#b9d79a", brightWhite: "#eafdcf",
+  background: "#161510",
+  foreground: "#f1f0ea",
+  cursor: "#e8551f",
+  cursorAccent: "#161510",
+  selectionBackground: "#38352b99",
+  black: "#1f1d16", red: "#e5687a", green: "#4fb389", yellow: "#e0a83c",
+  blue: "#7c8fb8", magenta: "#b894ad", cyan: "#3bb9a8", white: "#cdcabb",
+  brightBlack: "#4f4b3e", brightRed: "#e8551f", brightGreen: "#5cc79a", brightYellow: "#ecc36a",
+  brightBlue: "#9aa9d0", brightMagenta: "#cdb0c4", brightCyan: "#5fd0bf", brightWhite: "#f1f0ea",
 };
 
 export function TermView({ sessionId, active = true }: { sessionId: string; active?: boolean }) {

@@ -1,45 +1,45 @@
 @import "tailwindcss";
-/* the type system: Alata (UI/body) · Abel (display/headings) · Anonymous Pro
-   (terminal + dense data). All single-weight except the mono — hierarchy comes from
-   size · case · tone · face-contrast, not weight. The logotype face (Train One)
-   loads via the Google Fonts CDN <link> in index.html. */
-@import "@fontsource/alata";
-@import "@fontsource/abel";
-@import "@fontsource/anonymous-pro";
+/* the type system — the BORROWED bible ("The Bottom Line"): Space Grotesk (display/
+   headings) · Inter (UI/body, variable) · JetBrains Mono (mono labels + dense data) ·
+   Silkscreen (the pixel wordmark) · Fraunces (editorial register). All load via the
+   Google Fonts CDN <link> in index.html. */
 @import "@xterm/xterm/css/xterm.css";
 
-/* The design tokens — WARM DUAL-THEME (MARVIN / Flexoki-based). The @theme block
-   declares the token NAMES (so Tailwind generates the utilities) with the warm-DARK
-   values as the static fallback; the [data-theme] blocks below swap the ramp + accent
-   values at runtime. The SEMANTIC aliases (app/surface/border/muted = var(ink-*)) are
-   declared once here and auto-follow the ramp — no duplication per theme.
-   Source of truth: docs/design-research/workbench/09-taste-redesign-direction.md §2.0. */
+/* The design tokens — adopted from the BORROWED design system (web/vendor/zuzuu-ds/),
+   editorial-brutalist: warm paper, ink, one orange accent (+ a functional teal), sharp
+   corners. The @theme block declares the token NAMES (so Tailwind generates the utilities)
+   with the deep-ink ("The Bottom Line" dark register) values as the static fallback; the
+   [data-theme] blocks below swap the ramp at runtime (dark = .tbl-dark · light = .tbl paper).
+   The SEMANTIC aliases (app/surface/border/muted = var(ink-*)) follow the ramp — no
+   duplication per theme. The token NAMES are kept (zero component churn); only the VALUES
+   are repainted to the bible. Source of truth: web/vendor/zuzuu-ds/. */
 @theme {
-  /* the duotype, warmed: Space Grotesk for chrome/prose, a retro display face for
-     brand + headings, a mono split (Space Mono terminal · JetBrains Mono dense data). */
-  --font-sans: "Alata", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; /* UI + body (single weight) */
-  --font-display: "Abel", "Alata", ui-sans-serif, system-ui; /* headings / empty states (condensed, single weight) */
-  --font-logo: "Train One", ui-sans-serif, system-ui; /* the brand logotype (Train One via Google Fonts CDN) */
-  --font-mono-display: "Anonymous Pro", ui-monospace, SFMono-Regular, Menlo, monospace; /* the terminal */
-  --font-mono-data: "Anonymous Pro", ui-monospace, SFMono-Regular, Menlo, monospace; /* dense grids */
+  /* the bible's families — Inter carries UI/body (variable), Space Grotesk the headings,
+     JetBrains Mono the data/terminal, Silkscreen the pixel wordmark, Fraunces editorial. */
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; /* UI + body */
+  --font-display: "Space Grotesk", "Inter", ui-sans-serif, system-ui; /* headings */
+  --font-logo: "Silkscreen", "Space Grotesk", ui-sans-serif, system-ui; /* the pixel wordmark */
+  --font-editorial: "Fraunces", Georgia, "Times New Roman", serif; /* editorial register (gravitas) */
+  --font-mono-display: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace; /* the terminal */
+  --font-mono-data: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace; /* dense grids · labels */
   --font-mono: var(--font-mono-data); /* back-compat: existing font-mono utility = dense data */
 
-  /* DARK ramp (deep ebony → frosted-mint ink) — the @theme fallback; [data-theme="light"] overrides below */
-  --color-ink-950: #14170f; /* app field — deep ebony */
-  --color-ink-900: #292e22; /* page panels */
-  --color-ink-850: #3b4032; /* cards, tiles */
-  --color-ink-800: #4e5543; /* hover/active row fill */
-  --color-ink-700: #6e7860; /* hairline border */
-  --color-ink-600: #94a182; /* strong border */
-  --color-ink-500: #b2c19d; /* muted text */
-  --color-ink-300: #ccddb4; /* subtle text */
-  --color-ink-100: #eafdcf; /* primary text — frosted mint */
-  /* the FIXED coral accent — declared ONCE, never swapped between themes (L≈59, the midpoint) */
-  --color-accent: #f25c54;
-  --color-accent-dim: #d8453d;
-  /* danger is a COOLER crimson, deliberately diverged from the warm coral accent so
-     destructive ≠ primary (the two were near-identical reds; a CTA read as a warning). */
-  --color-danger: #e23d51;
+  /* DARK ramp — the bible's deep-ink register (.tbl-dark): ink field → paper text.
+     The @theme fallback; [data-theme="light"] overrides to paper below. */
+  --color-ink-950: #161510; /* app field — deep ink */
+  --color-ink-900: #1f1d16; /* page panels / surface */
+  --color-ink-850: #26241b; /* cards, tiles */
+  --color-ink-800: #2a2820; /* hover/active row fill */
+  --color-ink-700: #38352b; /* hairline border */
+  --color-ink-600: #4f4b3e; /* strong border */
+  --color-ink-500: #a8a594; /* muted text */
+  --color-ink-300: #cdcabb; /* subtle text */
+  --color-ink-100: #f1f0ea; /* primary text — warm paper */
+  /* the FIXED orange accent — the bible's single brand accent, never swapped between themes */
+  --color-accent: #e8551f;
+  --color-accent-dim: #c2491a;
+  /* danger — the bible's destructive (warm crimson, distinct from the orange accent) */
+  --color-danger: #e5687a;
 
   /* semantic aliases — declared ONCE, follow the ramp through every theme */
   --color-app: var(--color-ink-950);
@@ -50,13 +50,13 @@
   --color-muted: var(--color-ink-500);
   --color-subtle: var(--color-ink-300);
 
-  /* status — color carries STATE only (DARK values; overridden for light) */
-  --color-success: #7fb069;
+  /* status — color carries STATE only. info = the bible's functional teal. (DARK values) */
+  --color-success: #4fb389;
   --color-warning: #e0a83c;
-  --color-info: #8e95d8; /* periwinkle (dark complement) */
+  --color-info: #3bb9a8; /* the bible's functional teal (dark) */
 
   --color-focus: var(--color-accent);
-  --color-selected: #33211d; /* faint coral-tinted fill for the active row (dark) */
+  --color-selected: #2a1d14; /* faint orange-tinted fill for the active row (dark) */
 
   /* the 5 module hues — small IDENTITY chips only (icon/badge), never fills (DARK) */
   --color-mod-knowledge: #8e95d8;    /* periwinkle */
@@ -67,8 +67,8 @@
 
   /* the type scale — a tight 5-step set (12 · 14 · 18 · 28 · 36): fewer sizes on
      screen. body/sm collapse onto ui (14); lg collapses onto base (18). Hierarchy
-     leans on SIZE · CASE · TONE · FACE (Abel vs Alata), not weight (the sans faces
-     are single-weight). The four names are kept as aliases — zero component churn. */
+     leans on SIZE · CASE · TONE · FACE (Space Grotesk vs Inter) — and Inter is variable,
+     so weight is available too. The four names are kept as aliases — zero component churn. */
   --text-meta: 0.75rem; /* 12px — labels, captions, section headers */
   --text-ui: 0.875rem;  /* 14px — the workhorse: rows, UI, body */
   --text-body: 0.875rem; /* = ui (14px) */
@@ -78,9 +78,10 @@
   --text-xl: 1.75rem;    /* 28px — section / page headings */
   --text-2xl: 2.25rem;   /* 36px — hero / display */
 
-  --radius-sm: 4px;
-  --radius-ui: 6px;
-  --radius-lg: 10px;
+  /* sharp corners — the bible is intentionally un-rounded (editorial-brutalist) */
+  --radius-sm: 2px;
+  --radius-ui: 3px;
+  --radius-lg: 4px;
 
   /* subtle lift for overlays (dialogs/popovers) — warm, never a pure-black shadow */
   --shadow-overlay: 0 8px 30px -8px rgb(0 0 0 / 0.45);
@@ -89,24 +90,24 @@
   --height-bar: 34px;
 }
 
-/* explicit DARK (re-affirms the fallback so the toggle is robust). Accent is FIXED
-   (declared once in @theme) — deliberately NOT re-declared here, so coral never swaps. */
+/* explicit DARK — the bible's deep-ink register (.tbl-dark); re-affirms the fallback so
+   the toggle is robust. The orange accent is FIXED (in @theme) — NOT re-declared here. */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --color-ink-950: #14170f;
-  --color-ink-900: #292e22;
-  --color-ink-850: #3b4032;
-  --color-ink-800: #4e5543;
-  --color-ink-700: #6e7860;
-  --color-ink-600: #94a182;
-  --color-ink-500: #b2c19d;
-  --color-ink-300: #ccddb4;
-  --color-ink-100: #eafdcf;
-  --color-danger: #e23d51; /* cooler crimson — diverged from the coral accent */
-  --color-success: #7fb069;
+  --color-ink-950: #161510;
+  --color-ink-900: #1f1d16;
+  --color-ink-850: #26241b;
+  --color-ink-800: #2a2820;
+  --color-ink-700: #38352b;
+  --color-ink-600: #4f4b3e;
+  --color-ink-500: #a8a594;
+  --color-ink-300: #cdcabb;
+  --color-ink-100: #f1f0ea;
+  --color-danger: #e5687a;
+  --color-success: #4fb389;
   --color-warning: #e0a83c;
-  --color-info: #8e95d8;
-  --color-selected: #33211d;
+  --color-info: #3bb9a8;
+  --color-selected: #2a1d14;
   --color-mod-knowledge: #8e95d8;
   --color-mod-memory: #b6a9c9;
   --color-mod-actions: #e0a83c;
@@ -114,24 +115,24 @@
   --color-mod-guardrails: #f25c54;
 }
 
-/* LIGHT (frosted-mint paper → ebony ink) — overrides the ramp; aliases auto-follow.
-   Accent is FIXED (the coral from @theme) — NOT re-declared, so coral never swaps. */
+/* LIGHT — the bible's paper register (.tbl): warm paper → ink. Overrides the ramp;
+   aliases auto-follow. The orange accent is FIXED (from @theme) — NOT re-declared. */
 :root[data-theme="light"] {
   color-scheme: light;
-  --color-ink-950: #f4fde6; /* page — palest mint paper */
-  --color-ink-900: #e2ebd5; /* surface */
-  --color-ink-850: #d4ddc7; /* card */
-  --color-ink-800: #c4cdb7; /* hover */
-  --color-ink-700: #aab29d; /* border */
-  --color-ink-600: #8a927e; /* strong border */
-  --color-ink-500: #717966; /* muted text */
-  --color-ink-300: #5c6451; /* subtle text */
-  --color-ink-100: #434b39; /* primary text — soft ebony ink */
-  --color-danger: #b3262f; /* cooler crimson (darkened for light contrast), diverged from coral */
-  --color-success: #4f8a35;
+  --color-ink-950: #f1f0ea; /* page — warm paper */
+  --color-ink-900: #e9e6dc; /* surface */
+  --color-ink-850: #e1ded3; /* card */
+  --color-ink-800: #d6d3c6; /* hover */
+  --color-ink-700: #cac7b9; /* hairline border */
+  --color-ink-600: #aeab9c; /* strong border */
+  --color-ink-500: #6e6c5f; /* muted text */
+  --color-ink-300: #45433a; /* subtle text */
+  --color-ink-100: #14130f; /* primary text — ink */
+  --color-danger: #c8364a;
+  --color-success: #2e8b6a;
   --color-warning: #b5821a;
-  --color-info: #5b63b8; /* periwinkle (darker for light contrast) */
-  --color-selected: #fbe1dc; /* faint coral-tinted fill for the active row (light) */
+  --color-info: #137a6e; /* the bible's functional teal (light) */
+  --color-selected: #f7e3d8; /* faint orange-tinted fill for the active row (light) */
   --color-mod-knowledge: #5b63b8; /* periwinkle */
   --color-mod-memory: #7a6e92;    /* lilac      */
   --color-mod-actions: #b5821a;   /* amber      */
