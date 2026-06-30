@@ -1,7 +1,7 @@
-// P1.5 — the Project Overview model (health summary + session-card ordering).
+// U6 — the Project home model (health summary + last-activity).
 import { describe, it, expect } from "vitest";
 import type { ModuleOverviewEntry, SessionInfo } from "../../src/shared/index.js";
-import { brainSummary, sessionCards, lastSessionActivity } from "../../src/client/shell/overview/overview-model.js";
+import { brainSummary, lastSessionActivity } from "../../src/client/shell/overview/overview-model.js";
 
 const mod = (id: string, items: number, pending: number): ModuleOverviewEntry => ({
   id, title: id, counts: { items, pending, errors: 0 }, top: [],
@@ -17,18 +17,6 @@ describe("brainSummary", () => {
   });
   it("an empty brain → all zeros", () => {
     expect(brainSummary([])).toEqual({ tables: 0, notes: 0, pending: 0 });
-  });
-});
-
-describe("sessionCards", () => {
-  it("orders live first, then most-recent", () => {
-    const out = sessionCards([sess("a", false, 100), sess("b", true, 50), sess("c", true, 200)]);
-    expect(out.map((s) => s.id)).toEqual(["c", "b", "a"]);
-  });
-  it("does not mutate the source", () => {
-    const input = [sess("a", false, 100), sess("b", true, 200)];
-    sessionCards(input);
-    expect(input.map((s) => s.id)).toEqual(["a", "b"]);
   });
 });
 

@@ -1,12 +1,12 @@
-// shell/overview/Overview.tsx — the Project Overview (the balanced home base, P1.5).
-// Lands on entering a project (and reachable via the ⌂ Overview nav node). Identity
-// (display title + path + enabled/notes) · a health row · two BALANCED columns —
-// SESSIONS (live/recent + start) ⇄ THE BRAIN (tables at a glance + open) · quick
-// actions (Start session · Review N). Thin .tsx; overview-model is the tested logic;
-// composes from ds primitives, static utilities only.
+// shell/overview/Overview.tsx — the Project home (slimmed, U6). The SESSIONS / THE BRAIN
+// columns were a second copy of the sidebar (problem #3) and are removed. What remains is
+// the non-duplicated surface: identity · the brain-health row (the check-verb stats —
+// notes · tables · pending · protected · last-activity) · the quick actions. The
+// activity/review stream that would replace the columns is a deferred decision (§4.2),
+// not built here. Thin .tsx; overview-model is the tested logic; composes from ds primitives.
 import type { ModuleOverviewEntry, SessionInfo } from "#shared/index.js";
-import { Database, Table2, Clock, Shield, Plus, Terminal, Bot, Circle, ListChecks } from "lucide-react";
-import { brainSummary, sessionCards, lastSessionActivity } from "./overview-model.js";
+import { Database, Table2, Clock, Shield, Plus, Circle, ListChecks } from "lucide-react";
+import { brainSummary, lastSessionActivity } from "./overview-model.js";
 import { relativeTime } from "../projects/projects-model.js";
 import { Stack, Inline, Text, Icon, Button } from "../../ds/index.js";
 
@@ -18,16 +18,13 @@ interface OverviewProps {
   enabled: boolean;
   modules: ModuleOverviewEntry[];
   sessions: SessionInfo[];
-  onPickModule: (id: string) => void;
-  onPickSession: (id: string) => void;
   onStartSession: () => void;
   onReview: () => void;
 }
 
 export function Overview(props: OverviewProps) {
-  const { name, emoji, path, enabled, modules, sessions, onPickModule, onPickSession, onStartSession, onReview } = props;
+  const { name, emoji, path, enabled, modules, sessions, onStartSession, onReview } = props;
   const health = brainSummary(modules);
-  const cards = sessionCards(sessions);
   const now = Date.now();
   const lastActive = lastSessionActivity(sessions);
 
@@ -44,7 +41,8 @@ export function Overview(props: OverviewProps) {
             <Text size="meta" tone="muted" truncate>{path}</Text>
           </Stack>
 
-          {/* health row */}
+          {/* brain-health row — the one non-duplicated surface, retained (R9 guardrail):
+              broken/orphan/stale integrity is what keeps the gated brain trustworthy. */}
           <Inline gap="xl" wrap>
             <Stat icon={ListChecks} label={health.notes === 1 ? "note" : "notes"} value={String(health.notes)} />
             <Stat icon={Table2} label={health.tables === 1 ? "table" : "tables"} value={String(health.tables)} />
@@ -60,64 +58,6 @@ export function Overview(props: OverviewProps) {
               <Button variant="outline" size="sm" onClick={onReview}><Icon icon={Clock} size={14} /> Review {health.pending}</Button>
             )}
           </Inline>
-
-          {/* two balanced columns */}
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            {/* SESSIONS — no "+ new" here: the primary "Start a session" above is the
-                single CTA (the column header was a redundant third way to start one). */}
-            <Stack gap="sm">
-              <Text size="meta" tone="subtle" weight="semibold">SESSIONS</Text>
-              <Stack gap="xs">
-                {cards.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => onPickSession(s.id)}
-                    className="flex w-full items-center justify-between gap-2 rounded-ui border border-border bg-surface px-4 py-3 text-left transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-focus"
-                  >
-                    <Inline gap="sm">
-                      <Icon icon={s.type === "agent" ? Bot : Terminal} size={15} />
-                      <Text size="ui" truncate>{s.title}</Text>
-                    </Inline>
-                    {s.live && <Text size="meta" tone="accent">live</Text>}
-                  </button>
-                ))}
-                {!cards.length && (
-                  <div className="rounded-ui border border-border bg-surface px-4 py-6 text-center">
-                    <Text size="ui" tone="muted">No sessions yet — zuzuu watches each one and grows the brain from it.</Text>
-                  </div>
-                )}
-              </Stack>
-            </Stack>
-
-            {/* THE BRAIN */}
-            <Stack gap="sm">
-              <Text size="meta" tone="subtle" weight="semibold">THE BRAIN</Text>
-              <Stack gap="xs">
-                {modules.map((m) => (
-                  <button
-                    key={m.id}
-                    type="button"
-                    onClick={() => onPickModule(m.id)}
-                    className="flex w-full items-center justify-between gap-2 rounded-ui border border-border bg-surface px-4 py-3 text-left transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-focus"
-                  >
-                    <Inline gap="sm"><Icon icon={Table2} size={15} /><Text size="ui" truncate>{m.title}</Text></Inline>
-                    <Inline gap="md">
-                      <Text size="meta" tone="muted">{m.counts?.items ?? 0} rows</Text>
-                      {m.counts?.pending ? (
-                        <Inline gap="xs"><Icon icon={Clock} size={12} /><Text size="meta" tone="accent">{m.counts.pending}</Text></Inline>
-                      ) : null}
-                    </Inline>
-                  </button>
-                ))}
-                {!modules.length && (
-                  <div className="rounded-ui border border-border bg-surface px-4 py-6 text-center">
-                    <Text size="ui" tone="muted">No tables yet — zuzuu grows them as you work.</Text>
-                  </div>
-                )}
-              </Stack>
-            </Stack>
-          </div>
         </Stack>
       </div>
     </div>

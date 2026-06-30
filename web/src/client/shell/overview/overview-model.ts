@@ -1,7 +1,7 @@
-// shell/overview/overview-model.ts — the pure model behind the Project Overview (the
-// balanced home base, P1.5). Derives the health summary from the module overview and
-// orders the session cards (live first, then most-recent). Pure → tested; the .tsx
-// only renders.
+// shell/overview/overview-model.ts — the pure model behind the Project home (U6).
+// Derives the brain-health summary from the module overview + the last-activity
+// timestamp. (The session-card ordering was dropped with the Overview's SESSIONS column
+// — U6.) Pure → tested; the .tsx only renders.
 import type { ModuleOverviewEntry, SessionInfo } from "#shared/index.js";
 
 export interface BrainSummary {
@@ -23,22 +23,6 @@ export function brainSummary(modules: ModuleOverviewEntry[]): BrainSummary {
     }),
     { tables: 0, notes: 0, pending: 0 },
   );
-}
-
-export interface SessionCard {
-  id: string;
-  title: string;
-  live: boolean;
-  createdAt: number;
-  type: SessionInfo["type"];
-}
-
-/** Order the session cards for the SESSIONS column: live sessions first, then by
- *  most-recent. A stable copy — never mutates the source list. */
-export function sessionCards(sessions: SessionInfo[]): SessionCard[] {
-  return sessions
-    .map((s) => ({ id: s.id, title: s.title, live: s.alive, createdAt: s.createdAt, type: s.type }))
-    .sort((a, b) => Number(b.live) - Number(a.live) || b.createdAt - a.createdAt);
 }
 
 /** The newest session timestamp (ms), 0 when there are none — the "last activity"

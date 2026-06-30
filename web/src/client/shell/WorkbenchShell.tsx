@@ -238,8 +238,6 @@ export function WorkbenchShell() {
                 enabled={projectState.data?.host.enabled ?? false}
                 modules={modules}
                 sessions={sessions}
-                onPickModule={(id) => select({ kind: "module", id })}
-                onPickSession={(id) => select({ kind: "session", id })}
                 onStartSession={() => void startSession()}
                 onReview={() => setReview(true)}
               />
