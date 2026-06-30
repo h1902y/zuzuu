@@ -35,4 +35,12 @@ describe("buildPaletteGroups", () => {
     const headings = buildPaletteGroups({ sessions: [], modules: [], recents: [{ path: "/x", name: "x", current: true }], hosts: [] }).map((g) => g.heading);
     expect(headings).toEqual(["Navigate", "Actions"]);
   });
+  it("carries synonyms in the fuzzy haystack (U3): review≈merge/approve, table≈module", () => {
+    const groups = buildPaletteGroups(base);
+    const review = groups.find((g) => g.heading === "Actions")!.commands.find((c) => c.action.kind === "review")!;
+    expect(review.value).toMatch(/merge/);
+    expect(review.value).toMatch(/approve/);
+    const table = groups.find((g) => g.heading === "Tables")!.commands[0]!;
+    expect(table.value).toMatch(/module/);
+  });
 });
