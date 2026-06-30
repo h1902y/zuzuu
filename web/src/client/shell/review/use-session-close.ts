@@ -6,14 +6,19 @@
 // merge so staging is deterministic), then fires the card AT MOST ONCE per session
 // when pending > 0. Dedup lives in sessionStorage (session-close-card.ts) so a
 // dismiss-without-review never re-fires for that session id.
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { StagedSummary, SessionCloseResult } from "#shared/index.js";
 import { api } from "../../lib/api.js";
-import { useSessionClose } from "../../state/session-close.js";
+import { useSessionClose, reportAgentExit } from "../../state/session-close.js";
+import { useWorkbench } from "../../state/store.js";
+import { endedAgentSessions, liveAgentIds } from "./session-liveness.js";
+import { toast } from "../../state/toast.js";
 import {
   closeCardFired,
   markCloseCardFired,
-  shouldFireCloseCard,
+  sessionEndOutcome,
+  brainHasLearned,
+  NOTHING_RECURRED_YET,
   heldChangesOf,
   codeFromHeld,
   pickHeld,
@@ -37,10 +42,27 @@ async function fireCloseCard(sessionId: string, result: SessionCloseResult | und
   if (closeCardFired(sessionId)) return;
   const pending = pendingOf(result) ?? 0;
   const code = await loadCode(sessionId, heldBranchOf(result));
-  if (!shouldFireCloseCard(sessionId, pending, heldChangesOf(code), closeCardFired(sessionId))) return;
-  markCloseCardFired(sessionId); // before show → a remount won't double-fire
+  const heldChanges = heldChangesOf(code);
+  const hasReview = pending > 0 || heldChanges > 0;
+  // U6: the three honest end-states. The overview read is skipped when there's a handoff
+  // (the `learned` arg is then irrelevant), so we never pay it on the common card path.
+  const outcome = sessionEndOutcome(pending, heldChanges, hasReview ? true : await learnedFromOverview());
+  if (outcome === "silent") return; // steady-state zero session — no nag
+  markCloseCardFired(sessionId); // once per session (either surface); a remount won't double-fire
+  if (outcome === "nothing-yet") { toast(NOTHING_RECURRED_YET); return; } // the primary first-run path
   const staged = pending > 0 ? await loadStaged().catch(() => [] as StagedSummary[]) : [];
   useSessionClose.getState().show({ sessionId, pending, staged, code });
+}
+
+/** Has the loop produced any learnings yet (U6)? A failed/absent read assumes "yes" so a
+ *  zero-proposal session never nags when we can't tell. */
+async function learnedFromOverview(): Promise<boolean> {
+  try {
+    const ov = await api.zuzuu.overview();
+    return brainHasLearned(ov.modules);
+  } catch {
+    return true;
+  }
 }
 
 /** The post-close pending count, or null when the close result doesn't carry one
@@ -80,6 +102,37 @@ async function loadStaged(): Promise<StagedSummary[]> {
     pending.map((m) => api.zuzuu.module(m.id).catch(() => null)),
   );
   return details.flatMap((d) => d?.staged ?? []);
+}
+
+/** How often to poll the session list while a live agent session exists (U1). Only runs
+ *  when there's a live agent — idle projects never poll. */
+const LIVENESS_POLL_MS = 4000;
+
+/**
+ * The pane-independent natural-exit watch (U1). Mounted once beside the detector. While a
+ * live agent session exists, polls the session list so a PTY that exits with its terminal
+ * pane unmounted/backgrounded still surfaces; reports each live→ended agent edge to the
+ * same `reported` queue (deduped there + by closeCardFired, so it never double-fires with
+ * TermView.onExit). Reads the session list only — never the flow-controlled PTY path.
+ */
+export function useSessionLivenessWatch(): void {
+  const sessions = useWorkbench((s) => s.sessions);
+  const refresh = useWorkbench((s) => s.refresh);
+  const prevLive = useRef<Set<string>>(new Set());
+
+  // report the live→ended edge for agent sessions, then advance the tracked live set
+  useEffect(() => {
+    for (const id of endedAgentSessions(prevLive.current, sessions)) reportAgentExit(id);
+    prevLive.current = liveAgentIds(sessions);
+  }, [sessions]);
+
+  // keep the list fresh while a live agent exists, so a natural exit becomes visible
+  const hasLiveAgent = sessions.some((s) => s.type === "agent" && s.alive);
+  useEffect(() => {
+    if (!hasLiveAgent) return;
+    const t = setInterval(() => { void refresh(); }, LIVENESS_POLL_MS);
+    return () => clearInterval(t);
+  }, [hasLiveAgent, refresh]);
 }
 
 export function useSessionCloseDetector(): void {

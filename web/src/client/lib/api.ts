@@ -97,8 +97,10 @@ export const api = {
     setEmoji: (path: string, emoji: string) => request<{ ok: boolean }>("/api/projects/emoji", json({ path, emoji })),
   },
   setup: {
-    init: () => request<SetupResult>("/api/zuzuu/setup/init", json({})),
-    enable: () => request<SetupResult>("/api/zuzuu/setup/enable", json({})),
+    // init/enable carry explicit consent (U3) — the daemon refuses them without it
+    // (the explain-then-run contract; the caller POSTs only after the user affirms).
+    init: () => request<SetupResult>("/api/zuzuu/setup/init", json({ consent: true })),
+    enable: () => request<SetupResult>("/api/zuzuu/setup/enable", json({ consent: true })),
     observe: () => request<SetupResult>("/api/zuzuu/setup/observe", json({})),
     gitInit: () => request<SetupResult>("/api/zuzuu/setup/git-init", json({ confirm: true })),
   },
