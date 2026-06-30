@@ -17,6 +17,10 @@ import {
   mergeReducer,
   initialMergeState,
   resolveTargetOf,
+  enqueueCard,
+  advanceQueue,
+  replaceCurrent,
+  emptyCloseQueue,
   type CloseCardData,
   type CloseCardCode,
 } from "../../src/client/shell/review/session-close-card.js";
@@ -199,5 +203,43 @@ describe("mergeReducer — idle → merging → merged | error (never silent)", 
     const errored = mergeReducer(s, { type: "fail", error: "conflict" });
     expect(errored).toEqual({ phase: "error", error: "conflict" });
     expect(mergeReducer(errored, { type: "reset" })).toEqual({ phase: "idle" });
+  });
+});
+
+describe("close-card coalescing (U5) — two sessions never clobber", () => {
+  const card = (sessionId: string, pending = 1): CloseCardData =>
+    ({ sessionId, pending, staged: [], code: null });
+
+  it("enqueueCard: surfaces when idle, queues when a card already shows", () => {
+    const a = enqueueCard(emptyCloseQueue, card("a"));
+    expect(a).toEqual({ card: card("a"), queue: [] });
+    const ab = enqueueCard(a, card("b"));
+    expect(ab.card).toEqual(card("a"));        // a still showing
+    expect(ab.queue).toEqual([card("b")]);     // b waits its turn — not clobbered
+  });
+
+  it("enqueueCard dedups: same session as the current card, or already queued, is ignored", () => {
+    const a = enqueueCard(emptyCloseQueue, card("a"));
+    expect(enqueueCard(a, card("a"))).toBe(a);              // == current → no-op
+    const ab = enqueueCard(a, card("b"));
+    expect(enqueueCard(ab, card("b"))).toBe(ab);            // already queued → no-op
+  });
+
+  it("dismiss advances to the next queued session's card (the scalar-clobber regression)", () => {
+    // a shows, b ends and queues; dismissing a surfaces b — neither is lost
+    const ab = enqueueCard(enqueueCard(emptyCloseQueue, card("a")), card("b"));
+    const afterDismiss = advanceQueue(ab);
+    expect(afterDismiss.card).toEqual(card("b"));
+    expect(afterDismiss.queue).toEqual([]);
+    expect(advanceQueue(afterDismiss)).toEqual({ card: null, queue: [] }); // empties cleanly
+  });
+
+  it("replaceCurrent: keeps a collapsed (brain-only) card, else advances to the next", () => {
+    const ab = enqueueCard(enqueueCard(emptyCloseQueue, card("a")), card("b"));
+    // a's code resolved but it still has pending brain proposals → keep showing collapsed a
+    const collapsed = cardWithoutCode(card("a")); // pending=1 → { …, code:null }
+    expect(replaceCurrent(ab, collapsed).card).toEqual(collapsed);
+    // a's code resolved and nothing left to review → advance to b
+    expect(replaceCurrent(ab, null).card).toEqual(card("b"));
   });
 });
