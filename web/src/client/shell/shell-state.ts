@@ -6,18 +6,18 @@
 // Logic-in-.ts (the project's pattern); the <WorkbenchShell> .tsx renders this.
 
 /** What the center stage shows. (ER is deferred — not a stage actor yet.) */
-export type StageActor = "terminal" | "grid" | "record" | "overview" | "graph" | "search" | "settings";
+export type StageActor = "terminal" | "grid" | "record" | "overview" | "search" | "settings";
 /** What the right wing shows; "none" = the wing retracts (R4). */
 export type WingActor = "review" | "form" | "schema" | "none";
 
 /** A nav-tree node. Sessions and modules are siblings; a row is a note in a module;
- *  graph/search/settings are the whole-Project surfaces (Phase 3). */
+ *  search/settings are the whole-Project surfaces. (Search is reached via ⌘K, not the
+ *  rail — U4; the top-level graph was demoted to the per-module Table·Graph tab — U2.) */
 export type NavNode =
   | { kind: "session"; id: string }
   | { kind: "module"; id: string }
   | { kind: "row"; id: string; module: string }
   | { kind: "overview" }
-  | { kind: "graph" }
   | { kind: "search"; query?: string }
   | { kind: "settings" };
 
@@ -34,7 +34,6 @@ export function selectActors(node: NavNode | null): Selection {
     case "session": return { stage: "terminal", wing: "review", crumb: ["session", node.id] };
     case "module": return { stage: "grid", wing: "schema", crumb: [node.id] };
     case "row": return { stage: "record", wing: "form", crumb: [node.module, node.id] };
-    case "graph": return { stage: "graph", wing: "none", crumb: ["Graph"] };
     case "search": return { stage: "search", wing: "none", crumb: ["Search"] };
     case "settings": return { stage: "settings", wing: "none", crumb: ["Settings"] };
     case "overview":

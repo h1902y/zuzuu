@@ -53,11 +53,9 @@ describe("navModel — the unified sidebar rows", () => {
     expect(rows.find((r) => r.key === "module:memory")!.active).toBe(true);
   });
 
-  it("project: Graph/Search honor the presence flags; Settings is always present", () => {
-    const all = navModel(base).project.map((r) => r.key);
-    expect(all).toEqual(["graph", "search", "settings"]);
-    const trimmed = navModel({ ...base, showGraph: false, showSearch: false }).project.map((r) => r.key);
-    expect(trimmed).toEqual(["settings"]); // post-U2/U4: PROJECT collapses to Settings only
-    expect(navModel({ ...base, selected: { kind: "graph" } }).project.find((r) => r.key === "graph")!.active).toBe(true);
+  it("project: Settings is always present; Search shows only when opted in (it's ⌘K-reached)", () => {
+    expect(navModel(base).project.map((r) => r.key)).toEqual(["settings"]); // post-U2/U4: Graph gone, Search off by default
+    expect(navModel({ ...base, showSearch: true }).project.map((r) => r.key)).toEqual(["search", "settings"]);
+    expect(navModel({ ...base, showSearch: true, selected: { kind: "search" } }).project.find((r) => r.key === "search")!.active).toBe(true);
   });
 });

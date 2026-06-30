@@ -6,7 +6,7 @@
 // bespoke SessionRow and the "Set up this Project" link fold into this single model.
 import type { NavNode } from "./shell-state.js";
 
-export type NavGlyph = "overview" | "setup" | "session" | "table" | "graph" | "search" | "settings";
+export type NavGlyph = "overview" | "setup" | "session" | "table" | "search" | "settings";
 export type Liveness = "owner" | "live" | "idle";
 
 export interface NavRowModel {
@@ -40,8 +40,7 @@ export interface NavInput {
   owner: string | null;
   /** whether the "Set up this Project" row shows (shouldShowSetupNode) */
   showSetup: boolean;
-  /** project-nav destinations still present: Graph leaves in U2, Search in U4 */
-  showGraph?: boolean;
+  /** whether Search shows as a project-nav row — it's reached via ⌘K (U4), so default off */
   showSearch?: boolean;
 }
 
@@ -53,7 +52,7 @@ const kindActive = (sel: NavNode | null, kind: NavNode["kind"]): boolean =>
   sel?.kind === kind;
 
 export function navModel(input: NavInput): NavModel {
-  const { selected, sessions, modules, owner, showSetup, showGraph = true, showSearch = true } = input;
+  const { selected, sessions, modules, owner, showSetup, showSearch = false } = input;
 
   const top: NavRowModel[] = [
     {
@@ -90,9 +89,6 @@ export function navModel(input: NavInput): NavModel {
   });
 
   const project: NavRowModel[] = [];
-  if (showGraph) {
-    project.push({ key: "graph", node: { kind: "graph" }, label: "Graph", glyph: "graph", active: kindActive(selected, "graph") });
-  }
   if (showSearch) {
     project.push({ key: "search", node: { kind: "search" }, label: "Search", glyph: "search", active: kindActive(selected, "search") });
   }

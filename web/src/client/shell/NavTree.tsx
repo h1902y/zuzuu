@@ -6,7 +6,7 @@
 // node into select(). Composed from ds primitives (no inline styles / arbitrary values).
 import { type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Circle, Table2, Flag, Home, Share2, Search, Settings as SettingsIcon } from "lucide-react";
+import { Circle, Table2, Flag, Home, Search, Settings as SettingsIcon } from "lucide-react";
 import { api } from "../lib/api.js";
 import { useWorkbench } from "../state/store.js";
 import { useWorld } from "./world-state.js";
@@ -34,7 +34,7 @@ function NavRow({ active, icon, label, badge, onClick }: {
   );
 }
 
-const GLYPH = { overview: Home, setup: Flag, table: Table2, graph: Share2, search: Search, settings: SettingsIcon } as const;
+const GLYPH = { overview: Home, setup: Flag, table: Table2, search: Search, settings: SettingsIcon } as const;
 
 /** A row's leading glyph: the session liveness dot (status-toned) or a uniform 14px nav icon. */
 function rowGlyph(row: NavRowModel): ReactNode {
@@ -83,10 +83,9 @@ export function NavTree() {
         {!model.tables.length && <Text size="meta" tone="muted">{overview.isLoading ? "…" : "none yet"}</Text>}
       </Stack>
 
-      <Stack gap="xs">
-        <Text size="meta" tone="subtle" weight="semibold">PROJECT</Text>
-        {model.project.map(row)}
-      </Stack>
+      {/* PROJECT collapsed to Settings after Graph (U2) + Search (U4) left — pin it to
+          the rail footer rather than carry a one-item section header (R2). */}
+      <div className="mt-auto">{model.project.map(row)}</div>
     </nav>
   );
 }

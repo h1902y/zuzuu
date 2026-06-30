@@ -22,7 +22,6 @@ import { Overview } from "./overview/Overview.js";
 import { Grid } from "./stage/Grid.js";
 import { Record } from "./stage/Record.js";
 import { ModuleGraph } from "./stage/ModuleGraph.js";
-import { BrainGraph } from "./graph/BrainGraph.js";
 import { Search } from "./search/Search.js";
 import { Settings } from "./settings/Settings.js";
 import { StageHeader } from "./stage/StageHeader.js";
@@ -223,8 +222,6 @@ export function WorkbenchShell() {
               activeModuleTab === "graph" ? <ModuleGraph module={selected.id} /> : <Grid module={selected.id} />
             ) : sel.stage === "record" && selected?.kind === "row" ? (
               <Record module={selected.module} id={selected.id} />
-            ) : sel.stage === "graph" ? (
-              <BrainGraph />
             ) : sel.stage === "search" ? (
               <Search />
             ) : sel.stage === "settings" ? (
