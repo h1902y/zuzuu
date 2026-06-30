@@ -6,7 +6,7 @@
 // close staged something (pending > 0) and only ONCE per session-end. Dedup is keyed
 // by session id in sessionStorage so a dismiss-without-review does NOT re-fire for
 // that session (the count survives a re-poll / a remount within the tab's lifetime).
-import type { HeldSession, StagedSummary } from "#shared/index.js";
+import type { HeldSession, ModuleOverviewEntry, StagedSummary } from "#shared/index.js";
 import { reasonLine } from "./reason-line.js";
 import { proposalChip } from "./proposal-chip.js";
 
@@ -104,6 +104,71 @@ export function cardWithoutCode(card: CloseCardData): CloseCardData | null {
   if (card.pending > 0) return { ...card, code: null };
   return null;
 }
+
+// ── Coalescing close cards across sessions (U5) ───────────────────────────────
+// While one card is showing, additional ended sessions QUEUE (deduped by sessionId) and
+// surface in turn on dismiss/resolve — so two quick sessions ending before a review never
+// clobber each other (the scalar-`card` regression). The brain proposals each card shows
+// are read globally, so they're aggregated already; the queue preserves every session's
+// own CODE review. Pure (the store is a thin wrapper over these).
+
+export interface CloseCardQueue {
+  /** the card currently shown (null when none). */
+  card: CloseCardData | null;
+  /** ended-session cards waiting their turn (FIFO, deduped by sessionId). */
+  queue: CloseCardData[];
+}
+
+export const emptyCloseQueue: CloseCardQueue = { card: null, queue: [] };
+
+/** Surface a card now if none is showing; else queue it. Deduped: a session already
+ *  shown or already queued is ignored (a re-poll / a second report can't double-add). */
+export function enqueueCard(state: CloseCardQueue, data: CloseCardData): CloseCardQueue {
+  if (!state.card) return { card: data, queue: state.queue };
+  if (state.card.sessionId === data.sessionId) return state;
+  if (state.queue.some((c) => c.sessionId === data.sessionId)) return state;
+  return { card: state.card, queue: [...state.queue, data] };
+}
+
+/** Advance to the next queued card (on dismiss) — or clear when the queue is empty. */
+export function advanceQueue(state: CloseCardQueue): CloseCardQueue {
+  const [next, ...rest] = state.queue;
+  return { card: next ?? null, queue: rest };
+}
+
+/** After a code-resolve: keep showing the collapsed card while it still has brain
+ *  proposals to review, else advance to the next queued session's card. */
+export function replaceCurrent(state: CloseCardQueue, card: CloseCardData | null): CloseCardQueue {
+  return card ? { card, queue: state.queue } : advanceQueue(state);
+}
+
+// ── The three honest session-end outcomes (U6) ────────────────────────────────
+// "nothing recurred yet" is the PRIMARY first-run outcome, not a fallback: `observe`
+// deliberately needs ≥2 sessions for recurring-command / correction / destructive /
+// workflow signals (only hot-file ≥5 touches and failing-tool ≥3 failures fire from one
+// session), so a first session usually teaches nothing yet — and that must read as a
+// calm, honest acknowledgement, never silence or synthetic proposals.
+
+/** Has the loop produced any real learnings yet? True once a CONTENT module (anything but
+ *  the always-seeded `instructions` safety floor) holds at least one note. Pure. */
+export function brainHasLearned(modules: ModuleOverviewEntry[]): boolean {
+  return modules.some((m) => m.id !== "instructions" && (m.counts?.items ?? 0) > 0);
+}
+
+export type SessionEndOutcome = "handoff" | "nothing-yet" | "silent";
+
+/** Classify an ended agent session for the onboarding handoff: a real handoff when it
+ *  staged proposals or left held code; "nothing-yet" when it taught nothing AND the loop
+ *  hasn't produced learnings yet (the first-run primary path); "silent" once the brain
+ *  has learned (a steady-state zero session needs no nag). Pure. */
+export function sessionEndOutcome(pending: number, heldChanges: number, learned: boolean): SessionEndOutcome {
+  if (pending > 0 || heldChanges > 0) return "handoff";
+  return learned ? "silent" : "nothing-yet";
+}
+
+/** The "nothing recurred yet" acknowledgement copy — honest, never a synthetic proposal. */
+export const NOTHING_RECURRED_YET =
+  "I watched the whole session — nothing recurred yet, which is normal. Patterns need a couple of sessions; keep working and I'll surface what sticks.";
 
 // ── The merge action's state machine (idle → merging → merged | error) ────────
 

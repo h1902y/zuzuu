@@ -16,17 +16,25 @@ const post = (app: ReturnType<typeof createZuzuuApi>, p: string, body: unknown =
   app.request(p, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
 
 describe("POST /setup/{init,enable,observe} — shell the zz verb", () => {
-  it("returns the CLI JSON on success", async () => {
+  it("returns the CLI JSON on success (init, with consent)", async () => {
     const payload = { ok: true, home: `${root}/.zuzuu`, created: ["project.md"], skipped: [] };
     const app = createZuzuuApi(() => root, { binary: jsonStub(root, JSON.stringify(payload)) });
-    const res = await post(app, "/setup/init");
+    const res = await post(app, "/setup/init", { consent: true });
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual(payload);
   });
 
+  it("init/enable require explicit { consent: true } — no silent setup (U3)", async () => {
+    const app = createZuzuuApi(() => root, { binary: jsonStub(root, "{}") });
+    expect((await post(app, "/setup/init", {})).status).toBe(400);             // missing consent
+    expect((await post(app, "/setup/enable", { consent: false })).status).toBe(400); // not affirmed
+    // observe is post-session mining, not a consented setup step — ungated
+    expect((await post(app, "/setup/observe", {})).status).toBe(200);
+  });
+
   it("maps CLI failure modes: absent → 503, failed → 502", async () => {
     const absent = createZuzuuApi(() => root, { binary: "definitely-not-a-real-binary-zzz" });
-    expect((await post(absent, "/setup/enable")).status).toBe(503);
+    expect((await post(absent, "/setup/enable", { consent: true })).status).toBe(503);
     const failed = createZuzuuApi(() => root, { binary: failStub(root) });
     expect((await post(failed, "/setup/observe")).status).toBe(502);
   });
