@@ -1872,50 +1872,54 @@
 }
 :root {
   --radius: 0.25rem;
-  --background: #f1f0ea;
-  --foreground: #14130f;
-  --card: #fbfaf6;
-  --card-foreground: #14130f;
-  --popover: #fbfaf6;
-  --popover-foreground: #14130f;
-  --primary: #e8551f;
-  --primary-foreground: #fcfbf7;
-  --teal: #137a6e;
-  --teal-foreground: #fcfbf7;
-  --secondary: #1b1a15;
-  --secondary-foreground: #f1f0ea;
-  --muted: #e4e2d7;
-  --muted-foreground: #6e6c5f;
-  --accent: #e8551f14;
-  --accent-foreground: #b23d12;
-  --destructive: #c8364a;
-  --success: #2e8b6a;
-  --border: #d3d1c5;
-  --input: #e4e2d7;
-  --ring: #e8551f;
+  --background: #0a0a0f;
+  --foreground: #f2f0ff;
+  --card: #131019;
+  --card-foreground: #f2f0ff;
+  --popover: #131019;
+  --popover-foreground: #f2f0ff;
+  --primary: #c2ffe1;
+  --primary-foreground: #06140d;
+  --teal: #00ffff;
+  --teal-foreground: #06140d;
+  --secondary: #1c1726;
+  --secondary-foreground: #f2f0ff;
+  --muted: #1a1722;
+  --muted-foreground: #9b96b0;
+  --accent: #c2ffe114;
+  --accent-foreground: #c2ffe1;
+  --destructive: #ff3b5c;
+  --success: #5ef2a0;
+  --border: #272231;
+  --input: #1a1722;
+  --ring: #c2ffe1;
+  --mint: #c2ffe1;
+  --lavender: #d8c7fa;
+  --glitch-a: #ff0000;
+  --glitch-b: #00ffff;
 }
 .tbl-dark {
-  --background: #161510;
-  --foreground: #f1f0ea;
-  --card: #1f1d16;
-  --card-foreground: #f1f0ea;
-  --popover: #1f1d16;
-  --popover-foreground: #f1f0ea;
-  --primary: #e8551f;
-  --primary-foreground: #fcfbf7;
-  --secondary: #f1f0ea;
-  --secondary-foreground: #14130f;
-  --muted: #2a2820;
-  --muted-foreground: #a8a594;
-  --accent: #e8551f1f;
-  --accent-foreground: #f0a986;
-  --destructive: #e5687a;
-  --teal: #3bb9a8;
-  --teal-foreground: #0f1512;
-  --success: #4fb389;
-  --border: #38352b;
-  --input: #2a2820;
-  --ring: #e8551f;
+  --background: #161122;
+  --foreground: #f6f3ff;
+  --card: #1d1730;
+  --card-foreground: #f6f3ff;
+  --popover: #1d1730;
+  --popover-foreground: #f6f3ff;
+  --primary: #c2ffe1;
+  --primary-foreground: #06140d;
+  --secondary: #d8c7fa;
+  --secondary-foreground: #0a0a0f;
+  --muted: #271f3c;
+  --muted-foreground: #b3aecb;
+  --accent: #d8c7fa1f;
+  --accent-foreground: #d8c7fa;
+  --destructive: #ff5d78;
+  --teal: #00ffff;
+  --teal-foreground: #06140d;
+  --success: #5ef2a0;
+  --border: #352b50;
+  --input: #271f3c;
+  --ring: #c2ffe1;
   background-color: var(--background);
   color: var(--foreground);
 }
@@ -1947,10 +1951,10 @@
   }
 }
 .tbl-hero {
-  background: linear-gradient(180deg, #f1f0ea 0%, #f0e7dd 100%);
+  background: radial-gradient(120% 80% at 80% -10%, rgba(216, 199, 250, 0.10) 0%, transparent 55%), radial-gradient(90% 70% at 0% 110%, rgba(194, 255, 225, 0.07) 0%, transparent 55%), linear-gradient(180deg, #0a0a0f 0%, #0c0a14 100%);
 }
 .tbl-grid {
-  background-image: linear-gradient(rgba(20, 19, 15, 0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(20, 19, 15, 0.04) 1px, transparent 1px);
+  background-image: linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
   background-size: 32px 32px;
 }
 .tbl-ticks {
@@ -1961,7 +1965,6 @@
   position: absolute;
   width: 10px;
   height: 10px;
-  border-color: #e8551f;
   border-style: solid;
   pointer-events: none;
 }
@@ -1969,11 +1972,13 @@
   top: -1px;
   left: -1px;
   border-width: 2px 0 0 2px;
+  border-color: var(--glitch-b);
 }
 .tbl-ticks::after {
   bottom: -1px;
   right: -1px;
   border-width: 0 2px 2px 0;
+  border-color: var(--glitch-a);
 }
 .tbl-tickhover {
   position: relative;
@@ -1986,7 +1991,7 @@
   left: 0;
   right: 0;
   height: 2px;
-  background: #e8551f;
+  background: var(--mint);
   transform: scaleX(0);
   transform-origin: left;
   transition: transform 0.3s ease;
@@ -1995,7 +2000,37 @@
   transform: scaleX(1);
 }
 .tbl-tickhover:hover {
-  background-color: rgba(232, 85, 31, 0.03);
+  background-color: rgba(194, 255, 225, 0.035);
+}
+.tbl-glitch {
+  text-shadow: 0.022em 0 0 var(--glitch-a), -0.022em 0 0 var(--glitch-b);
+}
+.tbl-glitch-soft {
+  --glitch-a: var(--mint);
+  --glitch-b: var(--lavender);
+}
+.tbl-glitch-hover {
+  transition: text-shadow 0.18s ease;
+}
+.tbl-glitch-hover:hover {
+  text-shadow: 0.03em 0 0 var(--glitch-a), -0.03em 0 0 var(--glitch-b);
+}
+@keyframes tbl-aberrate {
+  0%, 92%, 100% {
+    text-shadow: 0.02em 0 0 var(--glitch-a), -0.02em 0 0 var(--glitch-b);
+  }
+  94% {
+    text-shadow: 0.05em 0 0 var(--glitch-a), -0.035em -0.01em 0 var(--glitch-b);
+  }
+  96% {
+    text-shadow: -0.02em 0 0 var(--glitch-a), 0.045em 0.01em 0 var(--glitch-b);
+  }
+  98% {
+    text-shadow: 0.04em -0.005em 0 var(--glitch-a), -0.05em 0 0 var(--glitch-b);
+  }
+}
+.tbl-glitch-live {
+  animation: tbl-aberrate 6s steps(1, end) infinite;
 }
 .tbl-scan {
   position: relative;
@@ -2022,7 +2057,7 @@
   background: linear-gradient(to top right, transparent calc(50% - 0.5px), var(--border) calc(50% - 0.5px) calc(50% + 0.5px), transparent calc(50% + 0.5px)), linear-gradient(to bottom right, transparent calc(50% - 0.5px), var(--border) calc(50% - 0.5px) calc(50% + 0.5px), transparent calc(50% + 0.5px));
 }
 .tbl-bevel {
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), inset 1px 0 0 rgba(255, 255, 255, 0.55), inset 0 -1px 0 rgba(20, 19, 15, 0.05), inset -1px 0 0 rgba(20, 19, 15, 0.05);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), inset 1px 0 0 rgba(255, 255, 255, 0.04), inset 0 -1px 0 rgba(0, 0, 0, 0.45), inset -1px 0 0 rgba(0, 0, 0, 0.45);
 }
 @keyframes tbl-blink {
   0%, 100% {

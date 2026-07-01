@@ -40,6 +40,14 @@ describe("navModel — the unified sidebar rows", () => {
     expect(rows[0]!.node).toEqual({ kind: "session", id: "a" });
   });
 
+  it("sessions: ACP sessions list first with the acp glyph + node, active tracks selection", () => {
+    const acpSessions = [{ id: "x1", label: "Claude Code 1" }, { id: "x2", label: "Claude Code 2" }];
+    const rows = navModel({ ...base, acpSessions, selected: { kind: "acp", id: "x2" } }).sessions;
+    expect(rows[0]).toMatchObject({ key: "acp:x1", glyph: "acp", node: { kind: "acp", id: "x1" }, active: false });
+    expect(rows.find((r) => r.key === "acp:x2")!.active).toBe(true);
+    expect(navModel(base).sessions).toEqual([]); // no phantom rows when the registry is empty
+  });
+
   it("tables: badge present only when pending > 0; active tracks the module selection", () => {
     const modules = [
       { id: "knowledge", title: "Knowledge", counts: { pending: 3 } },

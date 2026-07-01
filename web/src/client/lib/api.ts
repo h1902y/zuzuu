@@ -172,6 +172,12 @@ export const api = {
     rollback: (key: string, id: string) =>
       request<RollbackResult>(`/api/zuzuu/module/${key}/generation/${id}/rollback`, { method: "POST" }),
   },
+
+  // the ACP drive lane: create a session, then attach /ws/acp/:id
+  acp: {
+    create: () => request<{ id: string }>("/api/acp", { method: "POST" }),
+    list: () => request<{ ids: string[] }>("/api/acp"), // liveness — reconcile the client registry
+  },
 };
 
 /** ws://host or wss://host for a daemon WS path (same origin as the page). */

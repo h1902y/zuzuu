@@ -81,7 +81,7 @@ ReactDOM.createRoot(document.getElementById('ds-root')).render(<Badge />);
 
 ## Tokens
 
-139 CSS custom properties from zuzuu-studio. Names are
+143 CSS custom properties from zuzuu-studio. Names are
 preserved verbatim from upstream. They are declared inside `_ds_bundle.css` (this DS ships one compiled stylesheet rather than separate token files).
 
 - **color** (38): `--color-amber-50`, `--color-gray-100`, `--color-gray-600`, …
@@ -89,7 +89,7 @@ preserved verbatim from upstream. They are declared inside `_ds_bundle.css` (thi
 - **typography** (7): `--font-weight-medium`, `--font-weight-bold`, `--tracking-tighter`, …
 - **radius** (1): `--radius`
 - **shadow** (7): `--tw-shadow`, `--tw-ring-shadow`, `--tw-shadow-alpha`, …
-- **other** (81): `--spacing`, `--container-sm`, `--container-md`, …
+- **other** (85): `--spacing`, `--container-sm`, `--container-md`, …
 
 ## Components
 

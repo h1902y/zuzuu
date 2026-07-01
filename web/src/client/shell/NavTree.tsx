@@ -4,9 +4,9 @@
 // active/hover treatment. Row composition (which rows, badges, liveness, active) is the
 // pure `navModel`; this file only maps a row's glyph/liveness to a ds Icon and wires the
 // node into select(). Composed from ds primitives (no inline styles / arbitrary values).
-import { type ReactNode } from "react";
+import { type ReactNode, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Circle, Table2, Flag, Home, Search, Settings as SettingsIcon } from "lucide-react";
+import { Circle, Table2, Flag, Home, Search, Settings as SettingsIcon, Bot } from "lucide-react";
 import { api } from "../lib/api.js";
 import { useWorkbench } from "../state/store.js";
 import { useWorld } from "./world-state.js";
@@ -35,7 +35,7 @@ function NavRow({ active, icon, label, badge, onClick }: {
   );
 }
 
-const GLYPH = { overview: Home, setup: Flag, table: Table2, search: Search, settings: SettingsIcon } as const;
+const GLYPH = { overview: Home, setup: Flag, acp: Bot, table: Table2, search: Search, settings: SettingsIcon } as const;
 
 /** A row's leading glyph: the session liveness dot (status-toned) or a uniform 14px nav icon. */
 function rowGlyph(row: NavRowModel): ReactNode {
@@ -48,15 +48,22 @@ function rowGlyph(row: NavRowModel): ReactNode {
 
 export function NavTree() {
   const sessions = useWorkbench((s) => s.sessions);
+  const acpSessions = useWorkbench((s) => s.acpSessions);
+  const reconcileAcp = useWorkbench((s) => s.reconcileAcp);
   const selected = useWorld((s) => s.selected);
   const select = useWorld((s) => s.select);
   const overview = useQuery({ queryKey: ["zuzuu", "overview"], queryFn: api.zuzuu.overview });
   const projectState = useQuery({ queryKey: ["zuzuu", "project-state"], queryFn: api.zuzuu.projectState });
+  // U5-client/R11: reconcile the ACP registry against server liveness, so a project
+  // switch / idle-close prunes ghost rows (selecting a dead one would 404).
+  const acpLive = useQuery({ queryKey: ["acp", "live"], queryFn: api.acp.list, enabled: acpSessions.length > 0, refetchInterval: 15000 });
+  useEffect(() => { if (acpLive.data) reconcileAcp(acpLive.data.ids); }, [acpLive.data, reconcileAcp]);
 
   const owner = mostRecentlyActive(sessions.map((s) => ({ id: s.id, live: s.alive, lastActiveAt: s.createdAt })));
   const model = navModel({
     selected,
     sessions: sessions.map((s) => ({ id: s.id, title: s.title, alive: s.alive })),
+    acpSessions: acpSessions.map((a) => ({ id: a.id, label: a.label })),
     modules: overview.data?.modules ?? [],
     owner,
     showSetup: projectState.data !== undefined && shouldShowSetupNode(projectState.data.state),

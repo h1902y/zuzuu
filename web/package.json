@@ -26,6 +26,7 @@
   },
   "comment:dependencies": "DAEMON runtime deps only — these become @zuzuucodes/cli optionalDependencies. The client deps are build-time (the SPA ships as pre-built static assets), so they live in devDependencies.",
   "dependencies": {
+    "@agentclientprotocol/sdk": "1.1.0",
     "@hono/node-server": "^2.0.4",
     "@lydell/node-pty": "^1.2.0-beta.12",
     "@xterm/addon-serialize": "^0.14.0",
@@ -35,6 +36,10 @@
     "hono": "^4.12.25",
     "lucide-react": "^1.21.0",
     "ws": "^8.21.0"
+  },
+  "comment:optionalDependencies": "The ACP adapter is runtime-resolved (resolveAdapterBin) with an explicit fallback (R13) — optional so a failed/absent install degrades the ACP lane, never the workbench.",
+  "optionalDependencies": {
+    "@agentclientprotocol/claude-agent-acp": "0.52.0"
   },
   "comment:devDependencies": "CLIENT (bundled into dist/web) + build/test tooling. @zuzuu-web/protocol is gone — the protocol is now src/shared, imported via the #shared/* subpath.",
   "devDependencies": {

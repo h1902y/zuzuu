@@ -1,45 +1,52 @@
 @import "tailwindcss";
-/* the type system — the BORROWED bible ("The Bottom Line"): Space Grotesk (display/
-   headings) · Inter (UI/body, variable) · JetBrains Mono (mono labels + dense data) ·
-   Silkscreen (the pixel wordmark) · Fraunces (editorial register). All load via the
-   Google Fonts CDN <link> in index.html. */
+/* the type system — the BORROWED bible, now the "zuzuu codes" DARK + NEON register:
+   Space Grotesk (display/headings) · Inter (UI/body, variable) · JetBrains Mono (mono
+   labels + dense data) · Silkscreen (the pixel wordmark) · Fraunces (editorial). All
+   load via the Google Fonts CDN <link> in index.html — fonts are unchanged across the
+   orange→neon rebrand. */
 @import "@xterm/xterm/css/xterm.css";
 
 /* The design tokens — adopted from the BORROWED design system (web/vendor/zuzuu-ds/),
-   editorial-brutalist: warm paper, ink, one orange accent (+ a functional teal), sharp
-   corners. The @theme block declares the token NAMES (so Tailwind generates the utilities)
-   with the deep-ink ("The Bottom Line" dark register) values as the static fallback; the
-   [data-theme] blocks below swap the ramp at runtime (dark = .tbl-dark · light = .tbl paper).
-   The SEMANTIC aliases (app/surface/border/muted = var(ink-*)) follow the ramp — no
-   duplication per theme. The token NAMES are kept (zero component churn); only the VALUES
-   are repainted to the bible. Source of truth: web/vendor/zuzuu-ds/. */
+   now the "zuzuu codes" DARK + NEON brand: near-black base, cool off-white type, a MINT
+   primary accent (#c2ffe1) + a LAVENDER secondary (#d8c7fa) + a CYAN glitch (#00ffff),
+   sharp corners. The @theme block declares the token NAMES (so Tailwind generates the
+   utilities) with the neon dark register as the static fallback; the [data-theme] blocks
+   below swap the ramp at runtime (dark = the neon brand · light = a cool neutral). The
+   token NAMES are kept (near-zero component churn); only the VALUES are repainted.
+   Source of truth: web/vendor/zuzuu-ds/ (mirrors zuzuu-blogs' app/globals.css `.tbl`).
+   NOTE: unlike the orange register, the accent is NOT theme-fixed — mint is illegible as
+   text on a light field, so [data-theme="light"] overrides accent + on-accent below. */
 @theme {
-  /* the bible's families — Inter carries UI/body (variable), Space Grotesk the headings,
-     JetBrains Mono the data/terminal, Silkscreen the pixel wordmark, Fraunces editorial. */
+  /* the families — unchanged across the rebrand. */
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; /* UI + body */
   --font-display: "Space Grotesk", "Inter", ui-sans-serif, system-ui; /* headings */
   --font-logo: "Silkscreen", "Space Grotesk", ui-sans-serif, system-ui; /* the pixel wordmark */
-  --font-editorial: "Fraunces", Georgia, "Times New Roman", serif; /* editorial register (gravitas) */
+  --font-editorial: "Fraunces", Georgia, "Times New Roman", serif; /* editorial register */
   --font-mono-display: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace; /* the terminal */
   --font-mono-data: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace; /* dense grids · labels */
   --font-mono: var(--font-mono-data); /* back-compat: existing font-mono utility = dense data */
 
-  /* DARK ramp — the bible's deep-ink register (.tbl-dark): ink field → paper text.
-     The @theme fallback; [data-theme="light"] overrides to paper below. */
-  --color-ink-950: #161510; /* app field — deep ink */
-  --color-ink-900: #1f1d16; /* page panels / surface */
-  --color-ink-850: #26241b; /* cards, tiles */
-  --color-ink-800: #2a2820; /* hover/active row fill */
-  --color-ink-700: #38352b; /* hairline border */
-  --color-ink-600: #4f4b3e; /* strong border */
-  --color-ink-500: #a8a594; /* muted text */
-  --color-ink-300: #cdcabb; /* subtle text */
-  --color-ink-100: #f1f0ea; /* primary text — warm paper */
-  /* the FIXED orange accent — the bible's single brand accent, never swapped between themes */
-  --color-accent: #e8551f;
-  --color-accent-dim: #c2491a;
-  /* danger — the bible's destructive (warm crimson, distinct from the orange accent) */
-  --color-danger: #e5687a;
+  /* DARK ramp — the neon brand's near-black register: ink field → off-white text.
+     The @theme fallback; [data-theme="light"] overrides to a cool neutral below. */
+  --color-ink-950: #0a0a0f; /* app field — near-black base */
+  --color-ink-900: #131019; /* page panels / surface */
+  --color-ink-850: #1a1722; /* cards, tiles */
+  --color-ink-800: #1c1726; /* hover/active row fill (lavender-tinted) */
+  --color-ink-700: #272231; /* hairline border */
+  --color-ink-600: #352b50; /* strong border (lavender-tinted) */
+  --color-ink-500: #9b96b0; /* muted text */
+  --color-ink-300: #b3aecb; /* subtle text */
+  --color-ink-100: #f2f0ff; /* primary text — cool off-white */
+  /* the neon accent — mint primary, with the near-black-green it sits on. (DARK values;
+     [data-theme="light"] swaps these for a legible deep mint-teal.) */
+  --color-accent: #c2ffe1;      /* mint — primary accent / CTA */
+  --color-accent-dim: #9be9c4;  /* deeper mint — hover/pressed */
+  --color-on-accent: #06140d;   /* near-black-green text that sits ON the mint accent */
+  /* the FIXED brand pair — same in both themes */
+  --color-lavender: #d8c7fa;    /* secondary neon accent */
+  --color-cyan: #00ffff;        /* the glitch / cyan accent */
+  /* danger — the neon brand's destructive (warm crimson, distinct from mint) */
+  --color-danger: #ff3b5c;
 
   /* semantic aliases — declared ONCE, follow the ramp through every theme */
   --color-app: var(--color-ink-950);
@@ -50,25 +57,23 @@
   --color-muted: var(--color-ink-500);
   --color-subtle: var(--color-ink-300);
 
-  /* status — color carries STATE only. info = the bible's functional teal. (DARK values) */
-  --color-success: #4fb389;
+  /* status — color carries STATE only. info = the brand's cyan-teal. (DARK values) */
+  --color-success: #5ef2a0;
   --color-warning: #e0a83c;
-  --color-info: #3bb9a8; /* the bible's functional teal (dark) */
+  --color-info: #3bd6c9; /* tempered cyan-teal (dark) */
 
   --color-focus: var(--color-accent);
-  --color-selected: #2a1d14; /* faint orange-tinted fill for the active row (dark) */
+  --color-selected: #16241d; /* faint mint-tinted fill for the active row (dark) */
 
   /* the 5 module hues — small IDENTITY chips only (icon/badge), never fills (DARK) */
   --color-mod-knowledge: #8e95d8;    /* periwinkle */
-  --color-mod-memory: #b6a9c9;       /* lilac      */
+  --color-mod-memory: #d8c7fa;       /* lavender (the brand secondary) */
   --color-mod-actions: #e0a83c;      /* amber      */
-  --color-mod-instructions: #9fc27a; /* sage       */
-  --color-mod-guardrails: #f25c54;   /* coral      */
+  --color-mod-instructions: #5ef2a0; /* mint-green */
+  --color-mod-guardrails: #ff5d78;   /* neon pink  */
 
-  /* the type scale — a tight 5-step set (12 · 14 · 18 · 28 · 36): fewer sizes on
-     screen. body/sm collapse onto ui (14); lg collapses onto base (18). Hierarchy
-     leans on SIZE · CASE · TONE · FACE (Space Grotesk vs Inter) — and Inter is variable,
-     so weight is available too. The four names are kept as aliases — zero component churn. */
+  /* the type scale — a tight 5-step set (12 · 14 · 18 · 28 · 36). Hierarchy leans on
+     SIZE · CASE · TONE · FACE (Space Grotesk vs Inter). The four names are aliases. */
   --text-meta: 0.75rem; /* 12px — labels, captions, section headers */
   --text-ui: 0.875rem;  /* 14px — the workhorse: rows, UI, body */
   --text-body: 0.875rem; /* = ui (14px) */
@@ -78,66 +83,74 @@
   --text-xl: 1.75rem;    /* 28px — section / page headings */
   --text-2xl: 2.25rem;   /* 36px — hero / display */
 
-  /* sharp corners — the bible is intentionally un-rounded (editorial-brutalist) */
+  /* sharp corners — the brand is intentionally un-rounded (editorial-brutalist) */
   --radius-sm: 2px;
   --radius-ui: 3px;
   --radius-lg: 4px;
 
-  /* subtle lift for overlays (dialogs/popovers) — warm, never a pure-black shadow */
-  --shadow-overlay: 0 8px 30px -8px rgb(0 0 0 / 0.45);
-  /* a deep-ebony scrim behind modals — SAME in both themes (dims light + dark content) */
-  --color-scrim: rgb(20 23 15 / 0.55);
+  /* subtle lift for overlays (dialogs/popovers) — deep, never a pure-black shadow */
+  --shadow-overlay: 0 8px 30px -8px rgb(0 0 0 / 0.55);
+  /* a deep near-black scrim behind modals — SAME in both themes */
+  --color-scrim: rgb(8 8 12 / 0.62);
   --height-bar: 34px;
 }
 
-/* explicit DARK — the bible's deep-ink register (.tbl-dark); re-affirms the fallback so
-   the toggle is robust. The orange accent is FIXED (in @theme) — NOT re-declared here. */
+/* explicit DARK — the neon brand's near-black register; re-affirms the fallback so the
+   toggle is robust. Mint accent + near-black-green on-accent. */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --color-ink-950: #161510;
-  --color-ink-900: #1f1d16;
-  --color-ink-850: #26241b;
-  --color-ink-800: #2a2820;
-  --color-ink-700: #38352b;
-  --color-ink-600: #4f4b3e;
-  --color-ink-500: #a8a594;
-  --color-ink-300: #cdcabb;
-  --color-ink-100: #f1f0ea;
-  --color-danger: #e5687a;
-  --color-success: #4fb389;
+  --color-ink-950: #0a0a0f;
+  --color-ink-900: #131019;
+  --color-ink-850: #1a1722;
+  --color-ink-800: #1c1726;
+  --color-ink-700: #272231;
+  --color-ink-600: #352b50;
+  --color-ink-500: #9b96b0;
+  --color-ink-300: #b3aecb;
+  --color-ink-100: #f2f0ff;
+  --color-accent: #c2ffe1;
+  --color-accent-dim: #9be9c4;
+  --color-on-accent: #06140d;
+  --color-danger: #ff3b5c;
+  --color-success: #5ef2a0;
   --color-warning: #e0a83c;
-  --color-info: #3bb9a8;
-  --color-selected: #2a1d14;
+  --color-info: #3bd6c9;
+  --color-selected: #16241d;
   --color-mod-knowledge: #8e95d8;
-  --color-mod-memory: #b6a9c9;
+  --color-mod-memory: #d8c7fa;
   --color-mod-actions: #e0a83c;
-  --color-mod-instructions: #9fc27a;
-  --color-mod-guardrails: #f25c54;
+  --color-mod-instructions: #5ef2a0;
+  --color-mod-guardrails: #ff5d78;
 }
 
-/* LIGHT — the bible's paper register (.tbl): warm paper → ink. Overrides the ramp;
-   aliases auto-follow. The orange accent is FIXED (from @theme) — NOT re-declared. */
+/* LIGHT — a cool neutral (the neon brand has no warm-paper variant; light mode is a
+   functional inverse). Bright mint is illegible as text/fill on a light field, so the
+   accent becomes a deep mint-teal with light on-accent text — the primary button and
+   accent text both read in this mode. */
 :root[data-theme="light"] {
   color-scheme: light;
-  --color-ink-950: #f1f0ea; /* page — warm paper */
-  --color-ink-900: #e9e6dc; /* surface */
-  --color-ink-850: #e1ded3; /* card */
-  --color-ink-800: #d6d3c6; /* hover */
-  --color-ink-700: #cac7b9; /* hairline border */
-  --color-ink-600: #aeab9c; /* strong border */
-  --color-ink-500: #6e6c5f; /* muted text */
-  --color-ink-300: #45433a; /* subtle text */
-  --color-ink-100: #14130f; /* primary text — ink */
-  --color-danger: #c8364a;
-  --color-success: #2e8b6a;
+  --color-ink-950: #f4f3f7; /* page — cool near-white */
+  --color-ink-900: #ebeaf0; /* surface */
+  --color-ink-850: #e3e2ea; /* card */
+  --color-ink-800: #d9d8e2; /* hover */
+  --color-ink-700: #cdccd8; /* hairline border */
+  --color-ink-600: #b0aec0; /* strong border */
+  --color-ink-500: #6b6880; /* muted text */
+  --color-ink-300: #45435a; /* subtle text */
+  --color-ink-100: #14121f; /* primary text — cool near-black */
+  --color-accent: #0e9b73;     /* deep mint-teal — legible on a light field */
+  --color-accent-dim: #0b7d5d; /* deeper — hover/pressed */
+  --color-on-accent: #f4f3f7;  /* near-white text on the deep mint-teal */
+  --color-danger: #d12c4a;
+  --color-success: #1f9d6a;
   --color-warning: #b5821a;
-  --color-info: #137a6e; /* the bible's functional teal (light) */
-  --color-selected: #f7e3d8; /* faint orange-tinted fill for the active row (light) */
-  --color-mod-knowledge: #5b63b8; /* periwinkle */
-  --color-mod-memory: #7a6e92;    /* lilac      */
-  --color-mod-actions: #b5821a;   /* amber      */
-  --color-mod-instructions: #5a8038; /* sage    */
-  --color-mod-guardrails: #d8453d; /* coral (darkened for a legible chip on light) */
+  --color-info: #0d9aa0;
+  --color-selected: #d8f5e6; /* faint mint tint for the active row (light) */
+  --color-mod-knowledge: #5b63b8;
+  --color-mod-memory: #7a6e92;
+  --color-mod-actions: #b5821a;
+  --color-mod-instructions: #2e8b6a;
+  --color-mod-guardrails: #d8453d;
 }
 
 /* motion — calm micro-transitions + a gentle spring for pop-ins (menus, overlays,
