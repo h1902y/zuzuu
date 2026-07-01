@@ -4,7 +4,7 @@
 // with a status lifecycle + inline diffs, plans, turn dividers — plus a composer.
 // The in-memory view-model IS the recordable trace. Thin: derivation lives in acp-model.
 import { useEffect, useReducer, useRef, useState } from "react";
-import { Send, Wrench, Brain, ListChecks, TriangleAlert, CircleDot, ShieldQuestion, ShieldX, ShieldCheck } from "lucide-react";
+import { Send, Square, Wrench, Brain, ListChecks, TriangleAlert, CircleDot, ShieldQuestion, ShieldX, ShieldCheck } from "lucide-react";
 import { AcpConnection } from "../../lib/acp-client.js";
 import { applyAcpMessage, initialAcpView, type AcpView as AcpVM, type Block } from "./acp-model.js";
 import { Stack, Inline, Text, Button, Icon } from "../../ds/index.js";
@@ -73,9 +73,17 @@ export function AcpView({ id }: { id: string }) {
           rows={1}
           className="min-h-9 max-h-40 w-full resize-none rounded-ui border border-border bg-app px-3 py-2 text-ui text-ink-100 outline-none placeholder:text-muted focus:border-accent-dim"
         />
-        <Button variant="primary" size="sm" disabled={!draft.trim() || vm.status === "working"} onClick={send}>
-          <Icon icon={Send} size={15} /> Send
-        </Button>
+        {vm.status === "working" ? (
+          // status-aware submit (AI Elements pattern): Stop while the turn streams —
+          // cancel is already wired (client {type:"cancel"} → AcpSession.cancel()).
+          <Button variant="outline" size="sm" onClick={() => connRef.current?.send({ type: "cancel" })}>
+            <Icon icon={Square} size={14} /> Stop
+          </Button>
+        ) : (
+          <Button variant="primary" size="sm" disabled={!draft.trim()} onClick={send}>
+            <Icon icon={Send} size={15} /> Send
+          </Button>
+        )}
       </div>
     </div>
   );
