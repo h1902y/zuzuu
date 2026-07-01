@@ -23,6 +23,8 @@ import * as config from "./config.js";
 import { attachTerm } from "./term-protocol.js";
 import { WsTermTransport } from "./transport.js";
 import { handleFsSocket } from "./ws-fs.js";
+import { AcpManager, handleAcpSocket } from "./acp.js";
+import { createAcpApi } from "./acp-routes.js";
 import { PathError, resolveSafe } from "./safe-path.js";
 
 export interface ServerConfig {
@@ -66,6 +68,8 @@ export class WebcodeServer {
   /** ONE main-tree serializer shared by the agent-exit auto-merge AND the explicit
    *  held-merge route, so the two main-tree writers can't race on `main` (KTD6). */
   private readonly mainTreeLock: MainTreeLock = createMainTreeLock();
+  /** the ACP "drive lane" — live ACP agent subprocesses, relayed over /ws/acp */
+  private readonly acp: AcpManager;
 
   constructor(private readonly cfg: ServerConfig) {
     this.root = cfg.root;
@@ -75,6 +79,7 @@ export class WebcodeServer {
       lock: this.mainTreeLock,
     });
     this.sessions = new SessionManager(cfg.root);
+    this.acp = new AcpManager(() => this.root, cfg.zuzuuBinary !== undefined ? { zuzuuBinary: cfg.zuzuuBinary } : {});
     this.auth = new AuthGate({
       port: cfg.port,
       token: cfg.token,
@@ -94,6 +99,7 @@ export class WebcodeServer {
     const st = await fsp.stat(resolved);
     if (!st.isDirectory()) throw new Error("not a directory");
     this.sessions.shutdown();
+    this.acp.shutdown(); // ACP sessions are pinned to the old cwd — drop them on switch
     this.sessions = new SessionManager(resolved);
     this.root = resolved;
     await config.addRecent(resolved);
@@ -180,6 +186,7 @@ export class WebcodeServer {
     app.route("/api/fs", createFsApi(() => this.root));
     app.route("/api/zuzuu", createZuzuuApi(() => this.root, { binary: cfg.zuzuuBinary, liveSessions: () => this.sessions.list().length }));
     app.route("/api/projects", createProjectsApi(() => this.root)); // machine-global: recents + dir autocomplete
+    app.route("/api/acp", createAcpApi({ acp: () => this.acp })); // ACP drive lane
 
     // Static SPA (index.html fallback for client-side routes)
     app.get("*", serveStatic(cfg.webDist));
@@ -219,12 +226,20 @@ export class WebcodeServer {
         // ^ this.root read at upgrade time → new connections (post-switch) use the new root
         return;
       }
+      const acpMatch = /^\/ws\/acp\/([0-9a-f]+)$/.exec(url.pathname);
+      if (acpMatch) {
+        const acpSession = this.acp.get(acpMatch[1]!);
+        if (!acpSession) return reject(404, "Not Found");
+        wss.handleUpgrade(req, socket, head, (ws) => handleAcpSocket(ws, acpSession));
+        return;
+      }
       reject(404, "Not Found");
     });
   }
 
   stop(): void {
     this.sessions.shutdown();
+    this.acp.shutdown();
     this.server?.close();
   }
 }

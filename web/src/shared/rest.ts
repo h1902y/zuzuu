@@ -89,6 +89,48 @@ export type FsServerMessage = {
   path: string;
 };
 
+// ── ACP bridge WS (/ws/acp/:id) — JSON text frames ────────────────────────────
+// The daemon is the ACP *client*: it spawns the `claude-agent-acp` adapter, runs the
+// protocol over its stdio, and relays the structured `session/update` stream here.
+// The browser is a thin renderer + composer. DTOs sit next to the FS ones so client
+// + server stay in lockstep over `#shared`.
+export type AcpClientMessage =
+  | { type: "prompt"; text: string }
+  | { type: "cancel" }
+  | { type: "permission"; requestId: string; decision: "allow" | "deny" };
+export type AcpServerMessage =
+  | { type: "ready"; sessionId: string }
+  | { type: "update"; update: AcpSessionUpdate }
+  | { type: "turn_end"; stopReason: string; usage?: AcpUsage }
+  | { type: "error"; message: string }
+  | { type: "permission"; requestId: string; title: string; toolKind: string; reason?: string }
+  | { type: "gate"; decision: "deny" | "allow"; title: string; reason: string };
+
+/** A relayed ACP `session/update`. Structural subset the SPA renders; the
+ *  `sessionUpdate` discriminant + any extra fields pass through unchanged. */
+export interface AcpSessionUpdate {
+  sessionUpdate: string;
+  content?: { type: string; text?: string };
+  toolCall?: AcpToolCall;
+  entries?: Array<{ content?: string; status?: string; priority?: string }>;
+  [k: string]: unknown;
+}
+export interface AcpToolCall {
+  toolCallId?: string;
+  title?: string;
+  kind?: string;
+  status?: string;
+  content?: Array<Record<string, unknown>>;
+  [k: string]: unknown;
+}
+export interface AcpUsage {
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+  cachedReadTokens?: number;
+  cachedWriteTokens?: number;
+}
+
 // ── Content search (GET /api/search) ──────────────────────────────────────────
 export interface SearchMatch {
   line: number;
