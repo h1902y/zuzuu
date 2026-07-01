@@ -37,32 +37,43 @@ export function mapToolCall(tc: { kind?: string; title?: string; rawInput?: unkn
   return { tool_name, tool_input: tc.rawInput ?? { title: tc.title ?? "" } };
 }
 
+/** The gate's verdict for one tool call. `unavailable` = the gate COULD NOT run
+ *  (spawn error / timeout / non-zero exit) — distinct from `null` (ran cleanly, no
+ *  rule matched → defer to the human). R10b: a gate that fails to evaluate must be
+ *  surfaced, never silently framed as a routine "ask" on the default lane. */
+type GateVerdict = { action: "deny" | "allow" | "ask"; reason: string } | { action: "unavailable"; reason: string };
+
 /** Evaluate a tool call against the project's guardrails by shelling the SAME entry the
  *  host hook uses — `zz hook PreToolUse` (reads the payload on stdin, prints a deny/ask
  *  decision, empty = allow). Keeps the daemon→CLI boundary intact (never imports src/).
- *  Fail-open: any spawn/parse failure → null (allow/defer), never a wrong block. */
-function gateCheck(cwd: string, binary: string, tool_name: string, tool_input: unknown): Promise<{ action: string; reason: string } | null> {
+ *  Distinguishes "no rule matched" (null → defer) from "gate couldn't run" (unavailable
+ *  → the caller fails-visible), so a missing/stale/slow gate never silently allows. */
+function gateCheck(cwd: string, binary: string, tool_name: string, tool_input: unknown): Promise<GateVerdict | null> {
   return new Promise((resolve) => {
     let out = "";
     let done = false;
-    const finish = (v: { action: string; reason: string } | null) => { if (!done) { done = true; resolve(v); } };
+    const finish = (v: GateVerdict | null) => { if (!done) { done = true; resolve(v); } };
     let child;
     try {
       const { cmd, argv } = resolveSpawn(binary, ["hook", "PreToolUse"]);
       child = spawn(cmd, argv, { cwd, stdio: ["pipe", "pipe", "ignore"] });
-    } catch { finish(null); return; }
-    const timer = setTimeout(() => { try { child!.kill(); } catch { /* noop */ } finish(null); }, 5000);
+    } catch { finish({ action: "unavailable", reason: "guardrail binary could not be spawned" }); return; }
+    const timer = setTimeout(() => { try { child!.kill(); } catch { /* noop */ } finish({ action: "unavailable", reason: "guardrail evaluation timed out" }); }, 5000);
     child.stdout?.on("data", (b: Buffer) => { out += b.toString(); });
-    child.on("error", () => { clearTimeout(timer); finish(null); });
-    child.on("close", () => {
+    child.on("error", () => { clearTimeout(timer); finish({ action: "unavailable", reason: "guardrail process error" }); });
+    child.on("close", (code) => {
       clearTimeout(timer);
       try {
         const d = JSON.parse(out) as { hookSpecificOutput?: { permissionDecision?: string; permissionDecisionReason?: string } };
         const pd = d.hookSpecificOutput?.permissionDecision;
         if (pd === "deny" || pd === "ask" || pd === "allow") {
           finish({ action: pd, reason: d.hookSpecificOutput?.permissionDecisionReason ?? "" });
-        } else finish(null);
-      } catch { finish(null); } // empty/garbage stdout = no rule matched → allow/defer
+        } else finish(null); // ran, valid JSON, no decision → no rule matched
+      } catch {
+        // unparseable stdout: a clean exit (code 0) is the empty-output no-rule case
+        // (JSON.parse("") throws) → defer; a non-zero exit means the gate errored → unavailable.
+        finish(code === 0 ? null : { action: "unavailable", reason: `guardrail exited ${code ?? "abnormally"}` });
+      }
     });
     try {
       child.stdin?.write(JSON.stringify({ hook_event_name: "PreToolUse", tool_name, tool_input, session_id: "acp" }));
@@ -81,12 +92,17 @@ function resolveAdapterBin(): string {
   return join(dirname(pkgPath), rel);
 }
 
-/** A child env with the provider auth vars stripped, so the adapter uses the local
- *  Claude Code login (the subscription path), never a key from this daemon's env. */
-function childEnv(): NodeJS.ProcessEnv {
-  const e: NodeJS.ProcessEnv = { ...process["env"] };
-  const P = "ANTHROPIC_";
-  for (const seg of ["API_" + "KEY", "AUTH_" + "TOKEN", "BASE_URL"]) delete e[P + seg];
+/** The adapter's env — an explicit ALLOWLIST of variable names (R10d), not the whole
+ *  daemon environment. Inheriting everything forwarded sensitive shell variables to the
+ *  third-party adapter; we pass only what it + the local Claude Code login need. The
+ *  provider access vars are omitted, so the adapter uses the local login. */
+export function childEnv(): NodeJS.ProcessEnv {
+  const ALLOW = [
+    "PATH", "HOME", "SHELL", "USER", "LOGNAME", "LANG", "LC_ALL", "TERM", "TMPDIR",
+    "XDG_RUNTIME_DIR", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_CACHE_HOME",
+  ];
+  const e: NodeJS.ProcessEnv = {};
+  for (const k of ALLOW) { const v = process["env"][k]; if (v !== undefined) e[k] = v; }
   return e;
 }
 
@@ -136,6 +152,14 @@ export class AcpSession {
           this.push({ type: "gate", decision: "allow", title, reason: verdict.reason });
           return this.outcome(params.options, true);
         }
+        if (verdict?.action === "unavailable") {
+          // R10b: the gate COULD NOT run — surface it (never a silent routine "ask").
+          // The human still decides, but the prompt is clearly flagged as degraded.
+          const requestId = randomBytes(6).toString("hex");
+          this.push({ type: "permission", requestId, title, toolKind: tc.kind ?? "other", reason: `⚠ Guardrail unavailable (${verdict.reason}) — the gate could not run; approve only if you trust this action.` });
+          const decision = await this.awaitPermission(requestId);
+          return this.outcome(params.options, decision === "allow");
+        }
         // "ask" (a rule), or no rule matched → the human gate, in the drive lane
         const requestId = randomBytes(6).toString("hex");
         this.push({ type: "permission", requestId, title, toolKind: tc.kind ?? "other", ...(verdict?.reason ? { reason: verdict.reason } : {}) });
@@ -163,8 +187,11 @@ export class AcpSession {
     return pick ? { outcome: { outcome: "selected" as const, optionId: pick.optionId } } : { outcome: { outcome: "cancelled" as const } };
   }
 
-  /** Park a gate "ask" until the human replies (auto-deny after 3 min — fail-safe). */
+  /** Park a gate "ask" until the human replies (auto-deny after 3 min — fail-safe).
+   *  SEC-005: cap concurrent pending asks so a buggy/adversarial adapter can't grow the
+   *  map unbounded — past the cap, auto-deny immediately. */
   private awaitPermission(id: string): Promise<"allow" | "deny"> {
+    if (this.pending.size >= 16) return Promise.resolve("deny");
     return new Promise((resolve) => {
       const t = setTimeout(() => { this.pending.delete(id); resolve("deny"); }, 180_000);
       this.pending.set(id, (d) => { clearTimeout(t); this.pending.delete(id); resolve(d); });
@@ -184,16 +211,23 @@ export class AcpSession {
     });
     const s = await this.conn.newSession({ cwd: this.cwd, mcpServers: [] });
     this.sessionId = s.sessionId;
-    // Delegate tool permissions to US (the client) so the guardrails gate is enforced.
-    // The adapter otherwise resolves an auto-allow mode (acceptEdits/bypass) and never
-    // asks the client — picking the mode that prompts makes requestPermission fire. The
-    // mode id varies; prefer one that looks like "default"/"ask", else the first offered.
+    // R10c: delegate tool permissions to US (the client) so the guardrails gate fires.
+    // The adapter's DEFAULT mode auto-allows (acceptEdits/bypass) and never asks the
+    // client — so we MUST pick a mode that prompts. Prefer an ask/default mode; never
+    // blindly fall back to avail[0] (it may itself be auto-allow); if none can be
+    // confirmed, surface it (SEC-002: don't let the gate be silently OFF for a session).
     try {
       const modes = (s as { modes?: { availableModes?: Array<{ id?: string; name?: string }> } }).modes;
       const avail = modes?.availableModes ?? [];
-      const prompts = avail.find((m) => /default|ask|prompt/i.test(`${m.id ?? ""} ${m.name ?? ""}`));
-      const modeId = prompts?.id ?? avail[0]?.id;
-      if (modeId) await this.conn.setSessionMode({ sessionId: s.sessionId, modeId });
+      const label = (m: { id?: string; name?: string }) => `${m.id ?? ""} ${m.name ?? ""}`;
+      const prompting = avail.find((m) => /default|ask|prompt|review/i.test(label(m)));
+      const nonAutoAllow = avail.find((m) => !/bypass|accept|auto|yolo|allow.?all|danger/i.test(label(m)));
+      const chosen = prompting ?? nonAutoAllow;
+      if (chosen?.id) {
+        await this.conn.setSessionMode({ sessionId: s.sessionId, modeId: chosen.id });
+      } else if (avail.length) {
+        this.push({ type: "error", message: "⚠ Guardrail may not prompt: no permission-asking session mode was found — tool calls could run without the gate. Review carefully or restart the session." });
+      }
     } catch { /* mode-setting unsupported → keep the adapter's default */ }
     this.push({ type: "ready", sessionId: s.sessionId });
   }
@@ -224,6 +258,11 @@ export class AcpSession {
 
   kill(): void {
     this.detach();
+    // SEC-006: resolve any in-flight gate "ask"s to deny + drop their timers, so a
+    // close mid-permission doesn't leave dangling promises/timeouts running for 3 min.
+    const resolvers = [...this.pending.values()];
+    this.pending.clear();
+    for (const resolve of resolvers) resolve("deny");
     try { this.child.kill(); } catch { /* ignore */ }
   }
 }
