@@ -24,6 +24,7 @@ import { loadConsent, saveConsent } from "./onboarding/onboarding-consent.js";
 import { Overview } from "./overview/Overview.js";
 import { Grid } from "./stage/Grid.js";
 import { Record } from "./stage/Record.js";
+import { AcpView } from "./stage/AcpView.js";
 import { ModuleGraph } from "./stage/ModuleGraph.js";
 import { Search } from "./search/Search.js";
 import { Settings } from "./settings/Settings.js";
@@ -248,6 +249,8 @@ export function WorkbenchShell() {
               <Search />
             ) : sel.stage === "settings" ? (
               <Settings />
+            ) : sel.stage === "acp" && selected?.kind === "acp" ? (
+              <AcpView id={selected.id} />
             ) : projectState.isLoading || overview.isLoading ? (
               <Loading />
             ) : (
