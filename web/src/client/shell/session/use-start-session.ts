@@ -9,6 +9,7 @@ import type { SessionInfo } from "#shared/index.js";
 import { useWorkbench } from "../../state/store.js";
 import { useWorld } from "../world-state.js";
 import { api } from "../../lib/api.js";
+import { toast } from "../../state/toast.js";
 
 /** The lane a start request takes. ACP (the structured conversation) is the DEFAULT for
  *  Claude Code agent sessions; every other host and plain shells keep the PTY/terminal
@@ -27,7 +28,19 @@ export function useStartSession() {
         // ACP lane: create the adapter session and land in the conversation. (The nav
         // registry that lets you switch back is U7; the failure UX is U8's onboarding
         // step — here a failed create just leaves the user where they are.)
-        const created = await api.acp.create().catch(() => null);
+        const created = await api.acp.create().catch((e) => {
+          // R5/R13: an explicit, reason-bearing failure — tell adapter-not-installed
+          // apart from a login failure — so the user knows to log in or fall back to a
+          // terminal session (right there in the picker), never a silent no-op.
+          const reason = String((e as Error)?.message ?? e);
+          const hint = /bin entry|no bin|resolve|module_not_found|not found|cannot find/i.test(reason)
+            ? "the ACP adapter isn't installed"
+            : /auth|login|unauthor|401|403|subscription|credential/i.test(reason)
+              ? "Claude Code isn't logged in"
+              : reason || "the agent couldn't start";
+          toast(`Couldn't start Claude Code (ACP) — ${hint}. Start a terminal session instead?`, "error");
+          return null;
+        });
         if (created) { registerAcp(created.id); select({ kind: "acp", id: created.id }); }
         return null; // an ACP session is not a PTY SessionInfo
       }
