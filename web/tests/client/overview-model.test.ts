@@ -46,8 +46,10 @@ describe("homeModel — the 'what needs me' lead state", () => {
     expect(m.lead).toBe("needs-me");
     expect(m.copy).toContain("1 session awaiting merge");
   });
-  it("setup-incomplete wins over pending (companion is additive, chrome not dropped)", () => {
-    expect(homeModel({ ...base, pendingCount: 5, setupIncomplete: true }).lead).toBe("setup");
+  it("setup-incomplete wins over pending, and suppresses the review hero (R6)", () => {
+    const m = homeModel({ ...base, pendingCount: 5, setupIncomplete: true });
+    expect(m.lead).toBe("setup");
+    expect(m.showReview).toBe(false); // hero suppressed while onboarding, even with pending
   });
   it("no sessions, nothing pending → first (calm)", () => {
     expect(homeModel(base).lead).toBe("first");

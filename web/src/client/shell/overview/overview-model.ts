@@ -79,7 +79,7 @@ export function homeModel(input: {
     needsMeCount,
     pendingCount,
     heldCount,
-    showReview: needsMeCount > 0,
+    showReview: lead === "needs-me", // false during setup even if pending > 0 (R6: suppress the hero while onboarding)
     copy:
       lead === "needs-me" ? needsMeCopy(pendingCount, heldCount)
       : lead === "first" ? "You're set up — start your first session."
