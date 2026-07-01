@@ -1,6 +1,6 @@
 {
   "shape": "package",
-  "styleSha": "e3568e47c58f3a5a7ca1634dd9c62f1e11825f70ee6b5bcb634b5b7573806bd0",
+  "styleSha": "a262c6eb700103106066a8312ecbbd18b6316fbded9758a7a73fdf2573949168",
   "renderHashes": {
     "Badge": "44f8ab9beb90b202",
     "Button": "dc10fcb8a6d2417b",
@@ -104,6 +104,6 @@
     "components/landing/Wordmark/Wordmark.d.ts": "32c4d6263063",
     "components/landing/Wordmark/Wordmark.prompt.md": "184785763d34"
   },
-  "auxSha": "dd10c6389349c443",
+  "auxSha": "4f60b82b7f4a6362",
   "bundleSha12": "8a9b37024371"
 }
