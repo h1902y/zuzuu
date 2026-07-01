@@ -16,6 +16,10 @@ export function createAcpApi(deps: { acp: () => AcpManager }): Hono {
     }
   });
 
+  // liveness — the client reconciles its ACP-session registry against this to prune
+  // ghost rows after a project switch / idle-close (R11).
+  app.get("/", (c) => c.json({ ids: deps.acp().list() }));
+
   app.delete("/:id", (c) => {
     deps.acp().close(c.req.param("id"));
     return c.json({ ok: true });

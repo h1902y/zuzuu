@@ -120,6 +120,13 @@ export class AcpSession {
   readonly trace: AcpServerMessage[] = [];
   /** in-flight gate "ask"s awaiting the human's Allow/Deny (Spike #3). */
   private readonly pending = new Map<string, (d: "allow" | "deny") => void>();
+  /** ADV-5: after the last consumer detaches, kill the adapter if no one reattaches
+   *  within the grace, so a reload/close doesn't leave it running orphaned (a reload
+   *  reconnects well inside the grace; trace-replay makes it lossless). */
+  private idleTimer: ReturnType<typeof setTimeout> | null = null;
+  private killed = false;
+  /** AcpManager wires this to drop the session from its registry on idle-close. */
+  onIdleClose: () => void = () => {};
 
   constructor(private readonly cwd: string, adapterBin: string, private readonly binary: string) {
     this.child = spawn(process.execPath, [adapterBin], { cwd, stdio: ["pipe", "pipe", "pipe"], env: childEnv() });
@@ -249,15 +256,24 @@ export class AcpSession {
 
   /** Bind a socket: replay the trace so a (re)joining client sees prior state, then stream live. */
   attach(emit: Emit): void {
+    if (this.idleTimer) { clearTimeout(this.idleTimer); this.idleTimer = null; } // a consumer is back
     this.emit = emit;
     for (const m of this.trace) emit(m);
   }
   detach(): void {
+    if (this.killed) return;
     this.emit = () => {};
+    // ADV-5: arm the idle grace — if nobody reattaches, the adapter is killed rather
+    // than left orphaned. attach() cancels it; kill() clears it.
+    if (this.idleTimer) clearTimeout(this.idleTimer);
+    this.idleTimer = setTimeout(() => { this.idleTimer = null; this.kill(); this.onIdleClose(); }, 5 * 60_000);
   }
 
   kill(): void {
-    this.detach();
+    if (this.killed) return;
+    this.killed = true;
+    this.emit = () => {};
+    if (this.idleTimer) { clearTimeout(this.idleTimer); this.idleTimer = null; }
     // SEC-006: resolve any in-flight gate "ask"s to deny + drop their timers, so a
     // close mid-permission doesn't leave dangling promises/timeouts running for 3 min.
     const resolvers = [...this.pending.values()];
@@ -284,6 +300,7 @@ export class AcpManager {
 
   async create(): Promise<AcpSession> {
     const s = new AcpSession(this.cwd(), this.bin(), this.zuzuuBinary);
+    s.onIdleClose = () => { this.byId.delete(s.id); }; // ADV-5: drop on idle-close
     this.byId.set(s.id, s);
     try {
       await s.start();
@@ -300,6 +317,12 @@ export class AcpManager {
 
   get(id: string): AcpSession | undefined {
     return this.byId.get(id);
+  }
+
+  /** Live session ids — the client reconciles its registry against this to prune
+   *  ghost rows (a session dropped by a project switch / idle-close) (R11). */
+  list(): string[] {
+    return [...this.byId.keys()];
   }
 
   close(id: string): void {
