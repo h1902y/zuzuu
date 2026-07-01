@@ -4,7 +4,7 @@
 // active/hover treatment. Row composition (which rows, badges, liveness, active) is the
 // pure `navModel`; this file only maps a row's glyph/liveness to a ds Icon and wires the
 // node into select(). Composed from ds primitives (no inline styles / arbitrary values).
-import { type ReactNode } from "react";
+import { type ReactNode, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Circle, Table2, Flag, Home, Search, Settings as SettingsIcon, Bot } from "lucide-react";
 import { api } from "../lib/api.js";
@@ -49,10 +49,15 @@ function rowGlyph(row: NavRowModel): ReactNode {
 export function NavTree() {
   const sessions = useWorkbench((s) => s.sessions);
   const acpSessions = useWorkbench((s) => s.acpSessions);
+  const reconcileAcp = useWorkbench((s) => s.reconcileAcp);
   const selected = useWorld((s) => s.selected);
   const select = useWorld((s) => s.select);
   const overview = useQuery({ queryKey: ["zuzuu", "overview"], queryFn: api.zuzuu.overview });
   const projectState = useQuery({ queryKey: ["zuzuu", "project-state"], queryFn: api.zuzuu.projectState });
+  // U5-client/R11: reconcile the ACP registry against server liveness, so a project
+  // switch / idle-close prunes ghost rows (selecting a dead one would 404).
+  const acpLive = useQuery({ queryKey: ["acp", "live"], queryFn: api.acp.list, enabled: acpSessions.length > 0, refetchInterval: 15000 });
+  useEffect(() => { if (acpLive.data) reconcileAcp(acpLive.data.ids); }, [acpLive.data, reconcileAcp]);
 
   const owner = mostRecentlyActive(sessions.map((s) => ({ id: s.id, live: s.alive, lastActiveAt: s.createdAt })));
   const model = navModel({

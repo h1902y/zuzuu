@@ -176,6 +176,7 @@ export const api = {
   // the ACP drive lane: create a session, then attach /ws/acp/:id
   acp: {
     create: () => request<{ id: string }>("/api/acp", { method: "POST" }),
+    list: () => request<{ ids: string[] }>("/api/acp"), // liveness — reconcile the client registry
   },
 };
 
