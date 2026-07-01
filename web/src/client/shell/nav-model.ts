@@ -6,7 +6,7 @@
 // bespoke SessionRow and the "Set up this Project" link fold into this single model.
 import type { NavNode } from "./shell-state.js";
 
-export type NavGlyph = "overview" | "setup" | "session" | "table" | "search" | "settings";
+export type NavGlyph = "overview" | "setup" | "session" | "acp" | "table" | "search" | "settings";
 export type Liveness = "owner" | "live" | "idle";
 
 export interface NavRowModel {
@@ -35,6 +35,8 @@ export interface NavModel {
 export interface NavInput {
   selected: NavNode | null;
   sessions: { id: string; title?: string; alive: boolean }[];
+  /** ACP drive-lane sessions — listed in the SESSIONS group with a Bot glyph (U7). */
+  acpSessions?: { id: string; label: string }[];
   modules: { id: string; title: string; counts?: { pending?: number } }[];
   /** the most-recently-active session id (mostRecentlyActive) — its dot reads "owner" */
   owner: string | null;
@@ -52,7 +54,7 @@ const kindActive = (sel: NavNode | null, kind: NavNode["kind"]): boolean =>
   sel?.kind === kind;
 
 export function navModel(input: NavInput): NavModel {
-  const { selected, sessions, modules, owner, showSetup, showSearch = false } = input;
+  const { selected, sessions, acpSessions = [], modules, owner, showSetup, showSearch = false } = input;
 
   const top: NavRowModel[] = [
     {
@@ -76,6 +78,15 @@ export function navModel(input: NavInput): NavModel {
     liveness: s.alive ? (s.id === owner ? "owner" : "live") : "idle",
   }));
 
+  // ACP drive-lane sessions — first in the SESSIONS group (the default lane), Bot glyph.
+  const acpRows: NavRowModel[] = acpSessions.map((s) => ({
+    key: `acp:${s.id}`,
+    node: { kind: "acp", id: s.id } as NavNode,
+    label: s.label,
+    glyph: "acp" as const,
+    active: selected?.kind === "acp" && selected.id === s.id,
+  }));
+
   const tableRows: NavRowModel[] = modules.map((m) => {
     const pending = m.counts?.pending ?? 0;
     return {
@@ -94,5 +105,5 @@ export function navModel(input: NavInput): NavModel {
   }
   project.push({ key: "settings", node: { kind: "settings" }, label: "Settings", glyph: "settings", active: kindActive(selected, "settings") });
 
-  return { top, sessions: sessionRows, tables: tableRows, project };
+  return { top, sessions: [...acpRows, ...sessionRows], tables: tableRows, project };
 }

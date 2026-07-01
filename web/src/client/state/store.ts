@@ -27,11 +27,20 @@ interface WorkbenchState {
    *  count) once the daemon's squash-merge settles, or null for a shell. */
   close: (id: string) => Promise<SessionCloseResult | null>;
   setStatus: (status: ConnStatus) => void;
+
+  /** ACP drive-lane sessions — a client-side registry (the daemon holds the live ones;
+   *  this lists them in the SESSIONS nav and reconciles against GET /api/acp liveness,
+   *  pruning ghost rows after a project switch / idle-close) (U7/R6, U5-client/R11). */
+  acpSessions: { id: string; label: string; createdAt: number }[];
+  registerAcp: (id: string) => void;
+  dropAcp: (id: string) => void;
+  reconcileAcp: (liveIds: string[]) => void;
 }
 
 export const useWorkbench = create<WorkbenchState>((set) => ({
   sessions: [],
   status: "connecting",
+  acpSessions: [],
 
   refresh: async () => {
     const sessions = await api.listSessions().catch(() => []);
@@ -61,4 +70,16 @@ export const useWorkbench = create<WorkbenchState>((set) => ({
   },
 
   setStatus: (status) => set({ status }),
+
+  registerAcp: (id) =>
+    set((s) => (s.acpSessions.some((a) => a.id === id)
+      ? s
+      : { acpSessions: [...s.acpSessions, { id, label: `Claude Code ${s.acpSessions.length + 1}`, createdAt: Date.now() }] })),
+  dropAcp: (id) => set((s) => ({ acpSessions: s.acpSessions.filter((a) => a.id !== id) })),
+  reconcileAcp: (liveIds) =>
+    set((s) => {
+      const live = new Set(liveIds);
+      const kept = s.acpSessions.filter((a) => live.has(a.id));
+      return kept.length === s.acpSessions.length ? s : { acpSessions: kept };
+    }),
 }));

@@ -19,6 +19,7 @@ export function laneFor(type?: "shell" | "agent", host?: string): "acp" | "termi
 
 export function useStartSession() {
   const open = useWorkbench((s) => s.open);
+  const registerAcp = useWorkbench((s) => s.registerAcp);
   const select = useWorld((s) => s.select);
   return useCallback(
     async (type?: "shell" | "agent", host?: string, opts?: { cwd?: string }): Promise<SessionInfo | null> => {
@@ -27,13 +28,13 @@ export function useStartSession() {
         // registry that lets you switch back is U7; the failure UX is U8's onboarding
         // step — here a failed create just leaves the user where they are.)
         const created = await api.acp.create().catch(() => null);
-        if (created) select({ kind: "acp", id: created.id });
+        if (created) { registerAcp(created.id); select({ kind: "acp", id: created.id }); }
         return null; // an ACP session is not a PTY SessionInfo
       }
       const created = await open(type, host, opts);
       if (created) select({ kind: "session", id: created.id }); // redirect into the new session
       return created;
     },
-    [open, select],
+    [open, registerAcp, select],
   );
 }

@@ -6,7 +6,7 @@
 // node into select(). Composed from ds primitives (no inline styles / arbitrary values).
 import { type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Circle, Table2, Flag, Home, Search, Settings as SettingsIcon } from "lucide-react";
+import { Circle, Table2, Flag, Home, Search, Settings as SettingsIcon, Bot } from "lucide-react";
 import { api } from "../lib/api.js";
 import { useWorkbench } from "../state/store.js";
 import { useWorld } from "./world-state.js";
@@ -35,7 +35,7 @@ function NavRow({ active, icon, label, badge, onClick }: {
   );
 }
 
-const GLYPH = { overview: Home, setup: Flag, table: Table2, search: Search, settings: SettingsIcon } as const;
+const GLYPH = { overview: Home, setup: Flag, acp: Bot, table: Table2, search: Search, settings: SettingsIcon } as const;
 
 /** A row's leading glyph: the session liveness dot (status-toned) or a uniform 14px nav icon. */
 function rowGlyph(row: NavRowModel): ReactNode {
@@ -48,6 +48,7 @@ function rowGlyph(row: NavRowModel): ReactNode {
 
 export function NavTree() {
   const sessions = useWorkbench((s) => s.sessions);
+  const acpSessions = useWorkbench((s) => s.acpSessions);
   const selected = useWorld((s) => s.selected);
   const select = useWorld((s) => s.select);
   const overview = useQuery({ queryKey: ["zuzuu", "overview"], queryFn: api.zuzuu.overview });
@@ -57,6 +58,7 @@ export function NavTree() {
   const model = navModel({
     selected,
     sessions: sessions.map((s) => ({ id: s.id, title: s.title, alive: s.alive })),
+    acpSessions: acpSessions.map((a) => ({ id: a.id, label: a.label })),
     modules: overview.data?.modules ?? [],
     owner,
     showSetup: projectState.data !== undefined && shouldShowSetupNode(projectState.data.state),
