@@ -83,7 +83,7 @@ function gateCheck(cwd: string, binary: string, tool_name: string, tool_input: u
 }
 
 /** Resolve the installed adapter's bin entry (dist/index.js) without depending on PATH. */
-function resolveAdapterBin(): string {
+export function resolveAdapterBin(): string {
   const require = createRequire(import.meta.url);
   const pkgPath = require.resolve("@agentclientprotocol/claude-agent-acp/package.json");
   const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as { bin?: string | Record<string, string> };
