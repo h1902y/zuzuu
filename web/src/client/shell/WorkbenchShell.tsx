@@ -132,7 +132,10 @@ export function WorkbenchShell() {
   const pendingByModule = Object.fromEntries(modules.map((m) => [m.id, m.counts?.pending ?? 0]));
   const sessionsLite = sessions.map((s) => ({ id: s.id, live: s.alive, lastActiveAt: s.createdAt }));
   const pState: ProjectStateKind | undefined = projectState.data?.state;
-  const onboarding = pState !== undefined && homeMode(pState) === "onboarding";
+  // content modules (beyond the safety floor) flip the home to the map even when a
+  // later rung is open — the checklist stays reachable via the nav setup node
+  const contentModules = modules.filter((m) => m.id !== "instructions" && m.id !== "guardrails").length;
+  const onboarding = pState !== undefined && homeMode(pState, contentModules) === "onboarding";
   // ribbon setup nudge (R8) — only when home (the checklist) isn't the current view, so the same prompt never double-surfaces
   const setupHint = pState !== undefined && pState !== "steady" && selected !== null ? RUNG_HINT[currentRung(pState)] : undefined;
 

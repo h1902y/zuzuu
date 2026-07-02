@@ -22,9 +22,16 @@ const PROGRESS: Record<ProjectStateKind, number> = {
   steady: 4,
 };
 
-/** Onboarding (the checklist) until the Project is steady (the module-cards home). */
-export function homeMode(state: ProjectStateKind): "onboarding" | "steady" {
-  return state === "steady" ? "steady" : "onboarding";
+/** Onboarding (the checklist) until the Project is steady — with one carve-out
+ *  (audit item 1/2): a project that already HAS content modules gets the steady
+ *  (map) home even when a later rung is open (hooks-off / no live session). A
+ *  289-note root-mode vault must land on its archipelago, not a checklist; the
+ *  open rung stays reachable via the nav's setup node + the ribbon hint. A truly
+ *  young project (no repo / no Project / no content) still onboards. */
+export function homeMode(state: ProjectStateKind, contentModules = 0): "onboarding" | "steady" {
+  if (state === "steady") return "steady";
+  if (contentModules > 0 && (state === "hooks-off" || state === "no-activity")) return "steady";
+  return "onboarding";
 }
 
 /** The next action the user should take, or "review" once setup is done. */
