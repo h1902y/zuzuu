@@ -47,8 +47,14 @@ answer in two clicks.
 
 ## C — The experience (map-first workbench)
 
-Goal: **the graph of notes IS the product**. The workbench opens INTO the World;
-tables/records/review/sessions become surfaces you reach THROUGH the map.
+Goal: **the map is the primary VIEW of the Project** (fidelity note: the
+workbench stays "a view onto a Project, not the Project" — MODEL.md:353; and
+the World is not DESIGN §8's agent-org canvas, which remains unbuilt). The
+workbench opens INTO the World; tables/records/review/sessions become surfaces
+you reach THROUGH the map. HARD CONSTRAINTS from the decision record: the raw
+terminal stays reachable as a tab (composer spec: never hide y/n prompts); the
+omnibar `/` conversation routes to the REAL interactive host (interactive-first
+pillar); brain push stays local-only.
 
 - **Map-first shell**: the World is the default stage on open (steady state;
   onboarding keeps the checklist). The nav tree demotes to a switcher; selection
