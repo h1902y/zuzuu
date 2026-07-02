@@ -162,8 +162,24 @@ export function createZuzuuReadApi(getRoot: () => string, binary?: string): Hono
     const key = c.req.param("key");
     if (!SAFE_SLUG.test(key)) return c.json({ error: "unknown module" }, 404);
     const root = getRoot();
-    const viaCli = await runCommand(root, "module.generations", { key }, { binary });
-    if (viaCli) return c.json(viaCli);
+    // the CLI's raw shape is `{active: number, generations: [{n, mintedAt,
+    // mintedFrom}]}` — NUMBER `n`/`active`, no `module` key. The peek fallback
+    // below already normalizes to the wire contract (`id: string`, `module`); this
+    // fast path used to pass the CLI's shape straight through, so every project
+    // with a working `zz` binary (the common case) shipped `id: undefined` to the
+    // client (the §G.2 generation strip surfaced this live). Normalize here too.
+    const viaCli = await runCommand(root, "module.generations", { key }, { binary }) as
+      { active?: number | string | null; generations?: { n: number; mintedAt?: string | null; mintedFrom?: string[] }[] } | null;
+    if (viaCli && Array.isArray(viaCli.generations)) {
+      return c.json({
+        module: key,
+        active: viaCli.active != null ? String(viaCli.active) : null,
+        generations: viaCli.generations
+          .slice()
+          .sort((a, b) => a.n - b.n)
+          .map((g) => ({ id: String(g.n), mintedAt: g.mintedAt ?? null, mintedFrom: g.mintedFrom ?? [] })),
+      });
+    }
     const home = await homeDir(root);
     const dir = path.join(home, ".generations", key);
     const gens = (await readJsonDir(dir)).filter((g) => typeof g.n === "number");
@@ -182,8 +198,12 @@ export function createZuzuuReadApi(getRoot: () => string, binary?: string): Hono
   // panel): `zz gen diff <m> <a> <b>` — which notes were added/modified/deleted.
   // `gen diff` has no `io` descriptor on the CLI side yet, so from/to ride as
   // validated `extra` positionals rather than a catalog param (see zuzuu-catalog.ts).
-  // A non-existent `from` (the module's first generation has no "before") makes the
-  // CLI exit non-zero → runCommand degrades to null → this answers `degraded: true`,
+  // The CLI's `--json` output is the BARE changes array (`emit()` prints its `value`
+  // arg whole — `genDiff`'s handler passes `r.changes` there, not a `{changes}`
+  // wrapper), so `viaCli` IS the array; this was read as `viaCli.changes` at first
+  // (always undefined → every diff read "nothing to compare," live-verify caught
+  // it). A non-existent `from` (the module's first generation has no "before")
+  // makes the CLI exit non-zero → runCommand degrades to null → `degraded: true`,
   // never an error (the client reads that as "nothing to diff against").
   app.get("/module/:key/generation/:from/diff/:to", async (c) => {
     const key = c.req.param("key");
@@ -191,9 +211,8 @@ export function createZuzuuReadApi(getRoot: () => string, binary?: string): Hono
     const to = c.req.param("to");
     if (!SAFE_SLUG.test(key)) return c.json({ error: "unknown module" }, 404);
     if (!/^\d+$/.test(from) || !/^\d+$/.test(to)) return c.json({ error: "bad generation id" }, 400);
-    const viaCli = await runCommand(getRoot(), "gen.diff", {}, { binary, extra: [key, from, to] }) as
-      { changes?: unknown[] } | null;
-    if (viaCli && Array.isArray(viaCli.changes)) return c.json({ module: key, from, to, changes: viaCli.changes });
+    const viaCli = await runCommand(getRoot(), "gen.diff", {}, { binary, extra: [key, from, to] });
+    if (Array.isArray(viaCli)) return c.json({ module: key, from, to, changes: viaCli });
     return c.json({ module: key, from, to, changes: [], degraded: true });
   });
 

@@ -145,6 +145,30 @@ describe("createZuzuuApi file routes", () => {
     expect(body.generations[0].id).toBe("1");
     expect(body.generations[0].mintedFrom).toEqual(["p1"]);
   });
+  it("GET /module/:key/generations normalizes the CLI's raw {n, active:number} shape to {id, active:string} (§G.2 regression)", async () => {
+    // the LIVE `zz gen list`/`module <m> generations --json` shape: NUMBER `n` and
+    // NUMBER `active`, no `module`/`id` keys — the fast path used to pass this
+    // straight through, so the generation strip's `id` read `undefined` on every
+    // project with a working CLI (the common case, unlike the peek-only tests above).
+    fixtureHome(root);
+    const raw = JSON.stringify({
+      active: 11,
+      generations: [
+        { n: 2, mintedAt: "2026-07-02T11:00:00Z", mintedFrom: ["b"] },
+        { n: 1, mintedAt: "2026-07-02T06:00:00Z", mintedFrom: ["a"] },
+      ],
+    });
+    const app = createZuzuuApi(() => root, { binary: jsonStub(root, raw) });
+    const body = await (await app.request("/module/knowledge/generations")).json();
+    expect(body).toEqual({
+      module: "knowledge",
+      active: "11",
+      generations: [
+        { id: "1", mintedAt: "2026-07-02T06:00:00Z", mintedFrom: ["a"] },
+        { id: "2", mintedAt: "2026-07-02T11:00:00Z", mintedFrom: ["b"] },
+      ],
+    });
+  });
   it("path escape is rejected (no traversal)", async () => {
     fixtureHome(root);
     const app = createZuzuuApi(() => root, { binary: "x" });
@@ -199,9 +223,12 @@ describe("createZuzuuApi file routes", () => {
   it("GET /module/:key/generation/:from/diff/:to shells `gen diff <m> <a> <b>` (§G.2)", async () => {
     fixtureHome(root);
     // an argv-echo stub — proves the module/from/to positionals reached the CLI
-    // (gen.diff's catalog entry carries no declared params; from/to ride as `extra`)
+    // (gen.diff's catalog entry carries no declared params; from/to ride as `extra`).
+    // The REAL CLI's `--json` output is a BARE array (genDiff's handler emits
+    // `r.changes` whole, not a `{changes}` wrapper — confirmed against a live
+    // `zz gen diff` run) — the stub matches that shape, not a wrapped object.
     const stub = path.join(root, "zuzuu-gendiff.sh");
-    writeFileSync(stub, `#!/bin/sh\nprintf '{"changes":[{"status":"argv","id":"'\nprintf '%s ' "$@"\nprintf '"}]}'\n`);
+    writeFileSync(stub, `#!/bin/sh\nprintf '[{"status":"argv","id":"'\nprintf '%s ' "$@"\nprintf '"}]'\n`);
     chmodSync(stub, 0o755);
     const app = createZuzuuApi(() => root, { binary: stub });
     const body = await (await app.request("/module/knowledge/generation/1/diff/2")).json();
@@ -210,10 +237,10 @@ describe("createZuzuuApi file routes", () => {
     expect(body.to).toBe("2");
     expect(body.changes[0].id).toContain("gen diff knowledge 1 2");
   });
-  it("GET /module/:key/generation/:from/diff/:to passes real changes through", async () => {
+  it("GET /module/:key/generation/:from/diff/:to passes real changes through (the CLI's bare-array --json shape)", async () => {
     fixtureHome(root);
     const changes = [{ status: "M", id: "k1" }, { status: "A", id: "k2" }, { status: "D", id: "k3" }];
-    const app = createZuzuuApi(() => root, { binary: jsonStub(root, JSON.stringify({ changes })) });
+    const app = createZuzuuApi(() => root, { binary: jsonStub(root, JSON.stringify(changes)) });
     const body = await (await app.request("/module/knowledge/generation/1/diff/2")).json();
     expect(body).toEqual({ module: "knowledge", from: "1", to: "2", changes });
   });
