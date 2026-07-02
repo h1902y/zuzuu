@@ -13,6 +13,8 @@ export const EMPTY_COPY = {
   "tables": { title: "No tables yet", hint: "Tables materialize as the loop proposes the first note for each module." },
   "sessions": { title: "No sessions yet", hint: "Start a session to begin — the brain grows from what you do." },
   "review": { title: "All caught up", hint: "No proposals waiting. New ones arrive as you work." },
+  "flow-empty": { title: "No workflows yet", hint: "A note with `type: workflow` and `steps:` shows up here as a DAG — see docs/guide/Workflows.md." },
+  "flow-degraded": { title: "Flow can't read the project", hint: "The zuzuu CLI is absent or didn't answer — retry once it's reachable." },
 } as const;
 
 export type EmptyKey = keyof typeof EMPTY_COPY;

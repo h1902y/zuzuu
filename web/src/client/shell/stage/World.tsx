@@ -15,8 +15,10 @@ import { mountWorld, type WorldHandle } from "../../world/world.js";
 import { reconcileGhosts, spotlightAddrs } from "../../world/model.js";
 import { useModuleFilter, filterOf, isFiltering } from "../../state/module-filter.js";
 import { useModuleView } from "../../state/module-view.js";
+import { noteOrFlowNav } from "../shell-state.js";
 import { emptyCopy } from "../empty-copy.js";
 import { EmptyState, Text } from "../../ds/index.js";
+import type { WorldGraph } from "#shared/index.js";
 import "../../world/world.css";
 
 export function World({ focus, lens }: {
@@ -46,13 +48,22 @@ export function World({ focus, lens }: {
     },
   });
   const { queue } = useReviewQueue(); // the aggregated cross-module staged summaries (cached, shared with the gate)
+  // the mount effect below runs once — a ref keeps its click callback reading the
+  // LATEST graph (a plain closure over `graph.data` would freeze at mount time,
+  // usually before the first fetch resolves)
+  const graphRef = useRef<WorldGraph | null>(null);
 
   useEffect(() => {
     if (!ref.current) return;
     const world = mountWorld(ref.current, {
       // map-first: a node click keeps the World as the stage and opens the record
-      // as the wing (`note`, not `row`) — reading never leaves the map
-      onSelectNote: (_addr, module, id) => select({ kind: "note", id, module }),
+      // as the wing (`note`, not `row`) — reading never leaves the map. EXCEPT a
+      // workflow note (§I rung 5): selecting it anywhere focuses Flow instead —
+      // its DAG is a more useful reading than flat frontmatter.
+      onSelectNote: (addr, module, id) => {
+        const isWorkflow = graphRef.current?.nodes.find((n) => n.addr === addr)?.type === "workflow";
+        select(noteOrFlowNav(module, id, isWorkflow, "note"));
+      },
       onSelectModule: (module) => select({ kind: "module", id: module }),
       onGhostClick: () => setReview(true), // the in-map review: the gate overlay, in place
       onDeepZoom: (module) => setDeep(module), // deep in one island → the crystallize affordance
@@ -69,7 +80,7 @@ export function World({ focus, lens }: {
   };
 
   useEffect(() => {
-    if (graph.data) handle.current?.setData(graph.data);
+    if (graph.data) { graphRef.current = graph.data; handle.current?.setData(graph.data); }
   }, [graph.data]);
 
   useEffect(() => {

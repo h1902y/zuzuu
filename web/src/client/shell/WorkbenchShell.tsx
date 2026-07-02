@@ -29,6 +29,8 @@ import { hudModel } from "./overview/overview-model.js";
 import { HudPill } from "./HudPill.js";
 import { projectionSwitch, type ProjTarget } from "./projection-switch.js";
 import { ProjectionToggle } from "./ProjectionToggle.js";
+import { Flow } from "./stage/Flow.js";
+import { flowTarget, isWorkflowAddr } from "./stage/flow-switch.js";
 import { useAppSurface } from "../state/app-surface.js";
 import { useSettingsDialog } from "../state/settings-dialog.js";
 import { Grid } from "./stage/Grid.js";
@@ -76,6 +78,11 @@ export function WorkbenchShell() {
   const workspace = useQuery({ queryKey: ["workspace"], queryFn: api.workspace });
   const overview = useQuery({ queryKey: ["zuzuu", "overview"], queryFn: api.zuzuu.overview });
   const projectState = useQuery({ queryKey: ["zuzuu", "project-state"], queryFn: api.zuzuu.projectState });
+  // §I rung 5 — the Flow toggle's availability + in-context target. Same queryKey
+  // Flow.tsx itself reads (["zuzuu","flow"]) — react-query shares the cache, so
+  // this costs no extra fetch once the Flow stage is open, and vice versa.
+  const flowList = useQuery({ queryKey: ["zuzuu", "flow"], queryFn: api.zuzuu.flow });
+  const workflowAddrs = new Set((flowList.data?.workflows ?? []).map((w) => w.addr));
   const qc = useQueryClient();
   const [busy, setBusy] = useState<RungId | null>(null);
   // the module stage's Table⇄Map projection lives in a per-module store so the
@@ -97,6 +104,12 @@ export function WorkbenchShell() {
     if (t.scope === null) { select(null); requestWorld({ kind: "fit" }); }
     else if (t.scope === "") { setModuleView("", t.view); select({ kind: "everything" }); }
     else { setModuleView(t.scope, t.view); select({ kind: "module", id: t.scope }); }
+  };
+  // the Flow toggle: the in-context workflow (already focused, or the current
+  // selection IS one), else Flow HOME (the picker) — >flow does the same lookup.
+  const goFlow = () => {
+    const t = flowTarget(selected, workflowAddrs);
+    select(t ? { kind: "flow", module: t.module, id: t.id } : { kind: "flow" });
   };
 
   useEffect(() => { void refresh(); }, [refresh]); // load sessions; home is the database (no auto-open)
@@ -268,6 +281,7 @@ export function WorkbenchShell() {
     : selected?.kind === "row" || selected?.kind === "note" ? [moduleTitle(selected.module), selected.id]
     : selected?.kind === "draft" ? [moduleTitle(selected.module), "new note"]
     : selected?.kind === "session" ? [activeSession?.title || "session"]
+    : selected?.kind === "flow" ? (selected.module && selected.id ? ["Flow", selected.module, selected.id] : ["Flow"])
     : [];
   const stagePrimary =
     header.primary?.key === "new-note" && selected?.kind === "module"
@@ -312,8 +326,13 @@ export function WorkbenchShell() {
                 ))}
               </Inline>
             )}
-            {/* the ONE always-visible projection toggle (was the per-stage strip) */}
-            <ProjectionToggle projection={projection} onProject={applyProjection} />
+            {/* the ONE always-visible projection toggle (was the per-stage strip) —
+                now three-way: Table · Map · Flow (§I rung 5) */}
+            <ProjectionToggle
+              projection={projection}
+              onProject={applyProjection}
+              flow={{ available: workflowAddrs.size > 0, active: selected?.kind === "flow", onClick: goFlow }}
+            />
           </Inline>
         }
         actions={
@@ -404,6 +423,8 @@ export function WorkbenchShell() {
               <Search />
             ) : sel.stage === "acp" && selected?.kind === "acp" ? (
               <AcpView id={selected.id} />
+            ) : sel.stage === "flow" && selected?.kind === "flow" ? (
+              <Flow module={selected.module} id={selected.id} />
             ) : projectState.isLoading || overview.isLoading ? (
               <Loading />
             ) : (

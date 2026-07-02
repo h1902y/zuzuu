@@ -29,6 +29,8 @@ export type PaletteAction =
   | { kind: "world-module"; id: string }
   // the Table⇄Map toggle (>table / >map): flip the current module's projection
   | { kind: "module-view"; view: "table" | "graph" }
+  // §I rung 5 — >flow: open the in-context workflow's DAG, else Flow home
+  | { kind: "open-flow"; module?: string; id?: string }
   | { kind: "converse"; prompt: string }
   // §E.1 stage 2 — the shell's noun verbs: the Record stage for a note, the gate's
   // inline decisions (instant — the human IS the gate), and running a saved view
@@ -162,10 +164,14 @@ export function buildPaletteGroups(ctx: PaletteContext): PaletteGroup[] {
 
 /** C3 — the omnibar's prefix modes. `/prompt` → ONE converse command (the ACP lane);
  *  `>cmd` → the world commands (fit · review · module <name>, self-filtered — the
- *  palette disables cmdk's filter in omni mode). null = not in an omni mode. */
+ *  palette disables cmdk's filter in omni mode). null = not in an omni mode.
+ *  `flow` is §I rung 5's toggle target (the in-context workflow, else Flow home) —
+ *  the row is offered even with no workflows yet (it just lands on the picker's
+ *  honest empty state, same as `>table`/`>map` never refuse to exist). */
 export function omniGroup(
   query: string,
   modules: { id: string; title: string }[],
+  flow: { target: { module: string; id: string } | null } = { target: null },
 ): PaletteGroup | null {
   if (query.startsWith("/")) {
     const prompt = query.slice(1).trim();
@@ -195,6 +201,13 @@ export function omniGroup(
     }
     if (!rest || fuzzyScore(rest, "everything") !== null) {
       commands.push({ value: "omni-everything", label: "everything — one table over every module", action: { kind: "open-everything" } });
+    }
+    if (!rest || fuzzyScore(rest, "flow") !== null) {
+      commands.push({
+        value: "omni-flow",
+        label: flow.target ? `flow — ${flow.target.module}:${flow.target.id}'s DAG + runs` : "flow — pick a workflow",
+        action: { kind: "open-flow", module: flow.target?.module, id: flow.target?.id },
+      });
     }
     for (const m of modules) {
       if (!rest || fuzzyScore(moduleArg, m.id) !== null || fuzzyScore(rest, `module ${m.id}`) !== null) {

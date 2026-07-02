@@ -28,6 +28,7 @@ import { notesGroup } from "./palette-rank.js";
 import { useWorldCommand } from "../state/world-command.js";
 import { useAcpIntent } from "../state/acp-intent.js";
 import { useModuleView } from "../state/module-view.js";
+import { flowTarget } from "../shell/stage/flow-switch.js";
 import { emptyStack, push, pop, top, placeholderFor, hintFor, laneBadge, type OmniStack } from "../omnibar/omni-shell.js";
 import { adapterGroup } from "../omnibar/omni-adapter.js";
 import { greetingModel } from "../omnibar/omni-greeting.js";
@@ -66,6 +67,9 @@ export default function PaletteBody() {
   const workspace = useQuery({ queryKey: ["workspace"], queryFn: api.workspace });
   // held sessions — the OTHER half of the needs-me composite (the greeting's brief)
   const held = useQuery({ queryKey: ["zuzuu", "held"], queryFn: api.zuzuu.held });
+  // §I rung 5 — >flow's target; shares the WorkbenchShell/Flow.tsx cache (same key)
+  const flowList = useQuery({ queryKey: ["zuzuu", "flow"], queryFn: api.zuzuu.flow });
+  const workflowAddrs = new Set((flowList.data?.workflows ?? []).map((w) => w.addr));
 
   // The Notes (content) group: fetch every module's notes once per palette session
   // (cached), then filter client-side per keystroke via notesGroup → searchNotes.
@@ -95,7 +99,7 @@ export default function PaletteBody() {
   const views = viewsGroup(allItems, query);
   // C3 — the omnibar's prefix modes take over the palette: `>` world commands,
   // `/` the conversation. Omni groups self-filter, so cmdk's filter stands down.
-  const omni = omniGroup(query, overview.data?.modules ?? []);
+  const omni = omniGroup(query, overview.data?.modules ?? [], { target: flowTarget(selected, workflowAddrs) });
   // §E.3 — the ADAPTER: a plain-language intent resolves to ONE registry
   // invocation, rendered as the top "Do" row (Enter confirms, never auto-runs);
   // unresolvable intents get the single agent-fallback row. Self-filtered.
@@ -187,6 +191,7 @@ export default function PaletteBody() {
         break;
       case "world-fit": select(null); requestWorld({ kind: "fit" }); break;
       case "world-module": select(null); requestWorld({ kind: "focusModule", module: action.id }); break;
+      case "open-flow": select({ kind: "flow", module: action.module, id: action.id }); break;
       case "open-everything":
         // the unified table: one grid over every module (module = a column/facet)
         useModuleView.getState().set("", "table");

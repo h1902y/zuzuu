@@ -357,6 +357,63 @@ describe("createZuzuuApi overview", () => {
   });
 });
 
+/** GET /flow makes TWO CLI calls (`module items --all --type workflow`, then
+ *  `module items runs`) — distinguish them by `--all` in argv, same discipline
+ *  as the other route stubs (argvStub/argvItemsStub), but branching. */
+function flowStub(root: string, workflows: unknown[], runs: unknown[]): string {
+  const stub = path.join(root, "zuzuu-flow.sh");
+  const wf = JSON.stringify({ items: workflows });
+  const rn = JSON.stringify({ items: runs });
+  writeFileSync(stub, `#!/bin/sh\ncase "$*" in\n  *"--all"*) echo '${wf}' ;;\n  *) echo '${rn}' ;;\nesac\n`);
+  chmodSync(stub, 0o755);
+  return stub;
+}
+
+describe("createZuzuuApi GET /flow (§I rung 5 — the Flow projection's summary read)", () => {
+  it("joins workflow notes with their runs — counts + latest by created_at", async () => {
+    const workflows = [{ id: "onboard-lead", module: "actions", title: "Onboard a lead", steps: [{ id: "a" }, { id: "b" }] }];
+    const runs = [
+      { id: "onboard-lead-abc", status: "done", workflow: "actions:onboard-lead", created_at: "2026-07-01T00:00:00Z", started_at: "2026-07-01T00:00:01Z" },
+      { id: "onboard-lead-def", status: "failed", workflow: "actions:onboard-lead", created_at: "2026-07-02T00:00:00Z", started_at: "2026-07-02T00:00:01Z" },
+      { id: "other-run", status: "running", workflow: "actions:some-other-flow", created_at: "2026-07-03T00:00:00Z" },
+    ];
+    const app = createZuzuuApi(() => root, { binary: flowStub(root, workflows, runs) });
+    const body = await (await app.request("/flow")).json();
+    expect(body.degraded).toBeUndefined();
+    expect(body.workflows).toHaveLength(1);
+    expect(body.workflows[0]).toEqual({
+      addr: "actions:onboard-lead", module: "actions", id: "onboard-lead", title: "Onboard a lead",
+      stepCount: 2,
+      runs: { total: 2, running: 0, waiting: 0, done: 1, failed: 1 },
+      latestRun: { id: "onboard-lead-def", status: "failed", startedAt: "2026-07-02T00:00:01Z" },
+    });
+  });
+  it("no workflow notes at all → an empty list, no runs spawn needed", async () => {
+    // a marker ONLY on the runs-branch call (no --all in argv) — proves the route's
+    // early return skips the second spawn entirely when there are no workflows.
+    const marker = path.join(root, "runs-spawned.marker");
+    const stub = path.join(root, "zuzuu-flow-marker.sh");
+    writeFileSync(stub, `#!/bin/sh\ncase "$*" in\n  *"--all"*) echo '{"items":[]}' ;;\n  *) touch '${marker}'; echo '{"items":[]}' ;;\nesac\n`);
+    chmodSync(stub, 0o755);
+    const app = createZuzuuApi(() => root, { binary: stub });
+    const body = await (await app.request("/flow")).json();
+    expect(body).toEqual({ workflows: [] });
+    expect(existsSync(marker)).toBe(false);
+  });
+  it("a workflow with no runs yet — zero counts, latestRun null (never a crash on an absent/empty `runs` module)", async () => {
+    const workflows = [{ id: "fresh-flow", module: "actions", title: "Fresh flow", steps: [{ id: "a" }] }];
+    const app = createZuzuuApi(() => root, { binary: flowStub(root, workflows, []) });
+    const body = await (await app.request("/flow")).json();
+    expect(body.workflows[0].runs).toEqual({ total: 0, running: 0, waiting: 0, done: 0, failed: 0 });
+    expect(body.workflows[0].latestRun).toBeNull();
+  });
+  it("CLI absent → degraded: true, never a crash", async () => {
+    const app = createZuzuuApi(() => root, { binary: "definitely-not-a-real-binary-zzz" });
+    const body = await (await app.request("/flow")).json();
+    expect(body).toEqual({ workflows: [], degraded: true });
+  });
+});
+
 const post = (app: ReturnType<typeof createZuzuuApi>, p: string, body?: unknown) =>
   app.request(p, {
     method: "POST",

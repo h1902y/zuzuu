@@ -94,6 +94,9 @@ export const NODE_H = 56;
 export const LAYER_DX = 232; // NODE_W + a gap wide enough for the edge's curve
 export const NODE_DY = 84; // NODE_H + a row gap
 export const COMP_ROW_DY = 60; // extra vertical room a detached compensation node reserves
+export const COMP_W = 132; // a compensation node is deliberately SMALLER — a quiet annotation, not a peer step
+export const COMP_H = 30;
+export const CANVAS_MARGIN = 32; // breathing room so edges/nodes never touch the SVG's own edge
 
 export interface FlowNodeLayout {
   id: string;

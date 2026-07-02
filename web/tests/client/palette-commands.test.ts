@@ -61,7 +61,7 @@ describe("omniGroup — the omnibar's prefix modes (C3)", () => {
   });
   it("> alone lists everything; >fi filters to fit; module names focus islands", () => {
     const all = omniGroup(">", modules)!;
-    expect(all.commands.map((c) => c.action.kind)).toEqual(["world-fit", "module-view", "module-view", "review", "open-everything", "world-module", "world-module"]);
+    expect(all.commands.map((c) => c.action.kind)).toEqual(["world-fit", "module-view", "module-view", "review", "open-everything", "open-flow", "world-module", "world-module"]);
     const fit = omniGroup(">fi", modules)!;
     expect(fit.commands.some((c) => c.action.kind === "world-fit")).toBe(true);
     const mod = omniGroup(">module social", modules)!;
@@ -72,5 +72,15 @@ describe("omniGroup — the omnibar's prefix modes (C3)", () => {
     expect(table.commands.some((c) => c.action.kind === "module-view" && (c.action as { view: string }).view === "table")).toBe(true);
     const map = omniGroup(">map", modules)!;
     expect(map.commands.some((c) => c.action.kind === "module-view" && (c.action as { view: string }).view === "graph")).toBe(true);
+  });
+  it(">flow (§I rung 5) — no workflow in context opens Flow home", () => {
+    const g = omniGroup(">flow", modules)!;
+    expect(g.commands[0]!.action).toEqual({ kind: "open-flow", module: undefined, id: undefined });
+    expect(g.commands[0]!.label).toMatch(/pick a workflow/);
+  });
+  it(">flow — a workflow in context carries it as the target", () => {
+    const g = omniGroup(">flow", modules, { target: { module: "actions", id: "onboard-lead" } })!;
+    expect(g.commands[0]!.action).toEqual({ kind: "open-flow", module: "actions", id: "onboard-lead" });
+    expect(g.commands[0]!.label).toContain("actions:onboard-lead");
   });
 });

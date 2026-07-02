@@ -21,6 +21,7 @@ import { FieldConfigPanel } from "./FieldConfigPanel.js";
 import { emptyCopy } from "../empty-copy.js";
 import { api } from "../../lib/api.js";
 import { useWorld } from "../world-state.js";
+import { noteOrFlowNav } from "../shell-state.js";
 import { Table2, Plus } from "lucide-react";
 import { Text, EmptyState, Button, Icon } from "../../ds/index.js";
 
@@ -113,7 +114,8 @@ function GridInner() {
             rows={rows}
             sort={state.sort}
             onSort={(key) => dispatch({ type: "toggleSort", key })}
-            onRow={(row) => select({ kind: "row", id: row.id, module })}
+            // §I rung 5: a workflow-typed row focuses Flow instead of the Record stage
+            onRow={(row) => select(noteOrFlowNav(module, row.id, row.kind === "workflow", "row"))}
             onChipClick={filterOps.addWhere}
             groupBy={state.groupBy}
             selection={{ selected, toggle: onSelectionToggle }}

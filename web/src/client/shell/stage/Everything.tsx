@@ -22,6 +22,7 @@ import { NotesTable } from "./NotesTable.js";
 import { emptyCopy } from "../empty-copy.js";
 import { api } from "../../lib/api.js";
 import { useWorld } from "../world-state.js";
+import { noteOrFlowNav } from "../shell-state.js";
 import { Text, EmptyState } from "../../ds/index.js";
 
 function EverythingInner({ moduleFacet, onModuleFacet }: { moduleFacet: string; onModuleFacet: (m: string) => void }) {
@@ -109,7 +110,8 @@ function EverythingInner({ moduleFacet, onModuleFacet }: { moduleFacet: string; 
             rows={rows}
             sort={state.sort}
             onSort={(key) => dispatch({ type: "toggleSort", key })}
-            onRow={(row) => select({ kind: "row", id: row.id, module: row.module })}
+            // §I rung 5: a workflow-typed row focuses Flow instead of the Record stage
+            onRow={(row) => select(noteOrFlowNav(row.module, row.id, row.kind === "workflow", "row"))}
             renderCell={renderCell}
             onChipClick={filterOps.addWhere}
             groupBy={state.groupBy}
