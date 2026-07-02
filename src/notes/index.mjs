@@ -15,6 +15,7 @@ import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { parse, edgeEntries } from './note.mjs';
 import { itemsDir, cacheDir } from './store.mjs';
+import { readManifest } from './module.mjs';
 import { sqlite } from '../metal/sqlite.mjs';
 import { readText, mkdirp, remove } from '../metal/fs.mjs';
 
@@ -60,10 +61,17 @@ function moduleDirs(home) {
     .map((e) => e.name);
 }
 
-/** A signature of the corpus (sorted addr:mtime) — drives staleness. */
+/** A signature of the corpus (sorted addr:mtime) — drives staleness. Includes each
+ *  module's MANIFEST too: a schema change (a new computed column) changes what the
+ *  index derives, so it must rebuild even though no item file moved. */
 function corpusSig(home) {
   const parts = [];
   for (const module of moduleDirs(home)) {
+    const manifest = join(home, module, 'module.md');
+    if (existsSync(manifest)) {
+      const ms = statSync(manifest);
+      parts.push(`${module}/module.md:${ms.mtimeMs}:${ms.size}`);
+    }
     const dir = itemsDir(home, module);
     if (!existsSync(dir)) continue;
     for (const f of readdirSync(dir)) {
@@ -107,6 +115,20 @@ function build(home, db, sig = null) {
       (idOwners.get(id) ?? idOwners.set(id, []).get(id)).push(module);
     }
   }
+  // COMPUTED columns (schema v2): a FieldDef may declare `computed: dateAdd(a,b)` —
+  // evaluated here at index time into a prop row, so a derived date ("end = start +
+  // duration") is range-filterable in SQL like any stored column. The note file
+  // never carries the derived value (it's cache, rebuilt with the index).
+  const computedOf = new Map();
+  for (const module of new Set(parsed.map((p) => p.module))) {
+    const defs = [];
+    for (const f of readManifest(home, module).fields ?? []) {
+      const m = typeof f?.computed === 'string' && /^dateAdd\((\w+)\s*,\s*(\w+)\)$/.exec(f.computed);
+      if (m && f.name) defs.push({ name: f.name, base: m[1], add: m[2] });
+    }
+    if (defs.length) computedOf.set(module, defs);
+  }
+
   // A bare-id target resolves: same module first; else its UNIQUE owner module;
   // else (unknown or ambiguous) the source module — which brokenLinks then flags,
   // honestly, instead of silently pointing at the wrong module.
@@ -136,6 +158,13 @@ function build(home, db, sig = null) {
       }
       if (key === 'tags') for (const t of [].concat(val)) insProp.run(addr, 'tag', str(t));
       insProp.run(addr, key, str(val));
+    }
+    for (const def of computedOf.get(module) ?? []) {
+      const t = Date.parse(note[def.base]);
+      const days = Number(note[def.add]);
+      if (!Number.isNaN(t) && Number.isFinite(days)) {
+        insProp.run(addr, def.name, new Date(t + days * 86400000).toISOString().slice(0, 10));
+      }
     }
   }
   db.prepare('INSERT INTO meta VALUES (?,?)').run('sig', sig ?? corpusSig(home));
@@ -191,10 +220,28 @@ function ftsQuery(text) {
 // so the read projection shares ONE source of truth for "is this sort SQL-native?".
 export const SORTABLE_COLUMNS = new Set(['title', 'status', 'type', 'id', 'addr']);
 
+// The EAV comparison operators a `--where` filter may carry. `=` is index-served
+// (prop_kv); the ranges scan the key's rows. Values are TEXT in the EAV — a purely
+// numeric operand compares numerically (CAST), everything else lexicographically,
+// which is exactly right for ISO dates ('2026-07-02' >= '2026-01-01').
+const EAV_OPS = new Set(['=', '!=', '>', '<', '>=', '<=']);
+const isNumeric = (v) => typeof v === 'number' || (typeof v === 'string' && v.trim() !== '' && !Number.isNaN(Number(v)));
+
+function eavCondition({ key, value, op = '=' }, args) {
+  if (!EAV_OPS.has(op)) op = '=';
+  if (op === '=') { args.push(key, value); return 'notes.addr IN (SELECT addr FROM prop WHERE key=? AND value=?)'; }
+  if (op === '!=') { args.push(key, value); return 'notes.addr NOT IN (SELECT addr FROM prop WHERE key=? AND value=?)'; }
+  const cmp = isNumeric(value)
+    ? `CAST(value AS REAL) ${op} CAST(? AS REAL)`
+    : `value ${op} ?`;
+  args.push(key, value);
+  return `notes.addr IN (SELECT addr FROM prop WHERE key=? AND ${cmp})`;
+}
+
 /** Build the shared FROM + WHERE + args for a filter set (search and count reuse it).
- *  `where` is the EAV column filter: an array of `{key,value}` pairs (repeatable,
- *  AND-ed) tested against the `prop` side-table — the `prop_kv (key,value)` index
- *  serves it, so a custom column filters server-side without joining it into `notes`. */
+ *  `where` is the EAV column filter: an array of `{key,value,op?}` triples
+ *  (repeatable, AND-ed; op ∈ = != > < >= <=) tested against the `prop` side-table —
+ *  equality rides the `prop_kv (key,value)` index; ranges scan the key's rows. */
 function plan({ text = '', module = '', type = '', tag = '', status = '', where: eav = [] }) {
   const where = [];
   const args = [];           // the WHERE args (the FROM's fts arg is prepended by the caller)
@@ -219,7 +266,7 @@ function plan({ text = '', module = '', type = '', tag = '', status = '', where:
   if (type) { where.push('notes.type = ?'); args.push(type); }
   if (status) { where.push('notes.status = ?'); args.push(status); }
   if (tag) { where.push('notes.addr IN (SELECT addr FROM prop WHERE key=? AND value=?)'); args.push('tag', tag); }
-  for (const { key, value } of eav) { where.push('notes.addr IN (SELECT addr FROM prop WHERE key=? AND value=?)'); args.push(key, value); }
+  for (const f of eav) where.push(eavCondition(f, args));
   return { from, whereSql: where.length ? ` WHERE ${where.join(' AND ')}` : '', args, fts };
 }
 
@@ -285,6 +332,36 @@ export function count(home, opts = {}) {
     // the ranked LEFT JOIN's `fts MATCH ?` (when present) leads the positional args
     const all = fts ? [fts, ...args] : args;
     return db.prepare(`SELECT COUNT(*) AS n FROM ${from}${whereSql}`).get(...all).n;
+  } finally { db.close(); }
+}
+
+/**
+ * GROUP BY an EAV column with an optional aggregate over another — the rollup
+ * primitive ("rows per activity_type", "sum of duration_days by status"). Composes
+ * with every plan() filter. `agg` = {fn: count|sum|avg|min|max, field?} (count
+ * needs no field; the others aggregate CAST(field AS REAL)).
+ * @returns {Array<{value, n, agg?}>} one row per distinct groupBy value ('' = absent)
+ */
+export function aggregate(home, { groupBy, agg = { fn: 'count' }, ...filters }) {
+  if (!groupBy) return [];
+  const FN = new Set(['count', 'sum', 'avg', 'min', 'max']);
+  const fn = FN.has(agg.fn) ? agg.fn : 'count';
+  const db = open(home);
+  try {
+    const { from, whereSql, args, fts } = plan(filters);
+    const aggSel = fn === 'count'
+      ? ''
+      : `, ${fn}(CAST(ag.value AS REAL)) AS agg`;
+    const aggJoin = fn === 'count'
+      ? ''
+      : ' LEFT JOIN prop ag ON ag.addr = notes.addr AND ag.key = ?';
+    const sql = `SELECT COALESCE(g.value, '') AS value, COUNT(*) AS n${aggSel}
+      FROM ${from}
+      LEFT JOIN prop g ON g.addr = notes.addr AND g.key = ?${aggJoin}
+      ${whereSql} GROUP BY g.value ORDER BY n DESC, g.value`;
+    const head = fts ? [fts] : [];
+    const joinArgs = fn === 'count' ? [groupBy] : [groupBy, agg.field ?? ''];
+    return db.prepare(sql).all(...head, ...joinArgs, ...args);
   } finally { db.close(); }
 }
 

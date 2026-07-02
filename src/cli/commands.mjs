@@ -33,9 +33,11 @@ import { openerText, closerText, steerText, writeHandoff, parkItem, clearParking
 import { renderNoteDiff } from '../use/diff.mjs';
 import { toon } from '../notes/toon.mjs';
 import { searchRows, readEnvelopes } from '../notes/rows.mjs';
-import { moduleCounts } from '../notes/index.mjs';
+import { moduleCounts, aggregate } from '../notes/index.mjs';
 import { coerceForField } from '../grow/edit.mjs';
 import { graphData } from '../serve/graph.mjs';
+import { exportRows, toCsv, parseCsv } from '../use/table.mjs';
+import { readFileSync } from 'node:fs';
 
 // The read projection's column SKIP set — mirrors the client grid's `inferKeys`
 // (web/src/client/shell/stage/grid-columns.ts): `module` is implicit, `body` is the
@@ -51,15 +53,23 @@ function projectRow(note, module) {
   return { id: rest.id, module, kind: type ?? '', title: rest.title ?? '', status: rest.status ?? '', ...rest };
 }
 
-/** Repeated `--where key=val` → [{key,value}] (the EAV column filters). parseArgs
- *  keeps only the LAST of a repeated flag, so — like `stage`'s `--field` — scan the
- *  raw argv so multiples accumulate. A pair without `=` (or empty key) is skipped. */
+/** Repeated `--where key<op>val` → [{key,value,op}] (the EAV column filters;
+ *  op ∈ = != >= <= > <). parseArgs keeps only the LAST of a repeated flag, so —
+ *  like `stage`'s `--field` — scan the raw argv so multiples accumulate. A pair
+ *  without an operator (or empty key) is skipped. */
+export function parseWhere(pair) {
+  for (const op of ['>=', '<=', '!=', '=', '>', '<']) { // longest first
+    const at = pair.indexOf(op);
+    if (at > 0) return { key: pair.slice(0, at), op, value: pair.slice(at + op.length) };
+  }
+  return null;
+}
 function whereFilters(rest) {
   const out = [];
   for (let i = 0; i < rest.length; i++) {
     if (rest[i] === '--where' && rest[i + 1] != null) {
-      const eq = rest[i + 1].indexOf('=');
-      if (eq > 0) out.push({ key: rest[i + 1].slice(0, eq), value: rest[i + 1].slice(eq + 1) });
+      const f = parseWhere(rest[i + 1]);
+      if (f) out.push(f);
       i++;
     }
   }
@@ -199,33 +209,66 @@ export const COMMANDS = [
   // ── data: use the Project (read · run) ──
   {
     path: ['query'], plane: 'data', json: true, permission: 'read', agentInvokable: true,
-    usage: 'query <module|--all> [text]', summary: 'search  (--all cross-module · --from walk · --to backlinks · --as-of <n> · --tag t · --full)',
-    handler: ({ args, cwd, log, json }) => {
+    usage: 'query <module|--all> [text]', summary: 'search  (--all cross-module · --where k<op>v · --group-by k [--agg fn:field] · --view m:id · --from walk · --to backlinks · --as-of <n> · --tag t · --full)',
+    handler: ({ args, cwd, log, json, rest }) => {
       const zz = open(cwd);
       // `--all` searches the WHOLE project (module = '' — the index's plan() already
       // supports it; only the verb's surface forced a per-module loop). The flag
       // parser eats the next word as the flag's VALUE (`--all vedanta` → all:'vedanta')
       // — that word is search text, so put it back.
       const all = !!args.all;
-      const module = all ? '' : args._[0];
+      let module = all ? '' : args._[0];
       const words = all
         ? [...(args.all !== true ? [String(args.all)] : []), ...args._]
         : args._.slice(1);
-      if (!module && !all) return fail(log, 'usage: zz query <module> [text]  ·  zz query --all [text]', json);
+      // `--view <module:id>`: a SAVED VIEW — a note whose `query` map carries the
+      // params (module/text/type/tag/status/where/group-by/agg/sort/limit). The
+      // view is data, so it's gate-governed and versioned like any other row.
+      let viewQ = null;
+      if (args.view && args.view !== true) {
+        const [vm, vid] = String(args.view).includes(':') ? String(args.view).split(':') : [module, String(args.view)];
+        if (!vm || !vid) return fail(log, '--view needs <module:id>', json);
+        const [note] = readEnvelopes(zz.home, [`${vm}:${vid}`]);
+        if (!note) return fail(log, `no view note '${vm}:${vid}'`, json);
+        viewQ = note.query && typeof note.query === 'object' ? note.query : {};
+        if (typeof viewQ.module === 'string') module = viewQ.module;
+      }
+      if (!module && !all && !viewQ) return fail(log, 'usage: zz query <module> [text]  ·  zz query --all [text]  ·  zz query --view <m:id>', json);
       if (args['as-of'] !== undefined) {
         const r = zz.asOf(module, Number(args['as-of']));
         if (!r.ok) return fail(log, r.error, json);
         emit(log, json, { generation: r.generation, notes: r.notes }, [`notes@gen${r.generation}`, r.notes, ['addr', 'type', 'title', 'status']]);
         return 0;
       }
+      // a view's saved where entries are `"key<op>value"` strings (or {key,op,value})
+      const viewWhere = (Array.isArray(viewQ?.where) ? viewQ.where : [])
+        .map((w) => (typeof w === 'string' ? parseWhere(w) : w)).filter(Boolean);
+      const groupBy = (args['group-by'] && args['group-by'] !== true ? String(args['group-by']) : viewQ?.['group-by']) || '';
+      const aggRaw = (args.agg && args.agg !== true ? String(args.agg) : viewQ?.agg) || '';
       const opts = {
-        text: words.join(' '), tag: args.tag || '', full: !!args.full, depth: Number(args.depth) || 0,
+        text: words.join(' ') || viewQ?.text || '',
+        type: (args.type && args.type !== true ? String(args.type) : viewQ?.type) || '',
+        tag: args.tag || viewQ?.tag || '',
+        status: (args.status && args.status !== true ? String(args.status) : viewQ?.status) || '',
+        where: [...viewWhere, ...whereFilters(rest)],
+        full: !!args.full, depth: Number(args.depth) || 0,
         from: args.from || '', to: args.to || '',
         // an EXPLICIT `--limit 0` means 0 — `Number(x) || 50` silently turned it into 50,
         // re-breaking the fix the index layer already made.
-        limit: args.limit !== undefined ? Number(args.limit) : 50,
+        limit: args.limit !== undefined ? Number(args.limit) : (viewQ?.limit ?? 50),
         dryRun: !!args['dry-run'],
       };
+      // rollups: --group-by <key> [--agg count|sum:field|avg:field|min:field|max:field]
+      if (groupBy) {
+        const [fn, field] = aggRaw ? aggRaw.split(':') : ['count'];
+        const rows = aggregate(zz.home, {
+          groupBy, agg: { fn: fn || 'count', field }, module,
+          text: opts.text, type: opts.type, tag: opts.tag, status: opts.status, where: opts.where,
+        });
+        emit(log, json, { kind: 'aggregate', groupBy, rows },
+          [`by ${groupBy}`, rows, rows.some((r) => r.agg != null) ? ['value', 'n', 'agg'] : ['value', 'n']]);
+        return 0;
+      }
       const r = zz.query(module, opts);
       if (!r.ok) return fail(log, r.error, json);
       const v = r.value;
@@ -384,6 +427,7 @@ export const COMMANDS = [
         options: args.options ? String(args.options).split(',').map((s) => s.trim()).filter(Boolean) : null,
         def: args.default !== undefined && args.default !== true ? args.default : undefined,
         label: args.label && args.label !== true ? String(args.label) : null,
+        computed: args.computed && args.computed !== true ? String(args.computed) : null,
       };
       const r = open(cwd).addColumn(m, name, type, opts);
       if (!r.ok) return fail(log, r.error, json);
@@ -466,6 +510,41 @@ export const COMMANDS = [
       if (!r.ok && !r.steps) return fail(log, r.error);
       log(toon('flow', r.steps, ['id', 'success', 'exitCode']));
       if (!r.ok) { log(`✗ failed at step '${r.failedStep}'${r.compensations?.length ? ` — compensated ${r.compensations.length} step(s)` : ''}`); return 1; }
+      return 0;
+    },
+  },
+  {
+    // the module-as-table boundary, outbound: every row, lossless (custom columns ride)
+    path: ['module', 'export'], plane: 'data', json: true, permission: 'read', agentInvokable: true,
+    usage: 'module export <k> [--csv]', summary: 'dump a module as rows (JSON default · --csv for spreadsheets)',
+    handler: ({ args, cwd, log, json }) => {
+      const m = args._[0];
+      if (!m) return fail(log, 'usage: zz module export <key> [--csv]', json);
+      const rows = exportRows(open(cwd).home, m);
+      if (args.csv) { log(toCsv(rows).trimEnd()); return 0; }
+      log(JSON.stringify(rows));
+      return 0;
+    },
+  },
+  {
+    // inbound: bulk rows through the operator lane's batch create — ONE transaction,
+    // ONE generation, all-or-nothing, schema-validated. Operator-only (agent-denied).
+    path: ['module', 'import'], plane: 'data', json: true, permission: 'write', agentInvokable: false,
+    usage: 'module import <k> --json <file> | --csv <file> [--force]', summary: 'bulk-create rows from a JSON array or CSV (one generation)',
+    handler: ({ args, cwd, log, json }) => {
+      const m = args._[0];
+      const file = (args.json && args.json !== true && String(args.json)) || (args.csv && args.csv !== true && String(args.csv));
+      if (!m || !file) return fail(log, 'usage: zz module import <key> --json <file> | --csv <file> [--force]', json);
+      let text;
+      try { text = readFileSync(file, 'utf8'); } catch { return fail(log, `cannot read ${file}`, json); }
+      let rows;
+      if (args.csv) rows = parseCsv(text);
+      else { try { rows = JSON.parse(text); } catch { return fail(log, 'invalid JSON (expected an array of rows)', json); } }
+      const zz = open(cwd);
+      const r = zz.createMany(m, rows, { force: !!args.force });
+      if (!r.ok) return fail(log, r.error, json);
+      emit(log, json, { ok: true, created: r.created.length, ids: r.created },
+        ['imported', [{ module: m, rows: r.created.length }], ['module', 'rows']]);
       return 0;
     },
   },

@@ -44,13 +44,16 @@ function writeSchema(home, module, path, note, fields, label) {
 
 // Build a clean FieldDef from CLI inputs — only the keys that carry meaning.
 // `default` fills the column on `note create` when absent; `label` is the human/UI
-// display name (a form can render real fields instead of inferring from keys).
-function fieldDef(name, type, { required = false, options = null, def = undefined, label = null } = {}) {
+// display name (a form can render real fields instead of inferring from keys);
+// `computed` derives the column at INDEX time (first builtin: `dateAdd(a,b)` —
+// the value never lands in the note file, but filters/sorts like any column).
+function fieldDef(name, type, { required = false, options = null, def = undefined, label = null, computed = null } = {}) {
   const f = { name, type };
   if (required) f.required = true;
   if (Array.isArray(options) && options.length) f.options = options;
   if (def !== undefined) f.default = def;
   if (label) f.label = label;
+  if (computed) f.computed = computed;
   return f;
 }
 

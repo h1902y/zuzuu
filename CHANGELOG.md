@@ -24,6 +24,24 @@ that history).
 - The corpus signature is computed once per index rebuild, not twice.
 
 ### Added
+- **Query engine v2**: `--where` grows comparison operators (`k>=v`, `k<=v`,
+  `k>v`, `k<v`, `k!=v` — numeric operands compare numerically, everything else
+  lexicographically, which is exactly right for ISO dates); `--group-by <key>
+  [--agg count|sum:f|avg:f|min:f|max:f]` rollups run in SQL; `query` gains
+  `--where`/`--status` (previously module-items-only).
+- **Saved views as notes**: `zz query --view <m:id>` runs the `query:` map a
+  `type: view` note carries (module/text/type/status/where/group-by/agg/limit) —
+  views are data: gate-governed, versioned, shareable.
+- **Computed columns** (first builtin): a FieldDef may declare
+  `computed: dateAdd(<dateField>, <numberField>)` — materialized into the index at
+  build time (never written to the note file), so a derived date filters/sorts in
+  SQL. With it, "activities whose window covers today" is one query:
+  `zz query actions --where 'start_date<=D' --where 'end_date>D'`. The corpus
+  signature now includes module manifests, so a schema change rebuilds the index.
+- **Module export/import**: `zz module export <k> [--csv]` (lossless rows; RFC-4180
+  CSV with JSON cells for lists) · `zz module import <k> --json|--csv <file>` —
+  bulk rows through the operator lane's batch create (one generation, all-or-nothing,
+  schema-validated, agent-denied).
 - **`zz graph [--json] [--props a,b]`** — the whole project as one nodes+links
   document (addr-keyed, degrees computed, optional frontmatter columns riding on
   nodes). The map surface reads this through the daemon (`/api/zuzuu/graph`)
