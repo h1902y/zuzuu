@@ -9,7 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Table2 } from "lucide-react";
 import { NotesListProvider, useList } from "../../data/ListContext.js";
 import { useModuleFilter, filterOf } from "../../state/module-filter.js";
-import { useTableSelection, selectionFor, EVERYTHING_SELECTION_SCOPE } from "../../state/table-selection.js";
+import { useTableSelection, selectionFor, EVERYTHING_SELECTION_SCOPE, useClearSelectionOnQueryChange } from "../../state/table-selection.js";
 import { modulePalette } from "../../world/model.js";
 import { EVERYTHING_COLUMNS, moduleFacets, typeFacets, statusFacets, toggleFacet } from "./everything-model.js";
 import { parseInputClause } from "./table-model.js";
@@ -66,6 +66,9 @@ function EverythingInner({ moduleFacet, onModuleFacet }: { moduleFacet: string; 
   const toggleSelection = useTableSelection((s) => s.toggle);
   const onSelectionToggle = (addr: string) =>
     toggleSelection(EVERYTHING_SELECTION_SCOPE, addr, rows.find((r) => `${r.module}:${r.id}` === addr));
+  // S2: same guard as the per-module Grid — a selection made under one filter/page/
+  // sort (or module facet) must not survive into a different one.
+  useClearSelectionOnQueryChange(EVERYTHING_SELECTION_SCOPE, state.text, state.kind, state.status, state.where, state.sort?.key, state.sort?.dir, state.page);
 
   return (
     <div className="flex h-full flex-col">

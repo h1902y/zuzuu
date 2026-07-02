@@ -6,7 +6,7 @@ import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { NotesListProvider, useList } from "../../data/ListContext.js";
 import { useModuleFilter, filterOf } from "../../state/module-filter.js";
-import { useTableSelection, selectionFor } from "../../state/table-selection.js";
+import { useTableSelection, selectionFor, useClearSelectionOnQueryChange } from "../../state/table-selection.js";
 import { gridColumns } from "./grid-columns.js";
 import { NotesTable } from "./NotesTable.js";
 import { statusFacets } from "./everything-model.js";
@@ -42,6 +42,10 @@ function GridInner() {
     const [, id] = addr.split(":");
     toggleSelection(module, addr, id ? rows.find((r) => r.id === id) : undefined);
   };
+  // S2: a selection made under one filter/page/sort — or in a different module —
+  // must not survive into a different one (the omnibar's verbs would silently act
+  // on rows no longer in view).
+  useClearSelectionOnQueryChange(module, state.text, state.kind, state.status, state.where, state.sort?.key, state.sort?.dir, state.page);
 
   // the typed input speaks the CLI's own grammar (§H.3.1): free text live-filters
   // via FTS as you type; Enter on a `key<op>value`/`#tag` shape commits it as a
