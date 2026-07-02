@@ -102,3 +102,29 @@ screen — the World — and everything else is a toggle, overlay, wing, or dial
 
 Sequencing: toggle (in flight) → unified Everything view → inspector wings →
 single-screen consolidation (this). Each verified live before the next.
+
+## E — The omnibar endgame (user-directed): one input, view-only canvas
+
+The final consolidation after §D: **the omnibar (⌘K spotlight) is THE
+interaction surface; the canvas becomes a view-only browser.** Pointing at the
+World browses (pan · zoom · hover · select-to-inspect); every ACTION goes
+through the one input:
+
+- **Verb grammar** (structured suggestions, never free-text-only): `new note in
+  <module> …field=value` (operator lane, instant) · `edit <addr> field value` ·
+  `delete <addr>` · `approve/reject <proposal>` (the gate, keyboard-first) ·
+  `new module <name> …columns` · `import <module> <csv>` · `view <name>` (saved
+  views) · `table/map` · `fit/fly <addr>` · `sessions` (terminal dock) ·
+  `settings` · `/ <conversation>` (the ACP lane).
+- Selection context feeds the omnibar: with a node selected, its verbs
+  autocomplete first (edit · relate · delete · discuss).
+- The moat is grammar-visible: agent-lane verbs read as proposals, operator
+  verbs as instant — the two lanes distinguishable IN the suggestion rows.
+- Consent/review semantics unchanged; the raw terminal stays one command away
+  and fully functional.
+- Mouse affordances degrade gracefully to the same commands (a button = a
+  canned omnibar invocation) — the omnibar is the API, the UI is sugar over it.
+
+Full sequence: toggle → unified Everything → inspector wings → single-screen
+(§D) → omnibar endgame (§E). The workbench converges on the galaxy's original
+grammar: one canvas, one input, everything else ephemeral.
