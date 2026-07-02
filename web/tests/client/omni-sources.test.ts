@@ -50,11 +50,12 @@ describe("selectionGroup — §H.3.4: selection is context, the omnibar is the v
     expect(selectionGroup(0)).toBeNull();
   });
 
-  it("two verbs this pass — export (instant) and delete (proposal) — carry the count in the label", () => {
+  it("two verbs this pass — export and delete — are BOTH instant (S1: the operator's delete is never the review gate) and carry the count in the label", () => {
     const g = selectionGroup(3)!;
     expect(g.heading).toBe("Selection");
     expect(g.commands.map((c) => c.label)).toEqual(["Export 3 as CSV", "Delete 3 selected"]);
-    expect(g.commands.map((c) => c.lane)).toEqual(["instant", "proposal"]);
-    expect(g.commands.map((c) => c.action.kind)).toEqual(["export-selection", "delete-selection"]);
+    expect(g.commands.map((c) => c.lane)).toEqual(["instant", "instant"]);
+    // delete routes through the two-step in-omnibar count-confirm, not straight to a write
+    expect(g.commands.map((c) => c.action.kind)).toEqual(["export-selection", "delete-selection-confirm"]);
   });
 });

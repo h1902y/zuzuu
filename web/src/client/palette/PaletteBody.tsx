@@ -36,9 +36,10 @@ import { OmniDetail } from "../omnibar/OmniDetail.js";
 import { AcpConversation } from "../shell/stage/AcpView.js";
 import { useModuleFilter } from "../state/module-filter.js";
 import { useSettingsDialog } from "../state/settings-dialog.js";
-import { useTableSelection } from "../state/table-selection.js";
+import { useTableSelection, selectionFor, EVERYTHING_SELECTION_SCOPE } from "../state/table-selection.js";
 import { selectionToCsv } from "../state/selection-csv.js";
 import { downloadText } from "../lib/download.js";
+import type { ModuleItem } from "#shared/index.js";
 
 export default function PaletteBody() {
   const setPalette = useWorld((s) => s.setPalette);
@@ -109,7 +110,17 @@ export default function PaletteBody() {
   // then commands; idle → what needs you first (proposals), then commands.
   // §H.3.4 — the table SELECTION is context: with rows selected, its verbs rank
   // FIRST (Linear ⌘K's decision, §E.2) — it's what the user is doing right now.
-  const selectionCount = useTableSelection((s) => s.ids.size);
+  // S2: the count (and later, the actual delete/export targets) must come from
+  // `selectionFor(currentScope)`, NEVER the raw store — the store can carry a
+  // DIFFERENT table's stale selection (switched module/scope without re-toggling),
+  // and the omnibar must only ever offer rows real in the CURRENT view. `null` (no
+  // table on stage — a record/session/search/etc. is showing) reads as "nothing."
+  const currentSelectionScope =
+    selected?.kind === "everything" ? EVERYTHING_SELECTION_SCOPE
+      : selected?.kind === "module" ? selected.id
+        : selected?.kind === "draft" ? selected.module
+          : null;
+  const selectionCount = useTableSelection((s) => (currentSelectionScope ? selectionFor(s, currentSelectionScope).size : 0));
   const selection = selectionGroup(selectionCount);
 
   const extras = [views, proposals].filter((g): g is NonNullable<typeof g> => g != null);
@@ -267,29 +278,60 @@ export default function PaletteBody() {
         break;
       }
       case "export-selection": {
-        // §H.3.4 — client-side from the rows already loaded (no round trip); a
+        // §H.3.4 — client-side from the rows CURRENTLY VISIBLE in this scope (S2:
+        // selectionFor, never the raw store — see currentSelectionScope above); a
         // pure navigation-free download, so it's genuinely "instant."
-        const { items } = useTableSelection.getState();
-        downloadText(`selection-${Date.now()}.csv`, selectionToCsv([...items.values()]));
-        toast(`Exported ${items.size} row${items.size === 1 ? "" : "s"} as CSV`);
+        const store = useTableSelection.getState();
+        const addrs = currentSelectionScope ? selectionFor(store, currentSelectionScope) : new Set<string>();
+        const rows = [...addrs].map((a) => store.items.get(a)).filter((r): r is ModuleItem => !!r);
+        downloadText(`selection-${Date.now()}.csv`, selectionToCsv(rows));
+        toast(`Exported ${rows.length} row${rows.length === 1 ? "" : "s"} as CSV`);
         break;
       }
-      case "delete-selection": {
-        // the batch-verb GAP the spec names: no single all-or-nothing generation
-        // exists yet, so this LOOPS the existing per-row delete stage — each row
-        // becomes its own proposal (the gate decides each, same as one-at-a-time).
-        const { ids, items } = useTableSelection.getState();
-        const targets = [...ids].map((addr) => {
+      case "delete-selection-confirm": {
+        // S1/Two-Lanes.md — the operator's delete is INSTANT, never the review gate
+        // (that's the agent-lane twin's job); destructive-safe-by-default comes from
+        // an in-omnibar COUNT-CONFIRM step instead, not from co-opting the gate as a
+        // human self-confirm. This step only shows the count; Esc pops back to the
+        // root list and nothing is written. Reuses the existing Tab-actions panel
+        // (one row = one confirm), so Enter on it is the SECOND, real confirmation.
+        const store = useTableSelection.getState();
+        const addrs = currentSelectionScope ? [...selectionFor(store, currentSelectionScope)] : [];
+        if (!addrs.length) return;
+        const confirmRow: PaletteCommand = {
+          value: "selection delete confirm",
+          label: `Delete ${addrs.length} selected`,
+          lane: "instant",
+          action: { kind: "noop" }, // never dispatched — this row only carries `actions` (the pushed panel)
+          actions: [{
+            value: "confirm-delete-selection",
+            label: `Delete ${addrs.length} row${addrs.length === 1 ? "" : "s"} — Enter to confirm`,
+            lane: "instant",
+            action: { kind: "delete-selection-execute" },
+          }],
+        };
+        pushView({ kind: "actions", row: confirmRow });
+        return; // stay open on the confirm panel — nothing deleted yet
+      }
+      case "delete-selection-execute": {
+        // the instant OPERATOR delete (Two-Lanes.md): each row lands NOW through the
+        // daemon's existing single-row commit route (DELETE .../module/:key/row/:id
+        // — `zz note delete` under the hood), no proposal, no gate. §H.3.4 names ONE
+        // batch-commit as the end state; that verb doesn't exist on the daemon yet,
+        // so this loops the per-row route — a noted gap, not silently pretended away.
+        const store = useTableSelection.getState();
+        const addrs = currentSelectionScope ? [...selectionFor(store, currentSelectionScope)] : [];
+        const targets = addrs.map((addr) => {
           const [module, id] = addr.split(":");
-          return { module: module ?? items.get(addr)?.module ?? "", id: id ?? items.get(addr)?.id ?? "" };
+          return { module: module ?? store.items.get(addr)?.module ?? "", id: id ?? store.items.get(addr)?.id ?? "" };
         }).filter((t) => t.module && t.id);
-        void Promise.all(targets.map((t) => dataProvider.remove(t.module, t.id)))
+        void Promise.all(targets.map((t) => api.zuzuu.deleteRow(t.module, t.id)))
           .then(() => {
-            toast(`Staged ${targets.length} delete${targets.length === 1 ? "" : "s"} for review`);
+            toast(`Deleted ${targets.length} row${targets.length === 1 ? "" : "s"}`);
             useTableSelection.getState().clear();
             void qc.invalidateQueries({ queryKey: ["zuzuu"] });
           })
-          .catch(() => toast("Couldn't stage the deletes", "error"));
+          .catch(() => toast("Couldn't delete every selected row", "error"));
         break;
       }
     }

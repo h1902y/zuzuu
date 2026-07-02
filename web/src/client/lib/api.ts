@@ -7,6 +7,7 @@
 import type {
   ApproveResult,
   CreateSessionRequest,
+  DeleteRowResult,
   DirListing,
   FileListResponse,
   HeldActionResult,
@@ -185,6 +186,12 @@ export const api = {
     // note; relate/unrelate carry the edge in `change` ({from,type,to}) and need no target.
     stage: (key: string, body: { op: StagedChange["op"]; target?: string; change?: Record<string, unknown> }) =>
       request<StagedChange>(`/api/zuzuu/module/${key}/stage`, json(body)),
+    // the OPERATOR lane's instant row delete (Two-Lanes.md: `zz note delete`,
+    // lands NOW — distinct from `stage(...{op:"delete"})` above, the agent-lane
+    // proposal twin). §H.3.4/S1: the omnibar's Selection→Delete loops this per row
+    // (no batch route on the daemon yet — a one-batch-verb gap, noted not built).
+    deleteRow: (key: string, id: string) =>
+      request<DeleteRowResult>(`/api/zuzuu/module/${key}/row/${id}`, { method: "DELETE" }),
     // the daemon route requires { module } in the body (it 400s without it) — the
     // mutation request body isn't in #shared, so this contract is enforced by hand.
     approve: (id: string, module: string) =>

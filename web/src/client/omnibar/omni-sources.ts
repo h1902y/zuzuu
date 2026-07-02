@@ -76,8 +76,12 @@ export function viewsGroup(items: ModuleItem[], query: string): PaletteGroup | n
 /** The Selection group (§H.3.4): appears the instant a table selection exists —
  *  the omnibar's context, ranked ahead of the ordinary command groups (it's what
  *  the user is doing RIGHT NOW). Verbs this pass: export (instant, client-side)
- *  and delete (a proposal — it loops the existing per-row stage(delete), a
- *  batch-verb gap the spec names: no single all-or-nothing generation yet).
+ *  and delete (S1/Two-Lanes.md: the OPERATOR's delete lands instantly through the
+ *  daemon's per-row commit route — never the review gate, which is the agent-lane
+ *  twin's job. The destructive-safe-by-default instinct is met by an in-omnibar
+ *  count-confirm step, not by co-opting the gate — see `delete-selection-confirm`
+ *  in PaletteBody). `count` is ALREADY the current-scope, current-view count (the
+ *  caller scopes it via `selectionFor` — S2); this group never re-derives it.
  *  set-field-across-selection is skipped (the omnibar's form plumbing would make
  *  it heavy for this pass) and relate-all-to isn't built either — noted, not built. */
 export function selectionGroup(count: number): PaletteGroup | null {
@@ -97,9 +101,9 @@ export function selectionGroup(count: number): PaletteGroup | null {
         value: "selection delete remove",
         label: `Delete ${count} selected`,
         meta: "selection",
-        lane: "proposal",
-        hint: "↵ stage",
-        action: { kind: "delete-selection" },
+        lane: "instant",
+        hint: "↵ confirm",
+        action: { kind: "delete-selection-confirm" },
       },
     ],
   };

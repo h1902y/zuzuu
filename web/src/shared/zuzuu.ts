@@ -153,6 +153,14 @@ export interface ModuleOverviewResponse {
 
 // ── Write side (mutations are CLI-only; the daemon shells out to `zz`) ─────────
 
+/** DELETE /module/:key/row/:id — the OPERATOR lane's instant row delete (P1:
+ *  `zz note delete`, lands NOW, no gate; distinct from POST .../stage's
+ *  op:"delete", which is the agent-lane proposal twin). */
+export interface DeleteRowResult {
+  ok: boolean;
+  deleted?: string;
+}
+
 /** POST /staged/:id/approve and /actions/:slug/approve */
 export interface ApproveResult {
   ok: boolean;

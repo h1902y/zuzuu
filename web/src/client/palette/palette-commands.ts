@@ -42,10 +42,15 @@ export type PaletteAction =
   | { kind: "draft-note"; module: string; title: string }
   // §H.3.4 — the table SELECTION's verbs: selection is context, the omnibar is
   // the verb (no bulk action lives as table chrome). Export is a client-side
-  // download (instant, no write); delete loops the existing per-row stage(delete)
-  // — a batch-verb GAP noted in the spec (no single all-or-nothing generation yet).
+  // download (instant, no write). Delete is the OPERATOR lane's instant commit
+  // (Two-Lanes.md — S1: it used to co-opt the review gate with N self-authored
+  // proposals; the agent-lane twin, `zz stage`, is untouched): "-confirm" shows
+  // the in-omnibar count-confirm row (Esc cancels, nothing written yet), "-execute"
+  // is the second Enter that actually loops the per-row delete route — a batch-verb
+  // GAP noted in the review (no single all-or-nothing generation yet).
   | { kind: "export-selection" }
-  | { kind: "delete-selection" }
+  | { kind: "delete-selection-confirm" }
+  | { kind: "delete-selection-execute" }
   | { kind: "noop" };
 
 export interface PaletteCommand {
