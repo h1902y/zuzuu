@@ -273,3 +273,45 @@ export type SessionCloseResult =
       mergeability?: "ready" | "conflict" | "unknown";
     }
   | { ok: false; stderr?: string; refusal?: Record<string, unknown> };
+
+// ── The world map (/api/zuzuu/graph → `zz graph --json`) ──────────────────────
+// The whole project as one nodes+links document. ADDR-keyed (`module:id`) — bare
+// ids collide across modules. Rendered by the client world engine (client/world).
+
+export interface WorldGraphNode {
+  addr: string;
+  id: string;
+  module: string;
+  type: string;
+  title: string;
+  status: string | null;
+  degree: number;
+  ageDays: number | null;
+  bytes: number;
+  hasBody: boolean;
+  /** the `--props` allowlist columns, when requested (peek values, truncated) */
+  props?: Record<string, string>;
+}
+
+export interface WorldGraphLink {
+  source: string;
+  target: string;
+  type: string;
+  note?: string;
+}
+
+export interface WorldGraph {
+  nodes: WorldGraphNode[];
+  links: WorldGraphLink[];
+  /** true = zuzuu CLI absent; the map degrades to empty */
+  degraded?: boolean;
+}
+
+/** A pending create proposal rendered IN the map (the moat made visible): a dashed
+ *  translucent node near its module until the human approves and it solidifies. */
+export interface WorldGhost {
+  addr: string;
+  module: string;
+  stagedId: string;
+  title: string;
+}

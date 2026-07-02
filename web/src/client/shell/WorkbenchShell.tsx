@@ -26,7 +26,7 @@ import { Overview } from "./overview/Overview.js";
 import { Grid } from "./stage/Grid.js";
 import { Record } from "./stage/Record.js";
 import { AcpView } from "./stage/AcpView.js";
-import { ModuleGraph } from "./stage/ModuleGraph.js";
+import { World } from "./stage/World.js";
 import { Search } from "./search/Search.js";
 import { Settings } from "./settings/Settings.js";
 import { StageHeader } from "./stage/StageHeader.js";
@@ -250,7 +250,9 @@ export function WorkbenchShell() {
                 </>
               )
             ) : sel.stage === "grid" && selected?.kind === "module" ? (
-              activeModuleTab === "graph" ? <ModuleGraph module={selected.id} /> : <Grid module={selected.id} />
+              // the Graph tab mounts the WHOLE world, focused on this module —
+              // physics is project-level (two coupled sims); focus is a camera move
+              activeModuleTab === "graph" ? <World focus={selected.id} /> : <Grid module={selected.id} />
             ) : sel.stage === "record" && selected?.kind === "row" ? (
               <Record module={selected.module} id={selected.id} />
             ) : sel.stage === "search" ? (

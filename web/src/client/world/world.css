@@ -1,0 +1,116 @@
+/* client/world/world.css — the world engine's scoped styles. Everything under
+   .zz-world; colors ride the ds tokens (Tailwind 4 exposes @theme as CSS vars),
+   so light/dark repaint the map with the shell. Node/module HUES are data
+   (inline, from the palette hash) — only the chrome uses tokens. */
+
+.zz-world {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  background: var(--color-app);
+}
+.zz-world-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: grab;
+}
+.zz-world-svg:active { cursor: grabbing; }
+
+.zz-world-link {
+  stroke: var(--color-ink-600);
+  stroke-opacity: 0.5;
+  stroke-width: 1;
+}
+.zz-world-link.cross {
+  stroke-opacity: 0.28;
+  stroke-dasharray: 2 4;
+}
+
+.zz-world-node {
+  stroke: var(--color-app);
+  stroke-width: 1.5;
+  cursor: pointer;
+  transition: opacity 0.25s ease;
+}
+.zz-world-node.hover {
+  stroke: var(--color-accent);
+  stroke-width: 2.5;
+}
+
+.zz-world-label {
+  fill: var(--color-ink-300);
+  font-family: var(--font-mono-data);
+  font-size: 9px;
+  text-anchor: middle;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.zz-world-ring {
+  fill: none;
+  stroke-opacity: 0.22;
+  stroke-width: 1;
+  stroke-dasharray: 2 7;
+  pointer-events: none;
+}
+
+/* the moat, visible: a pending proposal is a dashed translucent pulse until the
+   human approves and the node solidifies */
+.zz-world-ghost circle {
+  fill: var(--color-accent);
+  fill-opacity: 0.12;
+  stroke: var(--color-accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 3;
+  cursor: pointer;
+  animation: zz-world-pulse 2.4s ease-in-out infinite;
+}
+.zz-world-ghost text {
+  fill: var(--color-accent);
+  font-family: var(--font-mono-data);
+  font-size: 9px;
+  text-anchor: middle;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+@keyframes zz-world-pulse {
+  0%, 100% { stroke-opacity: 0.9; fill-opacity: 0.1; }
+  50% { stroke-opacity: 0.35; fill-opacity: 0.22; }
+}
+
+.zz-world-chips {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.zz-world-chip {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border: 1px solid var(--color-ink-700);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-ink-900) 82%, transparent);
+  color: var(--color-ink-300);
+  font-family: var(--font-mono-data);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: grab;
+  user-select: none;
+  transition: opacity 0.25s ease, color 0.15s ease;
+}
+.zz-world-chip:hover { color: var(--color-ink-100); }
+.zz-world-chip:active { cursor: grabbing; }
+.zz-world-chip-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  flex: none;
+}

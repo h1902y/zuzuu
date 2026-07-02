@@ -28,6 +28,7 @@ import type {
   SessionInfo,
   StagedChange,
   WorkspaceInfo,
+  WorldGraph,
 } from "#shared/index.js";
 
 /** A setup verb's response — the CLI JSON the daemon passes through (shape varies). */
@@ -144,6 +145,10 @@ export const api = {
   // CLI-shelled by the daemon; the client only ever reads + posts intents.
   zuzuu: {
     overview: () => request<ModuleOverviewResponse>("/api/zuzuu/overview"),
+    // the whole project as one nodes+links document (the world map reads this);
+    // optional props ride chosen frontmatter columns on nodes
+    graph: (props?: string[]) =>
+      request<WorldGraph>(`/api/zuzuu/graph${props?.length ? `?props=${encodeURIComponent(props.join(","))}` : ""}`),
     projectState: () => request<ProjectState>("/api/zuzuu/project-state"),
     // the held-session CODE queue — sessions awaiting a merge decision (the close
     // card's code section reads it). CLI absent / non-git → { held: [] }.
