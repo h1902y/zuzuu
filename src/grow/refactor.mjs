@@ -18,6 +18,7 @@
 import { existsSync } from 'node:fs';
 import { itemPath, itemsDir } from '../notes/store.mjs';
 import { readNote } from '../notes/repo.mjs';
+import { edgeTarget } from '../notes/note.mjs';
 import { backlinks } from '../notes/index.mjs';
 import { list } from '../metal/fs.mjs';
 import { commit } from './commit.mjs';
@@ -32,6 +33,12 @@ function repointRelations(note, fromFull, toFull, fromBare, toBare, sameModule) 
   for (const [type, v] of Object.entries(rels)) {
     const arr = [].concat(v);
     const mapped = arr.map((x) => {
+      // an entry may be an object `{target, note?, cite?}` — repoint its target, keep the metadata
+      if (x && typeof x === 'object' && !Array.isArray(x)) {
+        if (x.target === fromFull) { changed = true; return { ...x, target: toFull }; }
+        if (sameModule && x.target === fromBare) { changed = true; return { ...x, target: toBare }; }
+        return x;
+      }
       if (x === fromFull) { changed = true; return toFull; }
       if (sameModule && x === fromBare) { changed = true; return toBare; }
       return x;
@@ -86,8 +93,17 @@ export function expandMerge(home, module, srcId, dstId) {
   dst.body = [dst.body, src.body].filter((s) => s && s.trim()).join('\n\n');
   for (const [type, v] of Object.entries(src.relations ?? {})) { // union src's edges into dst
     dst.relations = dst.relations ?? {};
-    dst.relations[type] = [...new Set([].concat(dst.relations[type] ?? [], v))].filter(Boolean);
-    if (dst.relations[type].length === 1) dst.relations[type] = dst.relations[type][0];
+    // dedupe by TARGET (entries may be objects) — dst's existing edge wins on a clash
+    const cur = [].concat(dst.relations[type] ?? []).filter(Boolean);
+    const seen = new Set(cur.map(edgeTarget));
+    const added = [].concat(v).filter((x) => {
+      const t = edgeTarget(x);
+      if (!t || seen.has(t)) return false;
+      seen.add(t);
+      return true;
+    });
+    const union = [...cur, ...added];
+    dst.relations[type] = union.length === 1 ? union[0] : union;
   }
   const { ops, refs } = expandReferrers(home, module, srcId, dstId);
   ops.push({ module, op: 'update', target: dstId, change: dst, log: { merge: `from ${srcId}` } });

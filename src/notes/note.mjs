@@ -171,6 +171,28 @@ export function slugify(text, max = 60) {
   return s || 'note';
 }
 
+// ── relations helpers ────────────────────────────────────────────────────────
+// A relation VALUE is `target | entry | array of either`, where an entry is a
+// bare target string or an OBJECT `{target, note?, cite?, …}` carrying edge
+// metadata (commentary, a body-citation anchor). Object entries serialize as
+// inline JSON (the mixed-array branch of serialize) and round-trip exactly.
+
+/** The target of one relation entry — `'x'` or `{target:'x', …}` → `'x'`. */
+export function edgeTarget(entry) {
+  if (entry && typeof entry === 'object' && !Array.isArray(entry)) return String(entry.target ?? '');
+  return entry == null ? '' : String(entry);
+}
+
+/** Normalize a relations VALUE into edge entries `{target, note?, cite?, …}`.
+ *  Entries without a target are dropped. */
+export function edgeEntries(value) {
+  return [].concat(value ?? [])
+    .map((v) => (v && typeof v === 'object' && !Array.isArray(v)
+      ? { ...v, target: String(v.target ?? '') }
+      : { target: v == null ? '' : String(v) }))
+    .filter((e) => e.target);
+}
+
 /** Title fallback = first non-empty body line, de-markdowned, capped. */
 export function deriveTitle(body, id = '') {
   for (const raw of String(body ?? '').split('\n')) {

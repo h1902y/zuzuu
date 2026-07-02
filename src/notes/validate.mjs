@@ -67,6 +67,20 @@ export function validateNote(note, fields = []) {
     if (!nonEmptyStr(note.pattern)) errors.push('a rule needs a non-empty pattern');
   }
   if (note.type === 'action' && !nonEmptyStr(note.run)) errors.push('an action needs a run command');
+  // relations: a map rtype → entry|entries; an OBJECT entry must carry a target
+  if (note.relations != null) {
+    if (typeof note.relations !== 'object' || Array.isArray(note.relations)) {
+      errors.push('relations must be a map of type → target(s)');
+    } else {
+      for (const [rt, v] of Object.entries(note.relations)) {
+        for (const e of [].concat(v)) {
+          if (e && typeof e === 'object' && !Array.isArray(e) && !nonEmptyStr(e.target)) {
+            errors.push(`relation '${rt}' has an object entry without a target`);
+          }
+        }
+      }
+    }
+  }
   if (note.type === 'workflow') {
     if (!Array.isArray(note.steps) || !note.steps.length) errors.push('a workflow needs a non-empty steps list');
     else if (note.steps.some((s) => !s || !nonEmptyStr(s.id) || !nonEmptyStr(s.run))) errors.push('every workflow step needs an id and a run');

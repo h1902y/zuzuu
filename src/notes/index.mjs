@@ -13,7 +13,7 @@
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { parse } from './note.mjs';
+import { parse, edgeEntries } from './note.mjs';
 import { itemsDir, cacheDir } from './store.mjs';
 import { sqlite } from '../metal/sqlite.mjs';
 import { readText, mkdirp, remove } from '../metal/fs.mjs';
@@ -23,10 +23,12 @@ import { readText, mkdirp, remove } from '../metal/fs.mjs';
 const dbPath = (home) => join(cacheDir(home), 'index.db');
 const str = (v) => (v == null ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v));
 
+// bump when the table shapes change — open() rebuilds a cache whose schema lags
+const SCHEMA_VERSION = '2';
 const SCHEMA = `
 CREATE TABLE notes (addr TEXT PRIMARY KEY, module TEXT, id TEXT, type TEXT, title TEXT, status TEXT, body TEXT);
 CREATE TABLE prop (addr TEXT, key TEXT, value TEXT);
-CREATE TABLE link (src TEXT, type TEXT, dst TEXT);
+CREATE TABLE link (src TEXT, type TEXT, dst TEXT, note TEXT, cite TEXT);
 CREATE VIRTUAL TABLE fts USING fts5(addr UNINDEXED, title, body);
 CREATE TABLE meta (k TEXT PRIMARY KEY, v TEXT);
 CREATE INDEX prop_kv ON prop(key, value);
@@ -82,7 +84,7 @@ function build(home, db) {
   db.exec('BEGIN'); // one transaction → one fsync, not one per insert (≈100× faster)
   const insZu = db.prepare('INSERT OR REPLACE INTO notes VALUES (?,?,?,?,?,?,?)');
   const insProp = db.prepare('INSERT INTO prop VALUES (?,?,?)');
-  const insLink = db.prepare('INSERT INTO link VALUES (?,?,?)');
+  const insLink = db.prepare('INSERT INTO link VALUES (?,?,?,?,?)');
   const insFts = db.prepare('INSERT INTO fts VALUES (?,?,?)');
 
   for (const module of moduleDirs(home)) {
@@ -102,8 +104,12 @@ function build(home, db) {
           for (const [rtype, dsts] of Object.entries(val)) {
             // normalize a bare-id target ('render') to a full addr ('actions:render')
             // — observe/relate write bare ids, and the graph walk joins on the full
-            // addr, so without this `related()` returns nothing for them.
-            for (const d of [].concat(dsts)) { const dv = str(d); insLink.run(addr, rtype, dv.includes(':') ? dv : `${module}:${dv}`); }
+            // addr, so without this `related()` returns nothing for them. An entry
+            // may be an object `{target, note?, cite?}` — the edge metadata rides
+            // in the link row; the walk/backlink joins stay dst-based.
+            for (const e of edgeEntries(dsts)) {
+              insLink.run(addr, rtype, e.target.includes(':') ? e.target : `${module}:${e.target}`, str(e.note ?? ''), str(e.cite ?? ''));
+            }
           }
         }
         if (key === 'tags') for (const t of [].concat(val)) insProp.run(addr, 'tag', str(t));
@@ -112,6 +118,7 @@ function build(home, db) {
     }
   }
   db.prepare('INSERT INTO meta VALUES (?,?)').run('sig', corpusSig(home));
+  db.prepare('INSERT INTO meta VALUES (?,?)').run('schema', SCHEMA_VERSION);
   db.exec('COMMIT');
   return db;
 }
@@ -125,7 +132,8 @@ export function open(home) {
     try {
       db = connect(path); // connect() runs PRAGMAs — on a corrupt file this throws → caught → rebuild
       const cur = db.prepare('SELECT v FROM meta WHERE k=?').get('sig');
-      if (cur && cur.v === sig) return db; // fresh: caller owns + closes it
+      const ver = db.prepare('SELECT v FROM meta WHERE k=?').get('schema');
+      if (cur && cur.v === sig && ver?.v === SCHEMA_VERSION) return db; // fresh: caller owns + closes it
     } catch { /* corrupt / unopenable → fall through to rebuild */ }
     if (db) db.close(); // stale or corrupt → drop it
   }
@@ -274,7 +282,7 @@ export function backlinks(home, addr) {
   try {
     // dst is stored either as a full addr or a bare id — match both forms
     const id = String(addr).includes(':') ? String(addr).split(':')[1] : String(addr);
-    return db.prepare('SELECT l.src AS addr, l.type FROM link l WHERE l.dst = ? OR l.dst = ? ORDER BY l.src').all(addr, id);
+    return db.prepare('SELECT l.src AS addr, l.type, l.note, l.cite FROM link l WHERE l.dst = ? OR l.dst = ? ORDER BY l.src').all(addr, id);
   } finally { db.close(); }
 }
 

@@ -24,6 +24,7 @@
 import { dirname } from 'node:path';
 import { existsSync } from 'node:fs';
 import { readNote, writeNote, removeNote } from '../notes/repo.mjs';
+import { edgeTarget } from '../notes/note.mjs';
 import { logMutation } from '../notes/log.mjs';
 import { mint, expandRollback } from '../notes/generation.mjs';
 import { itemPath, manifestPath } from '../notes/store.mjs';
@@ -73,7 +74,11 @@ export function projectChange(staged, current, edit = null) {
       const { from, type, to } = change;
       if (!current) return { target: from, error: `relate: no note '${from}'` };
       const rel = current.relations?.[type];
-      return { target: from, after: { ...current, relations: { ...(current.relations ?? {}), [type]: rel ? [...new Set([].concat(rel, to))] : to } } };
+      // dedupe by TARGET (an entry may be an object `{target, note?, cite?}`) —
+      // re-relating an existing target replaces its entry, so metadata can update.
+      const merged = rel == null ? to
+        : [...[].concat(rel).filter((x) => edgeTarget(x) !== edgeTarget(to)), to];
+      return { target: from, after: { ...current, relations: { ...(current.relations ?? {}), [type]: merged } } };
     }
     case 'unrelate': {
       // the inverse of relate: prune `to` from relations[type]. Drop the key when it
@@ -82,7 +87,7 @@ export function projectChange(staged, current, edit = null) {
       const { from, type, to } = change;
       if (!current) return { target: from, error: `unrelate: no note '${from}'` };
       const rel = current.relations?.[type];
-      const remaining = rel == null ? [] : [].concat(rel).filter((x) => x !== to);
+      const remaining = rel == null ? [] : [].concat(rel).filter((x) => edgeTarget(x) !== edgeTarget(to));
       const relations = { ...(current.relations ?? {}) };
       if (remaining.length) relations[type] = remaining.length === 1 ? remaining[0] : remaining; // collapse a singleton back to a scalar (mirror relate's shape)
       else delete relations[type];
