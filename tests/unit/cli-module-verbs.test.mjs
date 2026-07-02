@@ -182,6 +182,48 @@ test('module alter-column --description updates the description without disturbi
   });
 });
 
+test('module alter-column --required true|false round-trips explicitly (the field-config panel toggle, §H.5)', async () => {
+  await withRepo(async ({ home, io, out }) => {
+    initHome(io.cwd);
+    await run(['module', 'new', 'events', '--json'], io);
+    await run(['module', 'add-column', 'events', 'owner', 'text', '--json'], io);
+    // turn it ON via an explicit 'true' string (the daemon's argv shape — never bare)
+    out.length = 0;
+    assert.equal(await run(['module', 'alter-column', 'events', 'owner', '--required', 'true', '--json'], io), 0);
+    assert.equal(JSON.parse(out[0]).fields.find((x) => x.name === 'owner').required, true);
+    // and OFF via an explicit 'false' string — a bare `!!v` truthiness check could
+    // never express this (`!!'false'` is true); flag() in args.mjs is what fixes it.
+    out.length = 0;
+    assert.equal(await run(['module', 'alter-column', 'events', 'owner', '--required', 'false', '--json'], io), 0);
+    assert.equal(JSON.parse(out[0]).fields.find((x) => x.name === 'owner').required, undefined);
+  });
+});
+
+test('module alter-column --computed sets/updates a formula; an unrelated alter no longer drops it', async () => {
+  await withRepo(async ({ home, io, out }) => {
+    initHome(io.cwd);
+    await run(['module', 'new', 'actions', '--json'], io);
+    await run(['module', 'add-column', 'actions', 'start_date', 'date', '--json'], io);
+    await run(['module', 'add-column', 'actions', 'duration_days', 'number', '--json'], io);
+    await run(['module', 'add-column', 'actions', 'end_date', 'date', '--json'], io);
+    out.length = 0;
+    assert.equal(await run(['module', 'alter-column', 'actions', 'end_date', '--computed', 'dateAdd(start_date,duration_days)', '--label', 'Window end', '--json'], io), 0);
+    let f = JSON.parse(out[0]).fields.find((x) => x.name === 'end_date');
+    assert.equal(f.computed, 'dateAdd(start_date,duration_days)');
+    assert.equal(f.label, 'Window end');
+    // an unrelated alter (description only) must NOT strip the formula — this was a
+    // live bug: fieldDef()'s own default (null) overwrote `computed` because nothing
+    // threaded `cur.computed` through.
+    out.length = 0;
+    assert.equal(await run(['module', 'alter-column', 'actions', 'end_date', '--description', 'derived, not stored', '--json'], io), 0);
+    out.length = 0;
+    await run(['module', 'schema', 'actions', '--json'], io);
+    f = JSON.parse(out[0]).fields.find((x) => x.name === 'end_date');
+    assert.equal(f.computed, 'dateAdd(start_date,duration_days)', 'the formula survives an unrelated alter');
+    assert.equal(f.description, 'derived, not stored');
+  });
+});
+
 // ── Rung 9: the module-lifecycle writes the daemon shells (module new/enable/disable,
 //    gen mint) — previously NONEXISTENT verbs (the live daemon-write bug). ────────────
 

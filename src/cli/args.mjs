@@ -20,6 +20,12 @@ export const str = (v) => (v && v !== true ? String(v) : '');
 /** A comma-list flag → trimmed non-empty parts — [] when absent or bare. */
 export const list = (v) => (v && v !== true ? String(v).split(',').map((s) => s.trim()).filter(Boolean) : []);
 
+/** A boolean flag value: bare `--x` (parseArgs already made it `true`) OR an
+ *  EXPLICIT `--x true|false` string (the daemon always sends one — it needs to be
+ *  able to turn a flag OFF, which a bare `!!v` truthiness check can never express:
+ *  `!!'false'` is true). Anything else (absent/other) is false. */
+export const flag = (v) => v === true || v === 'true' || v === '1';
+
 /** Repeated `--where key<op>val` → [{key,value,op}] (the EAV column filters;
  *  op ∈ = != >= <= > <). A pair without an operator (or empty key) is skipped. */
 export function parseWhere(pair) {

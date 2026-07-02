@@ -12,7 +12,7 @@ import { moduleCounts, aggregate, search as idxSearch } from '../../notes/index.
 import { coerceForField } from '../../grow/edit.mjs';
 import { graphData } from '../../serve/graph.mjs';
 import { exportRows, toCsv, parseCsv } from '../../use/table.mjs';
-import { fail, emit, str, list, parseWhere, whereFilters, fieldPairs, parseSort, projectRow, columnsFor } from '../args.mjs';
+import { fail, emit, str, list, flag, parseWhere, whereFilters, fieldPairs, parseSort, projectRow, columnsFor } from '../args.mjs';
 import { genList, genDiff, genRollback } from './evolution.mjs';
 
 // `module new <id>` / `module enable|disable <id>` — the module-lifecycle writes (manifest
@@ -259,12 +259,14 @@ export const dataRows = [
   // itself. `module schema <k>` (the READ) stays inside the `module` handler above.
   {
     path: ['module', 'add-column'], plane: 'data', json: true, permission: 'admin', agentInvokable: false,
-    usage: 'module add-column <k> <name> <type> [--required] [--options a,b] [--default v] [--label l] [--description d]', summary: 'add a typed column to a module schema',
+    usage: 'module add-column <k> <name> <type> [--required] [--options a,b] [--default v] [--label l] [--description d] [--computed f]', summary: 'add a typed column to a module schema',
+    // catalog: the daemon's field-config panel (§H.5) shells this for "+ column"
+    io: { params: ['module', 'name', 'type'], flags: { required: '--required', options: '--options', default: '--default', label: '--label', description: '--description', computed: '--computed' } },
     handler: ({ args, cwd, log, json }) => {
       const [m, name, type] = args._;
-      if (!m || !name || !type) return fail(log, 'usage: zz module add-column <key> <name> <type> [--required] [--options a,b] [--default v] [--label l] [--description d]', json);
+      if (!m || !name || !type) return fail(log, 'usage: zz module add-column <key> <name> <type> [--required] [--options a,b] [--default v] [--label l] [--description d] [--computed f]', json);
       const opts = {
-        required: !!args.required,
+        required: flag(args.required),
         options: args.options ? list(args.options) : null,
         def: args.default !== undefined && args.default !== true ? args.default : undefined,
         label: str(args.label) || null,
@@ -279,17 +281,22 @@ export const dataRows = [
   },
   {
     path: ['module', 'alter-column'], plane: 'data', json: true, permission: 'admin', agentInvokable: false,
-    usage: 'module alter-column <k> <name> [--type t] [--required] [--options a,b] [--default v] [--label l] [--description d]', summary: 'change a column (type · required · options · default · label · description)',
+    usage: 'module alter-column <k> <name> [--type t] [--required] [--options a,b] [--default v] [--label l] [--description d] [--computed f]', summary: 'change a column (type · required · options · default · label · description · computed)',
+    // catalog: the daemon's field-config panel (§H.5) shells this for "Edit column".
+    // `required` MUST ride as an explicit 'true'/'false' string (flag() below) — a
+    // bare truthiness check can never express "turn it off".
+    io: { params: ['module', 'name'], flags: { type: '--type', required: '--required', options: '--options', default: '--default', label: '--label', description: '--description', computed: '--computed' } },
     handler: ({ args, cwd, log, json }) => {
       const [m, name] = args._;
-      if (!m || !name) return fail(log, 'usage: zz module alter-column <key> <name> [--type <t>] [--required] [--options a,b] [--default v] [--label l] [--description d]', json);
+      if (!m || !name) return fail(log, 'usage: zz module alter-column <key> <name> [--type <t>] [--required] [--options a,b] [--default v] [--label l] [--description d] [--computed f]', json);
       const opts = {};
       if (args.type) opts.type = String(args.type);
-      if (args.required !== undefined) opts.required = !!args.required;
+      if (args.required !== undefined) opts.required = flag(args.required);
       if (args.options !== undefined) opts.options = list(args.options);
       if (args.default !== undefined && args.default !== true) opts.def = args.default;
       if (args.label !== undefined) opts.label = str(args.label) || null;
       if (args.description !== undefined) opts.description = str(args.description) || null;
+      if (args.computed !== undefined) opts.computed = str(args.computed) || null;
       const r = open(cwd).alterColumn(m, name, opts);
       if (!r.ok) return fail(log, r.error, json);
       emit(log, json, { key: m, fields: r.fields, generation: r.generation }, ['schema', r.fields, ['name', 'type', 'required']]);

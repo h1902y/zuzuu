@@ -87,8 +87,13 @@ export function alterColumn(home, module, name, opts = {}) {
   const def = opts.def !== undefined ? opts.def : cur.default;
   const label = opts.label !== undefined ? opts.label : cur.label;
   const description = opts.description !== undefined ? opts.description : cur.description;
+  // `computed` was silently DROPPED by every alter before this — fieldDef()'s own
+  // default (null) overwrote it because nothing threaded `cur.computed` through, so
+  // e.g. relabeling a computed column stripped its formula. Same survives-an-
+  // unrelated-alter treatment as label/description now.
+  const computed = opts.computed !== undefined ? opts.computed : cur.computed;
   const next = [...s.fields];
-  next[idx] = fieldDef(name, type, { required, options, def, label, description });
+  next[idx] = fieldDef(name, type, { required, options, def, label, description, computed });
   return writeSchema(home, module, s.path, s.note, next, `alter-column ${module}.${name}`);
 }
 
