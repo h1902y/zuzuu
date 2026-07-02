@@ -102,6 +102,13 @@ export function validateNote(note, fields = []) {
       const hasWait = s.wait != null && typeof s.wait === 'object' && !Array.isArray(s.wait) && nonEmptyStr(s.wait.on);
       return [hasRun, hasNote, hasWait].filter(Boolean).length !== 1;
     })) errors.push('every workflow step needs an id and exactly one of run, note, or wait');
+    // N1 (audit 2026-07-03-durable-runner-review.md): a garbage `wait.timeout` used to
+    // land here and only surface later at `zz run start` (grow/run.mjs's own
+    // stepShapeError) — fail at the write door instead. A local regex (not an import
+    // of run.mjs's DURATION_RE) keeps notes/ acyclic, per the comment above.
+    else if (note.steps.some((s) => s.wait?.timeout != null && !/^\d+(?:\.\d+)?\s*(ms|s|m|h|d)?$/i.test(String(s.wait.timeout).trim()))) {
+      errors.push('a workflow step wait.timeout must be a valid duration (e.g. 30s, 5m, 2h, 1d)');
+    }
   }
 
   // ── axis 2: the module's typed-column schema (only when it declares one) ──

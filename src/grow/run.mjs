@@ -337,8 +337,12 @@ function checkWaitTimeout(home, run) {
   if (!found?.def?.wait?.timeout) return null;
   const ms = parseDurationMs(found.def.wait.timeout);
   if (ms == null) return null;
+  // N3 (audit 2026-07-03-durable-runner-review.md): a missing/unparseable `started`
+  // used to bypass the timeout entirely (waiting forever, silently) — a DECLARED
+  // timeout means a bound was intended, so a corrupted `started` fails safe toward
+  // PROGRESS (timed out now) rather than an unbounded hang.
   const startedAt = Date.parse(found.step.started ?? '');
-  if (!Number.isFinite(startedAt) || Date.now() - startedAt < ms) return null;
+  if (Number.isFinite(startedAt) && Date.now() - startedAt < ms) return null;
   return { stepId: found.step.id, signal: found.def.wait.on };
 }
 

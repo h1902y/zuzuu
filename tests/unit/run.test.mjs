@@ -591,12 +591,17 @@ test('parseDurationMs: parses s/m/h/d suffixes and bare numbers; rejects garbage
   assert.equal(parseDurationMs(0), null);
 });
 
-test('run start: a wait step with a garbage timeout is refused at start (fail fast, not at tick time)', () => {
+test('run start: a wait step with a garbage timeout is refused at the WRITE DOOR itself (N1: validate.mjs, not just startRun)', () => {
   withRepo((home) => {
-    putWorkflow(home, 'actions', 'flow', [{ id: 'w', wait: { on: 'go', timeout: 'not-a-duration' } }]);
-    const r = startRun(home, 'actions', 'flow');
-    assert.equal(r.ok, false);
-    assert.match(r.error, /not a valid duration/);
+    // N1 (audit 2026-07-03-durable-runner-review.md): this used to land fine here and
+    // only fail later at `startRun` — validate.mjs now catches it at creation time.
+    // `startRun`'s own stepShapeError check (grow/run.mjs) is left in place as
+    // defense-in-depth for a note that reaches generation history some other way
+    // (e.g. a pre-fix legacy note) — not exercised by this test, which targets the
+    // now-primary write-door refusal.
+    const bad = createNote(home, 'actions', 'flow', { type: 'workflow', title: 'flow', steps: [{ id: 'w', wait: { on: 'go', timeout: 'not-a-duration' } }] });
+    assert.equal(bad.ok, false);
+    assert.match(bad.error, /valid duration/);
   });
 });
 
