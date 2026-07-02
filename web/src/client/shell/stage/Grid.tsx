@@ -6,7 +6,8 @@ import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { NotesListProvider, useList } from "../../data/ListContext.js";
 import { useModuleFilter, filterOf } from "../../state/module-filter.js";
-import { gridColumns, cellValue } from "./grid-columns.js";
+import { gridColumns } from "./grid-columns.js";
+import { NotesTable } from "./NotesTable.js";
 import { fieldsFromSchema } from "./schema-fields.js";
 import { emptyCopy } from "../empty-copy.js";
 import { api } from "../../lib/api.js";
@@ -54,38 +55,13 @@ function GridInner() {
         ) : !rows.length ? (
           <EmptyState icon={Table2} {...emptyCopy(state.text ? "grid-filter" : "grid-empty")} />
         ) : (
-          <table className="w-full border-collapse text-ui">
-            <thead>
-              <tr className="border-b border-border">
-                {cols.map((c) => (
-                  <th key={c.name} className={`px-6 py-3 ${c.align === "right" ? "text-right" : "text-left"}`}>
-                    <button
-                      type="button"
-                      onClick={() => dispatch({ type: "toggleSort", key: c.name })}
-                      className="text-meta font-semibold text-subtle transition-colors hover:text-ink-100"
-                    >
-                      {c.label}{state.sort?.key === c.name ? (state.sort.dir === "asc" ? " ↑" : " ↓") : ""}
-                    </button>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr
-                  key={row.id}
-                  onClick={() => select({ kind: "row", id: row.id, module })}
-                  className="cursor-pointer border-b border-border transition-colors hover:bg-hover"
-                >
-                  {cols.map((c) => (
-                    <td key={c.name} className={`max-w-xs truncate px-6 py-3 text-subtle ${c.align === "right" ? "text-right" : "text-left"}`}>
-                      {cellValue(row, c)}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <NotesTable
+            cols={cols}
+            rows={rows}
+            sort={state.sort}
+            onSort={(key) => dispatch({ type: "toggleSort", key })}
+            onRow={(row) => select({ kind: "row", id: row.id, module })}
+          />
         )}
       </div>
     </div>

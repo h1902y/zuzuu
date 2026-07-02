@@ -10,10 +10,13 @@ import { create } from "zustand";
 export interface ModuleFilter {
   text: string;
   kind: string;
+  /** the module FACET — only meaningful on the UNIFIED scope ('' = Everything),
+   *  where module is a column: narrowing to one module is a filter, not a nav. */
+  module: string;
   scrollTop: number;
 }
 
-const EMPTY: ModuleFilter = { text: "", kind: "", scrollTop: 0 };
+const EMPTY: ModuleFilter = { text: "", kind: "", module: "", scrollTop: 0 };
 
 interface ModuleFilterState {
   byModule: Record<string, ModuleFilter>;
@@ -26,7 +29,7 @@ export const filterOf = (byModule: Record<string, ModuleFilter>, module: string)
   byModule[module] ?? EMPTY;
 
 /** Does the filter actually narrow anything (drives the spotlight + chip row)? */
-export const isFiltering = (f: ModuleFilter): boolean => f.text.trim() !== "" || f.kind !== "";
+export const isFiltering = (f: ModuleFilter): boolean => f.text.trim() !== "" || f.kind !== "" || f.module !== "";
 
 export const useModuleFilter = create<ModuleFilterState>((set, get) => ({
   byModule: {},

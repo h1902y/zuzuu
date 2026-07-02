@@ -6,7 +6,7 @@
 // Logic-in-.ts (the project's pattern); the <WorkbenchShell> .tsx renders this.
 
 /** What the center stage shows. (ER is deferred — not a stage actor yet.) */
-export type StageActor = "world" | "terminal" | "grid" | "record" | "overview" | "search" | "settings" | "acp";
+export type StageActor = "world" | "terminal" | "grid" | "everything" | "record" | "overview" | "search" | "settings" | "acp";
 /** What the right wing shows; "none" = the wing retracts (R4). */
 export type WingActor = "review" | "form" | "schema" | "none";
 
@@ -18,6 +18,7 @@ export type WingActor = "review" | "form" | "schema" | "none";
 export type NavNode =
   | { kind: "session"; id: string }
   | { kind: "module"; id: string }
+  | { kind: "everything" } // the UNIFIED table: one grid over every module (module = a column)
   | { kind: "row"; id: string; module: string }
   | { kind: "note"; id: string; module: string }
   | { kind: "draft"; module: string } // the New-note draft (form-first — audit item 3)
@@ -41,6 +42,8 @@ export function selectActors(node: NavNode | null): Selection {
   switch (node?.kind) {
     case "session": return { stage: "terminal", wing: "review", crumb: ["session", node.id] };
     case "module": return { stage: "grid", wing: "schema", crumb: [node.id] };
+    // one table over everything — module is a COLUMN here, not a silo
+    case "everything": return { stage: "everything", wing: "none", crumb: ["Everything"] };
     case "row": return { stage: "record", wing: "form", crumb: [node.module, node.id] };
     // map-first reading: the World keeps the stage, the record opens as the wing
     case "note": return { stage: "world", wing: "form", crumb: [node.module, node.id] };

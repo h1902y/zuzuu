@@ -9,7 +9,7 @@ describe("module-filter store", () => {
 
   it("defaults to an empty lens; isFiltering is false", () => {
     const f = filterOf(useModuleFilter.getState().byModule, "crm");
-    expect(f).toEqual({ text: "", kind: "", scrollTop: 0 });
+    expect(f).toEqual({ text: "", kind: "", module: "", scrollTop: 0 });
     expect(isFiltering(f)).toBe(false);
   });
 

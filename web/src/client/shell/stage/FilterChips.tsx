@@ -24,6 +24,12 @@ export function FilterChips({ module }: { module: string }) {
           type: {filter.kind}
         </span>
       )}
+      {filter.module && (
+        // the unified ('' scope) lens's module FACET — one island lit whole
+        <span className="rounded-ui border border-border bg-app px-2 py-0.5 text-meta text-subtle">
+          module: {filter.module}
+        </span>
+      )}
       <button
         type="button"
         onClick={() => clear(module)}

@@ -90,11 +90,9 @@ export function NavTree() {
         <NewSessionMenu />
       </Stack>
 
-      <Stack gap="xs">
-        <Text size="meta" tone="subtle" weight="semibold">TABLES</Text>
-        {model.tables.map(row)}
-        {!model.tables.length && <Text size="meta" tone="muted">{overview.isLoading ? "…" : "none yet"}</Text>}
-      </Stack>
+      {/* The per-module TABLES section left with the unified Everything view —
+          modules are facets in the one table and islands on the map, not nav silos
+          (schema/module cards stay reachable via map chips + the palette). */}
 
       {/* PROJECT collapsed to Settings after Graph (U2) + Search (U4) left — pin it to
           the rail footer rather than carry a one-item section header (R2). */}

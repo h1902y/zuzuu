@@ -1,5 +1,5 @@
 // shell/nav-model.ts — the pure row model behind the unified NavTree (U1). Produces the
-// ordered nav rows (top · sessions · tables · project) from the current selection + live
+// ordered nav rows (top · sessions · project) from the current selection + live
 // data, so row composition — which rows exist, their badges, session liveness, and the
 // active row — is testable without rendering. NavTree maps each row's `glyph`/`liveness`
 // to a ds Icon and wires `node` into select(). One row shape for every entry (R1): the
@@ -19,16 +19,17 @@ export interface NavRowModel {
   active: boolean;
   /** session rows only — drives the liveness dot's fill/tone */
   liveness?: Liveness;
-  /** tables only — the pending-proposal count, omitted when 0 */
+  /** the pending-proposal count, omitted when 0 (rides the Everything row) */
   badge?: number;
 }
 
-/** The four logical row groups. NavTree renders the section chrome (headings, the
- *  NewSessionMenu, empty/loading states); this model owns the rows themselves. */
+/** The three logical row groups. NavTree renders the section chrome (headings, the
+ *  NewSessionMenu, empty/loading states); this model owns the rows themselves.
+ *  (The per-module TABLES group left with the unified Everything view — modules
+ *  are a COLUMN/facet there and islands on the map, not nav silos.) */
 export interface NavModel {
   top: NavRowModel[];
   sessions: NavRowModel[];
-  tables: NavRowModel[];
   project: NavRowModel[];
 }
 
@@ -48,14 +49,14 @@ export interface NavInput {
 
 const sessionActive = (sel: NavNode | null, id: string): boolean =>
   sel?.kind === "session" && sel.id === id;
-const moduleActive = (sel: NavNode | null, id: string): boolean =>
-  sel?.kind === "module" && sel.id === id;
 const kindActive = (sel: NavNode | null, kind: NavNode["kind"]): boolean =>
   sel?.kind === kind;
 
 export function navModel(input: NavInput): NavModel {
   const { selected, sessions, acpSessions = [], modules, owner, showSetup, showSearch = false } = input;
 
+  // the unified table's badge: every module's pending proposals, one number
+  const totalPending = modules.reduce((n, m) => n + (m.counts?.pending ?? 0), 0);
   const top: NavRowModel[] = [
     {
       // map-first (C1): home = the World; a `note` selection is map-anchored too
@@ -64,6 +65,15 @@ export function navModel(input: NavInput): NavModel {
       label: "Map",
       glyph: "map",
       active: selected === null || selected.kind === "note",
+    },
+    {
+      // one table over everything — module is a column/facet, not a nav silo
+      key: "everything",
+      node: { kind: "everything" },
+      label: "Everything",
+      glyph: "table",
+      active: kindActive(selected, "everything"),
+      ...(totalPending > 0 ? { badge: totalPending } : {}),
     },
     {
       key: "overview",
@@ -95,23 +105,11 @@ export function navModel(input: NavInput): NavModel {
     active: selected?.kind === "acp" && selected.id === s.id,
   }));
 
-  const tableRows: NavRowModel[] = modules.map((m) => {
-    const pending = m.counts?.pending ?? 0;
-    return {
-      key: `module:${m.id}`,
-      node: { kind: "module", id: m.id },
-      label: m.title,
-      glyph: "table" as const,
-      active: moduleActive(selected, m.id),
-      ...(pending > 0 ? { badge: pending } : {}),
-    };
-  });
-
   const project: NavRowModel[] = [];
   if (showSearch) {
     project.push({ key: "search", node: { kind: "search" }, label: "Search", glyph: "search", active: kindActive(selected, "search") });
   }
   project.push({ key: "settings", node: { kind: "settings" }, label: "Settings", glyph: "settings", active: kindActive(selected, "settings") });
 
-  return { top, sessions: [...acpRows, ...sessionRows], tables: tableRows, project };
+  return { top, sessions: [...acpRows, ...sessionRows], project };
 }

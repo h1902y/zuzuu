@@ -31,6 +31,10 @@ export function stageHeaderModel(node: NavNode | null): StageHeaderModel {
   switch (node?.kind) {
     case "module":
       return { show: true, primary: { key: "new-note", label: "New note" } };
+    case "everything":
+      // the unified table: same Table⇄Map tabs as a module (T flips to the full
+      // World with the lens spotlighted); no primary — creation is module-scoped
+      return { show: true, primary: null };
     case "session":
       return { show: true, primary: { key: "end-session", label: "End session" } };
     case "row":

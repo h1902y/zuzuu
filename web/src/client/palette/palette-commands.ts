@@ -20,6 +20,7 @@ export type PaletteAction =
   // U3 — the Notes (content) group: open a note, expand to the full results view,
   // stage a new note from a no-results query, or a non-selecting placeholder (loading).
   | { kind: "open-note"; module: string; id: string }
+  | { kind: "open-everything" } // the unified table (one grid over every module)
   | { kind: "see-all-search"; query: string }
   | { kind: "create-note"; query: string }
   // C3 — the omnibar modes: world camera commands + the ACP conversation hand-off
@@ -57,6 +58,7 @@ export function buildPaletteGroups(ctx: PaletteContext): PaletteGroup[] {
   groups.push({
     heading: "Navigate",
     commands: [
+      { value: "everything all notes unified table", label: "Everything", action: { kind: "open-everything" } },
       { value: "overview home base", label: "Overview", action: { kind: "overview" } },
       { value: "all projects launcher manage", label: "All projects", action: { kind: "projects-home" } },
     ],
@@ -144,6 +146,9 @@ export function omniGroup(
     }
     if (!rest || fuzzyScore(rest, "review") !== null) {
       commands.push({ value: "omni-review", label: "review — open the gate", action: { kind: "review" } });
+    }
+    if (!rest || fuzzyScore(rest, "everything") !== null) {
+      commands.push({ value: "omni-everything", label: "everything — one table over every module", action: { kind: "open-everything" } });
     }
     for (const m of modules) {
       if (!rest || fuzzyScore(moduleArg, m.id) !== null || fuzzyScore(rest, `module ${m.id}`) !== null) {

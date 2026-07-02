@@ -27,6 +27,7 @@ import { onboardingStep, recordConsent, reopen, RUNG_ROUTE, describeSetupFailure
 import { loadConsent, saveConsent } from "./onboarding/onboarding-consent.js";
 import { Overview } from "./overview/Overview.js";
 import { Grid } from "./stage/Grid.js";
+import { Everything } from "./stage/Everything.js";
 import { Record } from "./stage/Record.js";
 import { AcpView } from "./stage/AcpView.js";
 import { World } from "./stage/World.js";
@@ -109,15 +110,21 @@ export function WorkbenchShell() {
       if (e.key === "r" || e.key === "R") { e.preventDefault(); setReview(!useReview.getState().open); }
       else if (e.key === "t" || e.key === "T") {
         // ONE continuous space, two projections — T toggles them in a module context;
-        // deep inside an island on the World home, T crystallizes it into its table
+        // on the unified Everything it flips table ⇄ the FULL World (the '' scope);
+        // deep inside an island on the World home, T crystallizes it into its table;
+        // on the plain World home, T opens Everything (the table of what you see).
         const sel = useWorld.getState().selected;
         if (sel?.kind === "module") { e.preventDefault(); useModuleView.getState().toggle(sel.id); }
-        else {
+        else if (sel?.kind === "everything") { e.preventDefault(); useModuleView.getState().toggle(""); }
+        else if (sel === null) {
           const deep = useWorldCommand.getState().deep;
+          e.preventDefault();
           if (deep) {
-            e.preventDefault();
             useModuleView.getState().set(deep, "table");
             select({ kind: "module", id: deep });
+          } else {
+            useModuleView.getState().set("", "table");
+            select({ kind: "everything" });
           }
         }
       }
@@ -206,7 +213,8 @@ export function WorkbenchShell() {
   const header = stageHeaderModel(selected);
   const moduleTitle = (id: string) => modules.find((m) => m.id === id)?.title ?? id;
   const stageCrumb =
-    selected?.kind === "module" ? [moduleTitle(selected.id)]
+    selected?.kind === "everything" ? ["Everything"]
+    : selected?.kind === "module" ? [moduleTitle(selected.id)]
     : selected?.kind === "row" || selected?.kind === "note" ? [moduleTitle(selected.module), selected.id]
     : selected?.kind === "draft" ? [moduleTitle(selected.module), "new note"]
     : selected?.kind === "session" ? [activeSession?.title || "session"]
@@ -222,13 +230,18 @@ export function WorkbenchShell() {
   const MODULE_TABS: StageTab[] = [{ key: "table", label: "Table" }, { key: "graph", label: "Map" }];
   const totalPending = Object.values(pendingByModule).reduce((n, v) => n + v, 0);
   const SESSION_TABS = sessionTabs(totalPending);
+  // the unified Everything scope keys the module-view/filter stores at '' — the
+  // same Table⇄Map grammar, project-wide
+  const everythingTab = selected?.kind === "everything" ? resolveTab(MODULE_TABS, viewOf(viewByModule, "")) : undefined;
   const activeModuleTab = selected?.kind === "module" ? resolveTab(MODULE_TABS, viewOf(viewByModule, selected.id)) : undefined;
   const activeSessionTab = resolveTab(SESSION_TABS, sessionView);
-  const stageTabs = selected?.kind === "module" ? MODULE_TABS : selected?.kind === "session" ? SESSION_TABS : undefined;
-  const activeTab = selected?.kind === "module" ? activeModuleTab : selected?.kind === "session" ? activeSessionTab : undefined;
+  const stageTabs = selected?.kind === "module" || selected?.kind === "everything" ? MODULE_TABS : selected?.kind === "session" ? SESSION_TABS : undefined;
+  const activeTab = selected?.kind === "module" ? activeModuleTab : selected?.kind === "everything" ? everythingTab : selected?.kind === "session" ? activeSessionTab : undefined;
   const onTab = selected?.kind === "module"
     ? (key: string) => setModuleView(selected.id, key as ModuleView)
-    : selected?.kind === "session" ? setSessionView : undefined;
+    : selected?.kind === "everything"
+      ? (key: string) => setModuleView("", key as ModuleView)
+      : selected?.kind === "session" ? setSessionView : undefined;
 
   return (
     <div className="flex h-full flex-col">
@@ -289,6 +302,19 @@ export function WorkbenchShell() {
               ) : (
                 <div key="table" className="animate-fade flex min-h-0 flex-1 flex-col">
                   <Grid module={selected.id} />
+                </div>
+              )
+            ) : sel.stage === "everything" ? (
+              // one table over everything (module = a column/facet) — same two
+              // projections: T flips to the FULL World, the '' lens spotlighted
+              everythingTab === "graph" ? (
+                <div key="emap" className="animate-fade flex min-h-0 flex-1 flex-col">
+                  <FilterChips module="" />
+                  <div className="min-h-0 flex-1"><World lens="" /></div>
+                </div>
+              ) : (
+                <div key="etable" className="animate-fade flex min-h-0 flex-1 flex-col">
+                  <Everything />
                 </div>
               )
             ) : sel.stage === "grid" && selected?.kind === "draft" ? (

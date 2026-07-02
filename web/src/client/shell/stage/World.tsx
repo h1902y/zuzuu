@@ -19,7 +19,12 @@ import { emptyCopy } from "../empty-copy.js";
 import { EmptyState, Text } from "../../ds/index.js";
 import "../../world/world.css";
 
-export function World({ focus }: { focus?: string }) {
+export function World({ focus, lens }: {
+  focus?: string;
+  /** the module-filter scope to spotlight ('' = the unified Everything lens across
+   *  ALL islands); defaults to `focus` (a module's own lens). */
+  lens?: string;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const handle = useRef<WorldHandle | null>(null);
   const select = useWorld((s) => s.select);
@@ -78,17 +83,19 @@ export function World({ focus }: { focus?: string }) {
   }, [focus, graph.data]);
 
   // the module filter, spatial: the grid's active filter (shared store) becomes a
-  // spotlight on the focused island — matching notes lit, the rest receding. The
+  // spotlight — on the focused island, or (the '' scope: the unified Everything
+  // lens) across ALL islands, its module FACET lighting one island whole. The
   // chip row above the map (FilterChips) names the filter and clears it.
-  const filter = useModuleFilter((s) => (focus ? filterOf(s.byModule, focus) : null));
+  const scope = lens ?? focus;
+  const filter = useModuleFilter((s) => (scope !== undefined ? filterOf(s.byModule, scope) : null));
   useEffect(() => {
     if (!handle.current || !graph.data) return;
-    if (focus && filter && isFiltering(filter)) {
-      handle.current.spotlight(spotlightAddrs(graph.data.nodes, focus, filter));
+    if (scope !== undefined && filter && isFiltering(filter)) {
+      handle.current.spotlight(spotlightAddrs(graph.data.nodes, scope || null, filter));
     } else {
       handle.current.spotlight(null);
     }
-  }, [focus, filter, graph.data]);
+  }, [scope, filter, graph.data]);
 
   // the palette's camera commands (C3): consume once the engine has data
   const pending = useWorldCommand((s) => s.pending);

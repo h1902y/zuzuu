@@ -20,7 +20,7 @@ describe("buildPaletteGroups", () => {
   });
   it("Navigate carries Overview + All projects", () => {
     const nav = buildPaletteGroups(base)[0]!;
-    expect(nav.commands.map((c) => c.action.kind)).toEqual(["overview", "projects-home"]);
+    expect(nav.commands.map((c) => c.action.kind)).toEqual(["open-everything", "overview", "projects-home"]);
   });
   it("Actions includes one New-agent per host", () => {
     const actions = buildPaletteGroups(base).find((g) => g.heading === "Actions")!;
@@ -61,7 +61,7 @@ describe("omniGroup — the omnibar's prefix modes (C3)", () => {
   });
   it("> alone lists everything; >fi filters to fit; module names focus islands", () => {
     const all = omniGroup(">", modules)!;
-    expect(all.commands.map((c) => c.action.kind)).toEqual(["world-fit", "module-view", "module-view", "review", "world-module", "world-module"]);
+    expect(all.commands.map((c) => c.action.kind)).toEqual(["world-fit", "module-view", "module-view", "review", "open-everything", "world-module", "world-module"]);
     const fit = omniGroup(">fi", modules)!;
     expect(fit.commands.some((c) => c.action.kind === "world-fit")).toBe(true);
     const mod = omniGroup(">module social", modules)!;

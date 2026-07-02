@@ -17,8 +17,9 @@ describe("navModel — the unified sidebar rows", () => {
   it("top: Map is the home row (map-first); Overview is the explicit second row", () => {
     expect(navModel(base).top[0]).toMatchObject({ key: "map", glyph: "map", node: null, active: true });
     expect(navModel({ ...base, selected: { kind: "note", id: "x", module: "k" } }).top[0]!.active).toBe(true);
-    expect(navModel(base).top[1]).toMatchObject({ key: "overview", glyph: "overview", active: false });
-    expect(navModel({ ...base, selected: { kind: "overview" } }).top[1]!.active).toBe(true);
+    expect(navModel(base).top[1]).toMatchObject({ key: "everything", glyph: "table", active: false });
+    expect(navModel(base).top[2]).toMatchObject({ key: "overview", glyph: "overview", active: false });
+    expect(navModel({ ...base, selected: { kind: "overview" } }).top[2]!.active).toBe(true);
     expect(navModel({ ...base, selected: { kind: "settings" } }).top[0]!.active).toBe(false);
   });
 
@@ -50,17 +51,21 @@ describe("navModel — the unified sidebar rows", () => {
     expect(navModel(base).sessions).toEqual([]); // no phantom rows when the registry is empty
   });
 
-  it("tables: badge present only when pending > 0; active tracks the module selection", () => {
+  it("top: Everything replaces the per-module TABLES group (modules are facets, not silos)", () => {
     const modules = [
       { id: "knowledge", title: "Knowledge", counts: { pending: 3 } },
-      { id: "memory", title: "Memory", counts: { pending: 0 } },
+      { id: "memory", title: "Memory", counts: { pending: 1 } },
       { id: "actions", title: "Actions" },
     ];
-    const rows = navModel({ ...base, modules, selected: { kind: "module", id: "memory" } }).tables;
-    expect(rows.find((r) => r.key === "module:knowledge")!.badge).toBe(3);
-    expect(rows.find((r) => r.key === "module:memory")!.badge).toBeUndefined();
-    expect(rows.find((r) => r.key === "module:actions")!.badge).toBeUndefined();
-    expect(rows.find((r) => r.key === "module:memory")!.active).toBe(true);
+    const m = navModel({ ...base, modules, selected: { kind: "everything" } });
+    const everything = m.top.find((r) => r.key === "everything")!;
+    expect(everything).toMatchObject({ glyph: "table", node: { kind: "everything" }, active: true });
+    expect(everything.badge).toBe(4); // pending rolls up across every module
+    // no per-module rows anywhere in the model
+    const allRows = [...m.top, ...m.sessions, ...m.project];
+    expect(allRows.some((r) => r.key.startsWith("module:"))).toBe(false);
+    // no pending → no badge
+    expect(navModel({ ...base, modules: [{ id: "k", title: "K" }] }).top.find((r) => r.key === "everything")!.badge).toBeUndefined();
   });
 
   it("project: Settings is always present; Search shows only when opted in (it's ⌘K-reached)", () => {

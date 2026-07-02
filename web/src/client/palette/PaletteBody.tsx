@@ -91,21 +91,30 @@ export default function PaletteBody() {
         break;
       case "world-fit": select(null); requestWorld({ kind: "fit" }); break;
       case "world-module": select(null); requestWorld({ kind: "focusModule", module: action.id }); break;
+      case "open-everything":
+        // the unified table: one grid over every module (module = a column/facet)
+        useModuleView.getState().set("", "table");
+        select({ kind: "everything" });
+        break;
       case "module-view": {
         // flip the projection of the module IN CONTEXT (selected module, or the
-        // module of the focused note/row/draft). No module context: >map falls back
-        // to the World home (the whole map); >table has nothing to project — say so.
+        // module of the focused note/row/draft; the unified Everything toggles its
+        // '' scope). No context at all: >map falls back to the World home; >table
+        // opens Everything — the whole Project always HAS a table now.
         const module = selected?.kind === "module" ? selected.id
           : selected?.kind === "note" || selected?.kind === "row" || selected?.kind === "draft" ? selected.module
             : null;
-        if (module) {
+        if (selected?.kind === "everything") {
+          useModuleView.getState().set("", action.view);
+        } else if (module) {
           useModuleView.getState().set(module, action.view);
           select({ kind: "module", id: module });
         } else if (action.view === "graph") {
           select(null);
           requestWorld({ kind: "fit" });
         } else {
-          toast("no table in focus — try >module <name> first");
+          useModuleView.getState().set("", "table");
+          select({ kind: "everything" });
         }
         break;
       }
