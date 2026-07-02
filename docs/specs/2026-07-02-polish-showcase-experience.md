@@ -670,3 +670,43 @@ zuzuu projectifies the KNOWLEDGE, GOVERNANCE, and ORCHESTRATION of any digital
 work; the data plane attaches, the runtime executes at the tool boundary, and
 the human gate scales by aggregation. What it refuses: high-cardinality
 storage, multi-user (yet), exactly-once magic, and the automation-hostile web.
+
+### §I.3 — The verdict: don't scrap — invert. Control plane, not engine (03-07)
+
+§I fused two claims. The break book kills one and leaves the other untouched:
+- KILLED: "zuzuu is a workflow EXECUTION ENGINE" (durable, concurrent,
+  exactly-once, long-running) — that is Temporal's decade-hard problem; every
+  break (B3 · B5 · timeout · resume) attacks this claim.
+- UNTOUCHED: "processes are NOTES" — versioned, gated, queryable, mapped,
+  evolved through review. No engine on earth has this. It is the moat applied
+  to process, and it is the profound part.
+
+**The inversion**: zuzuu is the CONTROL PLANE — it owns the DEFINITION (tool/
+workflow/trigger notes), the GOVERNANCE (gate, generations, provenance), the
+STATE (runs-as-notes), and the LEARNING (runs-miner → proposals). Execution is
+always a short-lived, stateless worker advancing durable state that lives in
+the substrate we already have. "Borrowed, not invented" applied to runtimes.
+
+**The three-tier execution model** (a tool/workflow note declares its tier):
+- **Tier 0 · script** (exists + safety floor): synchronous act/flow with
+  timeout — seconds-long, local, reversible. Most personal automation is this.
+- **Tier 1 · session** (§I.1 binding c): delegated to the host agent via ACP —
+  interactive, judgment-laden, browser work, auth pauses. A human is
+  co-present; the transcript is the run log; observe mines it natively.
+- **Tier 2 · durable** (the workaround, NEW): **the run is a note** — a state
+  machine in frontmatter (per-step status · attempts · idempotency key ·
+  waiting-on). NO long-lived process: each step is one short invocation; a
+  runner tick (daemon timer, cron, or `zz run advance`) reads the run-note,
+  executes the next ready step, writes the new state. Crash-recovery = re-read
+  the note. Waits (human steps · timers · ingress) are just STATES — a 3-day
+  ground-worker step is a run-note sitting at `waiting: form-42`, visible in
+  the table, resumed by `zz run complete` or an ingress trigger. External
+  effects only via outbox-opted tool notes (B5). Semantics: AT-LEAST-ONCE +
+  idempotency keys — honestly documented, never "exactly-once".
+
+Durability comes from the substrate (notes + git + the one write door), not
+from process supervision — that is why this is buildable by this project and
+Temporal-lite is not. The moat stays the star: definitions and their evolution
+are what zuzuu uniquely governs; execution stays humble, tiered, and honest.
+Sequencing unchanged: safety floor → composition → runs-miner → tier-2 runner
+→ triggers → Flow view. The CRM proof-project now spans all three tiers.
