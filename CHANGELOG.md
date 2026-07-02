@@ -42,6 +42,25 @@ that history).
 - The corpus signature is computed once per index rebuild, not twice.
 
 ### Added
+- **The zuzuu-native table (web, §H)**: the grid rebuilt on the envelope's own
+  doctrines — identity is the id (never a blank first cell), one elastic
+  Attributes cell for heterogeneous rows (clickable chips join the filter),
+  field-type glyphs in every header, lifecycle-toned status pills, and row
+  expansion into `NoteDocument` (§H.6 — the SAME detail component the Record
+  stage and the omnibar's detail pane now render too, replacing three bespoke
+  layouts with one). **Filtering is one grammar, three entry points**: the
+  typed input parses free text (FTS, live) vs `key<op>value`/`#tag` (a
+  dismissible where clause on Enter); clicking an Attributes chip or a
+  module/type/status facet writes the identical state; the anchored
+  `[Filter]`/`[Group]`/`[Sort]` builder panels (Airtable's grid language,
+  adopted — never a modal) write it too. **Group-by** collapses rows into
+  sections with counts and a per-numeric-column Σ, client-side over the loaded
+  page (no daemon route serves `--group-by` through `module items` yet — a
+  noted follow-up); the **footer** always shows the row count. **Selection is
+  context, the omnibar is the verb** (§H.3.4): hover a row's checkbox or press
+  `x`; a live selection surfaces a "Selection" group at the top of ⌘K — export
+  as CSV (instant) or delete (a proposal, looping the existing per-row
+  stage-delete — no single batch generation yet, a noted gap).
 - **The envelope floor**: `title · module · type · status` are never null on a
   landed note — filled at the write boundary (status → `active`, title → body
   first line else humanized id), never overwritten; reads stay tolerant.

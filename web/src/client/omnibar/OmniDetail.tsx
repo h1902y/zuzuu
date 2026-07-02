@@ -4,9 +4,11 @@
 // fetched lazily per kind (react-query caches per key, so arrowing around is
 // cheap). Read-only; the row's actions do the acting.
 import { useQuery } from "@tanstack/react-query";
-import type { ModuleItem, StagedSummary } from "#shared/index.js";
+import type { StagedSummary } from "#shared/index.js";
 import { api } from "../lib/api.js";
 import { useWorkbench } from "../state/store.js";
+import { fieldsFromSchema } from "../shell/stage/schema-fields.js";
+import { NoteDocument } from "../note/NoteDocument.js";
 import type { DetailRef } from "./omni-shell.js";
 import type { StagedRow } from "./omni-sources.js";
 
@@ -17,20 +19,15 @@ const Row = ({ k, v }: { k: string; v: string }) => (
   </div>
 );
 
+// §H.6 retrofit: the panel's note preview is the SAME NoteDocument the Record
+// stage and row-expansion render, at its "panel" width — one detail grammar,
+// every container. Fields are fetched too (not just the item) so schema groups
+// (select pills, ƒ formulas) render here exactly as elsewhere.
 function NoteDetail({ module, id }: { module: string; id: string }) {
   const q = useQuery({ queryKey: ["zuzuu", "item", module, id], queryFn: () => api.zuzuu.item(module, id) });
+  const schema = useQuery({ queryKey: ["zuzuu", "schema", module], queryFn: () => api.zuzuu.schema(module) });
   if (!q.data) return <p className="text-meta text-muted">{q.isLoading ? "loading…" : "not found"}</p>;
-  const it = q.data as ModuleItem & { body?: string; definition?: string };
-  const peek = (it.body || it.definition || "").slice(0, 480);
-  return (
-    <div className="flex min-h-0 flex-col gap-2">
-      <p className="truncate text-ui font-semibold text-ink-100">{it.title || it.id}</p>
-      <Row k="addr" v={`${module}:${id}`} />
-      {it.kind && <Row k="type" v={String(it.kind)} />}
-      {it.status && <Row k="status" v={String(it.status)} />}
-      {peek && <pre className="mt-1 max-h-56 overflow-hidden whitespace-pre-wrap text-meta text-subtle">{peek}</pre>}
-    </div>
-  );
+  return <NoteDocument item={q.data} fields={fieldsFromSchema(schema.data?.schema)} width="panel" />;
 }
 
 function ModuleDetail({ id }: { id: string }) {

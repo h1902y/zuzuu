@@ -107,11 +107,52 @@ zz module items --all --type activity --json     # filters compose across module
 ```
 
 In the workbench this is the **Everything** view: one grid over the whole
-Project, module as a column (with its island color dot), module/type facet
-chips to narrow. Press `T` and the same lens becomes a spotlight across the
-whole World — a module facet lights one island whole. The per-module tables
-remain (a module still has its schema and its own grid, one chip-click away);
-they're just not navigation anymore.
+Project, module as a column (with its island color dot), module/type/status
+facet chips to narrow. Press `T` and the same lens becomes a spotlight across
+the whole World — a module facet lights one island whole. The per-module
+tables remain (a module still has its schema and its own grid, one chip-click
+away); they're just not navigation anymore.
+
+## The workbench grid
+
+Both the per-module table and Everything render through the same native grid
+(`NotesTable`): identity is the id (never a blank first cell), a row-number
+rail that reveals a checkbox on hover, field-type glyphs in every header, and
+one elastic **Attributes** cell on heterogeneous rows so no frontmatter key is
+ever unreachable — click a chip and it becomes a filter clause.
+
+**Filtering, one grammar, three entry points** (§H.3.1). Type into the filter
+box: free text live-filters via FTS as you type; a `key<op>value` shape (or
+`#tag`) commits on Enter as a dismissible **where clause** instead — the same
+grammar `--where` speaks on the command line. Click an Attributes chip and it
+becomes the same clause. Or open the **[Filter]** button's anchored panel
+(field/op/value + "+ add condition") — builder and typed input write the
+identical state, so the chip row below the toolbar is always the complete,
+honest picture of what's narrowing the table.
+
+**Group and sort** (§H.3.3/§H.4.3). The **[Group]** button picks a column;
+rows collapse into sections with a count and, for numeric columns, a per-group
+Σ. The **[Sort]** button picks a field + direction directly (column-header
+click still cycles asc/desc the same way it always did). Group-by is
+client-side over the currently loaded page — there's no daemon route for
+`--group-by`/`--agg` through `module items` yet (only `zz query` has it, see
+above), so a multi-page group under-counts; a true cross-page aggregate is a
+follow-up once that route exists. The footer bar below the table always shows
+the row count, plus the loaded page's numeric Σ.
+
+**Selection is context, the omnibar is the verb** (§H.3.4). Hover a row and
+its checkbox appears (or press `x` while hovering to toggle it) — no bulk
+action lives as table chrome. Once anything is selected, a **Selection** group
+appears at the top of the omnibar (⌘K): *Export N as CSV* (instant, from the
+rows already loaded) and *Delete N selected* (a proposal — it loops the
+existing per-row delete through the gate, one at a time; there's no single
+all-or-nothing batch generation yet, a noted gap).
+
+Cells stay read-only everywhere: click one and, wherever wired, it pre-fills
+the omnibar's `set` verb instead of editing in place — one write door in the
+UI, matching the one write door in the engine. Row expansion (the chevron)
+opens the same `NoteDocument` the Record stage and the omnibar's detail pane
+render — one detail grammar, every container.
 
 ## See it
 
