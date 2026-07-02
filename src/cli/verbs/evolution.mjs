@@ -6,9 +6,17 @@ import { open } from '../../serve/api.mjs';
 import { captureSignals } from '../../hosts/capture.mjs';
 import { observe } from '../../grow/observe.mjs';
 import { observeRuns } from '../../grow/runs-miner.mjs';
+import { listTriggers, showTrigger, fireTrigger, setTriggerEnabled } from '../../grow/trigger.mjs';
 import { renderNoteDiff } from '../../use/diff.mjs';
 import { toon } from '../../notes/toon.mjs';
 import { fail, emit, list, fieldPairs, flag } from '../args.mjs';
+
+// `zz trigger …`'s addr parsing — the SAME `module:id` shape every trigger fn expects.
+function splitTriggerAddr(addr) {
+  const s = String(addr ?? '');
+  const i = s.indexOf(':');
+  return i > 0 && i < s.length - 1 ? { module: s.slice(0, i), id: s.slice(i + 1) } : null;
+}
 
 // post-write integrity nudge: after a gated write, surface any broken links so the
 // reviewer sees the consequence (the LSP-after-edit / auto-check pattern). Returns the
@@ -119,6 +127,87 @@ export const evolutionRows = [
       return 0;
     },
   },
+
+  // ── trigger: automation itself is a gated, versioned note (§I rung 4) ─────────────
+  // A trigger NAMES an automation (`on: {kind,…}` + `run: <workflow>`) — it adds no new
+  // execution authority: `fire` is exactly `run start` under a name, and `enable`/
+  // `disable` is exactly a note edit (the second gate, §I.4 #7). There is no `trigger
+  // create` row — creating one is `zz note create <m> <id> --type trigger …` (the
+  // operator lane) or an agent STAGES it via `zz stage` → `zz review approve` (the
+  // gate) — see grow/trigger.mjs's header for the full model + what's deferred
+  // (the unattended scheduler + ingress, both hosted-tier).
+  {
+    path: ['trigger', 'list'], plane: 'evolution', json: true, permission: 'read', agentInvokable: true,
+    usage: 'trigger list [--json]', summary: 'every trigger note — on-kind · run target · enabled · blast-radius count',
+    handler: ({ cwd, log, json }) => {
+      const rows = listTriggers(open(cwd).home);
+      const view = rows.map((t) => ({ addr: t.addr, on: t.onKind ?? '', run: t.run ?? '', enabled: t.enabled, matches: t.blastRadius ?? '' }));
+      emit(log, json, { ok: true, triggers: rows }, ['triggers', view, ['addr', 'on', 'run', 'enabled', 'matches'], ['zz trigger show <m:id>', 'zz trigger fire <m:id>']]);
+      return 0;
+    },
+  },
+  {
+    path: ['trigger', 'show'], plane: 'evolution', json: true, permission: 'read', agentInvokable: true,
+    usage: 'trigger show <module:id>', summary: 'one trigger note + its blast-radius preview (Apollo-style "current matches: N")',
+    io: { params: ['addr'], flags: {} },
+    handler: ({ args, cwd, log, json }) => {
+      const addr = splitTriggerAddr(args._[0]);
+      if (!addr) return fail(log, 'usage: zz trigger show <module:id>', json);
+      const r = showTrigger(open(cwd).home, addr.module, addr.id);
+      if (!r.ok) return fail(log, r.error, json);
+      const row = { addr: args._[0], on: r.trigger.on?.kind ?? '', run: r.trigger.run ?? '', enabled: r.enabled, matches: r.matches.applicable ? r.matches.count : 'n/a' };
+      emit(log, json, { ok: true, trigger: r.trigger, enabled: r.enabled, matches: r.matches },
+        ['trigger', [row], ['addr', 'on', 'run', 'enabled', 'matches']]);
+      return 0;
+    },
+  },
+  {
+    // manual/explicit only (§I rung 4's scope) — never agent-invokable, mirroring
+    // `run start`/`run advance`: firing is a write (it starts a durable run), so it
+    // rides the operator lane exactly like the durable runner it delegates to.
+    path: ['trigger', 'fire'], plane: 'evolution', json: true, permission: 'write', agentInvokable: false,
+    usage: 'trigger fire <module:id> [--dry-run] [--force]',
+    summary: 'fire a trigger NOW — one durable run via the same gate `run start` uses (refuses if disabled unless --force)',
+    io: { params: ['addr'], flags: { 'dry-run': '--dry-run', force: '--force' } },
+    handler: ({ args, cwd, log, json }) => {
+      const addr = splitTriggerAddr(args._[0]);
+      if (!addr) return fail(log, 'usage: zz trigger fire <module:id> [--dry-run] [--force]', json);
+      const dryRun = flag(args['dry-run']);
+      const force = flag(args.force);
+      const r = fireTrigger(open(cwd).home, addr.module, addr.id, { dryRun, force });
+      if (!r.ok) return fail(log, r.error, json);
+      const row = { addr: args._[0], fires: r.wouldFire, dryRun, runId: r.runId ?? '(dry-run)' };
+      emit(log, json, r, ['fire', [row], ['addr', 'fires', 'dryRun', 'runId'], r.runId ? [`zz run advance ${r.runId}`] : []]);
+      return 0;
+    },
+  },
+  {
+    path: ['trigger', 'enable'], plane: 'evolution', json: true, permission: 'write', agentInvokable: false,
+    usage: 'trigger enable <module:id>', summary: 'the second gate (§I.4 #7) — let a reviewed-in trigger fire',
+    io: { params: ['addr'], flags: {} },
+    handler: ({ args, cwd, log, json }) => {
+      const addr = splitTriggerAddr(args._[0]);
+      if (!addr) return fail(log, 'usage: zz trigger enable <module:id>', json);
+      const r = setTriggerEnabled(open(cwd).home, addr.module, addr.id, true);
+      if (!r.ok) return fail(log, r.error, json);
+      emit(log, json, { ok: true, addr: args._[0], enabled: true }, ['trigger', [{ addr: args._[0], enabled: true }], ['addr', 'enabled']]);
+      return 0;
+    },
+  },
+  {
+    path: ['trigger', 'disable'], plane: 'evolution', json: true, permission: 'write', agentInvokable: false,
+    usage: 'trigger disable <module:id>', summary: 'turn a trigger off without deleting it',
+    io: { params: ['addr'], flags: {} },
+    handler: ({ args, cwd, log, json }) => {
+      const addr = splitTriggerAddr(args._[0]);
+      if (!addr) return fail(log, 'usage: zz trigger disable <module:id>', json);
+      const r = setTriggerEnabled(open(cwd).home, addr.module, addr.id, false);
+      if (!r.ok) return fail(log, r.error, json);
+      emit(log, json, { ok: true, addr: args._[0], enabled: false }, ['trigger', [{ addr: args._[0], enabled: false }], ['addr', 'enabled']]);
+      return 0;
+    },
+  },
+
   {
     path: ['stage'], plane: 'evolution', json: true, permission: 'write', agentInvokable: true,
     usage: 'stage <m> --op create|update|delete|deprecate|relate|unrelate [--target <id>] --field k=v', summary: 'stage a change (a pending proposal)',

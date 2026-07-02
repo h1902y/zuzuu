@@ -51,6 +51,22 @@ test('doctor: a broken link surfaces as a warning', async () => {
   });
 });
 
+test('doctor: a cron trigger warns that local zuzuu never auto-fires it (hosted-only, §I.2 B4)', async () => {
+  const { writeNote } = await import('../../src/notes/repo.mjs');
+  withDir((cwd) => {
+    initHome(cwd);
+    const home = join(cwd, '.zuzuu');
+    // {validate:false}: a direct file write is enough to exercise doctor's READ path —
+    // no git repo needed here (unlike creating a trigger through the write door).
+    writeNote(home, 'actions', 'nightly', {
+      type: 'trigger', title: 'Nightly', status: 'active', enabled: false,
+      on: { kind: 'cron', expr: '0 3 * * *' }, run: 'actions:flow',
+    }, { validate: false });
+    const r = doctorReport(cwd);
+    assert.ok(r.warnings.some((w) => /cron trigger/.test(w) && /never auto-fires/.test(w)), r.warnings.join('\n'));
+  });
+});
+
 test('explain: a known topic prints it; no topic lists all', () => {
   const out = [];
   explain('modules', (s) => out.push(s));

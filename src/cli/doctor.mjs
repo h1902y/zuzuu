@@ -18,6 +18,7 @@ import { hooksInstalled } from './enable.mjs';
 import { leftoverWarning } from './session.mjs';
 import { open } from '../serve/api.mjs';
 import { toon } from '../notes/toon.mjs';
+import { listTriggers } from '../grow/trigger.mjs';
 
 /** A structured health report: {problems[], warnings[], info[], ok}. */
 export function doctorReport(cwd = process.cwd()) {
@@ -46,6 +47,13 @@ export function doctorReport(cwd = process.cwd()) {
     }
     if (broken) warnings.push(`${broken} broken link(s) — see \`zz check\``);
     if (ungated) warnings.push(`${ungated} note(s) added outside review — see \`zz check\` (propose via \`zz stage\`; \`zz init\` reconciles seeds)`);
+    // triggers (§I rung 4): a `cron` trigger's `expr` is HOSTED-ONLY — local zuzuu has
+    // no scheduler and never auto-fires it (§I.2 B4's honest boundary: no unattended
+    // ingress on a laptop). Name the gap here so it's discoverable, not silent.
+    if (mods.length) {
+      const cronTriggers = listTriggers(zz.home).filter((t) => t.onKind === 'cron');
+      if (cronTriggers.length) warnings.push(`${cronTriggers.length} cron trigger(s) declared — local zuzuu never auto-fires them (hosted-tier only); fire manually with \`zz trigger fire <module:id>\``);
+    }
   } else {
     problems.push(`no .zuzuu/ home — run \`zz init\``);
   }

@@ -18,6 +18,53 @@
 const RULE_ACTIONS = new Set(['deny', 'ask', 'allow']);
 const nonEmptyStr = (v) => typeof v === 'string' && v.trim() !== '';
 
+// ── trigger (§I rung 4) — `on.kind` + the note-change filter grammar ──────────────
+// Exported so `grow/trigger.mjs` (the fire/blast-radius engine) reuses the SAME closed
+// kind set rather than re-declaring it — notes/ stays the schema source of truth,
+// grow/ imports DOWN from it (never the reverse: notes/ stays dependency-free, so this
+// file never imports grow/trigger.mjs back).
+export const TRIGGER_ON_KINDS = new Set(['manual', 'note-change', 'cron', 'ingress']);
+const TRIGGER_EVENTS = new Set(['create', 'update']);
+const TRIGGER_WHERE_OPS = new Set(['=', '!=', '>', '<', '>=', '<=']);
+
+// `run: 'module:id'` — a LOCAL module:id shape check (mirrors use/workflow.mjs's
+// `splitAddr` exactly, independently pinned — see the workflow block below for why
+// notes/ never imports use/ or grow/: it must stay acyclic).
+const isModuleIdAddr = (v) => {
+  if (typeof v !== 'string') return false;
+  const s = v.trim();
+  const i = s.indexOf(':');
+  return i > 0 && i < s.length - 1;
+};
+
+// A note-change `on.where` clause is well-formed as either a string `'key<op>value'`
+// (the SAME grammar `zz query --where` parses — cli/args.mjs's `parseWhere`,
+// independently mirrored here for the same acyclicity reason) or an object
+// `{key, op?, value}`.
+function wellFormedWhereClause(c) {
+  if (typeof c === 'string') {
+    return ['>=', '<=', '!=', '=', '>', '<'].some((op) => {
+      const at = c.indexOf(op);
+      return at > 0;
+    });
+  }
+  if (c && typeof c === 'object' && !Array.isArray(c)) {
+    return nonEmptyStr(c.key) && c.value !== undefined && (c.op == null || TRIGGER_WHERE_OPS.has(c.op));
+  }
+  return false;
+}
+
+// A permissive 5-field cron SHAPE check — validates syntax, not semantics (a full cron
+// engine is HOSTED-tier's job; local `trigger fire` always ignores `expr` — see
+// grow/trigger.mjs's header). Each field: `*` · a number · a range (`1-5`) · a step
+// (`*/15`) · a comma list of any of those.
+const CRON_FIELD_RE = /^(\*|\d+)(-\d+)?(\/\d+)?(,(\*|\d+)(-\d+)?(\/\d+)?)*$/;
+export function isParseableCronExpr(expr) {
+  if (typeof expr !== 'string') return false;
+  const fields = expr.trim().split(/\s+/);
+  return fields.length === 5 && fields.every((f) => CRON_FIELD_RE.test(f));
+}
+
 // A value counts as ABSENT (nothing to coerce; fails `required`) when it's nullish, a
 // blank string, or an empty array. Numbers and booleans are never empty — `0`/`false`
 // are real values a required column is satisfied by.
@@ -109,6 +156,31 @@ export function validateNote(note, fields = []) {
     else if (note.steps.some((s) => s.wait?.timeout != null && !/^\d+(?:\.\d+)?\s*(ms|s|m|h|d)?$/i.test(String(s.wait.timeout).trim()))) {
       errors.push('a workflow step wait.timeout must be a valid duration (e.g. 30s, 5m, 2h, 1d)');
     }
+  }
+  // trigger (§I rung 4): a gated, versioned way to NAME an automation — never new
+  // execution authority. `on.kind` is the closed set above; `run` is the `module:id`
+  // it fires (a workflow, through the durable runner — see grow/trigger.mjs); `enabled`
+  // is the SECOND gate (§I.4 #7) — a trigger note can land through review but stay
+  // off until a human flips it. Tolerant on `enabled`'s TYPE (a CLI `--field
+  // enabled=true` staged via `zz stage` with no coercion lands as the STRING "true" —
+  // reuse the same boolean-ish tolerance COERCIBLE.bool already gives typed columns).
+  if (note.type === 'trigger') {
+    const on = note.on;
+    if (!on || typeof on !== 'object' || Array.isArray(on)) {
+      errors.push('a trigger needs an on: {kind, …} object');
+    } else if (!TRIGGER_ON_KINDS.has(on.kind)) {
+      errors.push(`a trigger needs on.kind ∈ manual|note-change|cron|ingress (got ${JSON.stringify(on.kind ?? null)})`);
+    } else if (on.kind === 'note-change') {
+      if (!TRIGGER_EVENTS.has(on.event)) errors.push(`a note-change trigger needs on.event ∈ create|update (got ${JSON.stringify(on.event ?? null)})`);
+      if (on.where != null) {
+        if (!Array.isArray(on.where)) errors.push("a note-change trigger's on.where must be a list of clauses");
+        else for (const c of on.where) if (!wellFormedWhereClause(c)) errors.push(`a note-change trigger's on.where has a malformed clause: ${JSON.stringify(c)}`);
+      }
+    } else if (on.kind === 'cron') {
+      if (!isParseableCronExpr(on.expr)) errors.push(`a cron trigger needs a parseable on.expr (got ${JSON.stringify(on.expr ?? null)}) — HOSTED-ONLY: local zuzuu never auto-fires it (see zz doctor)`);
+    }
+    if (!isModuleIdAddr(note.run)) errors.push("a trigger needs a run target 'module:id'");
+    if (note.enabled != null && !COERCIBLE.bool(note.enabled)) errors.push("trigger 'enabled' must be a boolean");
   }
 
   // ── axis 2: the module's typed-column schema (only when it declares one) ──

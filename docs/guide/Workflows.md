@@ -135,11 +135,76 @@ uniform table, and a workflow module's own schema never has to accommodate a run
 very different shape (`steps`, `status: running|waiting|done|failed`,
 `workflow_generation`, …).
 
+## Triggers — naming an automation, explicitly fired
+
+A **trigger note** (`type: trigger`) is a gated, versioned way to NAME an
+automation — not a scheduler. It adds no new execution authority: firing one is
+exactly `zz run start` under a name.
+
+```yaml
+---
+type: trigger
+title: Watch hot leads
+run: actions:onboard-lead        # the workflow it fires — a `run start` target
+enabled: false                   # the SECOND gate — off until a human flips it
+on:
+  kind: note-change              # manual | note-change | cron | ingress
+  module: crm
+  type: lead
+  event: update
+  where:
+    - tier>=2                    # the SAME grammar `zz query --where` parses
+---
+```
+
+```bash
+zz trigger list                      # every trigger note + enabled + blast-radius count
+zz trigger show crm:watch-hot-leads  # the note + "current matches: N" (Apollo-style preview)
+zz trigger fire crm:watch-hot-leads --dry-run   # preview what WOULD fire — starts nothing
+zz trigger enable crm:watch-hot-leads           # the second gate — now it CAN fire
+zz trigger fire crm:watch-hot-leads             # → one durable run, same as `run start`
+```
+
+**Blast-radius first.** `trigger show`/`trigger fire --dry-run` compute the
+`note-change` filter's CURRENT matches (a count + a small sample) before anything
+fires — the same safety affordance Apollo's workflow builder shows at review time
+("current matches: 5"). It's a pure read over the same index `zz query --where`
+uses; nothing is fired to compute it.
+
+**Fire semantics (a documented choice).** A `note-change` trigger's fire starts
+**exactly one** durable run — never one per matching row, which is a batch
+concern this rung doesn't build. The run's `inputs` carry the trigger's declared
+`inputs` plus the matched-note context (`MATCHED_COUNT`, `MATCHED_SAMPLE`). A
+`cron` trigger fired manually just runs its target once; `on.expr` is read by
+nothing local today — it exists so the note is ready for the hosted scheduler
+later with no schema migration.
+
+**The second gate.** `enabled: false` is the default posture — a trigger can be
+reviewed-in (staged by an agent, approved by a human) and still stay inert until
+`zz trigger enable` explicitly turns it on. This mirrors Argo's layered
+def-change gate: review is the first layer, promote/enable is a second.
+
+**Creating one.** There's no `trigger create` verb — a trigger is a note like
+any other: `zz note create <module> <id> --type trigger --change '{...}'` (the
+operator lane), or an agent **proposes** it via `zz stage … --change '{...}'` →
+`zz review approve` (the sanctioned channel — `trigger fire`/`enable`/`disable`
+are denied to an agent actor, same as `run start`).
+
+**What a trigger's `run:` must point at.** Every fired run passes through the
+durable runner, so `run:` must be a `type: workflow` note — firing at a bare
+action refuses with the same "is not a workflow" error `zz run start` gives a
+human pointed at that address. Wrap a single action as a trivial one-step
+workflow if you want to trigger it.
+
 ## Not built yet (on purpose)
 
-- **No scheduler or cron.** A `wait.timeout` is only checked when something calls
-  `advance` on that run — nothing fires it proactively. Automated triggers
-  (`type: trigger` notes) are a later rung.
+- **No unattended scheduler.** A `cron` trigger's `expr` is validated (shape
+  only) but never auto-fired locally — a laptop must not fire triggers
+  unattended (the honest local/hosted boundary). `zz doctor` names any declared
+  cron trigger so the gap stays visible, not silent.
+- **No ingress.** `/ingress/<trigger-id>` webhooks are hosted-tier only.
+- **No note-change auto-firing.** Nothing watches the index for newly-matching
+  rows and fires on its own — `trigger fire` is always explicit today.
 - **No daemon.** `zz run advance --all` is a bounded loop in one process, not a
   background service.
 - **No web surface** for this rung — the Flow view (a third map projection

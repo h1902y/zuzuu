@@ -320,6 +320,60 @@ that history).
   agentInvokable, so it stays out of the execution gate's deny set); `--dry-run`
   computes evidence + the candidate proposals without staging anything. 23 new
   tests (`tests/unit/runs-miner.test.mjs` + `tests/unit/cli-observe-runs.test.mjs`).
+- **Triggers as notes (§I rung 4)** — automation itself is a gated, versioned
+  note, built to the SAFETY-FLOOR-FIRST scope this rung set: the trigger MODEL
+  + manual/explicit firing + blast-radius — explicitly NOT an unattended
+  scheduler (cron auto-fire + ingress webhooks are hosted-tier, §I.2 B4's
+  boundary: a laptop must not fire triggers unattended). `type: trigger`
+  frontmatter: `on: {kind: manual|note-change|cron|ingress, …}` + `run:
+  <workflow-module:id>` + optional `inputs` + `enabled: bool` (the SECOND
+  gate, §I.4 #7 — a trigger can be reviewed-in yet stay off). `notes/
+  validate.mjs` gates the shape at the one write door every note passes: a
+  known `on.kind`, a `note-change` trigger needs `on.event ∈ create|update`
+  and (if present) a well-formed `where` — string `'key<op>value'` (the SAME
+  grammar `zz query --where` parses, independently mirrored to keep `notes/`
+  acyclic) or `{key,op?,value}` — a `cron` trigger needs a parseable 5-field
+  `on.expr` (shape only; semantics are the deferred hosted scheduler's job); a
+  malformed `run` target (not `module:id`) is refused too. `grow/trigger.mjs`
+  is the runtime engine: `triggerMatches(home, trigger)` is the **blast-radius
+  safety affordance** (§I.2 B2 / Apollo's "current matches: N") — for a
+  `note-change` trigger, a PURE read reusing the SAME index query path `zz
+  query --where` uses (`notes/index.mjs`'s `search`/`count`) to count (+
+  sample) how many notes its filter currently matches; any other `on.kind`
+  reports `applicable:false` rather than a misleading 0. `zz trigger list
+  [--json]` lists every trigger note (any module — not confined to a
+  dedicated module, unlike `runs`) with its enabled state + blast-radius
+  count; `zz trigger show <m:id>` is one trigger's detail + preview. `zz
+  trigger fire <m:id> [--dry-run] [--force]` fires EXPLICITLY, right now:
+  resolves the `run:` target and starts exactly ONE durable run via
+  `grow/run.mjs`'s `startRun` — the identical gate/timeout/generation-pin a
+  manual `zz run start` gets (triggers add NO new execution authority).
+  Firing semantics (documented choice): a `note-change` trigger's fire starts
+  ONE run carrying the trigger's `inputs` PLUS the matched-note context
+  (`MATCHED_COUNT`/`MATCHED_SAMPLE`) — never one run per matching row (a
+  batch concern, undesigned this pass); a `cron` trigger fired manually just
+  runs its target once (`on.expr` read by nothing local). REFUSES a disabled
+  trigger unless `--force`; `--dry-run` computes the same preview (incl.
+  blast-radius) without starting anything. Because every fire goes through
+  the durable runner, `run:` must resolve to a `type: workflow` note — firing
+  at a bare action refuses with the SAME "is not a workflow" error `run
+  start` gives a human at that address (a documented limitation, not a
+  special-cased unwrap). `zz trigger enable|disable <m:id>` is the second
+  gate — a plain scoped note edit (`grow/edit.mjs`'s `patchNote`) through the
+  one write door. No `trigger create` verb: a trigger is created exactly
+  like any other note (`zz note create … --type trigger`, the operator lane)
+  or PROPOSED by an agent via `zz stage` → `zz review approve` (the
+  sanctioned channel — `trigger fire`/`enable`/`disable` are
+  `agentInvokable:false`, denied to an agent actor by the SAME generated
+  gate pattern every other durable write uses; verified: the deny-pattern
+  test now covers all three). `zz doctor` names any declared `cron` trigger
+  as hosted-only, so the local/hosted boundary stays discoverable rather than
+  silent. Deferred (documented in `grow/trigger.mjs`'s header + this entry +
+  `docs/guide/Workflows.md`): the unattended cron scheduler, ingress
+  webhooks, and note-change auto-firing — all hosted-tier, a later focused
+  pass. 39 new tests (`tests/unit/trigger.test.mjs` +
+  `tests/unit/trigger-cli.test.mjs` + a `cli-doctor.test.mjs` case); docs:
+  `docs/guide/Workflows.md`'s new Triggers section + `docs/MODEL.md`.
 
 ## [1.8.0] — unpublished
 

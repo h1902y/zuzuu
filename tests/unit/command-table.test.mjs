@@ -48,8 +48,10 @@ const SWITCH_VERBS = [
 // The Tier-2 noun namespaces (Rung 4): every old flat verb still resolves at the top
 // level — as a canonical row (Tier-1) OR a deprecating alias — so the switch's surface
 // is intact. `module` is both a flat read verb AND a namespace (its Rung-6 schema
-// alter-table ops — add/alter/drop-column — live under it).
-const NAMESPACES = ['gen', 'host', 'module', 'note', 'registry', 'run', 'session'];
+// alter-table ops — add/alter/drop-column — live under it). `trigger` (§I rung 4) is
+// the newest addition — list/show/fire/enable/disable, a cold/niche noun exactly like
+// `run`/`gen`, never a hot-loop flat verb.
+const NAMESPACES = ['gen', 'host', 'module', 'note', 'registry', 'run', 'session', 'trigger'];
 
 /** Resolve a row to the handler it ultimately runs (following an `alias` pointer). */
 const canonicalOf = (row) => row.alias
