@@ -101,11 +101,15 @@ export function runGated(home, module, command, { allow = null, inputs = {}, cwd
  * boundary — serve/dispatch.mjs's `invoke` always supplies it) rides into the
  * guardrails gate via runGated — see its doc comment for the fail-open/fail-closed
  * split. Refuses a concurrent run of the SAME note (the run lock, use/run-lock.mjs)
- * rather than letting two invocations' children interleave.
+ * rather than letting two invocations' children interleave. `ctx.via` (optional) is
+ * the composing workflow's `module:id` — set only by `use/workflow.mjs`'s note-ref
+ * composition (§I rung 1); it rides straight into `logRun`'s `via` marker and is
+ * absent (undefined) for every normal, non-composed call, so a standalone `zz act`'s
+ * `runs.jsonl` entry is unchanged.
  * @returns {{ ok, ran, exitCode?, success?, stdout?, stderr?, timedOut?, error?, denied?, running? }}
  */
 export function act(ctx, id, inputs = {}) {
-  const { home, module, manifest, actor = 'operator' } = ctx;
+  const { home, module, manifest, actor = 'operator', via } = ctx;
   const path = itemPath(home, module, id);
   if (!existsSync(path)) return { ok: false, ran: false, error: `no note '${module}:${id}'` };
   const { ok, note } = parse(readFileSync(path, 'utf8'), { id });
@@ -122,7 +126,7 @@ export function act(ctx, id, inputs = {}) {
     const policy = { ...(manifest.policy ?? {}), ...(note.policy ?? {}) };
     const r = runGated(home, module, note.run, { allow: policy.run?.allow ?? null, inputs, timeout: note.timeout, actor });
     if (!r.ran) return { ok: false, ...r };
-    logRun(home, module, id, { inputs, exitCode: r.exitCode, success: r.success, timedOut: r.timedOut, actor });
+    logRun(home, module, id, { inputs, exitCode: r.exitCode, success: r.success, timedOut: r.timedOut, actor, via });
     return { ok: r.success, ...r };
   } finally {
     lock.release();

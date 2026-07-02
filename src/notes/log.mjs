@@ -102,13 +102,20 @@ export function append(home, module, event) {
 /** Convenience: a run event with the normalized result shape. `timedOut` (safety
  *  floor, §I rung 3) rides as an explicit marker on the event when the run hit its
  *  timeout — omitted (not even `false`) on an ordinary run, so existing readers of
- *  runs.jsonl see no shape change. `inputs` is redacted (see `redactInputs` above)
- *  before it is written — the LOGGED copy only; the run itself already happened with
- *  the real values. */
-export function logRun(home, module, note, { inputs = {}, exitCode, success, ts, actor = 'agent', session = null, timedOut } = {}) {
+ *  runs.jsonl see no shape change. `via` (§I rung 1, workflow COMPOSITION —
+ *  `use/workflow.mjs`) is the composing workflow's `module:id` when this run was
+ *  invoked as a note-ref step (the IMMEDIATE parent, not the composition root) —
+ *  omitted on every non-composed run, same "no shape change" treatment as `timedOut`,
+ *  so the runs-miner (§I rung 2) can later attribute a composed failure to the
+ *  workflow that triggered it without every existing reader having to learn a new
+ *  always-present field. `inputs` is redacted (see `redactInputs` above) before it is
+ *  written — the LOGGED copy only; the run itself already happened with the real
+ *  values. */
+export function logRun(home, module, note, { inputs = {}, exitCode, success, ts, actor = 'agent', session = null, timedOut, via } = {}) {
   const safeInputs = redactInputs(inputs, readSecretValues(home));
   const event = { event: 'run', ts: ts ?? null, note, actor, session, inputs: safeInputs, exitCode, success };
   if (timedOut) event.timedOut = true;
+  if (via) event.via = via;
   return append(home, module, event);
 }
 
