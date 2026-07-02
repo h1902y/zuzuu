@@ -133,3 +133,10 @@ Fable is the scarce resource — spend it on judgment, never on labor:
 - Escalate only on failure: Sonnet → Opus review → Fable judgment; never start
   at the top. The spec-first discipline is what MAKES cheap models effective —
   a well-pinned § needs no inherited context.
+- **One writer per branch region at a time.** Parallel agents are fine ONLY on
+  disjoint trees (e.g. src/ vs web/ vs docs/) — but even then, two agents
+  committing to the same branch can sweep each other's staged files into the
+  wrong commit (observed 03-07: a src/ fix landed inside a web/ commit). Rule:
+  give each concurrent agent a non-overlapping path scope AND tell it to use
+  pathspec-limited commits (`git commit -- <its files>`), never `git add -A`.
+  For same-region work, serialize. When in doubt, one agent at a time.
