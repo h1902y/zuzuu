@@ -77,19 +77,26 @@ export function World({ focus }: { focus?: string }) {
     if (g && Date.now() - g.at < 8000) handle.current.glow(g.mentions);
   }, [glowReq, graph.data, consumeGlow]);
 
-  if (graph.isLoading) return <div className="grid h-full place-items-center"><Text tone="muted">loading the map…</Text></div>;
-  // a failed graph read must NEVER render a silent black stage (live-audit P0):
-  // say so, offer retry — one transient CLI hiccup shouldn't look like a void
-  if (graph.isError || !graph.data) {
-    return (
-      <div className="grid h-full place-items-center">
-        <div className="flex flex-col items-center gap-2">
-          <Text tone="muted">the map couldn’t load</Text>
-          <Text as="button" interactive size="meta" tone="subtle" onClick={() => void graph.refetch()}>retry</Text>
-        </div>
-      </div>
-    );
-  }
-  if (!graph.data.nodes.length) return <EmptyState icon={Table2} {...emptyCopy("grid-empty")} />;
-  return <div ref={ref} className="h-full" role="img" aria-label="project map" />;
+  // The container renders UNCONDITIONALLY — the mount effect runs once, on mount,
+  // and needs the ref on the FIRST render. An early loading return meant a cold
+  // cache mounted NOTHING (ref null when the effect ran; deps never re-fired) —
+  // the audit's "empty black stage at steady". States overlay the container instead.
+  const overlay = graph.isLoading ? (
+    <Text tone="muted">loading the map…</Text>
+  ) : graph.isError || !graph.data ? (
+    // a failed graph read must NEVER look like a void — say so, offer retry
+    <div className="flex flex-col items-center gap-2">
+      <Text tone="muted">the map couldn’t load</Text>
+      <Text as="button" interactive size="meta" tone="subtle" onClick={() => void graph.refetch()}>retry</Text>
+    </div>
+  ) : !graph.data.nodes.length ? (
+    <EmptyState icon={Table2} {...emptyCopy("grid-empty")} />
+  ) : null;
+
+  return (
+    <div className="relative h-full">
+      <div ref={ref} className="h-full" role="img" aria-label="project map" />
+      {overlay && <div className="absolute inset-0 grid place-items-center bg-app">{overlay}</div>}
+    </div>
+  );
 }
