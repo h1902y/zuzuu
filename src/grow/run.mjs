@@ -77,7 +77,7 @@ import { createNote } from './edit.mjs';
 import { evolve } from './evolve.mjs';
 import { runGated, act, MAX_TIMEOUT_S } from '../use/act.mjs';
 import { acquireRunLock, LOCK_GRACE_MS } from '../use/run-lock.mjs';
-import { runWorkflow, topoSort, splitAddr } from '../use/workflow.mjs';
+import { runWorkflow, topoSort, splitAddr, workflowStaleAfterMs } from '../use/workflow.mjs';
 
 export const RUNS_MODULE = 'runs';
 // no `retry:` declared on a step ⇒ this many total attempts (1 = no retry — the first
@@ -86,6 +86,10 @@ export const DEFAULT_RETRY_MAX = 1;
 
 const REFUSED_NON_OPERATOR = { ok: false, error: 'write requires an operator (the agent proposes via stage→review)', refused: true };
 const nowIso = () => new Date().toISOString();
+// The fixed ceiling: one leaf action/inline step's own worst case (act()'s own
+// timeout, clamped ≤ MAX_TIMEOUT_S) + grace. Correct for every tick EXCEPT a `note:`
+// step whose target is a nested WORKFLOW — see `runNoteLockBudgetMs` (S1, below).
+const DEFAULT_RUN_LOCK_MS = MAX_TIMEOUT_S * 1000 + LOCK_GRACE_MS;
 
 // ── the `runs` module — a bespoke manifest OUTSIDE STANDARD_MODULES (see header) ──
 
@@ -419,18 +423,71 @@ function tick(home, runId, run, actor) {
 }
 
 /**
+ * S1 fix (audit 2026-07-03-durable-runner-review.md): the run-note lock's staleness
+ * window, sized to the SPECIFIC step this tick is about to advance rather than a fixed
+ * ceiling. A `note:` step whose target is a nested WORKFLOW can legitimately run far
+ * longer than any single leaf action's timeout (Σ its own steps, recursively — exactly
+ * what `workflowStaleAfterMs` already budgets for Tier-0 composition, the same fix
+ * applied there under this same audit). Under the OLD fixed budget
+ * (`DEFAULT_RUN_LOCK_MS`), a concurrent advance could see a still-legitimately-running
+ * nested tick as stale, STEAL the lock, re-read the still-`pending` step, and fail the
+ * run (running the saga over already-completed steps) while the original tick was
+ * still in flight — the original tick then finishes and overwrites the note back to
+ * `done`, reporting SUCCESS over steps that were already compensated. Sizing the lock
+ * to the ready step's true worst case closes that window without giving up note-ref-
+ * to-workflow composition (see the report for why that was chosen over the audit's
+ * offered fallback — rejecting the shape outright).
+ *
+ * Peeked WITHOUT holding the lock — the authoritative read + tick happens only AFTER
+ * `acquireRunLock` succeeds, same as before. Two concurrent callers peeking the SAME
+ * not-yet-mutated run note compute the SAME budget, which is all correctness needs: the
+ * first to win `acquireRunLock` proceeds under a window sized for what it is actually
+ * about to do; the second, refused, judges the held lock's age against that identical
+ * window rather than a ceiling too small for the work underway.
+ */
+function runNoteLockBudgetMs(home, run) {
+  if (!run || run.status !== 'running') return DEFAULT_RUN_LOCK_MS; // waiting/done/failed ticks never spawn a step
+  const addr = splitAddr(run.workflow);
+  if (!addr) return DEFAULT_RUN_LOCK_MS;
+  const pinned = noteAsOf(home, addr.module, addr.id, run.workflow_generation);
+  if (!pinned.ok) return DEFAULT_RUN_LOCK_MS;
+  const defs = new Map((pinned.note.steps ?? []).map((s) => [s.id, s]));
+  const byStatus = new Map(run.steps.map((s) => [s.id, s.status]));
+  const ready = run.steps.find((s) => {
+    if (s.status !== 'pending') return false;
+    const def = defs.get(s.id);
+    if (!def) return false;
+    const deps = [].concat(def['depends-on'] ?? []).filter(Boolean);
+    return deps.every((d) => byStatus.get(d) === 'done');
+  });
+  const def = ready && defs.get(ready.id);
+  if (!def?.note) return DEFAULT_RUN_LOCK_MS; // inline run / wait / no ready step — the fixed ceiling already covers it ("as today")
+  const target = splitAddr(def.note);
+  const targetPath = target && itemPath(home, target.module, target.id);
+  if (!targetPath || !existsSync(targetPath)) return DEFAULT_RUN_LOCK_MS;
+  const { note: targetNote } = parse(readFileSync(targetPath, 'utf8'), { id: target.id });
+  // the SAME live (unpinned) resolution `runNoteRefStep` itself uses for a note-ref
+  // TARGET — a note-ref to a leaf action is already covered by the fixed ceiling
+  // (act()'s own timeout is clamped ≤ MAX_TIMEOUT_S); only a nested WORKFLOW target
+  // needs its own (potentially much larger) budget.
+  if (targetNote?.type !== 'workflow' || !Array.isArray(targetNote.steps) || !targetNote.steps.length) return DEFAULT_RUN_LOCK_MS;
+  return workflowStaleAfterMs(targetNote.steps);
+}
+
+/**
  * `zz run advance` — the TICK. Loads the run note, executes EXACTLY ONE ready step
  * through the same gated/timed path `act()`/`runGated` use, writes the new state back
  * through the write door, and returns what it did. A re-tick after a crash simply
  * re-reads the note — there is no other state. Locked per run-id (one tick at a time
- * per run; a note-ref step budgets the lock at the same generous ceiling the Tier-0
- * composition audit settled on — a note-ref target's true cost is unknown up front).
+ * per run); the lock's staleness window is sized PER-TICK to the step about to run
+ * (`runNoteLockBudgetMs`, S1 fix 2026-07-03) rather than a fixed ceiling.
  * @returns {{ok, status?, step?, retrying?, waitingOn?, failedStep?, compensations?, error?, ticked?}}
  */
 export function advanceRun(home, runId, actor = 'operator') {
   if (actor !== 'operator') return REFUSED_NON_OPERATOR;
-  if (!readNote(home, RUNS_MODULE, runId)) return { ok: false, error: `no run '${runId}'` };
-  const lock = acquireRunLock(home, RUNS_MODULE, runId, MAX_TIMEOUT_S * 1000 + LOCK_GRACE_MS);
+  const pre = readNote(home, RUNS_MODULE, runId);
+  if (!pre) return { ok: false, error: `no run '${runId}'` };
+  const lock = acquireRunLock(home, RUNS_MODULE, runId, runNoteLockBudgetMs(home, pre));
   if (!lock.ok) return { ok: false, error: lock.error, running: true };
   try {
     const run = readNote(home, RUNS_MODULE, runId); // fresh, inside the lock
@@ -467,7 +524,10 @@ export function advanceAll(home, runId, actor = 'operator', { maxTicks = 1000 } 
 function resolveWait(home, runId, matchFn, label, actor) {
   if (actor !== 'operator') return REFUSED_NON_OPERATOR;
   if (!readNote(home, RUNS_MODULE, runId)) return { ok: false, error: `no run '${runId}'` };
-  const lock = acquireRunLock(home, RUNS_MODULE, runId, MAX_TIMEOUT_S * 1000 + LOCK_GRACE_MS);
+  // resolveWait never runs a step (it just flips a wait to done) — the fixed ceiling
+  // is hugely over-provisioned here, which is safe (a too-generous lock costs nothing
+  // but potential wait; a too-STINGY one is the actual danger S1 fixes above).
+  const lock = acquireRunLock(home, RUNS_MODULE, runId, DEFAULT_RUN_LOCK_MS);
   if (!lock.ok) return { ok: false, error: lock.error, running: true };
   try {
     const run = readNote(home, RUNS_MODULE, runId);

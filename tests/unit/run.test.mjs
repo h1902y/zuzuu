@@ -5,7 +5,7 @@
 // the saga, irreversible stops the saga, and crash-recovery = re-tick from the note.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, existsSync, readFileSync, utimesSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -16,10 +16,16 @@ import { evolve } from '../../src/grow/evolve.mjs';
 import { readNote } from '../../src/notes/repo.mjs';
 import { readManifest } from '../../src/notes/module.mjs';
 import { noteAsOf, generations } from '../../src/notes/generation.mjs';
+import { cacheDir } from '../../src/notes/store.mjs';
+import { acquireRunLock, LOCK_GRACE_MS } from '../../src/use/run-lock.mjs';
+import { workflowStaleAfterMs } from '../../src/use/workflow.mjs';
+import { MAX_TIMEOUT_S } from '../../src/use/act.mjs';
 import {
   startRun, advanceRun, advanceAll, signalRun, completeStep,
   RUNS_MODULE, DEFAULT_RETRY_MAX, parseDurationMs,
 } from '../../src/grow/run.mjs';
+
+const runLockDir = (home, runId) => join(cacheDir(home), 'run-locks', `${RUNS_MODULE}__${runId}.lock`);
 
 // A durable run's generation pin is git-backed (noteAsOf reads via `git show`), so
 // every test needs a REAL repo — mirrors tests/unit/commit.test.mjs's `withRepo`.
@@ -591,5 +597,70 @@ test('run start: a wait step with a garbage timeout is refused at start (fail fa
     const r = startRun(home, 'actions', 'flow');
     assert.equal(r.ok, false);
     assert.match(r.error, /not a valid duration/);
+  });
+});
+
+// ── S1 (audit 2026-07-03-durable-runner-review.md): the run-note lock's staleness
+// window is sized PER-TICK to the step about to run, not a fixed ceiling — a `note:`
+// step targeting a nested WORKFLOW gets that workflow's own `workflowStaleAfterMs`
+// budget instead of the fixed one, closing the stolen-lock/spurious-saga window ──────
+
+test('S1: a note-ref step targeting a slow multi-step nested workflow sizes the run-note lock to cover it — a concurrent advance mid-nested-run is REFUSED, not stolen', () => {
+  withRepo((home) => {
+    // three 300s-timeout inline steps: this nested workflow's OWN worst case
+    // (workflowStaleAfterMs) is well past the OLD fixed ceiling (MAX_TIMEOUT_S+grace,
+    // 630s) — exactly the shape the audit flags as under-budgeted.
+    const innerSteps = [
+      { id: 'x1', run: 'true', timeout: 300 },
+      { id: 'x2', run: 'true', timeout: 300, 'depends-on': 'x1' },
+      { id: 'x3', run: 'true', timeout: 300, 'depends-on': 'x2' },
+    ];
+    createNote(home, 'actions', 'inner', { type: 'workflow', title: 'inner', steps: innerSteps });
+    putWorkflow(home, 'actions', 'outer', [{ id: 'call', note: 'actions:inner' }]);
+    const { runId } = startRun(home, 'actions', 'outer');
+
+    const oldFixedWindowMs = MAX_TIMEOUT_S * 1000 + LOCK_GRACE_MS; // the pre-fix (buggy) budget: 630s
+    const newBudgetMs = workflowStaleAfterMs(innerSteps); // the correctly-sized budget for THIS nested workflow: 930s
+    assert.ok(newBudgetMs > oldFixedWindowMs, 'sanity: the fixture actually exercises the under-budget gap');
+
+    // simulate: a first advanceRun tick is mid-flight, deep inside the nested
+    // workflow's own execution — hold the run-note lock, then backdate PAST the old
+    // fixed window but still WELL WITHIN the new, correctly-sized one.
+    const held = acquireRunLock(home, RUNS_MODULE, runId, newBudgetMs);
+    assert.equal(held.ok, true);
+    const dir = runLockDir(home, runId);
+    const stillLegit = new Date(Date.now() - (oldFixedWindowMs + 30_000));
+    utimesSync(dir, stillLegit, stillLegit);
+
+    const r = advanceRun(home, runId);
+    assert.equal(r.running, true, 'still within the note-ref-to-workflow worst-case window — refused, not stolen');
+    assert.match(r.error, /already running/);
+    assert.equal(readNote(home, RUNS_MODULE, runId).steps.find((s) => s.id === 'call').status, 'pending', 'the refused caller never re-picked the step');
+
+    // past the FULL new window — now genuinely stale, steal proceeds (symmetric proof
+    // the sizing is a real budget, not an unbounded lock)
+    const pastNew = new Date(Date.now() - (newBudgetMs + 30_000));
+    utimesSync(dir, pastNew, pastNew);
+    const stolen = advanceRun(home, runId);
+    assert.notEqual(stolen.running, true, 'past the full nested-workflow window — the lock was reacquired, not refused');
+  });
+});
+
+test('S1: a note-ref step targeting a LEAF ACTION (not a workflow) keeps the fixed ceiling — sizing is unaffected', () => {
+  withRepo((home, root) => {
+    const marker = join(root, 'leaf-ran');
+    createNote(home, 'actions', 'leaf', { type: 'action', run: `touch ${marker}` });
+    putWorkflow(home, 'actions', 'outer', [{ id: 'call', note: 'actions:leaf' }]);
+    const { runId } = startRun(home, 'actions', 'outer');
+
+    const fixedWindowMs = MAX_TIMEOUT_S * 1000 + LOCK_GRACE_MS;
+    const held = acquireRunLock(home, RUNS_MODULE, runId, fixedWindowMs);
+    assert.equal(held.ok, true);
+    const dir = runLockDir(home, runId);
+    const pastFixed = new Date(Date.now() - (fixedWindowMs + 5_000));
+    utimesSync(dir, pastFixed, pastFixed);
+
+    const stolen = advanceRun(home, runId);
+    assert.notEqual(stolen.running, true, 'a leaf-action note-ref keeps the same fixed ceiling as before — steal proceeds past it, same as pre-fix behavior');
   });
 });
