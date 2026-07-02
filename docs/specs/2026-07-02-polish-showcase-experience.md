@@ -544,3 +544,48 @@ that improve through an evidence-gated proposal loop.
 
 One-line pitch this earns: **knowledge that runs, processes that learn, and a
 human gate on both.**
+
+### §I.1 — The tool boundary: browser · email · APIs · fly-nativeness (03-07)
+
+§I covered execution; the missing layer is TOOL-IFICATION — how the outside
+world becomes a governed capability. Four layers:
+
+**1 · Tool notes (the interface contract).** A runnable note grows a declared
+interface: typed inputs (FieldDefs as ports — `lead_url: link, required`),
+`secrets: [CLEARBIT_KEY]` (NAMES only — see 3), `requires: [python3, browser-use]`
+(see 4), and its guardrail posture. Email, an API, a scraper — each is one
+tool note. Tool notes are SHAREABLE VIA THE REGISTRY (`zz subscribe`) — the
+W4 marketplace becomes a tool marketplace, gate-governed like everything.
+
+**2 · Three bindings (how a tool note runs), narrowest first:**
+   a. **shell** (EXISTS): the CLI is zuzuu's FFI — browser-use has a CLI,
+      himalaya does email, curl does APIs. Zero new machinery; the answer to
+      "CLI-ing browser-use" is: that IS the model.
+   b. **mcp** (NEW, M): a tool note may declare `mcp: {server, tool}` — zz
+      grows a minimal MCP client; the exploding MCP ecosystem (gmail, browsers,
+      SaaS) becomes bindable without shell glue. Inputs map to tool args;
+      the guardrail gate evaluates the (server,tool,args) triple.
+   c. **agent** (NEW, M): the run is a PROMPT delegated to the host agent via
+      the existing ACP lane ("use your browser tool to …") — leverages the
+      host's entire tool ecosystem with zero zuzuu deps; the session transcript
+      is the run log; observe already mines it. Gated + interactive-first
+      (the human can watch/interrupt in the terminal).
+
+**3 · Secrets (never in notes).** Notes reference NAMES; values resolve at run
+time from, in order: process env → `.zuzuu/secrets.env` (gitignored, chmod 600)
+→ `fly secrets` when hosted. `zz doctor` reports missing secret names per tool.
+A note carrying a literal credential is a `zz check` finding.
+
+**4 · Toolchain manifest → fly-nativeness.** The project declares its runtime
+(`project.md: requires:` or a `type: toolchain` note): binaries, packages,
+browsers. Locally `zz doctor` verifies them. Hosted: **`zz deploy fly`**
+generates Dockerfile + fly.toml FROM the manifest (zz + daemon + toolchain +
+chromium-headless when browser tools are declared), wires `fly secrets`,
+enables the daemon's existing hosted-auth path (WEBCODE_HOSTED), and cron
+triggers (§I rung 4) run IN the machine. The project is its own deployment
+spec — git-native end to end: `git push` + `zz deploy fly` = the CRM lives.
+
+Ordering: bindings b/c and deploy sit BEHIND §I rung 3 (the safety floor) —
+a browser tool with no timeout on a hosted machine is an incident, not a
+feature. The CRM proof-project (scrape → enrich → row via operator lane →
+draft email, trigger on `stage: lead`) is the §I acceptance test.
