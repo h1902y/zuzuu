@@ -42,6 +42,24 @@ that history).
 - The corpus signature is computed once per index rebuild, not twice.
 
 ### Added
+- **The field-config panel (web, §H.5)** — Airtable's edit-field, made zuzuu:
+  an anchored popover (never a modal) from a column header's caret ("Edit
+  column") or the Grid toolbar's "+ column" (single-module scope; Everything
+  has no single home for one module's column). Maps `FieldDef` one-to-one:
+  label + the immutable name (rename is a refactor, never offered here), a
+  type picker (the 8 types) plus an orthogonal ƒ-computed toggle with a
+  formula input (`dateAdd(a,b)` today), select/multi's options editor with
+  stable-hue pill previews, date's ISO-storage teaching line + "default to
+  current date" (the `default: now` sentinel), required with the honest
+  consequence note (`zz module backfill` heals existing rows, not wired from
+  the panel this pass), a static default, and description (now a header
+  tooltip + on the module wing's new **Schema/COLUMNS** card, alongside ƒ
+  formulas). Save shows "saves as generation N+1 — rollback-able" and shells
+  `module add-column`/`alter-column` through the daemon catalog (two new
+  routes, `POST/PATCH .../column[/:name]`); the CLI verbs gained `io` catalog
+  metadata + a `flag()` boolean coercion fix (`--required false` previously
+  couldn't turn the flag off) + a fix where `alter-column` silently dropped a
+  column's `computed` formula on any unrelated edit.
 - **The zuzuu-native table (web, §H)**: the grid rebuilt on the envelope's own
   doctrines — identity is the id (never a blank first cell), one elastic
   Attributes cell for heterogeneous rows (clickable chips join the filter),

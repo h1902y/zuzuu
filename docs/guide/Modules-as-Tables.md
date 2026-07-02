@@ -154,6 +154,40 @@ UI, matching the one write door in the engine. Row expansion (the chevron)
 opens the same `NoteDocument` the Record stage and the omnibar's detail pane
 render — one detail grammar, every container.
 
+## The field-config panel (web)
+
+Every column you'd otherwise reach for `zz module add-column`/`alter-column`
+has a GUI twin — an ANCHORED panel (never a modal), so editing a schema never
+leaves the table you're looking at:
+
+- **"+ column"** in the Grid toolbar (single-module scope only — the unified
+  Everything view has no single home for one module's column) opens it in add
+  mode.
+- **A column header's caret** (hover to reveal it) opens it in edit mode for
+  that column. On a schemaless/inferred column (no declared `fields` entry
+  yet) it opens in add mode instead, name pre-filled — "promote this key into
+  a real column."
+
+The panel maps `FieldDef` one-to-one: **label** + the immutable **name**
+(rename is a refactor — `zz note retype` territory, never offered here) · a
+**type picker** (the 8 types) plus an orthogonal **ƒ computed** toggle (a
+computed column still has an underlying type — `end_date` above is still
+`type: date`, the glyph just renders ƒ over it) · `select`/`multi` get an
+**options editor** with stable-hue pill previews (the same hash the
+module-island dots use) · `date` gets the "storage is always ISO" teaching
+line plus a **"default to current date"** toggle (the `default: now`
+sentinel) · **required**, with the honest consequence line Airtable never
+prints: *"existing rows missing it become invalid until backfilled — `zz
+module backfill` heals them"* · a static **default** · the **description**
+(shows as a header tooltip and on the module wing's schema card, alongside
+required and default). **Save** shells the same `add-column`/`alter-column`
+you'd type, naming the consequence up front: *"saves as generation N+1 —
+rollback-able."* Cancel discards; there's no partial write either way.
+
+The module wing's **Schema** tab is the read-only twin: every declared column
+— type glyph, required, default, ƒ formula, description — so `module.md`'s
+contract is a page you can just look at, not a file you have to open.
+
 ## See it
 
 `zz module items crm` is the table read (filter/sort/paginate server-side); `zz module items --all` is the whole Project as one table; `zz host web` renders both as grids — and as islands in [the World](The-World).
