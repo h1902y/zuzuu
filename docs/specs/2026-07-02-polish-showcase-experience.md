@@ -130,3 +130,27 @@ through the one input:
 Full sequence: toggle → unified Everything → inspector wings → single-screen
 (§D) → omnibar endgame (§E). The workbench converges on the galaxy's original
 grammar: one canvas, one input, everything else ephemeral.
+
+### §E.1 — The omnibar is a component system (user-directed refinement)
+
+No left sidebar at all. The omnibar is not just an input — it is a spotlight
+SHELL with four composable surfaces (Raycast-grammar, push/pop navigation):
+
+1. **Input line** — the mode grammar (§E): plain find · `>` verbs · `/` chat.
+2. **List view** — every result set is a list source behind the one input:
+   notes · modules · saved views · pending proposals · **session history**
+   (sessions stop being a nav concern; `sessions` or plain-typing a session
+   label lists them, Enter resumes/opens the dock) · commands. Sources are
+   pluggable rows with consistent affordances (icon · title · meta · actions).
+3. **Detail view** — focusing a list item pushes its detail INSIDE the omnibar
+   panel: a note's rendered preview, a proposal's diff (approve/reject inline),
+   a session's summary + resume, a module's schema card. Esc pops back to the
+   list; the map flies/glows behind as context follows focus.
+4. **Chat view** — `/` renders the conversation IN the omnibar panel (the ACP
+   lane), map glowing mentions behind it; staged proposals appear as ghosts
+   live. Chat is a peer surface of list/detail, not a separate stage.
+
+The wings/dialogs of §D progressively fold into omnibar detail views where they
+fit; heavyweight surfaces (the Everything table, the terminal dock) stay
+toggles. Build order within §E: component shell (input+list+detail) → sources
+(notes/modules/commands/sessions/proposals) → chat surface → sidebar removal.
