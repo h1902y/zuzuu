@@ -79,3 +79,26 @@ pillar); brain push stays local-only.
 A and B run in parallel (disjoint trees: src+web vs docs). C follows A (clean
 substrate first), led by design; its mechanical ports reuse `client/world`.
 Merge/publish decision comes after all three — user's call.
+
+## D — Single-screen consolidation (user-directed, 02-07-2026 evening)
+
+The Overview page and the setup page are DEPRECATED as screens. There is ONE
+screen — the World — and everything else is a toggle, overlay, wing, or dialog:
+
+- **Needs-me HUD**: the Overview's composite signal (pendingProposals +
+  heldSessions — the "what needs me" home model survives, relocated) becomes a
+  persistent pill on the map; clicking it opens the Review overlay (R).
+  Project-health/integrity ride the same HUD, quietly.
+- **Setup/onboarding**: the checklist becomes a dialog sequence over the dimmed
+  World (an empty project = an empty world + the first-rung dialog). Every
+  recorded consent gate survives — relocated, never removed.
+- **Everything table**: the T toggle (one space, two projections).
+- **Inspectors**: note/module attribute wings slide over the map (§ inspector).
+- **Sessions/terminal**: a dock toggle/overlay — the raw terminal stays FULLY
+  functional (hard constraint: never hide a y/n prompt).
+- **Settings**: a dialog. **The nav tree is removed** — the palette (⌘K), the
+  map itself, and the HUD are the navigation.
+- Deep links keep working (URL → open the right overlay over the map).
+
+Sequencing: toggle (in flight) → unified Everything view → inspector wings →
+single-screen consolidation (this). Each verified live before the next.
