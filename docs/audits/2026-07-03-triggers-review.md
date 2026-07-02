@@ -182,3 +182,43 @@ moat, the second gate is honest, blast-radius is accurate, and nothing fires una
 upgrade) is systemic and worth a focused pass since triggers make it consequential;
 SHOULD-FIX 2 (coercion test) is small and belongs with this commit because the second
 gate is the whole point.
+
+---
+
+## Fixed
+
+All four findings addressed, CLI-side (`src/`, `tests/`, `docs/` — `web/` untouched),
+gated commits, `npm test` green throughout (663 → 679 tests):
+
+| Finding | Commit | What changed |
+|---|---|---|
+| **SHOULD-FIX 1** — exec-gate staleness / unseeded in root-mode | [`2073fb6`](../../commit/2073fb6) `fix(guardrails): exec-gate reconciles on init, seeds in root-mode too` | `zz init` now RECONCILES `protect-brain-exec`'s `pattern` field to the live `gateWriteVerbPattern()` on every run (not `writeOnce`) — a human's edits to action/tool/reason/body survive, only the generated field converges. Root-mode now seeds `protect-brain-exec` (previously a blanket `protect-brain-*` filter meant to skip only the two `.zuzuu/`-PATH-scoped rules accidentally caught this non-path-scoped one too — a root-mode Project shipped with NO exec-gate rule at all). `zz doctor` gained a check that flags a missing or stale `protect-brain-exec` pattern. Kept the pattern STORED in a note rather than compiling live at gate time — see "the architecture choice" below. 8 new tests. |
+| **SHOULD-FIX 2** — `isTriggerEnabled` string-coercion untested | [`1fb61c0`](../../commit/1fb61c0) `test(triggers): cover isTriggerEnabled's string-coercion edge` | No production change (the coercion was already correct). Added direct assertions on the string/boolean/absent matrix (`'false'`/`'no'`/`'0'`/absent → false; `'true'`/`'yes'`/`'1'`/boolean → true) plus a `fireTrigger` refusal against a hand-planted note carrying the literal string `enabled:'false'`. 5 new tests. |
+| **NIT 1** — the where-op list hand-mirrored in 5 places | [`081ba99`](../../commit/081ba99) `refactor(where-ops): one canonical WHERE_OPS constant` | `notes/validate.mjs` exports `WHERE_OPS`, the single source (it's already the acyclic schema-authority module both `grow/` and `cli/` import downward from — `TRIGGER_ON_KINDS` was already this shape). `notes/index.mjs`'s `EAV_OPS`, `cli/args.mjs`'s `parseWhere`, and `grow/trigger.mjs`'s `parseClauseString` all import it instead of re-declaring; `validate.mjs`'s own two copies collapse to one. `parseClauseString` is now exported so a test pins it against `parseWhere` directly — both parse every clause (one per op, an ambiguous multi-op string, malformed/edge inputs) IDENTICALLY. No behavior change. 2 new tests. |
+| **NIT 2** — an empty-value where-clause passes validation | [`6230d22`](../../commit/6230d22) `fix(validate): reject a value-less trigger where-clause operator` | `wellFormedWhereClause`'s string branch now requires the operator to leave a non-empty value, via a `for` loop that returns on the FIRST matching op (mirroring `parseClauseString`/`parseWhere`'s own control flow) rather than testing each op independently with `.some()` — the naive independent-test version let a two-char operator's one-char prefix (`>=`'s `>`) "rescue" an empty-value match by re-scanning the same string with the shorter op. An object clause with an explicit empty-string value (`{key,op,value:''}`) is untouched — a deliberate, different case. 1 new test. |
+| NIT 3 — cron shape-only validation | *(deferred, as scoped)* | Left as-is — the hosted scheduler's concern, per the review's own note. |
+
+**The SHOULD-FIX 1 architecture choice: stored-and-reconciled, not live-compiled.**
+The gate (`src/guardrails/gate.mjs`) is generic over "whatever `type: rule` notes live
+in the `instructions`/`guardrails` module" — it has no per-rule-id special case, and
+every other seeded rule (`no-root-wipe`, `no-secret-reads`, `confirm-force-push`,
+`protect-brain-writes`, `protect-brain-shell`) is a plain user-editable note (a human
+can retune action/tool/reason/pattern on any of them, including disabling one
+entirely). Compiling `protect-brain-exec`'s pattern LIVE from `gateWriteVerbPattern()`
+at gate-eval time would special-case exactly one rule id inside otherwise-generic code,
+and would silently override a human's own edit to that one field if they ever had
+reason to narrow or widen it by hand. Reconciling instead — `zz init` converges only
+the `pattern` field to the live table, leaving everything else on the note exactly as a
+human left it — keeps the gate itself generic and respects the existing "rules are
+notes" design, while still closing the staleness gap the review found. `zz doctor`'s
+new check makes the (now rare, self-healing-on-`zz init`) divergence state visible
+either way.
+
+**Is the personal vault (`~/Documents/personal`) currently exposed?** Yes, as of this
+audit: it's a root-mode Project seeded before this fix, so it has **no
+`protect-brain-exec` rule at all** — an agent shelling a `zz` write verb there (e.g. a
+future `zz trigger fire`) is not denied by this specific gate today. The vault itself
+was deliberately NOT touched by this change (CLI-only, per the brief). Running `zz
+doctor` there will now surface `no protect-brain-exec exec-gate rule — …`, and `zz
+init` will seed it (root-mode now ships it, per the fix above) — that reconciliation is
+a follow-up action for the vault, not part of this CLI-side fix.
