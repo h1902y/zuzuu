@@ -28,6 +28,7 @@ import { loadConsent, saveConsent } from "./onboarding/onboarding-consent.js";
 import { hudModel } from "./overview/overview-model.js";
 import { HudPill } from "./HudPill.js";
 import { projectionSwitch, type ProjTarget } from "./projection-switch.js";
+import { ProjectionToggle } from "./ProjectionToggle.js";
 import { useAppSurface } from "../state/app-surface.js";
 import { useSettingsDialog } from "../state/settings-dialog.js";
 import { Grid } from "./stage/Grid.js";
@@ -44,11 +45,11 @@ import { Form } from "./wing/Form.js";
 import { NewNoteForm } from "./wing/NewNoteForm.js";
 import { Schema } from "./wing/Schema.js";
 import { dataProvider } from "../data/provider.js";
-import { Plus, Power } from "lucide-react";
+import { Plus, Power, Orbit } from "lucide-react";
 import { Palette } from "../palette/Palette.js";
 import { useEndSession } from "../state/end-session.js";
 import { EndSessionDialog } from "./session/EndSessionDialog.js";
-import { Loading, ThemeToggle, AppHeader, Text } from "../ds/index.js";
+import { Loading, ThemeToggle, AppHeader, Text, Inline, Icon } from "../ds/index.js";
 import { useReview } from "../state/review.js";
 import { Switcher } from "./switcher/Switcher.js";
 import { Ribbon } from "./Ribbon.js";
@@ -281,23 +282,47 @@ export function WorkbenchShell() {
   const SESSION_TABS = sessionTabs(totalPending);
   // the unified Everything scope keys the module-view/filter stores at '' — the
   // same Table⇄Map grammar, project-wide
+  // MODULE_TABS still resolves the CURRENT projection of a module/'' scope (drives the
+  // stage render below); the Table⇄Map CONTROL itself moved to the top header. The
+  // stage-header strip now carries only the SESSION Terminal·Changes tabs.
   const everythingTab = selected?.kind === "everything" ? resolveTab(MODULE_TABS, viewOf(viewByModule, "")) : undefined;
   const activeModuleTab = selected?.kind === "module" ? resolveTab(MODULE_TABS, viewOf(viewByModule, selected.id)) : undefined;
   const activeSessionTab = resolveTab(SESSION_TABS, sessionView);
-  const stageTabs = selected?.kind === "module" || selected?.kind === "everything" ? MODULE_TABS : selected?.kind === "session" ? SESSION_TABS : undefined;
-  const activeTab = selected?.kind === "module" ? activeModuleTab : selected?.kind === "everything" ? everythingTab : selected?.kind === "session" ? activeSessionTab : undefined;
-  const onTab = selected?.kind === "module"
-    ? (key: string) => setModuleView(selected.id, key as ModuleView)
-    : selected?.kind === "everything"
-      ? (key: string) => setModuleView("", key as ModuleView)
-      : selected?.kind === "session" ? setSessionView : undefined;
 
   return (
     <div className="flex h-full flex-col">
       <AppHeader
-        leading={<Switcher />}
+        leading={
+          <Inline gap="md" align="center">
+            <Switcher />
+            {/* the Globe — beside the project switcher, back to the global page (§F) */}
+            <Text as="button" interactive tone="muted" onClick={goGlobal} aria-label="all projects" title="All projects — the globe">
+              <Icon icon={Orbit} size={16} />
+            </Text>
+            {/* the context breadcrumb (project › stage) — moved out of the per-stage
+                header strip; the one home for "where am I" */}
+            {stageCrumb.length > 0 && (
+              <Inline gap="xs" align="center">
+                <Text size="meta" tone="subtle">›</Text>
+                {stageCrumb.map((seg, i) => (
+                  <Inline key={`${seg}-${i}`} gap="xs" align="center">
+                    {i > 0 && <Text size="meta" tone="subtle">›</Text>}
+                    <Text size="meta" tone={i === stageCrumb.length - 1 ? "default" : "muted"}>{seg}</Text>
+                  </Inline>
+                ))}
+              </Inline>
+            )}
+            {/* the ONE always-visible projection toggle (was the per-stage strip) */}
+            <ProjectionToggle projection={projection} onProject={applyProjection} />
+          </Inline>
+        }
         actions={
           <>
+            {selected?.kind === "module" && (
+              <Text as="button" interactive size="meta" tone="muted" onClick={() => onNewNote(selected.id)} title="New note" aria-label="new note">
+                <Icon icon={Plus} size={15} />
+              </Text>
+            )}
             <Text as="button" interactive size="meta" tone="muted" onClick={() => setPalette(true)}>⌘K</Text>
             <ThemeToggle />
           </>
@@ -309,8 +334,11 @@ export function WorkbenchShell() {
             and the footer ARE the navigation; sessions live in the omnibar source. */}
         <main className="relative flex min-w-0 flex-1 flex-col bg-app">
           <HudPill hud={hud} onClick={() => setReview(true)} />
-          {header.show && (
-            <StageHeader crumb={stageCrumb} primary={stagePrimary} tabs={stageTabs} activeTab={activeTab} onTab={onTab} />
+          {/* the per-stage header strip is retired (§ header consolidation): the
+              breadcrumb + Table⇄Map toggle live in the TOP app header now. Only a
+              SESSION keeps a stage strip — its Terminal·Changes tabs + End-session. */}
+          {selected?.kind === "session" && (
+            <StageHeader crumb={[]} primary={stagePrimary} tabs={SESSION_TABS} activeTab={activeSessionTab} onTab={setSessionView} />
           )}
           <div className="flex min-h-0 flex-1 flex-col">
             {sel.stage === "terminal" && sessionNode ? (
@@ -404,7 +432,7 @@ export function WorkbenchShell() {
         )}
       </div>
 
-      <Ribbon sessions={sessionsLite} pendingByModule={pendingByModule} setupHint={setupHint} onReview={() => setReview(true)} onSettings={() => setSettingsOpen(true)} projection={projection} onProject={applyProjection} onGlobe={goGlobal} />
+      <Ribbon sessions={sessionsLite} pendingByModule={pendingByModule} setupHint={setupHint} onReview={() => setReview(true)} onSettings={() => setSettingsOpen(true)} />
 
       {/* §D — onboarding is a DIALOG SEQUENCE over the dimmed World: the recorded
           consent gates (per-rung affirm/decline/reopen, resumable, failures inline
