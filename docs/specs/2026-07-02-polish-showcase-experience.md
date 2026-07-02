@@ -443,3 +443,29 @@ REJECT (doctrine):
 
 Toolbar final shape: [n hidden] [Filter] [Group] [Sort] [Color] · clause chips
 below · count+aggregates footer. The builders and the grammar are ONE state.
+
+### §H.5 — The field-config panel (Airtable's edit-field, made zuzuu)
+
+Column header → "Edit column" opens an ANCHORED panel (never a modal), mapping
+FieldDef one-to-one:
+- **label** (display name) + name (the frontmatter key, immutable once created
+  — rename is a refactor, offered separately) · **type picker** (the 8 types +
+  ƒ computed with formula input — dateAdd today, more builtins later)
+- **type-specific options**: select/multi → an options editor with stable-hue
+  pill previews; date → display-format note (STORAGE IS ALWAYS ISO — the
+  format only affects rendering; say so in the panel, it teaches the envelope);
+  number alignment; link → target module hint
+- **required** toggle (with the honest consequence note: existing rows missing
+  it become invalid until backfilled — offer "backfill now" riding zz module
+  backfill semantics)
+- **default**: static value; DATE columns additionally offer "current date" —
+  a `default: now` SENTINEL resolved at create time (small CLI extension to
+  the fill in writeNote/withDefaults; `now` stays symbolic in module.md)
+- **description** (new tolerated FieldDef key; shows as header tooltip + in
+  the schema card)
+- **Save** = a canned omnibar invocation of module add-column/alter-column
+  (operator-gated as today) with the zuzuu consequence line Airtable can't
+  print: "saves as generation N+1 — rollback-able". Cancel discards.
+Footer aggregates confirmed by the reference (Sum under Duration) — §H.4.6.
+CLI prerequisite (small, separate from the grid build): `default: now`
+sentinel + `description` passthrough on add/alter-column.
