@@ -10,6 +10,7 @@ import type { ProjectStateKind } from "#shared/index.js";
 import { TermView } from "../term/TermView.js";
 import { Composer } from "../composer/Composer.js";
 import { api, ApiError } from "../lib/api.js";
+import { brainEvents } from "../lib/brain-events.js";
 import { useWorkbench } from "../state/store.js";
 import { useWorld } from "./world-state.js";
 import { selectActors } from "./shell-state.js";
@@ -76,6 +77,13 @@ export function WorkbenchShell() {
   const requestEnd = useEndSession((s) => s.request);
 
   useEffect(() => { void refresh(); }, [refresh]); // load sessions; home is the database (no auto-open)
+
+  // The brain-state push (/ws/zuzuu): a staged proposal, a landed row, or a schema
+  // change invalidates ["zuzuu"] the moment its file lands — an agent turn visibly
+  // grows the project without waiting for a refetch cycle ("watch it build").
+  useEffect(() => {
+    brainEvents.start(() => void qc.invalidateQueries({ queryKey: ["zuzuu"] }));
+  }, [qc]);
 
   // Reset each stage's tab when the SELECTION changes, so a tab choice (Graph /
   // Changes) never leaks to the next module/session (it's a per-node view, not global).

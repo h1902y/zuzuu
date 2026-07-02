@@ -35,6 +35,7 @@ import { toon } from '../notes/toon.mjs';
 import { searchRows, readEnvelopes } from '../notes/rows.mjs';
 import { moduleCounts } from '../notes/index.mjs';
 import { coerceForField } from '../grow/edit.mjs';
+import { graphData } from '../serve/graph.mjs';
 
 // The read projection's column SKIP set — mirrors the client grid's `inferKeys`
 // (web/src/client/shell/stage/grid-columns.ts): `module` is implicit, `body` is the
@@ -244,6 +245,19 @@ export const COMMANDS = [
       }
       const cols = rows.some((r) => r.snippet) ? ['addr', 'type', 'title', 'snippet'] : ['addr', 'type', 'title', 'status'];
       log(toon('notes', rows, cols, ['zz act <m> <id>', 'zz query <m> --from <addr>']));
+      return 0;
+    },
+  },
+  {
+    path: ['graph'], plane: 'data', json: true, permission: 'read', agentInvokable: true,
+    usage: 'graph [--props a,b]', summary: 'the whole project as nodes + links (the map surface reads this)',
+    io: { params: [], flags: { props: '--props' } }, // catalog: the daemon shells `graph --props …`
+    handler: ({ args, cwd, log, json }) => {
+      const props = args.props && args.props !== true
+        ? String(args.props).split(',').map((s) => s.trim()).filter(Boolean) : [];
+      const g = graphData(open(cwd).home, { props });
+      if (json) { log(JSON.stringify(g)); return 0; }
+      log(toon('graph', [{ nodes: g.nodes.length, links: g.links.length }], ['nodes', 'links'], ['zz graph --json for the document']));
       return 0;
     },
   },
@@ -462,6 +476,7 @@ export const COMMANDS = [
     path: ['note', 'create'], plane: 'data', json: true, permission: 'write', agentInvokable: false,
     usage: 'note create <m> <id> --type t [--field k=v …] [--body text] [--force] · note create <m> --batch <json>',
     summary: 'create a row directly (schema defaults fill in; --force = upsert; --batch = many rows, one generation)',
+    io: { params: ['module', 'id'], flags: { type: '--type', change: '--change', force: '--force' } }, // catalog: the daemon's direct-create lane
     handler: ({ args, cwd, log, json, rest }) => {
       const zz = open(cwd);
       const [m, id] = args._;
@@ -504,6 +519,7 @@ export const COMMANDS = [
   {
     path: ['note', 'delete'], plane: 'data', json: true, permission: 'write', agentInvokable: false,
     usage: 'note delete <m> <id>', summary: 'delete a row directly (referrers flagged by zz check; fold merges instead)',
+    io: { params: ['module', 'id'], flags: {} }, // catalog: the daemon's direct-delete lane
     handler: ({ args, cwd, log, json }) => {
       const [m, id] = args._;
       if (!m || !id) return fail(log, 'usage: zz note delete <module> <id>', json);

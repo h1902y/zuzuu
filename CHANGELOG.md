@@ -24,6 +24,18 @@ that history).
 - The corpus signature is computed once per index rebuild, not twice.
 
 ### Added
+- **`zz graph [--json] [--props a,b]`** — the whole project as one nodes+links
+  document (addr-keyed, degrees computed, optional frontmatter columns riding on
+  nodes). The map surface reads this through the daemon (`/api/zuzuu/graph`)
+  instead of importing `src/notes/index.mjs` internals.
+- **Daemon (web)**: `/api/zuzuu/graph`; operator-lane routes (`POST /module/:key/row`,
+  `DELETE /module/:key/row/:id` — direct create/delete via the catalog); and
+  **`/ws/zuzuu` brain-state push** — the daemon watches module items, staged
+  proposals, and manifests, and the client invalidates on push: an agent staging a
+  proposal mid-turn surfaces live ("watch it build").
+- The `zz` entry sets `process.exitCode` instead of `process.exit()` — a hard exit
+  dropped un-flushed stdout at 64KB on pipes, truncating `zz graph --json` for any
+  consumer.
 - **The operator lane — direct row CRUD** (Phase 1 of the personal-app roadmap):
   `zz note create <m> <id> --type t [--field k=v …] [--body text] [--force]`,
   `zz note delete <m> <id>`, and `zz note create <m> --batch '<json>'` (many rows,

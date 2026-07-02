@@ -41,6 +41,7 @@ const SWITCH_VERBS = [
   'session', 'registry', 'subscribe', 'doctor', 'status', 'explain', 'code', 'web',
   'enable', 'disable', 'hook', 'digest', 'start', 'wrap', 'steer',
   'commands', // Rung 9b: the generated catalog verb (the daemon reads this)
+  'graph', // personal-app roadmap P2: the project-as-graph document (the map surface reads this)
 ];
 
 // The Tier-2 noun namespaces (Rung 4): every old flat verb still resolves at the top

@@ -52,6 +52,12 @@ export const COMMAND_CATALOG = {
   "review.reject": { id: "review.reject", path: ["review", "reject"], params: ["module", "id"], flags: { reason: "--reason" } },
   "stage": { id: "stage", path: ["stage"], params: ["module"], flags: { op: "--op", target: "--target", change: "--change" } },
   "act": { id: "act", path: ["act"], params: ["module", "id"], flags: {} },
+  // ── the operator lane (P1): direct row CRUD — the human's instant path; the agent
+  //    stays on stage→review (these verbs are agent-denied at the execution gate) ──
+  "note.create": { id: "note.create", path: ["note", "create"], params: ["module", "id"], flags: { type: "--type", change: "--change", force: "--force" } },
+  "note.delete": { id: "note.delete", path: ["note", "delete"], params: ["module", "id"], flags: {} },
+  // ── the map surface (P2): the whole project as nodes + links ──
+  "graph": { id: "graph", path: ["graph"], params: [], flags: { props: "--props" } },
   "gen.mint": { id: "gen.mint", path: ["gen", "mint"], params: ["module"], flags: { from: "--from" } },
   "session.label": { id: "session.label", path: ["session", "label"], params: ["id"], flags: { text: "--text" } },
   // ── readiness text reads (no --json mode) ──

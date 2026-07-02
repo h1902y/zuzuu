@@ -32,6 +32,32 @@ export function createZuzuuWriteApi(getRoot: () => string, binary?: string): Hon
   /** A valid module arg: any safe slug (the CLI reports not-found for unknown ones). */
   const isModule = (f: unknown): f is string => typeof f === "string" && SAFE_SLUG.test(f);
 
+  // ── the operator lane (P1): direct row create/delete — the human's instant CRUD.
+  //    Distinct from the staged-proposal lane below: this lands NOW (validated +
+  //    minted by the CLI); the agent can never reach it (execution-gate denied).
+  app.post("/module/:key/row", async (c) => {
+    const key = c.req.param("key");
+    if (!SAFE_SLUG.test(key)) return c.json({ error: "unknown module" }, 404);
+    const body = await readBody(c);
+    const { id, change, force } = body;
+    if (typeof id !== "string" || !SAFE_ID.test(id)) return c.json({ error: "bad id" }, 400);
+    if (change !== undefined && (typeof change !== "object" || change === null || Array.isArray(change))) {
+      return c.json({ error: "change must be an object" }, 400);
+    }
+    return mutate(c, "note.create", {
+      module: key, id,
+      change: change ? JSON.stringify(change) : undefined,
+      force: force === true ? "true" : undefined,
+    });
+  });
+  app.delete("/module/:key/row/:id", async (c) => {
+    const key = c.req.param("key");
+    const id = c.req.param("id");
+    if (!SAFE_SLUG.test(key)) return c.json({ error: "unknown module" }, 404);
+    if (!SAFE_ID.test(id)) return c.json({ error: "bad id" }, 400);
+    return mutate(c, "note.delete", { module: key, id });
+  });
+
   // Set/clear a session's user label. A blank label clears it.
   app.post("/session-label/:id", async (c) => {
     const id = c.req.param("id");

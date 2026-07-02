@@ -129,6 +129,17 @@ export function createZuzuuReadApi(getRoot: () => string, binary?: string): Hono
     return c.json({ doctor, digest });
   });
 
+  // The map surface (P2): the whole project as nodes + links — `zz graph --json`.
+  // `?props=a,b` rides chosen frontmatter columns on nodes. No peek fallback: a map
+  // without the CLI degrades to empty (the shell renders its onboarding state).
+  app.get("/graph", async (c) => {
+    const raw = c.req.query("props") ?? "";
+    const props = raw.split(",").map((s) => s.trim()).filter((s) => SAFE_SLUG.test(s)).join(",");
+    const viaCli = await runCommand(getRoot(), "graph", props ? { props } : {}, { binary });
+    if (viaCli) return c.json(viaCli);
+    return c.json({ nodes: [], links: [], degraded: true });
+  });
+
   // The CODE gate queue: the workspace's held sessions awaiting a merge decision
   // (shells `zz session status --json` → its `held[]`, id-enriched). The close card's
   // code section reads this to surface the diff summary + mergeability beside the
