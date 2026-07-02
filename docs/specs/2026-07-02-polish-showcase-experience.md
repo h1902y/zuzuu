@@ -200,3 +200,30 @@ Component architecture: keep cmdk as the base; add (a) a view-stack controller
 (id · icon · search(q) · detail(item) · actions(item)), (c) a verb registry
 keyed by noun type + globals, (d) the chat surface as a pushed view over the
 ACP lane. The §D HUD/footer invoke the same registries.
+
+### §E.3 — The adapter command: intent routing over the closed registry
+
+On top of the commands sits ONE adapter — input in, the RIGHT command resolved,
+then executed through that command's own lane. The registry (the catalog +
+omnibar verb registry) is the closed target space: the adapter routes, it never
+invents. Three resolution tiers, cheapest first:
+
+1. **Exact/grammar** — the input parses as a known verb or noun (today's path).
+2. **Deterministic fuzz** — synonyms + arg extraction against the registry
+   ("add a lead acme to crm" → `note create crm acme` via source/verb aliases +
+   schema-aware slot filling). Instant, offline, no model.
+3. **LLM resolve (ambiguity only)** — the ACP lane gets the input + the
+   registry's typed specs and returns `{commandId, params}` — function-calling
+   against the catalog, nothing else callable.
+
+Non-negotiables:
+- **The adapter has NO authority of its own.** It emits a canned invocation;
+  the resolved command's lane applies untouched — operator verbs run instantly,
+  agent-lane paths stay proposals. A router, never a second write path.
+- **Resolution is always SHOWN before it runs**: the resolved invocation
+  renders as the top suggestion row ("→ note create crm acme · instant"), Enter
+  confirms. Natural language never executes invisibly.
+- Tier 3 resolution failures degrade to tier-1 suggestions, never to "AI did
+  something".
+- The same adapter serves the CLI later (`zz do "<intent>"`) — one resolver,
+  two surfaces, same registry.
