@@ -1,7 +1,30 @@
-# The docs map — read this first
+# The docs — start here
+
+## The index
+
+| I want to… | Read |
+|---|---|
+| get running in 5 minutes | [guide/Getting-Started.md](guide/Getting-Started.md) |
+| understand every load-bearing term | [**MODEL.md**](MODEL.md) — the four planes, the canonical registry |
+| use modules as tables (schema · computed columns · views · import/export) | [guide/Modules-as-Tables.md](guide/Modules-as-Tables.md) |
+| understand the moat — why the agent is gated and I'm not | [guide/Two-Lanes.md](guide/Two-Lanes.md) |
+| read the map (islands · ghosts · the live push) | [guide/The-World.md](guide/The-World.md) |
+| build on the local API | [guide/Daemon-API.md](guide/Daemon-API.md) |
+| see a non-coding Project, end to end | [guide/Recipe-Personal-Vault.md](guide/Recipe-Personal-Vault.md) — the 277-note vault |
+| the workbench, guardrails, per-host detail, troubleshooting | [guide/](guide/) (mirrored to the GitHub wiki) |
+| what changed | [../CHANGELOG.md](../CHANGELOG.md) |
+| why it's built this way | [DESIGN.md](DESIGN.md) + [guide/Decision-Log.md](guide/Decision-Log.md) |
+
+**The lab notebook**: [`LOG.md`](LOG.md) is the append-only build journal — every capability verified on real sessions before it counts; [`specs/`](specs/) holds designs for unshipped work; [`audits/`](audits/) holds the dated deep audits. They read like a workshop because they are one.
+
+<!-- TODO(showcase): capture the World rendering the personal vault → docs/assets/world-vault.png (referenced by README + guide/The-World.md) -->
+
+---
+
+# The docs map
 
 zuzuu's documentation grew by accretion, so the same information ended up in several
-places. This file is the **information architecture**: where every kind of information
+places. This section is the **information architecture**: where every kind of information
 lives, for whom, and the rule that keeps it from drifting. Read it to find the right
 doc; **maintain it when you add one.**
 
@@ -30,9 +53,9 @@ thing has a home). When a new info-type appears, give it one home and add a row 
 | Information-type | The ONE home | Audience | Does **not** contain (it links instead) |
 |---|---|---|---|
 | What it is · quickstart · "where to find X" | **`README.md`** | everyone (front door) | architecture, the decisions list, user how-tos |
-| The vocabulary — load-bearing **terms + relations** (the registry) | **`README.md` § The model** | all | overloaded/code-internal terms (→ learn glossary), user phrasing (→ wiki Glossary) |
-| **Overloaded / code-internal** term disambiguation | **`docs/learn/glossary.md`** | contributors | the core definitions (→ README "The model") |
-| The vocabulary in **plain language** (user view) | **`docs/guide/Glossary.md`** | users | the precise/canonical defs (→ README "The model") |
+| The vocabulary — load-bearing **terms + relations** (the registry) | **`docs/MODEL.md`** (moved from README § The model, 02-07-2026) | all | overloaded/code-internal terms (→ learn glossary), user phrasing (→ wiki Glossary) |
+| **Overloaded / code-internal** term disambiguation | **`docs/learn/glossary.md`** | contributors | the core definitions (→ docs/MODEL.md) |
+| The vocabulary in **plain language** (user view) | **`docs/guide/Glossary.md`** | users | the precise/canonical defs (→ docs/MODEL.md) |
 | How to **use** it — the guide *pages* (tasks · per-host · workbench · troubleshooting) | **the wiki** (`docs/guide/`) | users | architecture, deep rationale (the Decision/Inspiration logs & Roadmap are their own rows below — also sourced from `docs/guide/`) |
 | How it **works** — the code map | **`CLAUDE.md`** | agent + contributors | decision *rationale/status* (→ Decision Log; keeps only a terse title index), the why (→ DESIGN), definitions (→ glossary) |
 | How it **works** — the educative walk | **`docs/learn/`** (lessons 00–09) | contributors | — |
@@ -53,7 +76,8 @@ the user (rendered) and contributor (source) audiences. One source, two surfaces
 ## The full surface inventory
 
 **Reference (canonical) docs**
-- `README.md` — front door: the pitch, the loop, "The model" (term relations), and a pointer here.
+- `README.md` — front door: the pitch, the loop, the quickstart, and pointers here.
+- `docs/MODEL.md` — the canonical model (the four planes; moved out of the README front door).
 - `CLAUDE.md` — the architecture map for the agent (the `src/` structure + conventions).
 - `src/README.md` — the code-layout map.
 - `docs/learn/` — the educative walk: lessons `00`–`09`, `glossary.md` (overloaded/code-internal

@@ -27,6 +27,8 @@ The **extended user guide** — how-tos, per-host detail, troubleshooting. The r
 | [docs/DESIGN.md](https://github.com/h1902y/zuzuu/blob/main/docs/DESIGN.md) | strategy & rationale (the *why*) |
 | **this wiki** | guides for *using* what's shipped |
 
+**New here?** [[Getting Started]] → [[Modules as Tables|Modules-as-Tables]] (your data as queryable tables) → [[Two Lanes|Two-Lanes]] (why the agent is gated and you aren't) → [[The World|The-World]] (your project as a living map). For a full non-coding walkthrough: [[Personal Vault|Recipe-Personal-Vault]].
+
 > Everything here is shipped **and verified against real sessions** — the project's standing rule. Designed-but-unbuilt things live in the repo docs, not here.
 
 ## Pages
