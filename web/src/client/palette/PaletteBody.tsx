@@ -28,6 +28,9 @@ import { useWorldCommand } from "../state/world-command.js";
 import { useAcpIntent } from "../state/acp-intent.js";
 import { useModuleView } from "../state/module-view.js";
 import { emptyStack, push, pop, top, placeholderFor, hintFor, laneBadge, type OmniStack } from "../omnibar/omni-shell.js";
+import { proposalsGroup, viewsGroup, type StagedRow } from "../omnibar/omni-sources.js";
+import { OmniDetail } from "../omnibar/OmniDetail.js";
+import { useModuleFilter } from "../state/module-filter.js";
 
 export default function PaletteBody() {
   const setPalette = useWorld((s) => s.setPalette);
@@ -57,9 +60,19 @@ export default function PaletteBody() {
   const notesQuery = useQuery({
     queryKey: ["zuzuu", "all-notes", ids],
     enabled: ids.length > 0,
-    queryFn: async () => (await Promise.all(ids.map((id) => api.zuzuu.module(id)))).flatMap((d) => d.items),
+    // one fan-out feeds THREE sources: the Notes content group, the saved Views
+    // group (type:view notes), and each module's pending proposals
+    queryFn: async () => {
+      const details = await Promise.all(ids.map((id) => api.zuzuu.module(id)));
+      return {
+        items: details.flatMap((d) => d.items),
+        staged: details.flatMap((d) => d.staged.map((s) => ({ module: d.key, s }))),
+      };
+    },
   });
   const notesLoading = ids.length > 0 && notesQuery.isLoading;
+  const allItems = notesQuery.data?.items ?? [];
+  const staged: StagedRow[] = notesQuery.data?.staged ?? [];
 
   const groups = buildPaletteGroups({
     sessions,
@@ -67,14 +80,21 @@ export default function PaletteBody() {
     recents: recents.data?.recents ?? [],
     hosts: HOSTS,
   });
-  const notes = notesGroup(query, notesQuery.data ?? [], notesLoading);
+  const notes = notesGroup(query, allItems, notesLoading);
+  const proposals = proposalsGroup(staged);
+  const views = viewsGroup(allItems, query);
   // C3 — the omnibar's prefix modes take over the palette: `>` world commands,
   // `/` the conversation. Omni groups self-filter, so cmdk's filter stands down.
   const omni = omniGroup(query, overview.data?.modules ?? []);
   // audit item 7: with a live query, CONTENT leads — the notes group renders first
   // so the best note is the default Enter target (cmdk keeps DOM order for ties;
   // the exact-substring filter score already zeroes most command noise).
-  const rootGroups = omni ? [omni] : notes && query.trim() ? [notes, ...groups] : notes ? [...groups, notes] : groups;
+  // root order: querying → content first (notes · views), then commands, proposals
+  // trailing; idle → what needs you first (proposals), then commands.
+  const extras = [views, proposals].filter((g): g is NonNullable<typeof g> => g != null);
+  const rootGroups = omni ? [omni]
+    : notes && query.trim() ? [notes, ...extras, ...groups]
+      : [...(proposals ? [proposals] : []), ...groups, ...(views ? [views] : []), ...(notes ? [notes] : [])];
 
   // A pushed ACTION PANEL replaces the root list (Raycast): one group, the noun's
   // verbs. The rows are ordinary commands, so Enter dispatches the same way.
@@ -87,6 +107,9 @@ export default function PaletteBody() {
     for (const g of allGroups) for (const c of g.commands) m.set(c.value, c);
     return m;
   }, [allGroups]);
+
+  const focusedRow = rowByValue.get(focusVal);
+  const detail = !view ? focusedRow?.detail : undefined;
 
   const close = () => setPalette(false);
   const pushView = (v: Parameters<typeof push>[1]) => { setStack((s) => push(s, v)); setQuery(""); setFocusVal(""); };
@@ -157,6 +180,31 @@ export default function PaletteBody() {
         break;
       }
       case "see-all-search": select({ kind: "search", query: action.query }); break;
+      case "open-row": select({ kind: "row", module: action.module, id: action.id }); break;
+      case "approve-proposal": {
+        // the gate's inline decision — the human IS the gate; instant lane
+        void dataProvider.approve(action.id, action.module)
+          .then(() => toast("Approved — landed"))
+          .catch((e) => toast(`Couldn’t approve${e instanceof Error && e.message ? ` — ${e.message}` : ""}`, "error"))
+          .finally(() => void qc.invalidateQueries({ queryKey: ["zuzuu"] }));
+        break;
+      }
+      case "reject-proposal": {
+        void dataProvider.reject(action.id, action.module, "rejected from the omnibar")
+          .then(() => toast("Rejected — dissolved"))
+          .catch((e) => toast(`Couldn’t reject${e instanceof Error && e.message ? ` — ${e.message}` : ""}`, "error"))
+          .finally(() => void qc.invalidateQueries({ queryKey: ["zuzuu"] }));
+        break;
+      }
+      case "run-view": {
+        // one filter state, two projections: apply the view's lens to its scope
+        // and open the table; T flips the same lens onto the map as a spotlight.
+        const scope = action.module; // '' = the Everything scope
+        useModuleFilter.getState().patch(scope, { text: action.text, kind: action.noteKind, module: "" });
+        useModuleView.getState().set(scope, "table");
+        select(scope ? { kind: "module", id: scope } : { kind: "everything" });
+        break;
+      }
       case "create-note": {
         // THE INVERSION — a create stages a proposal through the review gate, never a
         // direct write. Target the selected module, else default to knowledge.
@@ -193,7 +241,7 @@ export default function PaletteBody() {
         value={focusVal}
         onValueChange={setFocusVal}
         onKeyDown={onShellKeyDown}
-        className="animate-pop h-fit w-[560px] max-w-[90vw] overflow-hidden rounded-ui border border-border bg-elevated shadow-overlay"
+        className={`animate-pop h-fit ${detail ? "w-[840px]" : "w-[560px]"} max-w-[92vw] overflow-hidden rounded-ui border border-border bg-elevated shadow-overlay`}
         onClick={(e) => e.stopPropagation()}
       >
         <Command.Input
@@ -203,16 +251,23 @@ export default function PaletteBody() {
           placeholder={placeholderFor(stack)}
           className="w-full border-b border-border bg-transparent px-4 py-3 text-body text-ink-100 outline-none placeholder:text-muted"
         />
-        <Command.List className="max-h-[50vh] overflow-y-auto p-1">
-          <Command.Empty className="px-3 py-4 text-meta text-muted">no matches</Command.Empty>
-          {allGroups.map((group) => (
-            <Command.Group key={group.heading} heading={group.heading} className="px-2 py-1 text-meta text-muted">
-              {group.commands.map((cmd) => (
-                <Item key={`${group.heading}:${cmd.value}`} cmd={cmd} onSelect={() => dispatch(cmd.action)} />
-              ))}
-            </Command.Group>
-          ))}
-        </Command.List>
+        <div className="flex">
+          <Command.List className={`max-h-[50vh] ${detail ? "w-[55%]" : "w-full"} overflow-y-auto p-1`}>
+            <Command.Empty className="px-3 py-4 text-meta text-muted">no matches</Command.Empty>
+            {allGroups.map((group) => (
+              <Command.Group key={group.heading} heading={group.heading} className="px-2 py-1 text-meta text-muted">
+                {group.commands.map((cmd) => (
+                  <Item key={`${group.heading}:${cmd.value}`} cmd={cmd} onSelect={() => dispatch(cmd.action)} />
+                ))}
+              </Command.Group>
+            ))}
+          </Command.List>
+          {detail && (
+            <div className="max-h-[50vh] min-w-0 flex-1 overflow-y-auto border-l border-border p-3">
+              <OmniDetail detail={detail} staged={staged} />
+            </div>
+          )}
+        </div>
       </Command>
     </div>
   );

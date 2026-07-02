@@ -29,6 +29,13 @@ export type PaletteAction =
   // the Table⇄Map toggle (>table / >map): flip the current module's projection
   | { kind: "module-view"; view: "table" | "graph" }
   | { kind: "converse"; prompt: string }
+  // §E.1 stage 2 — the shell's noun verbs: the Record stage for a note, the gate's
+  // inline decisions (instant — the human IS the gate), and running a saved view
+  // (module '' = the Everything scope; noteKind = the lens's type facet)
+  | { kind: "open-row"; module: string; id: string }
+  | { kind: "approve-proposal"; module: string; id: string }
+  | { kind: "reject-proposal"; module: string; id: string }
+  | { kind: "run-view"; module: string; text: string; noteKind: string }
   | { kind: "noop" };
 
 export interface PaletteCommand {
