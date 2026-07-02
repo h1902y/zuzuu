@@ -20,6 +20,7 @@ export type NavNode =
   | { kind: "module"; id: string }
   | { kind: "row"; id: string; module: string }
   | { kind: "note"; id: string; module: string }
+  | { kind: "draft"; module: string } // the New-note draft (form-first — audit item 3)
   | { kind: "overview" }
   | { kind: "search"; query?: string }
   | { kind: "settings" }
@@ -43,6 +44,8 @@ export function selectActors(node: NavNode | null): Selection {
     case "row": return { stage: "record", wing: "form", crumb: [node.module, node.id] };
     // map-first reading: the World keeps the stage, the record opens as the wing
     case "note": return { stage: "world", wing: "form", crumb: [node.module, node.id] };
+    // the New-note draft: the module's table stays the stage; the draft form is the wing
+    case "draft": return { stage: "grid", wing: "form", crumb: [node.module, "new note"] };
     case "search": return { stage: "search", wing: "none", crumb: ["Search"] };
     case "settings": return { stage: "settings", wing: "none", crumb: ["Settings"] };
     case "acp": return { stage: "acp", wing: "none", crumb: ["Agent", node.id.slice(0, 6)] };

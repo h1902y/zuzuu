@@ -33,6 +33,7 @@ import { StageHeader } from "./stage/StageHeader.js";
 import { stageHeaderModel, newNoteId, resolveTab, type StageTab } from "./stage/stage-header.js";
 import { ReviewQueue } from "./review/ReviewQueue.js";
 import { Form } from "./wing/Form.js";
+import { NewNoteForm } from "./wing/NewNoteForm.js";
 import { Schema } from "./wing/Schema.js";
 import { dataProvider } from "../data/provider.js";
 import { Plus, Power } from "lucide-react";
@@ -117,14 +118,11 @@ export function WorkbenchShell() {
     finally { setBusy(null); void qc.invalidateQueries({ queryKey: ["zuzuu"] }); }
   }
 
-  // "New note" (the module stage's primary): a create → a PENDING proposal (the gate),
-  // never a landed row — it surfaces in the review queue.
-  async function onNewNote(module: string) {
-    try {
-      await dataProvider.create(module, newNoteId(Date.now()), { title: "Untitled note", body: "" });
-      toast("New note staged for review");
-      void qc.invalidateQueries({ queryKey: ["zuzuu"] });
-    } catch { toast("Couldn't stage the note", "error"); }
+  // "New note" (the module stage's primary): FORM-FIRST (audit item 3) — open the
+  // draft wing (typed fields, required markers) and stage on save. The old blind
+  // `{title: "Untitled note"}` stage could never be approved on a schema'd module.
+  function onNewNote(module: string) {
+    select({ kind: "draft", module });
   }
 
   const sel = selectActors(selected);
@@ -187,11 +185,12 @@ export function WorkbenchShell() {
   const stageCrumb =
     selected?.kind === "module" ? [moduleTitle(selected.id)]
     : selected?.kind === "row" || selected?.kind === "note" ? [moduleTitle(selected.module), selected.id]
+    : selected?.kind === "draft" ? [moduleTitle(selected.module), "new note"]
     : selected?.kind === "session" ? [activeSession?.title || "session"]
     : [];
   const stagePrimary =
     header.primary?.key === "new-note" && selected?.kind === "module"
-      ? { label: "New note", icon: Plus, onClick: () => void onNewNote(selected.id) }
+      ? { label: "New note", icon: Plus, onClick: () => onNewNote(selected.id) }
       : header.primary?.key === "end-session" && activeSession
         ? { label: "End session", icon: Power, variant: "outline" as const, onClick: () => requestEnd(activeSession) }
         : null;
@@ -253,6 +252,9 @@ export function WorkbenchShell() {
               // the Graph tab mounts the WHOLE world, focused on this module —
               // physics is project-level (two coupled sims); focus is a camera move
               activeModuleTab === "graph" ? <World focus={selected.id} /> : <Grid module={selected.id} />
+            ) : sel.stage === "grid" && selected?.kind === "draft" ? (
+              // the New-note draft: the module's table stays visible; the form is the wing
+              <Grid module={selected.module} />
             ) : sel.stage === "record" && selected?.kind === "row" ? (
               <Record module={selected.module} id={selected.id} />
             ) : sel.stage === "search" ? (
@@ -294,6 +296,8 @@ export function WorkbenchShell() {
           <aside className="hidden w-96 shrink-0 flex-col border-l border-border bg-surface xl:flex">
             {sel.wing === "review" ? (
               <ReviewQueue />
+            ) : sel.wing === "form" && selected?.kind === "draft" ? (
+              <NewNoteForm key={selected.module} module={selected.module} />
             ) : sel.wing === "form" && (selected?.kind === "row" || selected?.kind === "note") ? (
               <Form module={selected.module} id={selected.id} />
             ) : sel.wing === "schema" && selected?.kind === "module" ? (

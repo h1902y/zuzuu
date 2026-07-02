@@ -38,6 +38,9 @@ export function stageHeaderModel(node: NavNode | null): StageHeaderModel {
     case "note":
       // map-first reading (C1): the World keeps the stage; the crumb names the note
       return { show: true, primary: null };
+    case "draft":
+      // the New-note draft (audit item 3): the wing form is the actor, no primary
+      return { show: true, primary: null };
     default:
       return { show: false, primary: null };
   }

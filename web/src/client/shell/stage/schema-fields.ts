@@ -12,6 +12,7 @@ interface RawField {
   type?: unknown;
   label?: unknown;
   required?: unknown;
+  options?: unknown;
 }
 
 /** Map a JSON-Schema `type` (the home schema.json) to a workbench FieldType. */
@@ -39,6 +40,9 @@ export function fieldsFromSchema(schema: unknown): FieldDef[] {
         type,
         ...(typeof f.label === "string" ? { label: f.label } : {}),
         ...(f.required ? { required: true } : {}),
+        ...(Array.isArray(f.options) && f.options.length && f.options.every((o) => typeof o === "string")
+          ? { options: f.options as string[] }
+          : {}),
       });
     }
     return out;
