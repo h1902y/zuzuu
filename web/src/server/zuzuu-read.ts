@@ -88,7 +88,26 @@ export function createZuzuuReadApi(getRoot: () => string, binary?: string): Hono
     });
     const { items, total, errors, degraded } = await moduleEnvelopeItems(root, home, key, binary, flags);
     const staged = (await stagedOf(root, key)).map((p) => stagedSummary(p, key));
-    return c.json({ key, items, total, staged, errors, ...(degraded ? { degraded: true } : {}) });
+    // The contract this route promises the client is `ModuleDetail`: `items`/
+    // `staged` are ALWAYS arrays, never omitted/null, on every path — CLI
+    // success, CLI-absent peek, an empty/unknown module, a root-mode home.
+    // Traced end to end: moduleEnvelopeItems (zuzuu-peek.ts) returns a real
+    // array on its CLI branch (guarded by `Array.isArray(viaCli.items)`, else
+    // it falls through to peekModuleItems, which itself always resolves an
+    // array — `[]` for an unmapped/empty module dir, never undefined) and
+    // stagedOf/readJsonDir the same (missing staged/ dir → `[]`). So today
+    // every branch already holds this contract — no live "success with no
+    // items" path was found. The `?? []` below is the response boundary's own
+    // guarantee anyway: this exact class of bug (a CLI/degraded shape silently
+    // drifting from what the client assumes) already broke /overview once and
+    // /module/:key/generations once (see the comments above each) before this
+    // route existed to prove it wrong; asserting the contract AT THE WIRE means
+    // a future refactor of the read helpers can't reopen this class of crash
+    // even if it stops guaranteeing arrays internally.
+    return c.json({
+      key, items: items ?? [], total, staged: staged ?? [], errors,
+      ...(degraded ? { degraded: true } : {}),
+    });
   });
 
   // The UNIFIED table (one table over everything): every module's rows through the

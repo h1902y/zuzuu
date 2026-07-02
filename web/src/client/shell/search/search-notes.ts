@@ -20,10 +20,13 @@ function snippetAround(body: string, idx: number, qlen: number): string {
 }
 
 /** Search the brain's notes. A blank query → no hits. Title matches rank first, then
- *  kind, then body; ties break alphabetically by title. */
+ *  kind, then body; ties break alphabetically by title. `items` is guarded even
+ *  though it's typed as a real array — this is the last stop before rendering the
+ *  "see all results" list, so a non-array (a degraded fetch that slipped past an
+ *  upstream guard) degrades to "no hits" rather than throwing mid-render. */
 export function searchNotes(items: ModuleItem[], query: string): SearchHit[] {
   const q = query.trim().toLowerCase();
-  if (!q) return [];
+  if (!q || !Array.isArray(items)) return [];
   const ranked: { hit: SearchHit; rank: number }[] = [];
   for (const it of items) {
     const title = it.title || it.id;

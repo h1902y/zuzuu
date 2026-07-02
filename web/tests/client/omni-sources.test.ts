@@ -26,6 +26,12 @@ describe("proposalsGroup", () => {
   it("empty queue → no group", () => {
     expect(proposalsGroup([])).toBeNull();
   });
+
+  it("a non-array `staged` (a degraded fan-out response) → no group, never throws", () => {
+    expect(() => proposalsGroup(undefined as unknown as typeof staged)).not.toThrow();
+    expect(proposalsGroup(undefined as unknown as typeof staged)).toBeNull();
+    expect(proposalsGroup(null as unknown as typeof staged)).toBeNull();
+  });
 });
 
 describe("saved views", () => {
@@ -42,6 +48,12 @@ describe("saved views", () => {
     expect(g.commands[0]!.action).toMatchObject({ kind: "run-view", module: "actions", noteKind: "activity" });
     expect(viewsGroup([view], "zzz")).toBeNull();
     expect(viewsGroup([item({ id: "n1" })], "")).toBeNull();
+  });
+
+  it("a non-array `items` (a degraded fan-out response) → no group, never throws", () => {
+    expect(() => viewsGroup(undefined as unknown as ModuleItem[], "")).not.toThrow();
+    expect(viewsGroup(undefined as unknown as ModuleItem[], "")).toBeNull();
+    expect(viewsGroup(null as unknown as ModuleItem[], "")).toBeNull();
   });
 });
 

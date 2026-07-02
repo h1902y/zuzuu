@@ -11,9 +11,11 @@ import type { PaletteCommand, PaletteGroup } from "../palette/palette-commands.j
 export interface StagedRow { module: string; s: StagedSummary }
 
 /** The Proposals group: every pending staged change, gate verbs on Tab. Shown on
- *  the root list (they're what needs you) and filtered like any row on a query. */
+ *  the root list (they're what needs you) and filtered like any row on a query.
+ *  Guards a non-array `staged` (a fetched-shape field) rather than throwing —
+ *  the omnibar's fan-out has degraded before (see lib/module-details.ts). */
 export function proposalsGroup(staged: StagedRow[]): PaletteGroup | null {
-  if (!staged.length) return null;
+  if (!Array.isArray(staged) || !staged.length) return null;
   return {
     heading: "Proposals",
     commands: staged.map(({ module, s }): PaletteCommand => ({
@@ -50,6 +52,7 @@ export function viewLens(item: ModuleItem): { module: string; text: string; note
  *  (applies its lens and opens the scope's table; T then shows the same lens as a
  *  spotlight on the map — one filter state, two projections). */
 export function viewsGroup(items: ModuleItem[], query: string): PaletteGroup | null {
+  if (!Array.isArray(items)) return null;
   const views = items.filter((it) => it.kind === "view");
   if (!views.length) return null;
   const q = query.trim().toLowerCase();

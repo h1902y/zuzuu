@@ -57,6 +57,33 @@ describe("createZuzuuApi file routes", () => {
     expect(body.items[0]).toEqual(item); // THE ENVELOPE, untouched
     expect(body.errors).toEqual([]);
   });
+  it("GET /module/:key ALWAYS answers with real items/staged arrays, even when the CLI succeeds with a shape missing them — the U4 white-screen contract (a client `.flatMap(d => d.items)`/`d.staged.map(...)` over an omitted array threw and blanked the omnibar's 'see all results' view)", async () => {
+    fixtureHome(root);
+    // The CLI exits 0 (`code === 0`) but its stdout parses to an object that
+    // simply has no `items`/`staged` keys — the exact class of drift that has
+    // hit this daemon before (the /overview route's "CLI emits a bare rows
+    // array" bug, and /module/:key/generations's raw `{n, active:number}` vs
+    // the wire's `{id, active:string}`, both fixed by normalizing at the route).
+    const bareStub = jsonStub(root, JSON.stringify({}));
+    const bare = createZuzuuApi(() => root, { binary: bareStub });
+    const bareBody = await (await bare.request("/module/knowledge")).json();
+    expect(Array.isArray(bareBody.items)).toBe(true);
+    expect(Array.isArray(bareBody.staged)).toBe(true);
+
+    // The CLI succeeds and explicitly nulls the field rather than omitting it.
+    const nullStub = jsonStub(root, JSON.stringify({ items: null, staged: null, total: null, errors: null }));
+    const nulled = createZuzuuApi(() => root, { binary: nullStub });
+    const nulledBody = await (await nulled.request("/module/knowledge")).json();
+    expect(Array.isArray(nulledBody.items)).toBe(true);
+    expect(Array.isArray(nulledBody.staged)).toBe(true);
+
+    // CLI entirely absent (the degraded peek path) — the other historical source
+    // of a shape-drifted response.
+    const absent = createZuzuuApi(() => root, { binary: "definitely-not-a-real-binary-zzz" });
+    const absentBody = await (await absent.request("/module/unknown-but-safe-slug")).json();
+    expect(Array.isArray(absentBody.items)).toBe(true);
+    expect(Array.isArray(absentBody.staged)).toBe(true);
+  });
   it("GET /module/:key forwards filter·sort·paginate query params to `module items` flags + returns total (Rung 7)", async () => {
     fixtureHome(root);
     const app = createZuzuuApi(() => root, { binary: argvItemsStub(root, 42) });

@@ -18,6 +18,7 @@ import { useEnterProject } from "../shell/session/use-enter-project.js";
 import { useAppSurface } from "../state/app-surface.js";
 import { HOSTS } from "../app/hosts.js";
 import { api } from "../lib/api.js";
+import { mergeModuleDetails } from "../lib/module-details.js";
 import { dataProvider } from "../data/provider.js";
 import { newNoteId } from "../shell/stage/stage-header.js";
 import { toast } from "../state/toast.js";
@@ -73,14 +74,11 @@ export default function PaletteBody() {
     queryKey: ["zuzuu", "all-notes", ids],
     enabled: ids.length > 0,
     // one fan-out feeds THREE sources: the Notes content group, the saved Views
-    // group (type:view notes), and each module's pending proposals
-    queryFn: async () => {
-      const details = await Promise.all(ids.map((id) => api.zuzuu.module(id)));
-      return {
-        items: details.flatMap((d) => d.items),
-        staged: details.flatMap((d) => d.staged.map((s) => ({ module: d.key, s }))),
-      };
-    },
+    // group (type:view notes), and each module's pending proposals.
+    // mergeModuleDetails guards each response independently (missing/non-array
+    // `items`/`staged` contribute nothing) — a degraded module-detail response
+    // must not blank the whole omnibar (the crash `d.staged.map(...)` used to throw on).
+    queryFn: async () => mergeModuleDetails(await Promise.all(ids.map((id) => api.zuzuu.module(id)))),
   });
   const notesLoading = ids.length > 0 && notesQuery.isLoading;
   const allItems = notesQuery.data?.items ?? [];
