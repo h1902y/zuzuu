@@ -268,6 +268,9 @@ export function mountWorld(container: HTMLElement, cb: WorldCallbacks = {}): Wor
   function setData(graph: WorldGraph): void {
     if (destroyed) return;
     const prev = new Map(nodes.map((n) => [n.addr, n]));
+    // a ghost whose addr arrives among the REAL nodes just got approved — mark it
+    // for the solidify animation (the moat made visceral, C4)
+    const landing = new Set([...ghostAddrs].filter((a) => graph.nodes.some((n) => n.addr === a)));
     const modules = [...new Set(graph.nodes.map((n) => n.module))].sort();
     palette = modulePalette(modules);
 
@@ -328,6 +331,13 @@ export function mountWorld(container: HTMLElement, cb: WorldCallbacks = {}): Wor
         .on("start", (_ev, d) => { sim.alphaTarget(0.2).restart(); d.fx = d.x; d.fy = d.y; })
         .on("drag", (ev: { dx: number; dy: number }, d) => { d.fx = (d.fx ?? 0) + ev.dx / transform.k; d.fy = (d.fy ?? 0) + ev.dy / transform.k; })
         .on("end", (_ev, d) => { d.fx = null; d.fy = null; sim.alphaTarget(0); }));
+    // approval landed: the born node inherits the ghost's spot and SOLIDIFIES —
+    // dashed pulse → solid fill (C4). The class self-clears after the animation.
+    if (landing.size) {
+      const born = nodeSel.filter((d) => landing.has(d.addr));
+      born.classed("zz-world-solidify", true);
+      setTimeout(() => { if (!destroyed) born.classed("zz-world-solidify", false); }, 950);
+    }
     labelSel = labelLayer.selectAll<SVGTextElement, SimNode>("text")
       .data(nodes, (d) => d.addr)
       .join("text")
@@ -347,6 +357,7 @@ export function mountWorld(container: HTMLElement, cb: WorldCallbacks = {}): Wor
 
   // ── ghosts (the moat in the map) ──
   let rawGhosts: WorldGhost[] = [];
+  let ghostAddrs = new Set<string>();
   function rebuildGhosts(): void {
     const present = new Set(nodes.map((n) => n.addr));
     ghosts = rawGhosts
@@ -354,12 +365,26 @@ export function mountWorld(container: HTMLElement, cb: WorldCallbacks = {}): Wor
       .map((g) => ({ ...g, gx: (moduleHue(g.stagedId) / 360) * Math.PI * 2, gy: (moduleHue(g.addr) % 20) - 10 }));
     ghostSel = ghostLayer.selectAll<SVGGElement, GhostDot>("g")
       .data(ghosts, (d) => d.addr)
-      .join((enter) => {
-        const g = enter.append("g").attr("class", "zz-world-ghost");
-        g.append("circle").attr("r", 7);
-        g.append("text").attr("y", -12).text((d) => d.title);
-        return g;
-      });
+      .join(
+        (enter) => {
+          const g = enter.append("g").attr("class", "zz-world-ghost");
+          g.append("circle").attr("r", 7);
+          g.append("text").attr("y", -12).text((d) => d.title);
+          return g;
+        },
+        (update) => update,
+        (exit) => {
+          // a ghost that leaves WITHOUT landing was rejected — it dissolves in
+          // place (C4). Exited elements freeze (out of the tick selection), fade,
+          // then remove themselves.
+          exit.classed("zz-world-ghost-out", true).on("click", null)
+            .each(function (this: SVGGElement) {
+              const el = this;
+              setTimeout(() => el.remove(), 480);
+            });
+        },
+      );
+    ghostAddrs = new Set(ghosts.map((g) => g.addr));
     ghostSel.on("click", (_ev: MouseEvent, d) => cb.onGhostClick?.(d.module, d.stagedId));
     restyle();
   }
