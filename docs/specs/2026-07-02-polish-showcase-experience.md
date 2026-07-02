@@ -154,3 +154,49 @@ The wings/dialogs of §D progressively fold into omnibar detail views where they
 fit; heavyweight surfaces (the Everything table, the terminal dock) stay
 toggles. Build order within §E: component shell (input+list+detail) → sources
 (notes/modules/commands/sessions/proposals) → chat surface → sidebar removal.
+
+### §E.2 — Omnibar shell: the reference-experience brainstorm (design decisions)
+
+What each reference contributes, distilled to decisions:
+
+- **Raycast (the structural template)** — the deepest insight: *the input finds
+  NOUNS; a focused noun reveals its VERBS* (their ⌘K action panel). Decision:
+  plain typing lists nouns (notes · modules · sessions · proposals · views);
+  Tab (or ⌘K) on a focused row opens its action panel (edit · relate · delete ·
+  discuss · approve…). `>` remains the verbs-first entry for globals. Also
+  adopted: push/pop view stack with the breadcrumb living in the input
+  placeholder; forms as pushed views (see below); frecency ranking.
+- **Linear ⌘K** — context seeds the palette: the current selection's verbs rank
+  first. Decision: map selection (node/island/ghost) = omnibar context, always.
+- **Alfred** — staged argument prompts. Decision: verb arguments complete in
+  STAGES (`new note` → pick module → schema-aware form), with inline
+  `field=value` tokens as the fast path for those who type ahead. Both, not either.
+- **telescope.nvim / Raycast detail** — preview is not a separate step.
+  Decision: LIST + DETAIL live side-by-side in the panel for rich nouns (note
+  preview, proposal diff, session summary); the map glows/flies behind as
+  focus moves. Esc pops, never closes-by-surprise.
+- **VS Code quick-input** — prefix modes we already mirror (` ` find · `>`
+  verbs · `/` chat); multi-step quick-input chains for schema-aware creation.
+- **Superhuman** — the palette TEACHES its shortcuts (a quiet hint column);
+  every action has equal keyboard cost. Decision: hint column from day one.
+- **Warp/Cursor** — chat shares the shell, streams inline, and its answers can
+  carry ACTION ROWS. Decision: agent replies render approve/reject rows inline
+  when proposals ride the answer (the gate inside the chat surface).
+- **Spotlight** — the discipline of instant top-hit + zero chrome; nothing else.
+
+zuzuu-specific decisions no reference has:
+1. **Two-lane row grammar**: instant (operator) verbs vs proposal (agent-lane)
+   verbs are visually distinct IN the rows — the moat readable at the input.
+2. **Schema-aware forms for free**: the pushed create/edit form renders from
+   the module manifest (labels · selects · defaults · computed shown read-only)
+   — the §inspector concept folds in here rather than living as separate wings.
+3. **The omnibar is the API**: every button anywhere is a canned invocation;
+   sources/verbs are a registry, so automations later script the same surface.
+4. **Ranking**: exact-substring > prefix > fuzzy (already fixed in the palette),
+   then frecency per source; content nouns outrank chrome verbs on plain queries.
+
+Component architecture: keep cmdk as the base; add (a) a view-stack controller
+(push/pop, breadcrumb, per-view state), (b) a noun-source registry
+(id · icon · search(q) · detail(item) · actions(item)), (c) a verb registry
+keyed by noun type + globals, (d) the chat surface as a pushed view over the
+ACP lane. The §D HUD/footer invoke the same registries.
