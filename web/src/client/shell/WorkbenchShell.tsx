@@ -27,6 +27,8 @@ import { onboardingStep, recordConsent, reopen, RUNG_ROUTE, describeSetupFailure
 import { loadConsent, saveConsent } from "./onboarding/onboarding-consent.js";
 import { hudModel } from "./overview/overview-model.js";
 import { HudPill } from "./HudPill.js";
+import { projectionSwitch, type ProjTarget } from "./projection-switch.js";
+import { useAppSurface } from "../state/app-surface.js";
 import { useSettingsDialog } from "../state/settings-dialog.js";
 import { Grid } from "./stage/Grid.js";
 import { Everything } from "./stage/Everything.js";
@@ -83,7 +85,18 @@ export function WorkbenchShell() {
   const reviewOpen = useReview((s) => s.open);
   const setReview = useReview((s) => s.setOpen);
   const setPalette = useWorld((s) => s.setPalette);
+  const requestWorld = useWorldCommand((s) => s.request);
+  const goGlobal = useAppSurface((s) => s.home);
+  const settingsOpen = useSettingsDialog((s) => s.open);
+  const setSettingsOpen = useSettingsDialog((s) => s.setOpen);
   const requestEnd = useEndSession((s) => s.request);
+
+  // the footer projection switcher applies a target: World home · Everything · a module
+  const applyProjection = (t: ProjTarget) => {
+    if (t.scope === null) { select(null); requestWorld({ kind: "fit" }); }
+    else if (t.scope === "") { setModuleView("", t.view); select({ kind: "everything" }); }
+    else { setModuleView(t.scope, t.view); select({ kind: "module", id: t.scope }); }
+  };
 
   useEffect(() => { void refresh(); }, [refresh]); // load sessions; home is the database (no auto-open)
 
@@ -143,11 +156,20 @@ export function WorkbenchShell() {
           }
         }
       }
-      else if (e.key === "Escape") setReview(false);
+      else if (e.key === "Escape") {
+        // Esc cascade: an open overlay closes first (review · settings); otherwise,
+        // from any table/record stage, Esc returns to the World home (the map is the
+        // resting place). The palette owns its own Esc (it stops propagation); the
+        // onboarding dialog is non-dismissible (consent is the way through). A focused
+        // terminal/input is already guarded out above, so vim's Esc is preserved.
+        if (useReview.getState().open) setReview(false);
+        else if (useSettingsDialog.getState().open) setSettingsOpen(false);
+        else if (useWorld.getState().selected !== null) { e.preventDefault(); select(null); }
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [setReview, setPalette]);
+  }, [setReview, setPalette, select, setSettingsOpen]);
 
   // The setup→work stitch: onboarding picks a HOST (an agent session — zuzuu only
   // observes agents), then drops into the terminal AND teaches the loop just entered.
@@ -189,8 +211,9 @@ export function WorkbenchShell() {
     heldQ.data?.held?.length ?? 0,
     integrity,
   );
-  const settingsOpen = useSettingsDialog((s) => s.open);
-  const setSettingsOpen = useSettingsDialog((s) => s.setOpen);
+  // the footer's always-there projection switcher (derived from the selection +
+  // each scope's resolved view) — the visible twin of the T shortcut / >map/>table
+  const projection = projectionSwitch(selected, (scope) => (viewOf(viewByModule, scope) === "graph" ? "graph" : "table"));
 
   // The per-step CONSENT GATE (U3): setup no longer auto-fires. A durable consent record
   // (localStorage, per-workspace) + the mechanical state derive the onboarding step; the
@@ -381,7 +404,7 @@ export function WorkbenchShell() {
         )}
       </div>
 
-      <Ribbon sessions={sessionsLite} pendingByModule={pendingByModule} setupHint={setupHint} onReview={() => setReview(true)} onSettings={() => setSettingsOpen(true)} />
+      <Ribbon sessions={sessionsLite} pendingByModule={pendingByModule} setupHint={setupHint} onReview={() => setReview(true)} onSettings={() => setSettingsOpen(true)} projection={projection} onProject={applyProjection} onGlobe={goGlobal} />
 
       {/* §D — onboarding is a DIALOG SEQUENCE over the dimmed World: the recorded
           consent gates (per-rung affirm/decline/reopen, resumable, failures inline
