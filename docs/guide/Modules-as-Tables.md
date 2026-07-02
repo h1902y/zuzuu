@@ -95,6 +95,24 @@ zz module import crm --json rows.json --force
 
 Import goes through the same batch-create as `--batch`: any invalid row reverts the whole file, and the agent is denied the verb entirely.
 
+## One table over everything
+
+Modules are tables — but they aren't silos. `zz module items --all` serves EVERY
+module's rows through the same filter/sort/paginate contract, each row carrying
+its module:
+
+```bash
+zz module items --all --limit 20 --json          # the whole Project, one page
+zz module items --all --type activity --json     # filters compose across modules
+```
+
+In the workbench this is the **Everything** view: one grid over the whole
+Project, module as a column (with its island color dot), module/type facet
+chips to narrow. Press `T` and the same lens becomes a spotlight across the
+whole World — a module facet lights one island whole. The per-module tables
+remain (a module still has its schema and its own grid, one chip-click away);
+they're just not navigation anymore.
+
 ## See it
 
-`zz module items crm` is the table read (filter/sort/paginate server-side); `zz host web` renders it as a grid — and as an island in [the World](The-World).
+`zz module items crm` is the table read (filter/sort/paginate server-side); `zz module items --all` is the whole Project as one table; `zz host web` renders both as grids — and as islands in [the World](The-World).

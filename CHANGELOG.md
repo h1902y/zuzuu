@@ -42,6 +42,12 @@ that history).
 - The corpus signature is computed once per index rebuild, not twice.
 
 ### Added
+- **The Everything view (web)**: one table over every module — `zz module items
+  --all` (+ `GET /api/zuzuu/items`) serves the whole Project through the same
+  filter/sort/paginate contract; the workbench renders it with module as a
+  COLUMN (island color dot + facet chips), replacing the per-module sidebar
+  entries. `T` flips it into the full World with the same lens spotlighted
+  across all islands.
 - **The World (web)**: **Table⇄Map is one segmented toggle** — `T` flips a module
   between its two projections; `>table`/`>map` from the palette; the grid's filter
   rides both as a persistent **spotlight** on the island (chip row names + clears
