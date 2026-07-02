@@ -102,15 +102,16 @@ export default function PaletteBody() {
   const allGroups: PaletteGroup[] =
     view?.kind === "actions" ? [{ heading: view.row.label, commands: view.row.actions ?? [] }] : rootGroups;
 
-  // focused-row lookup (Tab reads it; the detail pane will too)
+  // focused-row lookup (Tab reads it; the detail pane too). Keyed lowercase —
+  // cmdk normalizes its data-value to lowercase, so DOM lookups must match.
   const rowByValue = useMemo(() => {
     const m = new Map<string, PaletteCommand>();
-    for (const g of allGroups) for (const c of g.commands) m.set(c.value, c);
+    for (const g of allGroups) for (const c of g.commands) m.set(c.value.toLowerCase(), c);
     return m;
   }, [allGroups]);
+  const rowFor = (v: string | undefined | null) => (v ? rowByValue.get(v.toLowerCase()) : undefined);
 
-  const focusedRow = rowByValue.get(focusVal);
-  const detail = !view ? focusedRow?.detail : undefined;
+  const detail = !view ? rowFor(focusVal)?.detail : undefined;
 
   const close = () => setPalette(false);
   const pushView = (v: Parameters<typeof push>[1]) => { setStack((s) => push(s, v)); setQuery(""); setFocusVal(""); };
@@ -232,7 +233,13 @@ export default function PaletteBody() {
       return;
     }
     if (e.key === "Tab" && !view) {
-      const row = rowByValue.get(focusVal);
+      // read cmdk's ACTUALLY-selected row from the DOM (its aria-selected item) —
+      // the source of truth for what Enter/Tab acts on. focusVal state can lag the
+      // highlight (cmdk moves selection without always echoing onValueChange), and
+      // the first row isn't always the selected one.
+      const selVal = (e.currentTarget as HTMLElement)
+        .querySelector<HTMLElement>('[cmdk-item][aria-selected="true"]')?.getAttribute("data-value");
+      const row = rowFor(selVal) ?? rowFor(focusVal);
       if (row?.actions?.length) { e.preventDefault(); e.stopPropagation(); pushView({ kind: "actions", row }); }
     }
   }

@@ -23,10 +23,13 @@ import {
 export function createZuzuuReadApi(getRoot: () => string, binary?: string): Hono {
   const app = new Hono();
   // root-mode aware: the peek's module dirs live at the repo root when the root
-  // project.md marker is present; `.zuzuu/` otherwise. STAGED proposals live under
-  // `.zuzuu/<module>/staged` in BOTH modes (ephemera never move to the root).
+  // project.md marker is present; `.zuzuu/` otherwise. STAGED proposals ride the
+  // MODULE dir (`<home>/<module>/staged/` — zz stage writes there), so they move
+  // with the home too: a root-mode project's queue lives at `<root>/<m>/staged`.
+  // (This was `.zuzuu`-fixed — root-mode proposals, and the World's ghosts, were
+  // invisible to the daemon.)
   const homeDir = (root: string) => resolveHome(root);
-  const stagedOf = (root: string, key: string) => readJsonDir(path.join(root, ".zuzuu", key, "staged"));
+  const stagedOf = async (root: string, key: string) => readJsonDir(path.join(await resolveHome(root), key, "staged"));
 
   // The batched module surface: ONE `zuzuu module overview --json` spawn covers
   // all modules (manifest ui descriptors + counts + top titles + pending). CLI
