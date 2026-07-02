@@ -78,6 +78,7 @@ describe("gatherProjectState — steady survives a CLI failure (the flap P0)", (
     const s = await gatherProjectState(root, "/nonexistent/zz-binary-for-test");
     expect(s.state).toBe("steady");
     expect(s.counts.modules).toBe(1);
+    expect(s.rootMode).toBe(false); // classic — modules live under .zuzuu/
   });
   it("root-mode: the project.md marker + root modules read as a steady Project", async () => {
     mkdirSync(path.join(root, ".git"));
@@ -89,6 +90,7 @@ describe("gatherProjectState — steady survives a CLI failure (the flap P0)", (
     const s = await gatherProjectState(root, "/nonexistent/zz-binary-for-test");
     expect(s.state).toBe("steady"); // never "no-project", never "Create the brain"
     expect(s.counts.modules).toBe(1);
+    expect(s.rootMode).toBe(true); // §G.4 — Settings' "under the hood" names this
   });
   it("the safety floor alone (instructions) is NOT activity — still no-activity", async () => {
     mkdirSync(path.join(root, ".git"));

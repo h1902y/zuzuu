@@ -67,6 +67,13 @@ export const COMMAND_CATALOG = {
   // ── the map surface (P2): the whole project as nodes + links ──
   "graph": { id: "graph", path: ["graph"], params: [], flags: { props: "--props" } },
   "gen.mint": { id: "gen.mint", path: ["gen", "mint"], params: ["module"], flags: { from: "--from" } },
+  // §G.2 the generation strip's diff panel: `gen diff`/`gen rollback` carry no `io`
+  // descriptor on the CLI side yet (cold verbs — widening one is a src/ change, out
+  // of scope this pass), so `zz commands --json` reports them with EMPTY params/
+  // flags today; this entry matches that byte-for-byte. The real `<module> <a> <b>`
+  // positionals ride as pre-validated `extra` (mirrors `module.items`'s query-flag
+  // extra) — the route builds+validates them before the spawn, same discipline.
+  "gen.diff": { id: "gen.diff", path: ["gen", "diff"], params: [], flags: {} },
   "session.label": { id: "session.label", path: ["session", "label"], params: ["id"], flags: { text: "--text" } },
   // ── readiness text reads (no --json mode) ──
   "doctor": { id: "doctor", path: ["doctor"], params: [], flags: {} },

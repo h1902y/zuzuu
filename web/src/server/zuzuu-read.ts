@@ -178,6 +178,25 @@ export function createZuzuuReadApi(getRoot: () => string, binary?: string): Hono
     });
   });
 
+  // Diff two of a module's generations (§G.2, the generation strip's "what changed"
+  // panel): `zz gen diff <m> <a> <b>` — which notes were added/modified/deleted.
+  // `gen diff` has no `io` descriptor on the CLI side yet, so from/to ride as
+  // validated `extra` positionals rather than a catalog param (see zuzuu-catalog.ts).
+  // A non-existent `from` (the module's first generation has no "before") makes the
+  // CLI exit non-zero → runCommand degrades to null → this answers `degraded: true`,
+  // never an error (the client reads that as "nothing to diff against").
+  app.get("/module/:key/generation/:from/diff/:to", async (c) => {
+    const key = c.req.param("key");
+    const from = c.req.param("from");
+    const to = c.req.param("to");
+    if (!SAFE_SLUG.test(key)) return c.json({ error: "unknown module" }, 404);
+    if (!/^\d+$/.test(from) || !/^\d+$/.test(to)) return c.json({ error: "bad generation id" }, 400);
+    const viaCli = await runCommand(getRoot(), "gen.diff", {}, { binary, extra: [key, from, to] }) as
+      { changes?: unknown[] } | null;
+    if (viaCli && Array.isArray(viaCli.changes)) return c.json({ module: key, from, to, changes: viaCli.changes });
+    return c.json({ module: key, from, to, changes: [], degraded: true });
+  });
+
   // The session-start readiness brief: the human-readable `zz doctor` health check +
   // `zz digest` (where the project stands), shelled as raw text (neither has a --json
   // mode). The workbench embeds this in the agent's first turn (the session kickoff).

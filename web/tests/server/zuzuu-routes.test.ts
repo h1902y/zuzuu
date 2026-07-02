@@ -2,7 +2,7 @@
 // fallbacks, CLI-only mutations (503/502 mapping), and argv-injection gates —
 // all through stub binaries (see zuzuu-fixtures.ts).
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync, realpathSync, existsSync } from "node:fs";
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, realpathSync, existsSync, chmodSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createZuzuuApi } from "../../src/server/zuzuu-routes.js";
@@ -194,6 +194,42 @@ describe("createZuzuuApi file routes", () => {
     const app = createZuzuuApi(() => root, { binary: "x" });
     expect((await app.request("/module/..%2f..%2fetc/item/k1/history")).status).toBe(404);
     expect((await app.request("/module/knowledge/item/..%2f..%2fetc/history")).status).toBe(400);
+  });
+
+  it("GET /module/:key/generation/:from/diff/:to shells `gen diff <m> <a> <b>` (§G.2)", async () => {
+    fixtureHome(root);
+    // an argv-echo stub — proves the module/from/to positionals reached the CLI
+    // (gen.diff's catalog entry carries no declared params; from/to ride as `extra`)
+    const stub = path.join(root, "zuzuu-gendiff.sh");
+    writeFileSync(stub, `#!/bin/sh\nprintf '{"changes":[{"status":"argv","id":"'\nprintf '%s ' "$@"\nprintf '"}]}'\n`);
+    chmodSync(stub, 0o755);
+    const app = createZuzuuApi(() => root, { binary: stub });
+    const body = await (await app.request("/module/knowledge/generation/1/diff/2")).json();
+    expect(body.module).toBe("knowledge");
+    expect(body.from).toBe("1");
+    expect(body.to).toBe("2");
+    expect(body.changes[0].id).toContain("gen diff knowledge 1 2");
+  });
+  it("GET /module/:key/generation/:from/diff/:to passes real changes through", async () => {
+    fixtureHome(root);
+    const changes = [{ status: "M", id: "k1" }, { status: "A", id: "k2" }, { status: "D", id: "k3" }];
+    const app = createZuzuuApi(() => root, { binary: jsonStub(root, JSON.stringify({ changes })) });
+    const body = await (await app.request("/module/knowledge/generation/1/diff/2")).json();
+    expect(body).toEqual({ module: "knowledge", from: "1", to: "2", changes });
+  });
+  it("GET /module/:key/generation/:from/diff/:to degrades (never errors) when the CLI has nothing to diff", async () => {
+    fixtureHome(root);
+    // the module's very first generation has no "before" — `gen diff` exits non-zero
+    const app = createZuzuuApi(() => root, { binary: failStub(root) });
+    const body = await (await app.request("/module/knowledge/generation/0/diff/1")).json();
+    expect(body).toEqual({ module: "knowledge", from: "0", to: "1", changes: [], degraded: true });
+  });
+  it("GET /module/:key/generation/:from/diff/:to rejects unsafe slugs/non-numeric generations", async () => {
+    fixtureHome(root);
+    const app = createZuzuuApi(() => root, { binary: "x" });
+    expect((await app.request("/module/..%2f..%2fetc/generation/1/diff/2")).status).toBe(404);
+    expect((await app.request("/module/knowledge/generation/one/diff/2")).status).toBe(400);
+    expect((await app.request("/module/knowledge/generation/1/diff/two")).status).toBe(400);
   });
 
   it("GET /held shells `zz session status --json` → the id-enriched held[] (U6)", async () => {

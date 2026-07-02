@@ -1,21 +1,32 @@
 // note/NoteDocument.tsx — THE note detail rendering (§H.6): one component, every
 // container (omnibar detail pane · wing · inline row expansion), width-adaptive.
 // Notion document grammar: header → lead → grouped attribute cards → GFM body →
-// quiet footer. READ-ONLY by doctrine — the single affordance is the "Act ⌘K"
-// hint; relation rows fly the map (navigation, not mutation).
-import type { ModuleItem } from "#shared/index.js";
+// collapsed History → quiet footer. READ-ONLY by doctrine — the single
+// affordance is the "Act ⌘K" hint; relation rows fly the map (navigation, not
+// mutation); History is a read too (§G.1 — teach the substrate).
+import { useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
+import type { ModuleItem, HistoryEntry } from "#shared/index.js";
 import type { FieldDef } from "../data/field-registry.js";
 import { Command } from "lucide-react";
 import { Gfm } from "../lib/Gfm.js";
+import { api } from "../lib/api.js";
+import { relativeTimeFromIso } from "../lib/time.js";
 import { moduleHue } from "../world/model.js";
 import { TypeGlyph } from "../shell/stage/TypeGlyph.js";
 import { StatusPill } from "../shell/stage/StatusPill.js";
+import { ActorGlyph } from "../shell/stage/ActorGlyph.js";
 import { noteGroups, leadOf, bornHere, targetAddr, type AttrRow } from "./note-document-model.js";
+import { historyExtra, historyOpLabel } from "./note-history-model.js";
 import { useWorld } from "../shell/world-state.js";
 import { useWorldCommand } from "../state/world-command.js";
 import { Icon, Text } from "../ds/index.js";
 
 export type NoteDocumentWidth = "panel" | "wing" | "row";
+
+/** Structural match (not reference — the entry rode a separate JSON.parse than
+ *  `entries`) for highlighting the History row `bornAt` names. */
+const sameEntry = (a: HistoryEntry | null, b: HistoryEntry): boolean => a != null && JSON.stringify(a) === JSON.stringify(b);
 
 function Dot({ hue }: { hue: number }) {
   return (
@@ -25,11 +36,25 @@ function Dot({ hue }: { hue: number }) {
   );
 }
 
-function GroupCard({ title, children }: { title: string; children: React.ReactNode }) {
+function GroupCard({ title, titleTooltip, footnote, children }: {
+  title: string;
+  /** §G.3: a one-line OKF explainer riding the header as a native tooltip (same
+   *  quiet-teaching pattern AttrLine already uses for a field's `description`). */
+  titleTooltip?: string;
+  /** §G.3: "this is a plain file — <module>/module.md", quiet, under the schema card. */
+  footnote?: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="min-w-0 rounded-ui border border-border bg-surface">
-      <p className="border-b border-border px-3 py-1.5 text-meta font-semibold uppercase tracking-wide text-muted">{title}</p>
+      <p
+        className={`border-b border-border px-3 py-1.5 text-meta font-semibold uppercase tracking-wide text-muted ${titleTooltip ? "underline decoration-dotted decoration-muted/60 underline-offset-2" : ""}`}
+        title={titleTooltip}
+      >
+        {title}
+      </p>
       <div className="flex flex-col">{children}</div>
+      {footnote && <p className="border-t border-border px-3 py-1 text-meta text-muted">{footnote}</p>}
     </div>
   );
 }
@@ -63,6 +88,23 @@ export function NoteDocument({ item, fields = [], width = "panel" }: {
   const born = bornHere(item);
   const body = typeof item.body === "string" ? item.body : "";
   const two = width === "row"; // row expansion: full width, groups in two columns
+
+  // §G.1 — a note's history: the module's log.jsonl filtered to this note (the
+  // daemon's peek-only /history route — no CLI verb backs this read). Collapsed
+  // by default; the footer's "born here" line opens + scrolls to the earliest
+  // create entry it names.
+  const history = useQuery({
+    queryKey: ["zuzuu", "history", item.module, item.id],
+    queryFn: () => api.zuzuu.history(item.module, item.id),
+  });
+  const bornAt = history.data?.bornAt ?? null;
+  const nowMs = Date.now();
+  const historyRef = useRef<HTMLDetailsElement>(null);
+  const bornRowRef = useRef<HTMLDivElement>(null);
+  const openBornInHistory = () => {
+    if (historyRef.current) historyRef.current.open = true;
+    requestAnimationFrame(() => bornRowRef.current?.scrollIntoView({ block: "nearest" }));
+  };
 
   const flyTo = (target: string) => {
     const addr = targetAddr(item, target);
@@ -101,7 +143,10 @@ export function NoteDocument({ item, fields = [], width = "panel" }: {
           <GroupCard title="Core">{groups.core.map((r) => <AttrLine key={r.key} row={r} />)}</GroupCard>
         )}
         {groups.schema.length > 0 && (
-          <GroupCard title="Fields">{groups.schema.map((r) => <AttrLine key={r.key} row={r} />)}</GroupCard>
+          // §G.3 — the contract, visible: the schema card names its own file.
+          <GroupCard title="Fields" footnote={`this is a plain file — ${item.module}/module.md`}>
+            {groups.schema.map((r) => <AttrLine key={r.key} row={r} />)}
+          </GroupCard>
         )}
         {groups.relations.length > 0 && (
           <GroupCard title="Relations">
@@ -123,7 +168,14 @@ export function NoteDocument({ item, fields = [], width = "panel" }: {
           </GroupCard>
         )}
         {groups.extras.length > 0 && (
-          <GroupCard title="Also carries">{groups.extras.map((r) => <AttrLine key={r.key} row={r} />)}</GroupCard>
+          // §G.3 — the envelope's tolerance, explained where it's exercised: unknown
+          // frontmatter keys round-trip untouched (OKF: only `type` is required).
+          <GroupCard
+            title="Also carries"
+            titleTooltip="Unknown frontmatter keys are never dropped — only `type` is required (the envelope's OKF tolerance); everything else round-trips untouched, and shows up here."
+          >
+            {groups.extras.map((r) => <AttrLine key={r.key} row={r} />)}
+          </GroupCard>
         )}
       </div>
 
@@ -134,9 +186,48 @@ export function NoteDocument({ item, fields = [], width = "panel" }: {
         <Text size="meta" tone="muted">no take yet — the body is opinion, and it’s empty</Text>
       )}
 
+      {/* History (§G.1) — collapsed by default: the module's log.jsonl filtered to
+          this note, newest first, capped 50. Peek-only (no CLI verb backs it). Most
+          `ts` values are honestly null today (nothing in the write path stamps one
+          yet — see src/notes/log.mjs) — relativeTimeFromIso says so rather than
+          inventing "just now". */}
+      {history.data && history.data.entries.length > 0 && (
+        <details ref={historyRef} className="rounded-ui border border-border">
+          <summary className="cursor-pointer select-none px-3 py-1.5 text-meta font-semibold uppercase tracking-wide text-muted">
+            History · {history.data.entries.length}
+          </summary>
+          <div className="flex flex-col border-t border-border">
+            {history.data.entries.map((e, i) => {
+              const isBorn = sameEntry(bornAt, e);
+              const extra = historyExtra(e);
+              return (
+                <div
+                  key={i}
+                  ref={isBorn ? bornRowRef : undefined}
+                  className={`flex items-center gap-3 border-b border-border px-3 py-1.5 last:border-b-0 ${isBorn ? "bg-selected" : ""}`}
+                >
+                  <ActorGlyph actor={e.actor} />
+                  <span className="w-20 shrink-0 text-meta text-subtle">{historyOpLabel(e)}</span>
+                  <span className="min-w-0 flex-1 truncate text-meta text-muted">{extra ?? (isBorn ? "born here" : "—")}</span>
+                  <span className="shrink-0 text-meta text-muted" title={e.ts ?? "time not recorded"}>
+                    {relativeTimeFromIso(e.ts, nowMs, "time not recorded")}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </details>
+      )}
+
       {/* quiet footer + the ONE affordance (doctrine: edits only via the omnibar) */}
       <div className="flex items-center justify-between gap-3 border-t border-border pt-2">
-        <Text size="meta" tone="muted">{born ? `born: ${born}` : `${item.module}:${item.id}`}</Text>
+        {bornAt ? (
+          <Text as="button" interactive size="meta" tone="muted" onClick={openBornInHistory}>
+            {born ? `born: ${born}` : "born here"}
+          </Text>
+        ) : (
+          <Text size="meta" tone="muted">{born ? `born: ${born}` : `${item.module}:${item.id}`}</Text>
+        )}
         <span className="inline-flex items-center gap-1 text-meta text-muted">
           <Icon icon={Command} size={12} /> K to act
         </span>

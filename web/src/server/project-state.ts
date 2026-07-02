@@ -89,5 +89,8 @@ export async function gatherProjectState(root: string, binary?: string, liveSess
     state: deriveState({ git, zuzuu, hooksEnabled: host.enabled, hasActivity }),
     host,
     counts: { modules, pending, sessions: liveSessions },
+    // root-mode = the home IS the repo root (no `.zuzuu/` prefix) — the same test
+    // `resolveHomeSync` makes; surfaced for Settings' "under the hood" section (§G.4).
+    rootMode: home === root,
   };
 }

@@ -126,6 +126,27 @@ export interface ModuleSchema {
   source?: string;
 }
 
+/** One note-level change between two of a module's generations — git's own
+ *  `--name-status` letter (A add · M modify · D delete · R… rename) + the note id
+ *  (the `.md` suffix stripped). */
+export interface GenerationChange {
+  status: string;
+  id: string;
+}
+
+/** GET /module/:key/generation/:from/diff/:to — the §G.2 generation strip's
+ *  "what changed" panel: `zz gen diff <m> <a> <b>` (git holds the bytes; this
+ *  never re-derives them). `degraded` = the CLI produced nothing (absent, or
+ *  `from` has no backing commit — the module's very first generation has no
+ *  "before" to diff against). */
+export interface GenerationDiffResult {
+  module: string;
+  from: string;
+  to: string;
+  changes: GenerationChange[];
+  degraded?: boolean;
+}
+
 // ── A note's history (§G.1) — the module's mutation log, filtered to one note ──
 
 /** One line of a module's log.jsonl (src/notes/log.mjs's `append`/`logMutation`).

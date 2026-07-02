@@ -27,11 +27,15 @@ export interface HostInfo {
   enabled: boolean;
 }
 
-/** GET /api/zuzuu/project-state — the home-envelope state for the current root. */
+/** GET /api/zuzuu/project-state — the home-envelope state for the current root.
+ *  `rootMode` (§G, settings' "under the hood" section): true when this Project's
+ *  modules live at the repo root (a `project.md` marker present) rather than under
+ *  `.zuzuu/` — the same distinction `resolveHome` makes for every brain read. */
 export interface ProjectState {
   state: ProjectStateKind;
   host: HostInfo;
   counts: { modules: number; pending: number; sessions: number };
+  rootMode: boolean;
 }
 
 /** One row in the switcher popover. `current` marks the daemon's active root. */
