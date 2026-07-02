@@ -288,3 +288,37 @@ table's contract). These become graceful, discoverable surfaces:
 
 Sequence after the omnibar stack (§E): global page (§F) → settings +
 observability (§G).
+
+## H — The zuzuu-native table (user question: on what basis are columns/filters?)
+
+Today's basis: the ENVELOPE FLOOR (title·module·type·status from the index core)
++ module/type facets. Correct but lazy — it ignores the three doctrines that
+make zuzuu's tables special. The native design:
+
+1. **Identity is the id.** The primary cell is the note's id (kebab slug),
+   title as secondary text when present — NEVER a blank first column. Addr is
+   the key; the id is the name (journal dates, activity slugs prove it).
+2. **"A module is a TABLE" means faceting INTO a module changes the columns.**
+   With one module facet active, the table becomes THAT module's table: its
+   declared schema columns appear (with `label`s, `select` badges with options,
+   `date`/`number` right-aligned, `computed` columns shown derived — end_date).
+   Unfaceted Everything shows the floor + the smart commons (created_at/age ·
+   tags · hasBody dot — "body is opinion" made visible · degree).
+3. **One query grammar everywhere.** The filter input accepts the CLI's own
+   `--where` grammar (`tier>=2`, `start_date<=2026-07-02`, `k!=v`) alongside
+   free text (FTS) — the table is a projection of `zz module items`, so its
+   filter language IS the CLI's. A grammar chip renders each parsed clause.
+4. **Facets mirror query v2**: module · type · status (lifecycle badges:
+   seed/active/archived/deprecated) · tags; SAVED VIEWS render as first-class
+   chips (run = apply lens — same chips the map spotlight names).
+5. **Group-by as a native gesture** (query v2 aggregate): group rows by any
+   column with counts in headers ("by status: active 6 · deferred 2").
+6. **The graph in the table**: a degree column (backlinks count, click → the
+   map flies there); relations as chips in the row detail.
+7. **Provenance visible** (§G kinship): an actor glyph per row (human · agent ·
+   migration — from the mutation log) — the moat readable in the table too.
+8. Age as quiet recency text (the map encodes it as rings; the table as text).
+
+Principle: the table exposes the SAME power the CLI has — nothing more,
+nothing less — and every column earns its place from the schema or the
+envelope, never from a hardcoded floor.
