@@ -227,3 +227,27 @@ Non-negotiables:
   something".
 - The same adapter serves the CLI later (`zz do "<intent>"`) — one resolver,
   two surfaces, same registry.
+
+### §E.4 — The omnibar as the assist: the greeting is the session start
+
+With the adapter (§E.3) the omnibar stops being a tool and becomes THE ASSIST.
+Its ZERO-STATE (workbench open / first ⌘K of the day) is a greeting, not an
+empty input — composed entirely from existing READ surfaces (zz start · digest ·
+the needs-me composite · session history), never an auto-fired agent:
+
+- **The brief**: one calm block — what changed since you left (generations,
+  landed rows), what needs you (N proposals · held sessions), where you were
+  (last session's label + open thread).
+- **Suggested rows**: ranked, actionable — "Review 3 proposals" · "Resume
+  <session>" · "Continue: <yesterday's thread>" · "Start a session" — each a
+  canned invocation over the registry (§E.2's omnibar-is-the-API).
+- **Then the input**: type anything — noun, verb, or plain intent (the adapter
+  routes it); `/` talks. The greeting collapses the moment you type.
+- Time-aware tone (morning vs evening), never chatty, never blocking: Esc
+  drops you on the World instantly; the greeting is a row list, not a modal
+  ceremony.
+- Fidelity: composes the recorded steer-plane surfaces (start/wrap/digest);
+  interactive-first holds — the assist reads and suggests, the human initiates.
+
+This is the product's front door made literal: the vault's /hi pattern,
+graduated into the workbench.
