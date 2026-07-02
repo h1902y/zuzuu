@@ -109,7 +109,8 @@ export function NoteDocument({ item, fields = [], width = "panel" }: {
                   <span className="w-28 shrink-0 truncate text-meta text-muted">{r.rtype}</span>
                   <span className="min-w-0 flex-1 truncate text-ui text-accent-dim">{r.target}</span>
                 </span>
-                {r.note && <span className="pl-31 text-meta text-muted">{r.note}</span>}
+                {/* aligns under the target column: the w-28 (7rem) label + gap-3 (0.75rem) above */}
+                {r.note && <span className="pl-[7.75rem] text-meta text-muted">{r.note}</span>}
               </button>
             ))}
           </GroupCard>
