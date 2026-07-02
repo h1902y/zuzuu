@@ -1,0 +1,39 @@
+{
+  "id": "stg-3a067ac0",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-guide-decision-log-md",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: guide/Decision-Log.md",
+    "path": "/Users/hkc/Documents/zuzuu/docs/guide/Decision-Log.md",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/docs/guide/Decision-Log.md` (touched 5× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/docs/guide/Decision-Log.md` (touched 5× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 5,
+      "sessions": 1,
+      "sessionIds": [
+        "claude-code:d8a6774f-25fa-490f-934f-ce2c0b9e1832"
+      ]
+    }
+  ],
+  "confidence": null,
+  "score": 5,
+  "source": {
+    "producer": "observe",
+    "kind": "entity",
+    "sessions": [
+      "claude-code:d8a6774f-25fa-490f-934f-ce2c0b9e1832"
+    ],
+    "locator": {
+      "kind": "session-ids",
+      "sessions": [
+        "claude-code:d8a6774f-25fa-490f-934f-ce2c0b9e1832"
+      ]
+    }
+  },
+  "status": "pending"
+}

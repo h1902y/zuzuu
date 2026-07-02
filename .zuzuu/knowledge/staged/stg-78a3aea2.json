@@ -1,0 +1,23 @@
+{
+  "id": "stg-78a3aea2",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-shell-navtree-tsx",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: shell/NavTree.tsx",
+    "path": "/Users/hkc/Documents/zuzuu/web/src/client/shell/NavTree.tsx",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/client/shell/NavTree.tsx` (touched 30× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/client/shell/NavTree.tsx` (touched 30× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 30,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 30,
+  "status": "pending"
+}

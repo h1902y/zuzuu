@@ -1,0 +1,23 @@
+{
+  "id": "stg-995a1f43",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-grow-propose-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: grow/propose.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/src/grow/propose.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/src/grow/propose.mjs` (touched 6× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/src/grow/propose.mjs` (touched 6× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 6,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 6,
+  "status": "pending"
+}

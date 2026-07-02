@@ -1,0 +1,23 @@
+{
+  "id": "stg-0b94b18a",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-server-projects-routes-ts",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: server/projects-routes.ts",
+    "path": "/Users/hkc/Documents/zuzuu/web/src/server/projects-routes.ts",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/server/projects-routes.ts` (touched 19× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/server/projects-routes.ts` (touched 19× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 19,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 19,
+  "status": "pending"
+}

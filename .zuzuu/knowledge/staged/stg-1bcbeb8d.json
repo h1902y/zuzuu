@@ -1,0 +1,23 @@
+{
+  "id": "stg-1bcbeb8d",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-grow-observe-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: grow/observe.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/src/grow/observe.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/src/grow/observe.mjs` (touched 13× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/src/grow/observe.mjs` (touched 13× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 13,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 13,
+  "status": "pending"
+}

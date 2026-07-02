@@ -1,0 +1,23 @@
+{
+  "id": "stg-6f6d7a9f",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-editor-editorpane-tsx",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: editor/EditorPane.tsx",
+    "path": "/Users/hkc/Documents/zuzuu/web/src/client/editor/EditorPane.tsx",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/client/editor/EditorPane.tsx` (touched 5× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/client/editor/EditorPane.tsx` (touched 5× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 5,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 5,
+  "status": "pending"
+}

@@ -45,8 +45,30 @@ export function repoRoot(cwd = process.cwd()) {
   return root;
 }
 
-/** The project home: the hidden `.zuzuu/` at the repo root. */
+// Root-mode: a repo whose root `project.md` declares `type: project` +
+// `format: zuzuu/…` IS the project — content modules live at the root, visible,
+// with no hidden content dir. The manifest is the marker (self-describing, no
+// config). Sniffed from raw head bytes so store never depends on the parser.
+const homeCache = new Map();
+function isZuzuuRoot(root) {
+  try {
+    const head = readFileSync(join(root, 'project.md'), 'utf8').slice(0, 600);
+    return /^type:\s*project\s*$/m.test(head) && /^format:\s*zuzuu\//m.test(head);
+  } catch { return false; }
+}
+
+/** The project home: the repo root itself in root-mode (root `project.md` with
+ *  `type: project` + `format: zuzuu/…`), else the hidden `.zuzuu/` at the root. */
 export function homeDir(root = repoRoot()) {
+  let home = homeCache.get(root);
+  if (home === undefined) { home = isZuzuuRoot(root) ? root : join(root, '.zuzuu'); homeCache.set(root, home); }
+  return home;
+}
+
+/** Machine/session state dir — hidden in BOTH modes: `<root>/.zuzuu`. In classic
+ *  mode this coincides with the home; in root-mode content lives at the root and
+ *  ephemera (worktrees, sessions, agent.json) stay tucked here, like `.git`. */
+export function ephemeraDir(root = repoRoot()) {
   return join(root, '.zuzuu');
 }
 

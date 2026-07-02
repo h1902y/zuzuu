@@ -1,0 +1,23 @@
+{
+  "id": "stg-e88371a8",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-client-index-css",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: client/index.css",
+    "path": "/Users/hkc/Documents/zuzuu/web/src/client/index.css",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/client/index.css` (touched 23× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/client/index.css` (touched 23× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 23,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 23,
+  "status": "pending"
+}

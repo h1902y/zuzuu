@@ -1,0 +1,23 @@
+{
+  "id": "stg-15c92916",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-specs-2026-06-23-conversational-composer",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: specs/2026-06-23-conversational-composer.md",
+    "path": "/Users/hkc/Documents/zuzuu/docs/specs/2026-06-23-conversational-composer.md",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/docs/specs/2026-06-23-conversational-composer.md` (touched 5× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/docs/specs/2026-06-23-conversational-composer.md` (touched 5× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 5,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 5,
+  "status": "pending"
+}

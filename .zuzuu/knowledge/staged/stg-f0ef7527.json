@@ -1,0 +1,23 @@
+{
+  "id": "stg-f0ef7527",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-unit-brain-sync-test-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: unit/brain-sync.test.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/tests/unit/brain-sync.test.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/tests/unit/brain-sync.test.mjs` (touched 7× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/tests/unit/brain-sync.test.mjs` (touched 7× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 7,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 7,
+  "status": "pending"
+}

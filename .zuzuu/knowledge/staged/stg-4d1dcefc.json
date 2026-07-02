@@ -1,0 +1,39 @@
+{
+  "id": "stg-4d1dcefc",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-docs-design-md",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: docs/DESIGN.md",
+    "path": "/Users/hkc/Documents/zuzuu/docs/DESIGN.md",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/docs/DESIGN.md` (touched 10× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/docs/DESIGN.md` (touched 10× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 10,
+      "sessions": 1,
+      "sessionIds": [
+        "claude-code:d8a6774f-25fa-490f-934f-ce2c0b9e1832"
+      ]
+    }
+  ],
+  "confidence": null,
+  "score": 10,
+  "source": {
+    "producer": "observe",
+    "kind": "entity",
+    "sessions": [
+      "claude-code:d8a6774f-25fa-490f-934f-ce2c0b9e1832"
+    ],
+    "locator": {
+      "kind": "session-ids",
+      "sessions": [
+        "claude-code:d8a6774f-25fa-490f-934f-ce2c0b9e1832"
+      ]
+    }
+  },
+  "status": "pending"
+}

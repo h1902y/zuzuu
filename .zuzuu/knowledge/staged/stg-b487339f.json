@@ -1,0 +1,23 @@
+{
+  "id": "stg-b487339f",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-palette-palettebody-tsx",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: palette/PaletteBody.tsx",
+    "path": "/Users/hkc/Documents/zuzuu/web/src/client/palette/PaletteBody.tsx",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/client/palette/PaletteBody.tsx` (touched 13× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/client/palette/PaletteBody.tsx` (touched 13× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 13,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 13,
+  "status": "pending"
+}

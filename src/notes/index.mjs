@@ -46,11 +46,15 @@ function connect(path) {
   return db;
 }
 
-/** List module dirs in the home (skip dot-dirs + non-dirs). */
+/** List module dirs in the home: a dir IS a module when it carries a `module.md`
+ *  manifest OR an `items/` subdir (manifests mint on first proposal, so a young
+ *  module may be items-only). The shape check matters in root-mode, where the
+ *  home is the repo root and `src/`-like dirs must never be scanned. */
 function moduleDirs(home) {
   if (!existsSync(home)) return [];
   return readdirSync(home, { withFileTypes: true })
-    .filter((e) => e.isDirectory() && !e.name.startsWith('.'))
+    .filter((e) => e.isDirectory() && !e.name.startsWith('.')
+      && (existsSync(join(home, e.name, 'module.md')) || existsSync(join(home, e.name, 'items'))))
     .map((e) => e.name);
 }
 

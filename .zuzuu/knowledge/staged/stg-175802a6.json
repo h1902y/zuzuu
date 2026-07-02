@@ -1,0 +1,39 @@
+{
+  "id": "stg-175802a6",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-use-check-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: use/check.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/src/use/check.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/src/use/check.mjs` (touched 13× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/src/use/check.mjs` (touched 13× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 13,
+      "sessions": 1,
+      "sessionIds": [
+        "claude-code:d8a6774f-25fa-490f-934f-ce2c0b9e1832"
+      ]
+    }
+  ],
+  "confidence": null,
+  "score": 13,
+  "source": {
+    "producer": "observe",
+    "kind": "entity",
+    "sessions": [
+      "claude-code:d8a6774f-25fa-490f-934f-ce2c0b9e1832"
+    ],
+    "locator": {
+      "kind": "session-ids",
+      "sessions": [
+        "claude-code:d8a6774f-25fa-490f-934f-ce2c0b9e1832"
+      ]
+    }
+  },
+  "status": "pending"
+}

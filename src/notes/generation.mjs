@@ -15,7 +15,7 @@
 //       (the files are the source of truth) — rollback just needs a real repo.
 
 import { existsSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, basename } from 'node:path';
 import { itemsDir } from './store.mjs';
 import { parse } from './note.mjs';
 import { out } from '../metal/git.mjs';
@@ -24,7 +24,10 @@ import { readText, writeText, mkdirp, list } from '../metal/fs.mjs';
 // generation is read-only over git (`out` = stdout-or-null); the `-C root` form
 // becomes `cwd: root`. Keep the local 2-arg shape so the many call sites read clean.
 const git = (root, args) => out(args, root);
-const rootOf = (home) => dirname(home);                       // home = <root>/.zuzuu
+// classic mode: home = <root>/.zuzuu → prefix pathspecs with `.zuzuu/`.
+// root-mode: home IS the root → no prefix. basename is the discriminator.
+const rootOf = (home) => (basename(home) === '.zuzuu' ? dirname(home) : home);
+const homePrefix = (home) => (basename(home) === '.zuzuu' ? '.zuzuu/' : '');
 const ledgerPath = (home, module) => join(home, module, 'generations.json');
 
 const readLedger = (home, module) => {
@@ -47,8 +50,9 @@ export function generations(home, module) {
  * so the user's other (code) changes are never swept in. The `zz-gen:` trailer makes
  * the commit findable as generation n. Fail-soft: returns false on any git trouble.
  */
-function commitGeneration(root, module, n, label) {
-  const pathspec = `.zuzuu/${module}`;
+function commitGeneration(home, module, n, label) {
+  const root = rootOf(home);
+  const pathspec = `${homePrefix(home)}${module}`;
   if (!existsSync(join(root, pathspec))) return false;
   git(root, ['add', '-A', '--', pathspec]);                   // stage adds/mods/dels, scoped
   const subject = `zz: ${label ?? `evolve ${module}`} (gen ${n})`;
@@ -56,15 +60,15 @@ function commitGeneration(root, module, n, label) {
 }
 
 /** All generation commits for the module, oldest→newest — position i = generation i+1. */
-function genCommits(root, module) {
-  const out = git(root, ['log', '--reverse', '--format=%H', '--grep', `zz-gen: ${module}/`, '--', `.zuzuu/${module}`]);
+function genCommits(home, module) {
+  const out = git(rootOf(home), ['log', '--reverse', '--format=%H', '--grep', `zz-gen: ${module}/`, '--', `${homePrefix(home)}${module}`]);
   return out ? out.split('\n').filter(Boolean) : [];
 }
-const commitForN = (root, module, n) => genCommits(root, module)[n - 1] ?? null;
+const commitForN = (home, module, n) => genCommits(home, module)[n - 1] ?? null;
 
 /** The git commit SHA backing a module's generation `n` (or null). For diff/as-of. */
 export function generationCommit(home, module, n) {
-  return commitForN(rootOf(home), module, n);
+  return commitForN(home, module, n);
 }
 
 /**
@@ -73,9 +77,9 @@ export function generationCommit(home, module, n) {
  */
 export function notesAsOf(home, module, n) {
   const root = rootOf(home);
-  const commit = commitForN(root, module, n);
+  const commit = commitForN(home, module, n);
   if (!commit) return { ok: false, error: `no generation ${n} for ${module}` };
-  const tree = git(root, ['ls-tree', '-r', '--name-only', commit, `.zuzuu/${module}/items/`]) ?? '';
+  const tree = git(root, ['ls-tree', '-r', '--name-only', commit, `${homePrefix(home)}${module}/items/`]) ?? '';
   const notes = tree.split('\n').filter((f) => f.endsWith('.md')).map((f) => {
     const id = f.split('/').pop().slice(0, -3);
     const { note } = parse(git(root, ['show', `${commit}:${f}`]) ?? '', { id });
@@ -90,10 +94,10 @@ export function notesAsOf(home, module, n) {
  */
 export function diffGenerations(home, module, from, to, { full = false } = {}) {
   const root = rootOf(home);
-  const ca = commitForN(root, module, from);
-  const cb = commitForN(root, module, to);
+  const ca = commitForN(home, module, from);
+  const cb = commitForN(home, module, to);
   if (!ca || !cb) return { ok: false, error: `no commit for ${module} generation ${!ca ? from : to}` };
-  const path = `.zuzuu/${module}/items/`;
+  const path = `${homePrefix(home)}${module}/items/`;
   const out = git(root, ['diff', '--name-status', ca, cb, '--', path]) ?? '';
   const changes = out.split('\n').filter(Boolean).map((line) => {
     const [st, file] = line.split('\t');
@@ -113,7 +117,7 @@ export function mint(home, module, { mintedFrom = [], label = null } = {}) {
   const n = (gens.length ? gens[gens.length - 1].n : 0) + 1;
   const entry = { n, mintedAt: new Date().toISOString(), mintedFrom };
   writeLedger(home, module, [...gens, entry]);
-  commitGeneration(rootOf(home), module, n, label);           // fail-soft: ledger stands regardless
+  commitGeneration(home, module, n, label);                   // fail-soft: ledger stands regardless
   return entry;
 }
 
@@ -130,11 +134,11 @@ export function expandRollback(home, module, n) {
   const gens = readLedger(home, module);
   if (!gens.find((g) => g.n === n)) return { ok: false, error: `no generation ${n} for ${module}` };
   const root = rootOf(home);
-  const commit = commitForN(root, module, n);
+  const commit = commitForN(home, module, n);
   if (!commit) return { ok: false, error: `no commit for ${module} generation ${n} (needs a git repo)` };
 
   // the pinned state = the module's items as of gen n's commit (git holds the bytes)
-  const tree = git(root, ['ls-tree', '-r', '--name-only', commit, `.zuzuu/${module}/items/`]) || '';
+  const tree = git(root, ['ls-tree', '-r', '--name-only', commit, `${homePrefix(home)}${module}/items/`]) || '';
   const pinned = new Map();
   for (const f of tree.split('\n').filter((p) => p.endsWith('.md'))) {
     const id = f.split('/').pop().slice(0, -3);
@@ -154,6 +158,6 @@ export function expandRollback(home, module, n) {
   // schema rode in gen n's commit. Return the gen-n bytes so the orchestrator restores
   // the SCHEMA along with the rows (a schema alter-then-rollback round-trips). Null when
   // the manifest didn't exist at gen n (older lineage) — then we leave the live one alone.
-  const manifest = git(root, ['show', `${commit}:.zuzuu/${module}/module.md`]) ?? null;
+  const manifest = git(root, ['show', `${commit}:${homePrefix(home)}${module}/module.md`]) ?? null;
   return { ok: true, module, n, batch, restored: pinned.size, pruned, manifest };
 }

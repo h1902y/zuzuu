@@ -1,0 +1,23 @@
+{
+  "id": "stg-68a5bd96",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-state-app-surface-ts",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: state/app-surface.ts",
+    "path": "/Users/hkc/Documents/zuzuu/web/src/client/state/app-surface.ts",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/client/state/app-surface.ts` (touched 5× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/client/state/app-surface.ts` (touched 5× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 5,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 5,
+  "status": "pending"
+}

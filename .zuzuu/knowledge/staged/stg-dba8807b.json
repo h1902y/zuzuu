@@ -1,0 +1,23 @@
+{
+  "id": "stg-dba8807b",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-docs-ontology-md",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: docs/ONTOLOGY.md",
+    "path": "/Users/hkc/Documents/zuzuu/docs/ONTOLOGY.md",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/docs/ONTOLOGY.md` (touched 89× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/docs/ONTOLOGY.md` (touched 89× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 89,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 89,
+  "status": "pending"
+}

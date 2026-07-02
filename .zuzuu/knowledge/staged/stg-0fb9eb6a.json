@@ -1,0 +1,39 @@
+{
+  "id": "stg-0fb9eb6a",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-settings-settings-tsx",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: settings/Settings.tsx",
+    "path": "/Users/hkc/Documents/zuzuu/web/src/client/shell/settings/Settings.tsx",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/client/shell/settings/Settings.tsx` (touched 15× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/client/shell/settings/Settings.tsx` (touched 15× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 15,
+      "sessions": 1,
+      "sessionIds": [
+        "claude-code:d8a6774f-25fa-490f-934f-ce2c0b9e1832"
+      ]
+    }
+  ],
+  "confidence": null,
+  "score": 15,
+  "source": {
+    "producer": "observe",
+    "kind": "entity",
+    "sessions": [
+      "claude-code:d8a6774f-25fa-490f-934f-ce2c0b9e1832"
+    ],
+    "locator": {
+      "kind": "session-ids",
+      "sessions": [
+        "claude-code:d8a6774f-25fa-490f-934f-ce2c0b9e1832"
+      ]
+    }
+  },
+  "status": "pending"
+}

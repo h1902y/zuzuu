@@ -1,0 +1,23 @@
+{
+  "id": "stg-094c4623",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-shared-index-ts",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: shared/index.ts",
+    "path": "/Users/hkc/Documents/zuzuu/web/src/shared/index.ts",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/shared/index.ts` (touched 5× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/shared/index.ts` (touched 5× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 5,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 5,
+  "status": "pending"
+}

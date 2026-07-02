@@ -1,0 +1,23 @@
+{
+  "id": "stg-f75842a2",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-cli-index-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: cli/index.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/src/cli/index.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/src/cli/index.mjs` (touched 67× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/src/cli/index.mjs` (touched 67× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 67,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 67,
+  "status": "pending"
+}

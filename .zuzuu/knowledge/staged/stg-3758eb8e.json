@@ -1,0 +1,23 @@
+{
+  "id": "stg-3758eb8e",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-primitives-index-tsx",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: primitives/index.tsx",
+    "path": "/Users/hkc/Documents/zuzuu/web/src/client/ds/primitives/index.tsx",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/client/ds/primitives/index.tsx` (touched 7× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/client/ds/primitives/index.tsx` (touched 7× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 7,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 7,
+  "status": "pending"
+}

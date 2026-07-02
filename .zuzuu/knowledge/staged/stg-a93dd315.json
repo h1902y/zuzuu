@@ -1,0 +1,39 @@
+{
+  "id": "stg-a93dd315",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-client-session-kickoff-test-ts",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: client/session-kickoff.test.ts",
+    "path": "/Users/hkc/Documents/zuzuu/web/tests/client/session-kickoff.test.ts",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/tests/client/session-kickoff.test.ts` (touched 5× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/tests/client/session-kickoff.test.ts` (touched 5× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 5,
+      "sessions": 1,
+      "sessionIds": [
+        "claude-code:d8a6774f-25fa-490f-934f-ce2c0b9e1832"
+      ]
+    }
+  ],
+  "confidence": null,
+  "score": 5,
+  "source": {
+    "producer": "observe",
+    "kind": "entity",
+    "sessions": [
+      "claude-code:d8a6774f-25fa-490f-934f-ce2c0b9e1832"
+    ],
+    "locator": {
+      "kind": "session-ids",
+      "sessions": [
+        "claude-code:d8a6774f-25fa-490f-934f-ce2c0b9e1832"
+      ]
+    }
+  },
+  "status": "pending"
+}

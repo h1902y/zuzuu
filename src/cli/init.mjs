@@ -117,11 +117,22 @@ const STEERING_TEMPLATE = {
   drift: 'Off-scope signals: touching files outside the task, or >3 turns on one error.',
 };
 
+// Root-mode explainer — the whole repo IS the Project; modules are visible dirs.
+const ROOT_PROJECT_BODY = `A **Project** in root-mode: this repo IS the brain. This \`project.md\` (with
+\`format: zuzuu/…\`) is the marker that puts zuzuu in root-mode — every directory
+carrying a \`module.md\` is a *module*, each \`items/<id>.md\` a *note* (one fact,
+optionally runnable). The hierarchy is **note › module › Project**. Dirs without a
+\`module.md\` (assets, code, docs) are invisible to zuzuu. Machine ephemera
+(session worktrees, run state) stay tucked in \`.zuzuu/\`, like \`.git\`.
+
+- **query** what's known · **act** on a runnable note · **check** integrity
+- zuzuu **observes** your sessions and **proposes** changes you **review**`;
+
 /** The Project manifest (`project.md`, type: project) — the top-of-hierarchy envelope
  *  that declares the Project. Title defaults to the repo's directory name; ships a
  *  `steering` template the operator fills in. */
-const projectManifest = (root) =>
-  serialize({ type: 'project', title: basename(root) || 'project', format: 'zuzuu/v2', steering: STEERING_TEMPLATE, body: PROJECT_BODY });
+const projectManifest = (root, atRoot = false) =>
+  serialize({ type: 'project', title: basename(root) || 'project', format: 'zuzuu/v2', steering: STEERING_TEMPLATE, body: atRoot ? ROOT_PROJECT_BODY : PROJECT_BODY });
 
 // What must NOT travel in git. With the rebuildable cache + the gate log + session
 // run-state moved OUT of the repo (XDG cache/state dirs, see notes/store.mjs), two
@@ -129,18 +140,20 @@ const projectManifest = (root) =>
 // uncommitted work) and each module's `runs.jsonl` (per-module run telemetry — the
 // ephemeral feedback edge observe mines). The DURABLE Project — notes, the mutation
 // `log.jsonl`, and each `generations.json` lineage — stays tracked.
-const IGNORE_LINES = [
-  '.zuzuu/worktrees/',     // per-session git worktrees — machine-local, ephemeral
-  '.zuzuu/*/runs.jsonl',   // per-module run telemetry — local + ephemeral (mutations stay tracked)
-];
+// classic mode: everything under .zuzuu/. root-mode: modules sit at the repo root,
+// so telemetry is ignored per known module dir (a broad `*/runs.jsonl` at root would
+// swallow unrelated files) and the whole `.zuzuu/` dot-dir is ephemera.
+const ignoreLines = (atRoot, moduleIds = []) => atRoot
+  ? ['.zuzuu/', ...moduleIds.map((m) => `${m}/runs.jsonl`)]
+  : ['.zuzuu/worktrees/', '.zuzuu/*/runs.jsonl'];
 
 /**
  * Scaffold the home. Idempotent + brownfield-safe (never clobbers).
  * @returns {{ ok, home, created:string[], skipped:string[] }}
  */
-export function initHome(cwd = process.cwd()) {
+export function initHome(cwd = process.cwd(), { atRoot = false } = {}) {
   const root = repoRoot(cwd);
-  const home = homeDir(root);
+  const home = atRoot ? root : homeDir(root);
   const created = [];
   const skipped = [];
 
@@ -153,7 +166,7 @@ export function initHome(cwd = process.cwd()) {
   };
 
   ensureDir(home);
-  writeOnce(join(home, 'project.md'), projectManifest(root), 'project.md');
+  writeOnce(join(home, 'project.md'), projectManifest(root, atRoot), 'project.md');
 
   // Instructions only — the prepacked default: the enforced safety floor (the `rule`
   // notes, gated on every tool call) PLUS best-practice guidance, in one module. The
@@ -165,12 +178,17 @@ export function initHome(cwd = process.cwd()) {
   writeOnce(join(home, 'instructions', 'module.md'), manifestFor('instructions'), 'instructions/module.md');
   // RULES + the table-generated exec guard (resolved here, lazily — see execGuardRule) + the
   // best-practice instructions. Each is seeded once (idempotent) with provenance.
-  for (const r of [...RULES, execGuardRule(), ...INSTRUCTIONS]) {
+  // Root-mode: the brain shares the root with everything else, so the path-prefix
+  // moat rules (protect-brain-*) don't transplant — write-gating there is opt-in
+  // per module; the generic safety floor still ships.
+  const seedRules = atRoot ? RULES.filter((r) => !r.id.startsWith('protect-brain')) : [...RULES, execGuardRule()];
+  const seedInstructions = atRoot ? INSTRUCTIONS.filter((i) => i.id !== 'propose-never-write') : INSTRUCTIONS;
+  for (const r of [...seedRules, ...seedInstructions]) {
     writeOnce(join(home, 'instructions', 'items', `${r.id}.md`), serialize(r), `instructions/${r.id}`);
     ensureSeedLogged(home, 'instructions', r.id); // Layer 4: provenance for the seed
   }
 
-  ensureGitignore(root, home);
+  ensureGitignore(root, atRoot, ['instructions']);
   return { ok: true, home, created, skipped };
 }
 
@@ -187,10 +205,10 @@ function ensureSeedLogged(home, module, id) {
 }
 
 /** Add the home's ignore lines to the repo's .gitignore (idempotent). */
-function ensureGitignore(root, home) {
+function ensureGitignore(root, atRoot, moduleIds) {
   const gi = join(root, '.gitignore');
   const existing = existsSync(gi) ? readFileSync(gi, 'utf8') : '';
-  const missing = IGNORE_LINES.filter((l) => !existing.split('\n').some((line) => line.trim() === l));
+  const missing = ignoreLines(atRoot, moduleIds).filter((l) => !existing.split('\n').some((line) => line.trim() === l));
   if (!missing.length) return;
   const block = (existing && !existing.endsWith('\n') ? '\n' : '') + '\n# zuzuu (ephemeral/derived)\n' + missing.join('\n') + '\n';
   appendFileSync(gi, block);

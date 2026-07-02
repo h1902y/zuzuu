@@ -1,0 +1,23 @@
+{
+  "id": "stg-cc5eb30b",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-onboarding-checklist-tsx",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: onboarding/Checklist.tsx",
+    "path": "/Users/hkc/Documents/zuzuu/web/src/client/shell/onboarding/Checklist.tsx",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/client/shell/onboarding/Checklist.tsx` (touched 8× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/client/shell/onboarding/Checklist.tsx` (touched 8× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 8,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 8,
+  "status": "pending"
+}

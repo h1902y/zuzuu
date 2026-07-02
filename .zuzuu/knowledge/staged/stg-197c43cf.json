@@ -1,0 +1,23 @@
+{
+  "id": "stg-197c43cf",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-notes-index-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: notes/index.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/src/notes/index.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/src/notes/index.mjs` (touched 18× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/src/notes/index.mjs` (touched 18× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 18,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 18,
+  "status": "pending"
+}

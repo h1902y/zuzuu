@@ -1,0 +1,23 @@
+{
+  "id": "stg-79569cea",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-switcher-switcher-tsx",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: switcher/Switcher.tsx",
+    "path": "/Users/hkc/Documents/zuzuu/web/src/client/shell/switcher/Switcher.tsx",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/client/shell/switcher/Switcher.tsx` (touched 28× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/client/shell/switcher/Switcher.tsx` (touched 28× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 28,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 28,
+  "status": "pending"
+}

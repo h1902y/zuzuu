@@ -1,0 +1,23 @@
+{
+  "id": "stg-82efa8f4",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-unit-hook-v2-test-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: unit/hook-v2.test.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/tests/unit/hook-v2.test.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/tests/unit/hook-v2.test.mjs` (touched 6× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/tests/unit/hook-v2.test.mjs` (touched 6× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 6,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 6,
+  "status": "pending"
+}

@@ -1,0 +1,23 @@
+{
+  "id": "stg-fc2fb165",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-grow-evolve-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: grow/evolve.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/src/grow/evolve.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/src/grow/evolve.mjs` (touched 10× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/src/grow/evolve.mjs` (touched 10× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 10,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 10,
+  "status": "pending"
+}

@@ -1,0 +1,23 @@
+{
+  "id": "stg-d717c249",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-stage-record-tsx",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: stage/Record.tsx",
+    "path": "/Users/hkc/Documents/zuzuu/web/src/client/shell/stage/Record.tsx",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/client/shell/stage/Record.tsx` (touched 5× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/client/shell/stage/Record.tsx` (touched 5× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 5,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 5,
+  "status": "pending"
+}

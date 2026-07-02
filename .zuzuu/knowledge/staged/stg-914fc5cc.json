@@ -1,0 +1,21 @@
+{
+  "id": "stg-914fc5cc",
+  "op": "create",
+  "module": "knowledge",
+  "target": "failing-tool-edit",
+  "change": {
+    "type": "knowledge",
+    "title": "Edit fails frequently",
+    "body": "Tool `Edit` fails frequently in this project (53 failures observed) — worth investigating why."
+  },
+  "rationale": "Tool `Edit` fails frequently in this project (53 failures observed) — worth investigating why.",
+  "evidence": [
+    {
+      "kind": "fact",
+      "occurrences": 53
+    }
+  ],
+  "confidence": null,
+  "score": 53,
+  "status": "pending"
+}

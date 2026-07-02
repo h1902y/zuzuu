@@ -280,10 +280,13 @@ export function syncRegistry(registryHome, { now = Date.now() } = {}) {
     const health = { ...readHealth(homeDir(ref.path)), capturedAt: now };
     writeProjectRef(registryHome, { ...ref, handle: ref.id, health });
   }
-  const repoPath = registryHome.replace(/\/\.zuzuu$/, '');
-  git(['add', '.zuzuu'], repoPath);
-  const dirty = git(['status', '--porcelain', '.zuzuu'], repoPath);
+  // classic home = <repo>/.zuzuu → scope git to '.zuzuu'; root-mode home = the repo → '.'
+  const hidden = registryHome.endsWith('/.zuzuu');
+  const repoPath = hidden ? registryHome.slice(0, -'/.zuzuu'.length) : registryHome;
+  const spec = hidden ? '.zuzuu' : '.';
+  git(['add', spec], repoPath);
+  const dirty = git(['status', '--porcelain', spec], repoPath);
   let committed = false;
-  if (dirty) { git(['commit', '-m', `chore(registry): sync ${refs.length} projects`, '--', '.zuzuu'], repoPath); committed = true; }
+  if (dirty) { git(['commit', '-m', `chore(registry): sync ${refs.length} projects`, '--', spec], repoPath); committed = true; }
   return { synced: refs.length, committed };
 }

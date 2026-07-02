@@ -1,0 +1,39 @@
+{
+  "id": "stg-8e1a0e67",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-plans-2026-06-30-001-refactor-workbench-",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: plans/2026-06-30-001-refactor-workbench-ia-consolidation-plan.md",
+    "path": "/Users/hkc/Documents/zuzuu/docs/plans/2026-06-30-001-refactor-workbench-ia-consolidation-plan.md",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/docs/plans/2026-06-30-001-refactor-workbench-ia-consolidation-plan.md` (touched 16× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/docs/plans/2026-06-30-001-refactor-workbench-ia-consolidation-plan.md` (touched 16× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 16,
+      "sessions": 1,
+      "sessionIds": [
+        "claude-code:c7e0a32f-79a3-4d16-8545-a34e5f5f12f6"
+      ]
+    }
+  ],
+  "confidence": null,
+  "score": 16,
+  "source": {
+    "producer": "observe",
+    "kind": "entity",
+    "sessions": [
+      "claude-code:c7e0a32f-79a3-4d16-8545-a34e5f5f12f6"
+    ],
+    "locator": {
+      "kind": "session-ids",
+      "sessions": [
+        "claude-code:c7e0a32f-79a3-4d16-8545-a34e5f5f12f6"
+      ]
+    }
+  },
+  "status": "pending"
+}

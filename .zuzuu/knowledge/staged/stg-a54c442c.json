@@ -1,0 +1,23 @@
+{
+  "id": "stg-a54c442c",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-server-cli-ts",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: server/cli.ts",
+    "path": "/Users/hkc/Documents/zuzuu/web/src/server/cli.ts",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/server/cli.ts` (touched 5× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/server/cli.ts` (touched 5× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 5,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 5,
+  "status": "pending"
+}

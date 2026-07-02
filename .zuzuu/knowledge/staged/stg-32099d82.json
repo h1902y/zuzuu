@@ -1,0 +1,23 @@
+{
+  "id": "stg-32099d82",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-shared-project-layer-ts",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: shared/project-layer.ts",
+    "path": "/Users/hkc/Documents/zuzuu/web/src/shared/project-layer.ts",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/shared/project-layer.ts` (touched 8× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/shared/project-layer.ts` (touched 8× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 8,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 8,
+  "status": "pending"
+}

@@ -183,9 +183,9 @@ export const COMMANDS = [
   // ── setup ──
   {
     path: ['init'], plane: 'setup', json: true, permission: 'admin', agentInvokable: false,
-    usage: 'init', summary: 'scaffold .zuzuu/ into this repo (git-citizen)',
+    usage: 'init [--root]', summary: 'scaffold the Project — .zuzuu/ by default, or the repo root itself (--root)',
     handler: ({ args, cwd, log, json }) => {
-      const r = initHome(cwd);
+      const r = initHome(cwd, { atRoot: !!args.root });
       emit(log, json, { ok: true, home: r.home, created: r.created, skipped: r.skipped },
         ['init', [{ home: r.home, created: r.created.length, skipped: r.skipped.length }], ['home', 'created', 'skipped']]);
       if (r.created.length && !json) log(`created: ${r.created.join(', ')}`);

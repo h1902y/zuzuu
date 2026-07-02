@@ -1,0 +1,23 @@
+{
+  "id": "stg-44b3d1d6",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-server-project-state-ts",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: server/project-state.ts",
+    "path": "/Users/hkc/Documents/zuzuu/web/src/server/project-state.ts",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/server/project-state.ts` (touched 6× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/server/project-state.ts` (touched 6× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 6,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 6,
+  "status": "pending"
+}
