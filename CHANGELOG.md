@@ -8,6 +8,17 @@ that history).
 ## [Unreleased]
 
 ### Fixed
+- **A trigger's note-change where-clause rejects a value-less operator** (NIT 2,
+  `docs/audits/2026-07-03-triggers-review.md`): a string clause like `'tier>='`
+  (almost certainly a forgotten right-hand side, not an intentional empty-string
+  match) used to validate and normalize to `{op:'>=', value:''}` — sloppy for a
+  shape gate. `notes/validate.mjs`'s `wellFormedWhereClause` now requires the
+  operator to leave a non-empty value, mirroring `parseClauseString`/`parseWhere`'s
+  own first-match-in-order control flow exactly (not testing each op
+  independently, which would let a two-char operator's one-char prefix — `>=`'s
+  `>` — "rescue" the same empty-value match by re-scanning with a shorter op). A
+  structured object clause with an explicit empty-string value
+  (`{key,op,value:''}`) is a different, deliberate case and stays accepted.
 - **The `--where` comparison operators are now ONE canonical list** (NIT 1,
   `docs/audits/2026-07-03-triggers-review.md`): `cli/args.mjs`'s `parseWhere`
   (`zz query --where`), `notes/index.mjs`'s `EAV_OPS` (the real query engine),

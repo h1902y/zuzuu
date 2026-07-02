@@ -56,10 +56,27 @@ const isModuleIdAddr = (v) => {
 // `{key, op?, value}`.
 function wellFormedWhereClause(c) {
   if (typeof c === 'string') {
-    return WHERE_OPS.some((op) => {
+    // NIT 2 (audit 2026-07-03-triggers-review.md): the operator must leave a
+    // non-empty VALUE — `at > 0` alone let `'tier>='` (a value-less typo, almost
+    // certainly a forgotten right-hand side, not an intentional empty-string match)
+    // through as `{op:'>=', value:''}`. A structured clause `{key,op,value:''}` is a
+    // DIFFERENT, deliberately unrestricted case (an explicit empty-string value is a
+    // legitimate thing to match) and is untouched here.
+    //
+    // Mirrors parseClauseString/parseWhere's own control flow EXACTLY — a `for` loop
+    // that returns on the FIRST op (in WHERE_OPS' longest-first order) whose text
+    // appears — rather than testing every op independently (`.some`). That distinction
+    // matters here: independently testing each op lets a two-char operator's own
+    // one-char PREFIX (`>=`'s `>`, `<=`'s `<`) "rescue" an empty-value match — for
+    // `'tier>='`, `>=` correctly fails the length check, but `.some` would go on to
+    // test `>` alone, find it at the SAME position, and treat the leftover `=` as a
+    // (non-empty!) value — right back to accepting the malformed clause. Stopping at
+    // the first match (the same op the real parser would pick) avoids that entirely.
+    for (const op of WHERE_OPS) {
       const at = c.indexOf(op);
-      return at > 0;
-    });
+      if (at > 0) return at + op.length < c.length;
+    }
+    return false;
   }
   if (c && typeof c === 'object' && !Array.isArray(c)) {
     return nonEmptyStr(c.key) && c.value !== undefined && (c.op == null || TRIGGER_WHERE_OPS.has(c.op));

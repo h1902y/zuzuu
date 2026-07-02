@@ -104,6 +104,29 @@ test('validateNote: a note-change trigger needs a valid event; where clauses mus
   assert.equal(whereNotAList.ok, false);
 });
 
+// NIT 2 (docs/audits/2026-07-03-triggers-review.md): an operator with NO value after it
+// ('tier>=' — a forgotten right-hand side, not an intentional empty-string match) used to
+// validate as {op:'>=', value:''}. Also regression-guards the fix's OWN failure mode: a
+// naive per-op independent check lets a two-char operator's one-char PREFIX ('>=' -> '>')
+// "rescue" the empty-value match by re-scanning the same string with a shorter op.
+test('validateNote: a note-change where-clause operator with NO value is refused, for every op', () => {
+  for (const op of ['>=', '<=', '!=', '=', '>', '<']) {
+    const emptyValue = validateNote({
+      ...base, type: 'trigger', run: 'actions:flow',
+      on: { kind: 'note-change', event: 'update', where: [`tier${op}`] },
+    });
+    assert.equal(emptyValue.ok, false, `'tier${op}' (no value) should be refused`);
+    assert.ok(emptyValue.errors.some((e) => /malformed clause/.test(e)), `op '${op}': ${emptyValue.errors.join('; ')}`);
+  }
+  // an OBJECT clause with an explicit empty-string value is a DIFFERENT, deliberate case
+  // (matching notes whose field IS an empty string) and stays accepted — unaffected.
+  const explicitEmptyObjectValue = validateNote({
+    ...base, type: 'trigger', run: 'actions:flow',
+    on: { kind: 'note-change', event: 'update', where: [{ key: 'stage', op: '=', value: '' }] },
+  });
+  assert.equal(explicitEmptyObjectValue.ok, true, explicitEmptyObjectValue.errors.join('; '));
+});
+
 test('isParseableCronExpr: the permissive 5-field shape check', () => {
   assert.equal(isParseableCronExpr('0 9 * * 1-5'), true, 'weekday 9am');
   assert.equal(isParseableCronExpr('*/15 * * * *'), true, 'every 15 minutes');
