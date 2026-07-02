@@ -117,6 +117,11 @@ export function mountWorld(container: HTMLElement, cb: WorldCallbacks = {}): Wor
   }
   const zoomer: ZoomBehavior<SVGSVGElement, unknown> = zoom<SVGSVGElement, unknown>()
     .scaleExtent([0.15, 8])
+    // Drop d3's own wheel handling: wheel/pinch over the HTML overlays (chips,
+    // mini-cards) misses the SVG and escapes to BROWSER page zoom (ctrl+wheel =
+    // pinch on macOS). The container-level listener below owns ALL wheel input
+    // over the world — same fix the startpage galaxy needed.
+    .filter((ev: Event) => ev.type !== "wheel" && !(ev as MouseEvent).ctrlKey)
     .on("zoom", (ev: { transform: ZoomTransform }) => {
       transform = ev.transform;
       scene.attr("transform", transform.toString());
@@ -126,6 +131,19 @@ export function mountWorld(container: HTMLElement, cb: WorldCallbacks = {}): Wor
       checkDeepZoom();
     });
   (svg as Selection<SVGSVGElement, unknown, null, undefined>).call(zoomer);
+
+  // One wheel owner for the whole world container (SVG + HTML overlays): prevent
+  // the browser's page zoom/scroll and drive the map zoom, centered on the
+  // pointer. passive:false is required to be allowed to preventDefault. Pinch
+  // (ctrlKey wheel) gets a stronger factor, matching native feel.
+  const onWheel = (ev: WheelEvent): void => {
+    ev.preventDefault();
+    const rect = container.getBoundingClientRect();
+    const point: [number, number] = [ev.clientX - rect.left, ev.clientY - rect.top];
+    const factor = Math.pow(2, -ev.deltaY * (ev.ctrlKey ? 0.01 : 0.002));
+    (svg as Selection<SVGSVGElement, unknown, null, undefined>).call(zoomer.scaleBy, factor, point);
+  };
+  container.addEventListener("wheel", onWheel, { passive: false });
 
   // ── selections (rebuilt on setData) ──
   let nodeSel = nodeLayer.selectAll<SVGCircleElement, SimNode>("circle");
@@ -491,6 +509,7 @@ export function mountWorld(container: HTMLElement, cb: WorldCallbacks = {}): Wor
     spotlight,
     destroy(): void {
       destroyed = true;
+      container.removeEventListener("wheel", onWheel);
       if (glowTimer) clearTimeout(glowTimer);
       ro.disconnect();
       sim.stop();
