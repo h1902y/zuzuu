@@ -176,3 +176,38 @@ Ship after SHOULD-FIX 1 and 2. The timeout, redaction (log-only), fail-closed in
 and lock mechanics are correct and the operator contract is preserved; the two fixes
 close a silent-redaction hole on the real deployment and a mid-rollback double-run window
 before anything unattended is allowed to stand on this floor.
+
+## Fixed
+
+Both SHOULD-FIX findings are resolved, CLI-side (`src/`, `tests/`) only:
+
+- **SHOULD-FIX 1** (root-mode secrets path, `src/notes/log.mjs:63`) — `e946439`
+  (`§G.2/§G.3/§G.4: rollback wired honestly, the plain-file link, Settings polish`).
+  Added `ephemeraDirFromHome(home)` to `src/notes/store.mjs` — reuses the same root
+  `project.md` marker sniff `homeDir` uses to tell classic mode (`home` already IS
+  `.zuzuu`) from root-mode (`home` IS the repo root, so ephemera is `<home>/.zuzuu`) —
+  and pointed `readSecretValues` through it, so secrets now resolve to the SAME
+  physical `.zuzuu/secrets.env` in both modes. Regression tests added to
+  `tests/unit/run-redaction.test.mjs`: a root-mode `readSecretValues` path test (with
+  a decoy at the old, buggy `<root>/secrets.env` location proven unread), plus
+  `logRun`- and `act()`-level end-to-end tests proving a secret riding under an
+  innocuous input key is redacted in a root-mode log. Note: this fix landed bundled
+  into a concurrent commit from a parallel session working the same branch on
+  unrelated `web/` changes — the `src/`/`tests/` diff within `e946439` is exactly this
+  fix, untouched otherwise.
+- **SHOULD-FIX 2** (workflow lock staleness omits compensation budget,
+  `src/use/workflow.mjs:61`) — `6754593`
+  (`fix(safety-floor): SF2 — budget compensation time in workflow lock staleness`).
+  Factored the staleness computation into an exported `workflowStaleAfterMs(steps)`:
+  Σ(step timeouts) + Σ(one default compensation timeout per step carrying a
+  `compensate`) + grace — matching the compensation loop's actual behavior (it calls
+  `runGated` with no per-step timeout override, so each compensation runs at
+  `resolveTimeoutMs()`'s default, not the step's own `timeout:`). Tests added: three
+  unit tests on `workflowStaleAfterMs` (`tests/unit/workflow.test.mjs`) and one
+  integration test (`tests/unit/run-lock.test.mjs`) proving the lock survives a
+  worst-case failure-then-full-rollback and is still correctly stolen once genuinely
+  past the (now correct) window — verified to fail against the pre-fix formula.
+
+NIT 3 (`redactInputs` is top-level only) got the suggested one-line doc comment in
+`src/notes/log.mjs`. NIT 1, NIT 2, and NIT 4 are left as documented, accepted
+boundaries — no code changes. No live agent caller was wired (rung 4, deferred).
