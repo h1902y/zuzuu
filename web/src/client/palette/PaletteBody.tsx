@@ -29,6 +29,8 @@ import { useAcpIntent } from "../state/acp-intent.js";
 import { useModuleView } from "../state/module-view.js";
 import { emptyStack, push, pop, top, placeholderFor, hintFor, laneBadge, type OmniStack } from "../omnibar/omni-shell.js";
 import { adapterGroup } from "../omnibar/omni-adapter.js";
+import { greetingModel } from "../omnibar/omni-greeting.js";
+import { brainSummary } from "../shell/overview/overview-model.js";
 import { proposalsGroup, viewsGroup, type StagedRow } from "../omnibar/omni-sources.js";
 import { OmniDetail } from "../omnibar/OmniDetail.js";
 import { AcpConversation } from "../shell/stage/AcpView.js";
@@ -55,6 +57,9 @@ export default function PaletteBody() {
 
   const overview = useQuery({ queryKey: ["zuzuu", "overview"], queryFn: api.zuzuu.overview });
   const recents = useQuery({ queryKey: ["projects", "recents"], queryFn: api.projects.recents });
+  const workspace = useQuery({ queryKey: ["workspace"], queryFn: api.workspace });
+  // held sessions — the OTHER half of the needs-me composite (the greeting's brief)
+  const held = useQuery({ queryKey: ["zuzuu", "held"], queryFn: api.zuzuu.held });
 
   // The Notes (content) group: fetch every module's notes once per palette session
   // (cached), then filter client-side per keystroke via notesGroup → searchNotes.
@@ -103,10 +108,31 @@ export default function PaletteBody() {
     : notes && query.trim() ? [...(doGroup ? [doGroup] : []), notes, ...extras, ...groups]
       : [...(proposals ? [proposals] : []), ...groups, ...(views ? [views] : []), ...(notes ? [notes] : [])];
 
+  // §E.4 — the GREETING: the zero-state (no query, root view) is an assist. One
+  // calm block from existing reads (needs-me · last session · integrity · the
+  // CACHED readiness digest — never fetched here) + suggested rows as the first
+  // group. Typing collapses it (query !== "" drops both); nothing auto-fires.
+  const digestCached = qc.getQueryData<{ digest: string | null }>(["zuzuu", "readiness"])?.digest ?? null;
+  const health = brainSummary(overview.data?.modules ?? []);
+  const lastSess = sessions.at(-1) ?? null;
+  const greeting = !query.trim() && !view
+    ? greetingModel({
+        hour: new Date().getHours(),
+        projectName: workspace.data?.name ?? "this project",
+        pending: health.pending,
+        held: held.data?.held?.length ?? 0,
+        integrity: health.integrity,
+        lastSession: lastSess ? { id: lastSess.id, label: lastSess.title || lastSess.id.slice(0, 6) } : null,
+        digestLine: digestCached ? (digestCached.split("\n").find((l) => l.trim()) ?? null) : null,
+      })
+    : null;
+
   // A pushed ACTION PANEL replaces the root list (Raycast): one group, the noun's
   // verbs. The rows are ordinary commands, so Enter dispatches the same way.
   const allGroups: PaletteGroup[] =
-    view?.kind === "actions" ? [{ heading: view.row.label, commands: view.row.actions ?? [] }] : rootGroups;
+    view?.kind === "actions" ? [{ heading: view.row.label, commands: view.row.actions ?? [] }]
+      : greeting ? [{ heading: "Suggested", commands: greeting.rows }, ...rootGroups]
+        : rootGroups;
 
   // focused-row lookup (Tab reads it; the detail pane too). Keyed lowercase —
   // cmdk normalizes its data-value to lowercase, so DOM lookups must match.
@@ -280,6 +306,15 @@ export default function PaletteBody() {
             <AcpConversation id={view.id} compact />
           </div>
         ) : (
+        <div className="flex flex-col">
+          {greeting && (
+            <div className="border-b border-border px-4 py-3">
+              <div className="text-body text-ink-100">{greeting.salutation}</div>
+              {greeting.brief.map((line) => (
+                <div key={line} className="mt-0.5 text-meta text-muted">{line}</div>
+              ))}
+            </div>
+          )}
         <div className="flex">
           <Command.List className={`max-h-[50vh] ${detail ? "w-[55%]" : "w-full"} overflow-y-auto p-1`}>
             <Command.Empty className="px-3 py-4 text-meta text-muted">no matches</Command.Empty>
@@ -296,6 +331,7 @@ export default function PaletteBody() {
               <OmniDetail detail={detail} staged={staged} />
             </div>
           )}
+        </div>
         </div>
         )}
       </Command>

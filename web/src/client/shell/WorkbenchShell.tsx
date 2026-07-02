@@ -93,6 +93,20 @@ export function WorkbenchShell() {
     brainEvents.start(() => void qc.invalidateQueries({ queryKey: ["zuzuu"] }));
   }, [qc]);
 
+  // §E.4 — the workbench-launch greeting: the FIRST open of the day (per project)
+  // presents the omnibar's assist zero-state once. Non-blocking — Esc lands on the
+  // World; typing collapses it; nothing auto-fires. localStorage marks the day.
+  const greetRoot = workspace.data?.root ?? "";
+  const greetReady = projectState.data !== undefined && !projectState.isLoading;
+  useEffect(() => {
+    if (!greetRoot || !greetReady) return;
+    const key = `zz:greeted:${greetRoot}`;
+    const today = new Date().toDateString();
+    if (localStorage.getItem(key) === today) return;
+    localStorage.setItem(key, today);
+    setPalette(true);
+  }, [greetRoot, greetReady, setPalette]);
+
   // The session tab resets on selection change (a per-node view). The MODULE view
   // does not: it lives per-module in the module-view store — a choice never leaks
   // to the NEXT module (the C1 rule holds), and a return visit keeps its projection.
