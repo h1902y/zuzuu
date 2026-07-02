@@ -102,6 +102,41 @@ test('createNotes: batch is all-or-nothing, one generation', () => {
   });
 });
 
+test('createNote: `default: now` resolves to TODAY\'S ISO date on a date column; a non-date column keeps it as a plain literal', () => {
+  withRepo((home) => {
+    mkdirSync(join(home, 'events', 'items'), { recursive: true });
+    writeFileSync(join(home, 'events', 'module.md'), serialize({
+      type: 'module', id: 'events', title: 'Events',
+      fields: [
+        { name: 'occurred_on', type: 'date', default: 'now' },
+        { name: 'kind', type: 'text', default: 'now' }, // non-date: `now` has no magic
+      ],
+    }));
+    const r = createNote(home, 'events', 'e1', { type: 'event' });
+    assert.equal(r.ok, true, r.error);
+    const n = noteAt(home, 'events', 'e1');
+    const today = new Date().toISOString().slice(0, 10);
+    assert.equal(n.occurred_on, today, 'the date column resolves the `now` sentinel to today\'s ISO date');
+    assert.equal(n.kind, 'now', 'a non-date column treats `now` as a plain literal string — no magic');
+    // the manifest itself never rewrites the symbolic default
+    const field = parse(readText(join(home, 'events', 'module.md')), { id: 'events' }).note.fields.find((f) => f.name === 'occurred_on');
+    assert.equal(field.default, 'now', 'module.md keeps `now` symbolic, never resolved on disk');
+  });
+});
+
+test('createNote: an EXPLICIT date value wins over the `now` default', () => {
+  withRepo((home) => {
+    mkdirSync(join(home, 'events', 'items'), { recursive: true });
+    writeFileSync(join(home, 'events', 'module.md'), serialize({
+      type: 'module', id: 'events', title: 'Events',
+      fields: [{ name: 'occurred_on', type: 'date', default: 'now' }],
+    }));
+    const r = createNote(home, 'events', 'e2', { type: 'event', occurred_on: '2020-01-01' });
+    assert.equal(r.ok, true, r.error);
+    assert.equal(noteAt(home, 'events', 'e2').occurred_on, '2020-01-01', 'a present value is never overridden by the default');
+  });
+});
+
 test('coerceForField: declared types win; title stays a string', () => {
   withRepo((home) => {
     assert.equal(coerceForField(home, 'crm', 'tier', '5'), 5);

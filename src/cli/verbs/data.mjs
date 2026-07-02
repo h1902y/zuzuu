@@ -259,15 +259,16 @@ export const dataRows = [
   // itself. `module schema <k>` (the READ) stays inside the `module` handler above.
   {
     path: ['module', 'add-column'], plane: 'data', json: true, permission: 'admin', agentInvokable: false,
-    usage: 'module add-column <k> <name> <type> [--required] [--options a,b] [--default v] [--label l]', summary: 'add a typed column to a module schema',
+    usage: 'module add-column <k> <name> <type> [--required] [--options a,b] [--default v] [--label l] [--description d]', summary: 'add a typed column to a module schema',
     handler: ({ args, cwd, log, json }) => {
       const [m, name, type] = args._;
-      if (!m || !name || !type) return fail(log, 'usage: zz module add-column <key> <name> <type> [--required] [--options a,b] [--default v] [--label l]', json);
+      if (!m || !name || !type) return fail(log, 'usage: zz module add-column <key> <name> <type> [--required] [--options a,b] [--default v] [--label l] [--description d]', json);
       const opts = {
         required: !!args.required,
         options: args.options ? list(args.options) : null,
         def: args.default !== undefined && args.default !== true ? args.default : undefined,
         label: str(args.label) || null,
+        description: str(args.description) || null,
         computed: str(args.computed) || null,
       };
       const r = open(cwd).addColumn(m, name, type, opts);
@@ -278,16 +279,17 @@ export const dataRows = [
   },
   {
     path: ['module', 'alter-column'], plane: 'data', json: true, permission: 'admin', agentInvokable: false,
-    usage: 'module alter-column <k> <name> [--type t] [--required] [--options a,b] [--default v] [--label l]', summary: 'change a column (type · required · options · default · label)',
+    usage: 'module alter-column <k> <name> [--type t] [--required] [--options a,b] [--default v] [--label l] [--description d]', summary: 'change a column (type · required · options · default · label · description)',
     handler: ({ args, cwd, log, json }) => {
       const [m, name] = args._;
-      if (!m || !name) return fail(log, 'usage: zz module alter-column <key> <name> [--type <t>] [--required] [--options a,b] [--default v] [--label l]', json);
+      if (!m || !name) return fail(log, 'usage: zz module alter-column <key> <name> [--type <t>] [--required] [--options a,b] [--default v] [--label l] [--description d]', json);
       const opts = {};
       if (args.type) opts.type = String(args.type);
       if (args.required !== undefined) opts.required = !!args.required;
       if (args.options !== undefined) opts.options = list(args.options);
       if (args.default !== undefined && args.default !== true) opts.def = args.default;
       if (args.label !== undefined) opts.label = str(args.label) || null;
+      if (args.description !== undefined) opts.description = str(args.description) || null;
       const r = open(cwd).alterColumn(m, name, opts);
       if (!r.ok) return fail(log, r.error, json);
       emit(log, json, { key: m, fields: r.fields, generation: r.generation }, ['schema', r.fields, ['name', 'type', 'required']]);

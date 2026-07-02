@@ -153,6 +153,35 @@ test('module schema <key> --json → {key, fields:[]} (schemaless until U10)', a
   });
 });
 
+test('module add-column --default now --description "..." round-trips through `module schema` (§H.5 CLI prerequisite)', async () => {
+  await withRepo(async ({ home, io, out }) => {
+    initHome(io.cwd);
+    await run(['module', 'new', 'events', '--json'], io);
+    out.length = 0;
+    assert.equal(await run(['module', 'add-column', 'events', 'occurred_on', 'date', '--default', 'now', '--description', 'when it happened', '--json'], io), 0);
+    out.length = 0;
+    assert.equal(await run(['module', 'schema', 'events', '--json'], io), 0);
+    const f = JSON.parse(out[0]).fields.find((x) => x.name === 'occurred_on');
+    assert.equal(f.default, 'now', 'the sentinel is never rewritten by add-column (it stays symbolic)');
+    assert.equal(f.description, 'when it happened');
+  });
+});
+
+test('module alter-column --description updates the description without disturbing other keys', async () => {
+  await withRepo(async ({ home, io, out }) => {
+    initHome(io.cwd);
+    await run(['module', 'new', 'events', '--json'], io);
+    await run(['module', 'add-column', 'events', 'occurred_on', 'date', '--label', 'Occurred', '--json'], io);
+    out.length = 0;
+    assert.equal(await run(['module', 'alter-column', 'events', 'occurred_on', '--description', 'when it happened', '--json'], io), 0);
+    out.length = 0;
+    await run(['module', 'schema', 'events', '--json'], io);
+    const f = JSON.parse(out[0]).fields.find((x) => x.name === 'occurred_on');
+    assert.equal(f.description, 'when it happened');
+    assert.equal(f.label, 'Occurred', 'the unrelated label survives the alter');
+  });
+});
+
 // ── Rung 9: the module-lifecycle writes the daemon shells (module new/enable/disable,
 //    gen mint) — previously NONEXISTENT verbs (the live daemon-write bug). ────────────
 

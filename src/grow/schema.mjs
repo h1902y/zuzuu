@@ -43,16 +43,20 @@ function writeSchema(home, module, path, note, fields, label) {
 }
 
 // Build a clean FieldDef from CLI inputs — only the keys that carry meaning.
-// `default` fills the column on `note create` when absent; `label` is the human/UI
+// `default` fills the column on `note create` when absent (the string `now` is a
+// SENTINEL for date columns, resolved at fill time — see grow/edit.mjs withDefaults;
+// the manifest itself always keeps the symbolic `now`); `label` is the human/UI
 // display name (a form can render real fields instead of inferring from keys);
-// `computed` derives the column at INDEX time (first builtin: `dateAdd(a,b)` —
+// `description` is a free-form tooltip/help string (header tooltip + schema card —
+// §H.5); `computed` derives the column at INDEX time (first builtin: `dateAdd(a,b)` —
 // the value never lands in the note file, but filters/sorts like any column).
-function fieldDef(name, type, { required = false, options = null, def = undefined, label = null, computed = null } = {}) {
+function fieldDef(name, type, { required = false, options = null, def = undefined, label = null, description = null, computed = null } = {}) {
   const f = { name, type };
   if (required) f.required = true;
   if (Array.isArray(options) && options.length) f.options = options;
   if (def !== undefined) f.default = def;
   if (label) f.label = label;
+  if (description) f.description = description;
   if (computed) f.computed = computed;
   return f;
 }
@@ -82,8 +86,9 @@ export function alterColumn(home, module, name, opts = {}) {
   const options = opts.options !== undefined ? opts.options : cur.options;
   const def = opts.def !== undefined ? opts.def : cur.default;
   const label = opts.label !== undefined ? opts.label : cur.label;
+  const description = opts.description !== undefined ? opts.description : cur.description;
   const next = [...s.fields];
-  next[idx] = fieldDef(name, type, { required, options, def, label });
+  next[idx] = fieldDef(name, type, { required, options, def, label, description });
   return writeSchema(home, module, s.path, s.note, next, `alter-column ${module}.${name}`);
 }
 

@@ -66,11 +66,21 @@ export function appendNote(home, module, id, text, actor = 'operator') {
 // write boundary (validated, logged, minted), never exposed to the agent
 // (the CLI rows are agentInvokable:false; the agent's channel stays stage→review).
 
+// `default: now` is a SENTINEL, DATE columns only: resolved at FILL time (here, not
+// the floor — the floor fills title/status unconditionally; this is a declared column's
+// schema default, a different concern) to today's ISO date (YYYY-MM-DD). The manifest
+// keeps the symbolic `now` forever — only the value landing in the row resolves. Any
+// other column type treats the string `now` as a literal (no magic outside dates).
+function resolveDefault(f) {
+  if (f.type === 'date' && f.default === 'now') return new Date().toISOString().slice(0, 10);
+  return f.default;
+}
+
 // Fill absent declared columns from the schema's `default`s — the row lands complete.
 function withDefaults(home, module, change) {
   const out = { ...change };
   for (const f of readManifest(home, module).fields ?? []) {
-    if (f?.name && f.default !== undefined && (out[f.name] === undefined || out[f.name] === '')) out[f.name] = f.default;
+    if (f?.name && f.default !== undefined && (out[f.name] === undefined || out[f.name] === '')) out[f.name] = resolveDefault(f);
   }
   return out;
 }

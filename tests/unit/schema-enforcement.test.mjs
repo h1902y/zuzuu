@@ -158,6 +158,40 @@ test('alter-column tightens the type; drop-column removes the constraint', () =>
   });
 });
 
+test('add-column: `description` passthrough — a tolerated FieldDef key, surfaced by `module schema`', () => {
+  withRepo((home, root) => {
+    const zz = open(root);
+    schemaModule(home, 'tasks', [{ name: 'title', type: 'text' }]);
+    const r = zz.addColumn('tasks', 'priority', 'select', { options: ['low', 'high'], description: 'How urgent the task is' });
+    assert.equal(r.ok, true, r.error);
+    const field = readManifest(home, 'tasks').fields.find((f) => f.name === 'priority');
+    assert.equal(field.description, 'How urgent the task is');
+  });
+});
+
+test('alter-column: `description` survives an unrelated alter; an explicit --description replaces it', () => {
+  withRepo((home, root) => {
+    const zz = open(root);
+    schemaModule(home, 'tasks', [{ name: 'effort', type: 'text', description: 'rough estimate' }]);
+    // an alter that only touches `type` leaves description untouched
+    assert.equal(zz.alterColumn('tasks', 'effort', { type: 'number' }).ok, true);
+    assert.equal(readManifest(home, 'tasks').fields.find((f) => f.name === 'effort').description, 'rough estimate', 'description survives an unrelated alter');
+    // an explicit description updates it
+    assert.equal(zz.alterColumn('tasks', 'effort', { description: 'in days' }).ok, true);
+    assert.equal(readManifest(home, 'tasks').fields.find((f) => f.name === 'effort').description, 'in days');
+  });
+});
+
+test('add-column: `default: now` stays SYMBOLIC in the manifest — the sentinel resolves at row-fill time (grow/edit.mjs), never at schema-mutation time', () => {
+  withRepo((home, root) => {
+    const zz = open(root);
+    schemaModule(home, 'events', [{ name: 'title', type: 'text' }]);
+    assert.equal(zz.addColumn('events', 'occurred_on', 'date', { def: 'now' }).ok, true);
+    const field = readManifest(home, 'events').fields.find((f) => f.name === 'occurred_on');
+    assert.equal(field.default, 'now', 'the manifest keeps the literal sentinel, never rewritten to a date');
+  });
+});
+
 test('the standard modules ship schemas (manifestFor emits fields for instructions + guardrails)', () => {
   // the templates carry typed columns; knowledge/actions/memory stay schemaless
   assert.ok(parseFields('instructions').some((f) => f.name === 'action' && f.type === 'select'));
