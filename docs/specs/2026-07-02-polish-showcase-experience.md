@@ -251,3 +251,40 @@ the needs-me composite · session history), never an auto-fired agent:
 
 This is the product's front door made literal: the vault's /hi pattern,
 graduated into the workbench.
+
+## F — The global page: a special Project page (user-directed)
+
+The launcher retires as a distinct surface. GLOBAL is the same page grammar as
+a project — the World + omnibar — where the NODES ARE PROJECTS: each an island
+dot carrying counts, health, needs-me; select → project detail (the inspector
+grammar); Enter → dive into that project's World (the same page, one level
+down). The omnibar's sources at global scope are projects, recent sessions
+across projects, and global commands; the greeting (§E.4) rolls up "what needs
+me" ACROSS projects.
+
+Fidelity pin: cross-project stays a ROLL-UP + registry read (the recorded tier
+doctrine — never one merged master Project); global is a view that aggregates,
+each project's gate/generations stay its own.
+
+## G — Settings & observability: teach the substrate (user-directed)
+
+The product has done a poor job educating about its own machinery — log.jsonl
+(per-module provenance), generations (the git-native lineage), module.md (the
+table's contract). These become graceful, discoverable surfaces:
+
+- **A note's history** in its detail view: its mutation-log entries (who/when/
+  which proposal/session — actor · source · op) rendered as a quiet timeline;
+  "born here" links to the staging session/proposal.
+- **A module's lineage**: the generation strip (mint points, labels, rollback
+  affordance) + "what changed" per generation (gen diff), IN the module detail.
+- **The contract, visible**: module.md rendered as the schema card (columns ·
+  types · defaults · computed) with a "this is a plain file — open it" link;
+  the envelope's tolerance explained where custom keys appear.
+- **Settings** (footer-right dialog, §D): host wiring, guardrails state, daemon
+  info — plus an "under the hood" section that names the files (log.jsonl ·
+  .generations/ · module.md · project.md) and links each to its guide page.
+- Observability creed: every magic moment (a ghost, a generation, a spotlight)
+  should be one click from the PLAIN FILE that explains it.
+
+Sequence after the omnibar stack (§E): global page (§F) → settings +
+observability (§G).
