@@ -36,6 +36,19 @@ export interface PaletteCommand {
   value: string;
   label: string;
   action: PaletteAction;
+  // ── the omnibar shell's row grammar (§E.1/§E.2; all optional — a bare row is
+  //    a plain navigate) ──
+  /** quiet secondary text after the label (module, path, status…) */
+  meta?: string;
+  /** which lane Enter acts through — 'instant' (operator) · 'proposal' (agent
+   *  lane, the gate decides) · 'nav'. Rendered as a badge: the moat, visible. */
+  lane?: import("../omnibar/omni-shell.js").Lane;
+  /** right-aligned hint (the palette teaches its keys); defaults from actions */
+  hint?: string;
+  /** the noun's verb panel (Tab) — each verb is itself a command row */
+  actions?: PaletteCommand[];
+  /** what the detail pane renders while this row is focused */
+  detail?: import("../omnibar/omni-shell.js").DetailRef;
 }
 
 export interface PaletteGroup {
@@ -67,12 +80,13 @@ export function buildPaletteGroups(ctx: PaletteContext): PaletteGroup[] {
   groups.push({
     heading: "Actions",
     commands: [
-      { value: "review proposals gate pending merge approve", label: "Review proposals", action: { kind: "review" } },
-      { value: "new shell session terminal", label: "New shell", action: { kind: "new-shell" } },
+      { value: "review proposals gate pending merge approve", label: "Review proposals", action: { kind: "review" }, hint: "R" },
+      { value: "new shell session terminal", label: "New shell", action: { kind: "new-shell" }, lane: "instant" },
       ...ctx.hosts.map((h): PaletteCommand => ({
         value: `new ${h.label.toLowerCase()} agent session`,
         label: `New ${h.label}`,
         action: { kind: "new-agent", host: h.id },
+        lane: "instant",
       })),
     ],
   });
@@ -96,6 +110,9 @@ export function buildPaletteGroups(ctx: PaletteContext): PaletteGroup[] {
         value: `session ${s.title ?? s.id}`.toLowerCase(),
         label: s.title ?? s.id,
         action: { kind: "open-session", id: s.id },
+        meta: "session",
+        detail: { kind: "session", id: s.id },
+        hint: "↵ resume",
       })),
     });
   }
@@ -107,6 +124,12 @@ export function buildPaletteGroups(ctx: PaletteContext): PaletteGroup[] {
         value: `table module ${m.title}`.toLowerCase(),
         label: m.title,
         action: { kind: "open-module", id: m.id },
+        meta: "table",
+        detail: { kind: "module", id: m.id },
+        actions: [
+          { value: "open-table", label: "Open as table", action: { kind: "open-module", id: m.id } },
+          { value: "open-island", label: "Focus the island", action: { kind: "world-module", id: m.id } },
+        ],
       })),
     });
   }

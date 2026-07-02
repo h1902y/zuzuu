@@ -1,11 +1,13 @@
-// src/client/palette/PaletteBody.tsx — the ⌘K omnibar (lazy). Jump to any node + run the
-// key actions + switch project (fixed groups Navigate · Actions · Switch project ·
-// Sessions · Tables, tested via palette-commands), PLUS a live Notes (content) group (U3)
-// appended last so commands rank above content. cmdk owns the keyboard + selection,
-// fuzzyScore the ranking, and a typed dispatcher drives the stores. The Notes group is
-// query-driven (notesGroup over the cached fan-out). Outside the ds-no-inline scan, so
-// cmdk's arbitrary classes are fine here.
-import { useState } from "react";
+// src/client/palette/PaletteBody.tsx — the ⌘K omnibar SHELL (lazy). §E.1: not just an
+// input — a view-stack spotlight. The root list is nouns + commands (fixed groups
+// Navigate · Actions · Switch project · Sessions · Tables + the live Notes group, all
+// registry rows); Tab on a focused noun pushes its ACTION PANEL; Esc pops (never
+// closes-by-surprise); the breadcrumb lives in the placeholder; rows carry the
+// two-lane grammar (instant vs proposal — the moat readable at the input) + a hint
+// column. cmdk owns keyboard + selection, fuzzyScore the ranking, and a typed
+// dispatcher drives the stores. Outside the ds-no-inline scan, so cmdk's arbitrary
+// classes are fine here.
+import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Command } from "cmdk";
 import { useWorld } from "../shell/world-state.js";
@@ -20,11 +22,12 @@ import { dataProvider } from "../data/provider.js";
 import { newNoteId } from "../shell/stage/stage-header.js";
 import { toast } from "../state/toast.js";
 import { paletteFilterScore } from "./palette-logic.js";
-import { buildPaletteGroups, omniGroup, type PaletteAction } from "./palette-commands.js";
+import { buildPaletteGroups, omniGroup, type PaletteAction, type PaletteCommand, type PaletteGroup } from "./palette-commands.js";
 import { notesGroup } from "./palette-rank.js";
 import { useWorldCommand } from "../state/world-command.js";
 import { useAcpIntent } from "../state/acp-intent.js";
 import { useModuleView } from "../state/module-view.js";
+import { emptyStack, push, pop, top, placeholderFor, hintFor, laneBadge, type OmniStack } from "../omnibar/omni-shell.js";
 
 export default function PaletteBody() {
   const setPalette = useWorld((s) => s.setPalette);
@@ -41,6 +44,9 @@ export default function PaletteBody() {
   const goHome = useAppSurface((s) => s.home);
   const qc = useQueryClient();
   const [query, setQuery] = useState("");
+  const [stack, setStack] = useState<OmniStack>(emptyStack);
+  const [focusVal, setFocusVal] = useState("");
+  const view = top(stack);
 
   const overview = useQuery({ queryKey: ["zuzuu", "overview"], queryFn: api.zuzuu.overview });
   const recents = useQuery({ queryKey: ["projects", "recents"], queryFn: api.projects.recents });
@@ -68,9 +74,23 @@ export default function PaletteBody() {
   // audit item 7: with a live query, CONTENT leads — the notes group renders first
   // so the best note is the default Enter target (cmdk keeps DOM order for ties;
   // the exact-substring filter score already zeroes most command noise).
-  const allGroups = omni ? [omni] : notes && query.trim() ? [notes, ...groups] : notes ? [...groups, notes] : groups;
+  const rootGroups = omni ? [omni] : notes && query.trim() ? [notes, ...groups] : notes ? [...groups, notes] : groups;
+
+  // A pushed ACTION PANEL replaces the root list (Raycast): one group, the noun's
+  // verbs. The rows are ordinary commands, so Enter dispatches the same way.
+  const allGroups: PaletteGroup[] =
+    view?.kind === "actions" ? [{ heading: view.row.label, commands: view.row.actions ?? [] }] : rootGroups;
+
+  // focused-row lookup (Tab reads it; the detail pane will too)
+  const rowByValue = useMemo(() => {
+    const m = new Map<string, PaletteCommand>();
+    for (const g of allGroups) for (const c of g.commands) m.set(c.value, c);
+    return m;
+  }, [allGroups]);
 
   const close = () => setPalette(false);
+  const pushView = (v: Parameters<typeof push>[1]) => { setStack((s) => push(s, v)); setQuery(""); setFocusVal(""); };
+  const popView = () => { setStack(pop); setQuery(""); setFocusVal(""); };
 
   function dispatch(action: PaletteAction) {
     switch (action.kind) {
@@ -147,14 +167,32 @@ export default function PaletteBody() {
         break;
       }
     }
+    setStack(emptyStack);
     close();
+  }
+
+  // The shell's key grammar: Esc POPS a pushed view (only closes from the root);
+  // Tab on a focused noun pushes its action panel. cmdk sees neither.
+  function onShellKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Escape") {
+      e.preventDefault(); e.stopPropagation();
+      if (view) popView(); else close();
+      return;
+    }
+    if (e.key === "Tab" && !view) {
+      const row = rowByValue.get(focusVal);
+      if (row?.actions?.length) { e.preventDefault(); e.stopPropagation(); pushView({ kind: "actions", row }); }
+    }
   }
 
   return (
     <div className="animate-fade fixed inset-0 z-50 flex justify-center bg-scrim pt-[12vh]" onClick={close}>
       <Command
         label="Command palette"
-        filter={omni ? () => 1 : paletteFilterScore}
+        filter={omni || view ? () => 1 : paletteFilterScore}
+        value={focusVal}
+        onValueChange={setFocusVal}
+        onKeyDown={onShellKeyDown}
         className="animate-pop h-fit w-[560px] max-w-[90vw] overflow-hidden rounded-ui border border-border bg-elevated shadow-overlay"
         onClick={(e) => e.stopPropagation()}
       >
@@ -162,7 +200,7 @@ export default function PaletteBody() {
           autoFocus
           value={query}
           onValueChange={setQuery}
-          placeholder="find anything · >world commands · /ask the agent"
+          placeholder={placeholderFor(stack)}
           className="w-full border-b border-border bg-transparent px-4 py-3 text-body text-ink-100 outline-none placeholder:text-muted"
         />
         <Command.List className="max-h-[50vh] overflow-y-auto p-1">
@@ -170,9 +208,7 @@ export default function PaletteBody() {
           {allGroups.map((group) => (
             <Command.Group key={group.heading} heading={group.heading} className="px-2 py-1 text-meta text-muted">
               {group.commands.map((cmd) => (
-                <Item key={`${group.heading}:${cmd.value}`} value={cmd.value} onSelect={() => dispatch(cmd.action)}>
-                  {cmd.label}
-                </Item>
+                <Item key={`${group.heading}:${cmd.value}`} cmd={cmd} onSelect={() => dispatch(cmd.action)} />
               ))}
             </Command.Group>
           ))}
@@ -182,14 +218,25 @@ export default function PaletteBody() {
   );
 }
 
-function Item({ value, onSelect, children }: { value: string; onSelect: () => void; children: React.ReactNode }) {
+/** One row: label · quiet meta · (right) lane badge + hint — the §E.2 row grammar.
+ *  The lane badge is the moat made visible: an 'instant' operator verb vs a
+ *  'proposal' that the review gate will decide. */
+function Item({ cmd, onSelect }: { cmd: PaletteCommand; onSelect: () => void }) {
+  const badge = laneBadge(cmd.lane);
+  const hint = hintFor(cmd);
   return (
     <Command.Item
-      value={value}
+      value={cmd.value}
       onSelect={onSelect}
-      className="cursor-pointer truncate rounded px-3 py-1.5 text-ui text-subtle data-[selected=true]:bg-hover data-[selected=true]:text-ink-100"
+      className="flex cursor-pointer items-center gap-2 rounded px-3 py-1.5 text-ui text-subtle data-[selected=true]:bg-hover data-[selected=true]:text-ink-100"
     >
-      {children}
+      <span className="truncate">{cmd.label}</span>
+      {cmd.meta && <span className="shrink-0 text-meta text-muted">{cmd.meta}</span>}
+      <span className="ml-auto flex shrink-0 items-center gap-2">
+        {badge === "instant" && <span className="rounded-sm bg-accent-dim px-1 text-meta text-ink-100">instant</span>}
+        {badge === "proposal" && <span className="rounded-sm border border-dashed border-border px-1 text-meta text-warning">proposal</span>}
+        {hint && <span className="text-meta text-muted">{hint}</span>}
+      </span>
     </Command.Item>
   );
 }
