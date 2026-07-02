@@ -31,6 +31,7 @@ export interface ListResult {
 const toModuleQuery = (q: ListQuery) => ({
   ...(q.text ? { text: q.text } : {}),
   ...(q.kind ? { type: q.kind } : {}),
+  ...(q.where?.length ? { where: q.where } : {}),
   ...(q.sort ? { sort: `${q.sort.key}${q.sort.dir === "desc" ? ":desc" : ""}` } : {}),
   limit: q.pageSize,
   offset: q.page * q.pageSize,

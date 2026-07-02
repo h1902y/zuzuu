@@ -8,13 +8,18 @@
 // (filter·sort·paginate in SQL); the provider just hands back the page + total.
 
 export interface SortState { key: string; dir: "asc" | "desc" }
-export interface ListState { text: string; kind: string; sort: SortState | null; page: number; pageSize: number }
+/** `where` is the CLI's own clause grammar (`key<op>value` strings — the ONE query
+ *  grammar, §H.3.1); the server parses the op and pushes it to the EAV index. */
+export interface ListState { text: string; kind: string; where: string[]; sort: SortState | null; page: number; pageSize: number }
 
-export const initialListState: ListState = { text: "", kind: "", sort: null, page: 0, pageSize: 50 };
+export const initialListState: ListState = { text: "", kind: "", where: [], sort: null, page: 0, pageSize: 50 };
 
 export type ListAction =
   | { type: "setText"; text: string }
   | { type: "setKind"; kind: string }
+  | { type: "addWhere"; clause: string }
+  | { type: "removeWhere"; clause: string }
+  | { type: "setWhere"; where: string[] }
   | { type: "toggleSort"; key: string }
   | { type: "setPage"; page: number }
   | { type: "reset" };
@@ -23,6 +28,9 @@ export function listReducer(s: ListState, a: ListAction): ListState {
   switch (a.type) {
     case "setText": return { ...s, text: a.text, page: 0 };       // a new filter resets the page
     case "setKind": return { ...s, kind: a.kind, page: 0 };
+    case "addWhere": return s.where.includes(a.clause) ? s : { ...s, where: [...s.where, a.clause], page: 0 };
+    case "removeWhere": return { ...s, where: s.where.filter((w) => w !== a.clause), page: 0 };
+    case "setWhere": return { ...s, where: a.where, page: 0 };
     case "toggleSort": {
       const dir: "asc" | "desc" = s.sort?.key === a.key && s.sort.dir === "asc" ? "desc" : "asc";
       return { ...s, sort: { key: a.key, dir }, page: 0 };
@@ -33,8 +41,8 @@ export function listReducer(s: ListState, a: ListAction): ListState {
 }
 
 /** The whole server query the DataProvider's getList pushes to the index — the filter
- *  (text/kind) + sort + the page window. The index does the filter·sort·paginate in
- *  SQL; the client no longer filters/sorts/slices in JS (the limit:10000 fetch is gone). */
-export interface ListQuery { text: string; kind: string; sort: SortState | null; page: number; pageSize: number }
+ *  (text/kind/where) + sort + the page window. The index does the filter·sort·paginate
+ *  in SQL; the client no longer filters/sorts/slices in JS (the limit:10000 fetch is gone). */
+export interface ListQuery { text: string; kind: string; where: string[]; sort: SortState | null; page: number; pageSize: number }
 export const queryOf = (s: ListState): ListQuery =>
-  ({ text: s.text, kind: s.kind, sort: s.sort, page: s.page, pageSize: s.pageSize });
+  ({ text: s.text, kind: s.kind, where: s.where, sort: s.sort, page: s.page, pageSize: s.pageSize });

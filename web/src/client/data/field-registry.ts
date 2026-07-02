@@ -5,8 +5,10 @@
 // read these. The 3-part split (cell · field-config · input) lands its cell+input here.
 export type FieldType = "text" | "longtext" | "select" | "multi" | "link" | "date" | "number" | "bool";
 
-/** One field's declaration on a module.md `fields` block. */
-export interface FieldDef { name: string; type: FieldType; required?: boolean; label?: string; options?: string[] }
+/** One field's declaration on a module.md `fields` block. `computed` is the
+ *  derive formula (e.g. `dateAdd(start_date,duration_days)`) — the value never
+ *  lands in the file; the index materializes it (shown as ƒ in headers). */
+export interface FieldDef { name: string; type: FieldType; required?: boolean; label?: string; options?: string[]; computed?: string }
 
 export interface FieldConfig {
   type: FieldType;

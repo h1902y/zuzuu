@@ -10,13 +10,18 @@ import { create } from "zustand";
 export interface ModuleFilter {
   text: string;
   kind: string;
+  /** where clauses in the CLI's own grammar (`key<op>value`) — §H.3's one grammar.
+   *  NOTE: where clauses do NOT mirror into the map spotlight (the graph nodes
+   *  don't carry arbitrary props client-side) — text/kind/module do; the chip row
+   *  still names them so the state is never invisible. */
+  where: string[];
   /** the module FACET — only meaningful on the UNIFIED scope ('' = Everything),
    *  where module is a column: narrowing to one module is a filter, not a nav. */
   module: string;
   scrollTop: number;
 }
 
-const EMPTY: ModuleFilter = { text: "", kind: "", module: "", scrollTop: 0 };
+const EMPTY: ModuleFilter = { text: "", kind: "", where: [], module: "", scrollTop: 0 };
 
 interface ModuleFilterState {
   byModule: Record<string, ModuleFilter>;
@@ -29,7 +34,8 @@ export const filterOf = (byModule: Record<string, ModuleFilter>, module: string)
   byModule[module] ?? EMPTY;
 
 /** Does the filter actually narrow anything (drives the spotlight + chip row)? */
-export const isFiltering = (f: ModuleFilter): boolean => f.text.trim() !== "" || f.kind !== "" || f.module !== "";
+export const isFiltering = (f: ModuleFilter): boolean =>
+  f.text.trim() !== "" || f.kind !== "" || f.module !== "" || f.where.length > 0;
 
 export const useModuleFilter = create<ModuleFilterState>((set, get) => ({
   byModule: {},

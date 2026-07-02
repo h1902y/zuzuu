@@ -5,7 +5,7 @@
 import { columnsFor, fieldConfig, type FieldDef } from "../../data/field-registry.js";
 import type { ModuleItem } from "#shared/index.js";
 
-export interface GridColumn { name: string; label: string; type: string; align: "left" | "right" }
+export interface GridColumn { name: string; label: string; type: string; align: "left" | "right"; computed?: string }
 
 // not shown as columns: module is implicit, body is the record, provenance/payload
 // are nested objects (they'd render "[object Object]" — surfaced in the record, not the grid)
@@ -32,6 +32,7 @@ export function gridColumns(fields: FieldDef[], items: ModuleItem[]): GridColumn
     label: f.label ?? titleCase(f.name),
     type: f.type,
     align: fieldConfig(f.type).align ?? "left",
+    ...(f.computed ? { computed: f.computed } : {}),
   }));
 }
 

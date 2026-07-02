@@ -22,7 +22,7 @@ function mockZuzuu(detail: Partial<ModuleDetail> = {}) {
   return { zuzuu: zuzuu as unknown as Parameters<typeof makeDataProvider>[0], stage, calls };
 }
 
-const ALL: import("../../src/client/data/list-state.js").ListQuery = { text: "", kind: "", sort: null, page: 0, pageSize: 50 };
+const ALL: import("../../src/client/data/list-state.js").ListQuery = { text: "", kind: "", where: [], sort: null, page: 0, pageSize: 50 };
 
 describe("DataProvider — server-side list + writes as pending proposals", () => {
   it("getList pushes filter·sort·page to the SERVER (the index SELECT) and paginates off total", async () => {
@@ -30,7 +30,7 @@ describe("DataProvider — server-side list + writes as pending proposals", () =
     const { zuzuu, calls } = mockZuzuu({ items: page, total: 7, staged: [{ id: "p1", module: "knowledge", title: "P1" }] });
     const dp = makeDataProvider(zuzuu);
 
-    const res = await dp.getList("knowledge", { text: "blue", kind: "fact", sort: { key: "title", dir: "desc" }, page: 2, pageSize: 25 });
+    const res = await dp.getList("knowledge", { text: "blue", kind: "fact", where: [], sort: { key: "title", dir: "desc" }, page: 2, pageSize: 25 });
     // the items ARE the server page — no client-side matches() over a limit:10000 fetch
     expect(res.items.map((i) => i.id)).toEqual(["a", "b"]);
     expect(res.total).toBe(7);          // the pre-paginate total the grid paginates off

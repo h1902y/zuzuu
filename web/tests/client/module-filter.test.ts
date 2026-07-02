@@ -9,7 +9,7 @@ describe("module-filter store", () => {
 
   it("defaults to an empty lens; isFiltering is false", () => {
     const f = filterOf(useModuleFilter.getState().byModule, "crm");
-    expect(f).toEqual({ text: "", kind: "", module: "", scrollTop: 0 });
+    expect(f).toEqual({ text: "", kind: "", where: [], module: "", scrollTop: 0 });
     expect(isFiltering(f)).toBe(false);
   });
 
@@ -21,6 +21,11 @@ describe("module-filter store", () => {
     const f = filterOf(useModuleFilter.getState().byModule, "crm");
     expect(f.text).toBe("");
     expect(f.scrollTop).toBe(140);
+  });
+
+  it("a where clause alone counts as filtering (§H.3.1's third entry point)", () => {
+    useModuleFilter.getState().patch("crm", { where: ["tier>=2"] });
+    expect(isFiltering(filterOf(useModuleFilter.getState().byModule, "crm"))).toBe(true);
   });
 });
 
