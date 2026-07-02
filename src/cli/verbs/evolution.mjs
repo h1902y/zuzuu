@@ -5,9 +5,10 @@
 import { open } from '../../serve/api.mjs';
 import { captureSignals } from '../../hosts/capture.mjs';
 import { observe } from '../../grow/observe.mjs';
+import { observeRuns } from '../../grow/runs-miner.mjs';
 import { renderNoteDiff } from '../../use/diff.mjs';
 import { toon } from '../../notes/toon.mjs';
-import { fail, emit, list, fieldPairs } from '../args.mjs';
+import { fail, emit, list, fieldPairs, flag } from '../args.mjs';
 
 // post-write integrity nudge: after a gated write, surface any broken links so the
 // reviewer sees the consequence (the LSP-after-edit / auto-check pattern). Returns the
@@ -82,6 +83,39 @@ export const evolutionRows = [
       emit(log, json, { ok: true, mined: r.sessionsMined, candidates: r.candidates, proposed: r.proposed, staged },
         ['observe', [{ mined: r.sessionsMined, candidates: r.candidates, proposed: r.proposed }], ['mined', 'candidates', 'proposed']]);
       if (r.staged.length && !json) log(toon('staged', staged, ['module', 'id', 'score'], ['zz review <module>']));
+      return 0;
+    },
+  },
+  {
+    // observe's SIBLING (§I rung 2, "Zus that run"): the feedback edge MODEL.md always
+    // named — runs.jsonl → failure/flake evidence → staged proposals — now actually
+    // wired. Same shape as `observe`: agent-invokable (a mine + a stage, never a
+    // direct write), so it stays OUT of the execution gate's deny set alongside it.
+    path: ['observe-runs'], plane: 'evolution', json: true, permission: 'write', agentInvokable: true,
+    usage: 'observe-runs [module] [--since <iso>] [--dry-run]',
+    summary: "mine runs.jsonl → failure/flake evidence → staged proposals (observe's sibling)",
+    handler: ({ args, cwd, log, json }) => {
+      const zz = open(cwd);
+      const [module] = args._;
+      const dryRun = flag(args['dry-run']);
+      const r = observeRuns(zz.home, { module: module || null, sinceTs: args.since ?? null, dryRun });
+      const staged = r.staged.map((p) => ({ module: p.module, id: p.target, score: p.score }));
+      const evidenceRows = r.evidence.map((e) => ({
+        note: e.addr, runs: e.totalRuns, failures: e.failures,
+        streak: e.consecutiveFailureStreak, rate: `${Math.round(e.failureRate * 100)}%`,
+      }));
+      emit(log, json, { ok: true, mined: r.evidence.length, flagged: r.flagged, proposed: r.proposed, dryRun, staged, evidence: r.evidence },
+        ['observe-runs', [{ mined: r.evidence.length, flagged: r.flagged, proposed: r.proposed }], ['mined', 'flagged', 'proposed']]);
+      if (!json) {
+        if (evidenceRows.length) log(toon('evidence', evidenceRows, ['note', 'runs', 'failures', 'streak', 'rate']));
+        if (dryRun && r.candidates.length) {
+          log('dry-run — nothing staged:');
+          const would = r.candidates.map((c) => ({ module: c.module, target: c.target, op: c.op, rationale: c.rationale }));
+          log(toon('would-stage', would, ['module', 'target', 'op', 'rationale']));
+        } else if (r.staged.length) {
+          log(toon('staged', staged, ['module', 'id', 'score'], ['zz review <module>']));
+        }
+      }
       return 0;
     },
   },
