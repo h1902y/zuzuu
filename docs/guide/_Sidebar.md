@@ -4,6 +4,7 @@
 - [[Getting Started]]
 - [[Modules as Tables|Modules-as-Tables]]
 - [[Workflows]]
+- [[Flow View|Flow-View]]
 - [[Two Lanes|Two-Lanes]]
 - [[The World|The-World]]
 - [[The Omnibar|Omnibar]]

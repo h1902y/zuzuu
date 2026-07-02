@@ -207,5 +207,8 @@ workflow if you want to trigger it.
   rows and fires on its own — `trigger fire` is always explicit today.
 - **No daemon.** `zz run advance --all` is a bounded loop in one process, not a
   background service.
-- **No web surface** for this rung — the Flow view (a third map projection
-  alongside Table/Map) is future work.
+- **The web surface exists now** — [Flow](Flow-View), the third projection
+  alongside Table/Map: a workflow's steps as a DAG, its runs overlaid live.
+  Read-only this pass (no run-control buttons, no canvas editing, no trigger
+  blast-radius preview yet) — advancing a run is still `zz run advance` / a
+  later pass.

@@ -74,6 +74,32 @@ that history).
   still honored.
 
 ### Added
+- **The Flow projection (web, §I rung 5)** — the workbench's THIRD view of a
+  Project, `[Table · Map · Flow]`: a `type: workflow` note's `steps:` render as
+  a topological left→right DAG (never force physics — dependency order is
+  meaning), glyphed by step kind (run · note-ref · wait, the durable runner's
+  own closed vocabulary) with detached compensation nodes (a step's
+  `compensate:` renders below it, dashed — the Retool "untangle failure from
+  the happy path" pattern) and an irreversible-step lock badge. The
+  Executions sidebar lists the workflow's runs (id · status · started ·
+  progress), each row carrying a compact per-step colored strip (the
+  runs×steps state matrix, Airflow's Grid view, condensed to the sidebar);
+  selecting a run overlays its LIVE step state onto the same DAG (idle ·
+  running · done · failed · waiting rings; a waiting step's badge switches
+  from the definition's static signal to the run's actual `waiting_on`;
+  compensation edges light "compensated"/"compensate failed" when the run's
+  saga actually fired them). New `GET /api/zuzuu/flow` (every workflow note
+  project-wide + its run-count/latest-status, composing the existing unified-
+  table read — no new CLI verb); the focused DAG and its runs ride the
+  existing single-item and per-module reads. Live updates ride the SAME
+  brain-state push (`/ws/zuzuu`) the map's ghost nodes already use — no
+  bespoke WS wiring. Reached via the header's three-way toggle (disabled +
+  tooltipped "no workflows yet" with none), `>flow` in the palette, or
+  selecting a workflow note anywhere (map or table) — it focuses Flow instead
+  of the ordinary note/record surface. Read-only this pass: no run-control
+  buttons, no canvas editing. 50 new pure-model tests (topo-layer assignment,
+  the layout geometry, the run-state→node-style join); docs:
+  `docs/guide/Flow-View.md`.
 - **The Tier-2 DURABLE RUNNER — "the run is a note" (§I.3/§I.4)**: `zz run
   start <workflow-module:id> [--input k=v …]` reads a `type: workflow` note,
   PINS its active generation (`workflow_generation`), and materializes a

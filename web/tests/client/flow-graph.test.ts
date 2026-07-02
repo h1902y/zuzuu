@@ -3,7 +3,7 @@
 import { describe, it, expect } from "vitest";
 import {
   stepKind, dependsOn, assignLayers, layoutFlow, edgePath,
-  runStepRing, overlayRunState, runProgress, compensationFired, flowGrid,
+  runStepRing, overlayRunState, runProgress, compensationFired, flowGrid, waitBadgeSignal,
   NODE_W, NODE_H, LAYER_DX, NODE_DY,
   type FlowStepDef,
 } from "../../src/client/shell/stage/flow-graph.js";
@@ -167,6 +167,29 @@ describe("runStepRing — run-state → node ring mapping (the Executions overla
     expect(runStepRing(undefined)).toBe("idle");
     expect(runStepRing(null)).toBe("idle");
     expect(runStepRing("something-new")).toBe("idle");
+  });
+});
+
+describe("waitBadgeSignal — the wait step's signal badge (definitional vs live)", () => {
+  it("a non-wait step never carries the badge", () => {
+    expect(waitBadgeSignal("run", false, "idle", "sig", "sig")).toBeNull();
+  });
+  it("no run selected → the definition's own signal, informational", () => {
+    expect(waitBadgeSignal("wait", false, "idle", "sales-approval", null)).toBe("sales-approval");
+  });
+  it("no run selected, no declared signal → null", () => {
+    expect(waitBadgeSignal("wait", false, "idle", null, null)).toBeNull();
+  });
+  it("a run selected but this step's ring isn't 'waiting' (done/idle/failed) → no badge, even though the definition still declares a signal", () => {
+    expect(waitBadgeSignal("wait", true, "done", "sales-approval", null)).toBeNull();
+    expect(waitBadgeSignal("wait", true, "idle", "sales-approval", null)).toBeNull();
+    expect(waitBadgeSignal("wait", true, "failed", "sales-approval", null)).toBeNull();
+  });
+  it("a run selected and genuinely waiting → the run's OWN waiting_on", () => {
+    expect(waitBadgeSignal("wait", true, "waiting", "sales-approval", "sales-approval")).toBe("sales-approval");
+  });
+  it("a run selected, waiting, but the run carries no waiting_on → falls back to the definition", () => {
+    expect(waitBadgeSignal("wait", true, "waiting", "sales-approval", null)).toBe("sales-approval");
   });
 });
 

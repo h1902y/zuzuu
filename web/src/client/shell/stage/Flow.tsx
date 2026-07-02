@@ -23,7 +23,7 @@ import { useWorld } from "../world-state.js";
 import { relativeTimeFromIso } from "../../lib/time.js";
 import type { ModuleItem, FlowWorkflowSummary } from "#shared/index.js";
 import {
-  layoutFlow, edgePath, runStepRing, overlayRunState, runProgress, compensationFired, flowGrid,
+  layoutFlow, edgePath, runStepRing, overlayRunState, runProgress, compensationFired, flowGrid, waitBadgeSignal,
   NODE_W, NODE_H, COMP_W, COMP_H, CANVAS_MARGIN,
   type FlowStepDef, type FlowRunStepState, type FlowCompensationEntry, type NodeRing, type StepKind,
 } from "./flow-graph.js";
@@ -185,7 +185,7 @@ function FlowWorkflow({ module, id }: { module: string; id: string }) {
                 const runStep = overlay.get(n.id) ?? null;
                 const ring = selectedRun ? runStepRing(runStep?.status) : "idle";
                 const KindIcon = KIND_ICON[n.kind];
-                const waitingSignal = n.kind === "wait" ? (runStep?.waiting_on ?? n.def.wait?.on ?? null) : null;
+                const waitingSignal = waitBadgeSignal(n.kind, !!selectedRun, ring, n.def.wait?.on, runStep?.waiting_on);
                 return (
                   <foreignObject key={n.id} x={n.x} y={n.y} width={NODE_W} height={NODE_H}>
                     <div className="zz-flow-node-wrap">

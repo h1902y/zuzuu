@@ -21,6 +21,7 @@ Reads:
 | `GET /module/:key/schema` | the declared columns |
 | `GET /module/:key/generations` | the lineage + active generation |
 | `GET /graph?props=a,b` | the whole project as addr-keyed nodes + links (the World's document) |
+| `GET /flow` | every `type: workflow` note + its run-count/latest-status summary (the [Flow view](Flow-View)'s picker) |
 | `GET /readiness` | `zz doctor` + `zz digest` as text (the session kickoff brief) |
 | `GET /held` | code-side sessions awaiting the merge gate |
 | `GET /project-state` | the composite "what needs me" home signal |

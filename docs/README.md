@@ -9,6 +9,7 @@
 | use modules as tables (schema · computed columns · views · import/export) | [guide/Modules-as-Tables.md](guide/Modules-as-Tables.md) |
 | understand the moat — why the agent is gated and I'm not | [guide/Two-Lanes.md](guide/Two-Lanes.md) |
 | read the map (islands · ghosts · the live push) | [guide/The-World.md](guide/The-World.md) |
+| see a workflow's DAG + its runs, live | [guide/Flow-View.md](guide/Flow-View.md) |
 | build on the local API | [guide/Daemon-API.md](guide/Daemon-API.md) |
 | see a non-coding Project, end to end | [guide/Recipe-Personal-Vault.md](guide/Recipe-Personal-Vault.md) — the 277-note vault |
 | the workbench, guardrails, per-host detail, troubleshooting | [guide/](guide/) (mirrored to the GitHub wiki) |

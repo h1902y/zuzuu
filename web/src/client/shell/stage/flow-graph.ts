@@ -242,6 +242,27 @@ export function runStepRing(status: string | undefined | null): NodeRing {
   }
 }
 
+/** A `wait` step's signal badge (§I.4 "waits are first-class nodes"). With NO
+ *  run selected it's INFORMATIONAL — the definition's own `wait.on`, so the
+ *  DAG always names what a wait step is for. With a run selected it must
+ *  reflect that RUN's actual state: a step the run already resolved (done) or
+ *  hasn't reached (idle) is not "waiting" anymore, however the static
+ *  definition reads — the badge lights only when this run's own ring for the
+ *  step is genuinely 'waiting' (a definition edited after a run started could
+ *  otherwise show a signal the run was never blocked on). */
+export function waitBadgeSignal(
+  kind: StepKind,
+  hasSelectedRun: boolean,
+  ring: NodeRing,
+  defOn: string | undefined | null,
+  runWaitingOn: string | undefined | null,
+): string | null {
+  if (kind !== "wait") return null;
+  if (!hasSelectedRun) return defOn ?? null;
+  if (ring !== "waiting") return null;
+  return runWaitingOn ?? defOn ?? null;
+}
+
 /** Join a workflow's node ids against a (possibly absent) selected run's steps —
  *  `null` overlay everywhere when no run is selected (idle DAG, the Editor/
  *  Definition view); otherwise each node id maps to its run-step state, or

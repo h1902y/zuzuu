@@ -74,16 +74,20 @@
 /* a malformed step (neither/both of run|note|wait) — still rendered, flagged */
 .zz-flow-node-invalid { border-color: var(--color-danger); border-style: dashed; }
 
-/* the irreversible marker — a small corner badge, never hidden under a ring color */
+/* the irreversible marker — a small corner badge. Inset WITHIN the node's own
+   box (never negative-offset outside it): an SVG <foreignObject> clips its own
+   content to its exact width/height, so a badge positioned OUTSIDE that box
+   (the usual "notification dot" pattern) is silently cropped away — this was
+   caught live (Chrome, the scratch verify) before it shipped. */
 .zz-flow-node-irreversible {
   position: absolute;
-  top: -6px;
-  right: -6px;
+  top: 3px;
+  right: 3px;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 15px;
-  height: 15px;
+  width: 14px;
+  height: 14px;
   border-radius: 999px;
   background: var(--color-ink-900);
   color: var(--color-warning);
