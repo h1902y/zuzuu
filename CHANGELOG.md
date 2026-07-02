@@ -42,6 +42,15 @@ that history).
 - The corpus signature is computed once per index rebuild, not twice.
 
 ### Added
+- **The global page (the globe)**: the projects launcher retires into the same
+  World+greeting grammar as a project — projects are nodes (sized by note count,
+  needs-me ring, emoji), a greeting rolls up review across projects, selecting one
+  opens its detail and Open dives in. Cross-project stays a roll-up + registry read
+  (never a merged Project). Reachable from any project via the footer's Orbit globe.
+- **The always-there projection switcher**: the footer's left edge carries a
+  persistent, active-state-aware [Map · Table] segmented control (+ the Orbit globe)
+  on every stage — the visible twin of `T` / `>map` / `>table`. Esc from any
+  table/record stage (no overlay open) returns to the World home.
 - **The Everything view (web)**: one table over every module — `zz module items
   --all` (+ `GET /api/zuzuu/items`) serves the whole Project through the same
   filter/sort/paginate contract; the workbench renders it with module as a

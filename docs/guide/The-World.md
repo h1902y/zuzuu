@@ -42,3 +42,22 @@ The workbench fetches the same thing through the daemon (`GET /api/zuzuu/graph?p
 - `R` — toggle the review gate overlay
 - `T` — flip the module's Table⇄Map projection (and crystallize a deep-zoomed island)
 - Click node → record · click chip → module · click ghost → review
+
+## The globe — projects as a World
+
+The launcher is the same page grammar as a project, one level up: **the nodes are
+projects**. Each project is a dot on the global canvas — sized by its note count,
+colored by a stable hue, wearing its emoji and a dashed accent ring when it has
+pending review (needs-me). A greeting rolls up what needs you *across* projects
+("2 projects need you — 3 to review"). Select a project to see its detail (counts ·
+tables · pending · last activity · path) in place; **Open** (or double-click) dives
+into that project's own World.
+
+Fidelity: cross-project is a **roll-up + registry read**, never a merged master
+Project — each project keeps its own gate, generations, and root. The globe
+aggregates a *view*; it does not fuse the substrates. (It shares the World's visual
+language — dots, hue, dark canvas — but not its two-level physics engine: projects
+have no islands or links to simulate.)
+
+Getting there: the **Orbit** affordance at the footer's left edge (beside the
+Map⇄Table switcher) returns to the globe from any project.
