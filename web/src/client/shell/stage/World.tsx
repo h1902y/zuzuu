@@ -23,8 +23,18 @@ export function World({ focus }: { focus?: string }) {
   const select = useWorld((s) => s.select);
   const setReview = useReview((s) => s.setOpen);
   // lives under ["zuzuu"] so the brain push (/ws/zuzuu) invalidates it live;
-  // `definition` rides along for the in-map mini-cards' peek (C2)
-  const graph = useQuery({ queryKey: ["zuzuu", "graph"], queryFn: () => api.zuzuu.graph(["definition"]) });
+  // `definition` rides along for the in-map mini-cards' peek (C2). A DEGRADED
+  // read (CLI spawn contention — e.g. racing a CLI write's index rebuild) is an
+  // ERROR to retry, never truth: it once rendered a 290-note vault as "No notes
+  // yet" and stuck there until the next invalidation.
+  const graph = useQuery({
+    queryKey: ["zuzuu", "graph"],
+    queryFn: async () => {
+      const g = await api.zuzuu.graph(["definition"]);
+      if ((g as { degraded?: boolean }).degraded) throw new Error("map read degraded — retrying");
+      return g;
+    },
+  });
   const { queue } = useReviewQueue(); // the aggregated cross-module staged summaries (cached, shared with the gate)
 
   useEffect(() => {
