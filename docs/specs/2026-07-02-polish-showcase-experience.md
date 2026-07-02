@@ -589,3 +589,84 @@ Ordering: bindings b/c and deploy sit BEHIND §I rung 3 (the safety floor) —
 a browser tool with no timeout on a hosted machine is an incident, not a
 feature. The CRM proof-project (scrape → enrich → row via operator lane →
 draft email, trigger on `stage: lead`) is the §I acceptance test.
+
+### §I.2 — The break book: adversarial scenarios vs "anything digital projectifies" (03-07)
+
+Battle-tested against: scrape HubSpot → enrich → act → ground workers submit
+forms. Each break: the failure, then a DESIGN ANSWER or an HONEST BOUNDARY.
+
+**B1 · Cardinality — rows-as-files dies at scale.** 500k scraped contacts =
+500k .md files: readdir/git/corpusSig all collapse; a generation per batch
+bloats git forever. ANSWER: the two-plane split — zuzuu is the KNOWLEDGE+
+WORKFLOW plane (schemas, tools, workflows, curated/hot rows ≤ ~10k/module);
+bulk operational data lives in an attached DATA plane (a sqlite/duckdb file,
+itself referenced by a note; queryable via a tool note). Never pretend
+files-are-rows scales past tens of thousands. BOUNDARY to document.
+
+**B2 · The third actor — pipeline writes poison through the operator lane.**
+The moat models two actors (human=direct, agent=gated). A scraper running as
+an operator batch-import is NEITHER: automated, high-volume, and unreviewed —
+silent wrong-data (page layout changed, still HTTP 200) stuffs garbage
+straight into rows. ANSWER: pipeline writes get their own lane — INGESTION:
+lands in quarantine (a staged BATCH, not N proposals) with sampling review
+("approve batch: 500 rows, 10 shown, anomaly stats"), schema validation as
+the hard gate, and diff-vs-previous-scrape anomaly signals. Review fatigue is
+the moat's real enemy — the gate must scale by AGGREGATION, not clicks.
+
+**B3 · Durable human-in-the-loop — the 3-day step.** Ground workers submitting
+forms = workflow steps that wait DAYS. spawnSync sagas cannot represent this.
+ANSWER: durable runs — a RUN IS A NOTE (`type: run`, step statuses as fields),
+the runner resumes from it; a waiting step completes via an ingress (see B4)
+or a human `zz run complete <step>`; timers (48h escalation) ride the trigger
+substrate. Compensation semantics split: reversible (shell) vs IRREVERSIBLE
+(a submitted government form) — irreversible steps declare it and sagas STOP
+at them instead of pretending to roll back.
+
+**B4 · No ingress.** Workers/webhooks/inbound email have no door — the daemon
+is localhost/token. ANSWER (hosted tier): `/ingress/<trigger-id>` webhooks on
+the Fly machine, each bound to a trigger note (gated, versioned); email-in via
+the same. BOUNDARY (local tier): no unattended ingress on a laptop.
+
+**B5 · Irreversibility — exactly-once vs the outside world.** Retried workflow
+= double email to a customer; compensation cannot unsend. ANSWER: idempotency
+keys per step (already designed-deferred) + an OUTBOX pattern for external
+side effects (a tool note writes an outbox row; a single dispatcher sends and
+marks) + "irreversible" flags gating auto-retry to zero. BOUNDARY: zuzuu
+cannot give exactly-once to arbitrary shell commands; it can give it to tool
+notes that opt into the outbox.
+
+**B6 · Ingestion is prompt-injection surface.** Scraped content becomes notes
+the agent later READS — injected instructions in a HubSpot field steer future
+proposals. ANSWER: provenance-aware trust (rows with `actor: ingestion` render
+as data, are excluded from steering surfaces (start/digest) by default, and
+carry their origin visibly); the gate reviews content, but the REAL defense is
+that ingested rows never become instructions. Also: secrets must never ride
+run inputs into runs.jsonl (redaction list from the secrets layer).
+
+**B7 · Multi-human — the moat has ONE chair.** Ground workers as USERS (not
+just external actors) breaks single-operator: no identities, no per-user gate,
+git merge conflicts on concurrent generations. BOUNDARY today (solo tool);
+the Enterprise tier's control plane is the recorded future answer — do not
+improvise multi-user on the side.
+
+**B8 · The automation-hostile web.** CAPTCHAs/bot-detection (must NOT be
+automated — also an ethical line), 2FA mid-run, expiring sessions, ToS
+(scraping HubSpot's UI violates it — the API is the sanctioned path), DRM,
+native apps, real-time collab canvases. ANSWER: API-first bias in tool notes
+(HubSpot has an API; browser automation is the LAST resort), an auth-step
+primitive (pause for human login — B3's machinery), and a compliance guardrail
+posture per tool. BOUNDARY: systems designed to reject automation stay
+un-automated; "anything on screen" is FALSE and the docs should never claim it.
+
+**B9 · Relational integrity at app scale.** No FK/cardinality enforcement, no
+cascade, no cross-note rollup columns (deal totals per company), no cross-
+module transactions, no bidirectional sync conflict model. ANSWER: rollup as
+computed-column builtin #2 (aggregate over backlinks); `link` fields gain an
+optional target-module + on-delete posture; sync stays IMPORT-shaped (one
+direction owns truth) — bidirectional merge is a BOUNDARY, not a roadmap item.
+
+**The corrected claim**: not "anything digital can be projectified" but —
+zuzuu projectifies the KNOWLEDGE, GOVERNANCE, and ORCHESTRATION of any digital
+work; the data plane attaches, the runtime executes at the tool boundary, and
+the human gate scales by aggregation. What it refuses: high-cardinality
+storage, multi-user (yet), exactly-once magic, and the automation-hostile web.
