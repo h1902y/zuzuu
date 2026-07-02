@@ -64,7 +64,10 @@ export default function PaletteBody() {
   // C3 — the omnibar's prefix modes take over the palette: `>` world commands,
   // `/` the conversation. Omni groups self-filter, so cmdk's filter stands down.
   const omni = omniGroup(query, overview.data?.modules ?? []);
-  const allGroups = omni ? [omni] : notes ? [...groups, notes] : groups;
+  // audit item 7: with a live query, CONTENT leads — the notes group renders first
+  // so the best note is the default Enter target (cmdk keeps DOM order for ties;
+  // the exact-substring filter score already zeroes most command noise).
+  const allGroups = omni ? [omni] : notes && query.trim() ? [notes, ...groups] : notes ? [...groups, notes] : groups;
 
   const close = () => setPalette(false);
 
