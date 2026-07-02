@@ -32,6 +32,17 @@ class BrainEvents {
     this.connect();
   };
 
+  /** Re-bind the push channel to the CURRENT workspace (audit item 5): the daemon
+   *  resolves the watched root at UPGRADE time, so after an in-place workspace
+   *  switch the old socket keeps watching the OLD project and live updates
+   *  silently die. Closing here → onclose → immediate reconnect against the new root. */
+  restart(): void {
+    if (!this.started) return;
+    this.retries = 0;
+    if (this.ws && this.ws.readyState !== WebSocket.CLOSED) this.ws.close();
+    else this.connect();
+  }
+
   private connect(): void {
     if (this.ws && (this.ws.readyState === WebSocket.CONNECTING || this.ws.readyState === WebSocket.OPEN)) return;
     if (this.reconnectTimer !== null) {
@@ -49,7 +60,8 @@ class BrainEvents {
     };
     ws.onclose = () => {
       this.ws = null;
-      const delay = Math.min(500 * 2 ** this.retries, 8000);
+      // retries=0 (a restart() or fresh wake) reconnects immediately; failures back off
+      const delay = this.retries === 0 ? 0 : Math.min(500 * 2 ** this.retries, 8000);
       this.retries += 1;
       this.reconnectTimer = setTimeout(() => {
         this.reconnectTimer = null;
