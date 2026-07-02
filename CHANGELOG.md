@@ -35,6 +35,8 @@ that history).
 - The corpus signature is computed once per index rebuild, not twice.
 
 ### Added
+- **The World (web)**: `[[mention]]`s in the agent's streamed conversation glow their
+  notes on the map (bare ids resolve to their unique owner; code blocks don't glow).
 - **The World (web)**: the workbench's map surface is now a real two-level force
   world (`client/world/` — module bodies with repulsion/collision/affinity springs
   driving per-note physics), ported from the startpage galaxy: constellation chips

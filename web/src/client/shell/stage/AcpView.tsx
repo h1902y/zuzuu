@@ -7,7 +7,8 @@ import { useEffect, useReducer, useRef, useState } from "react";
 import { Send, Square, Wrench, Brain, ListChecks, TriangleAlert, CircleDot, ShieldQuestion, ShieldX, ShieldCheck } from "lucide-react";
 import { AcpConnection } from "../../lib/acp-client.js";
 import { useAcpIntent } from "../../state/acp-intent.js";
-import { applyAcpMessage, initialAcpView, type AcpView as AcpVM, type Block } from "./acp-model.js";
+import { useWorldCommand } from "../../state/world-command.js";
+import { applyAcpMessage, extractMentions, initialAcpView, type AcpView as AcpVM, type Block } from "./acp-model.js";
 import { Stack, Inline, Text, Button, Icon } from "../../ds/index.js";
 
 const TOOL_STATUS_TONE: Record<string, string> = {
@@ -45,6 +46,21 @@ export function AcpView({ id }: { id: string }) {
     const queued = takeIntent();
     if (queued) connRef.current?.send({ type: "prompt", text: queued });
   }, [vm.ready, takeIntent]);
+
+  // [[mention]]s in the agent's streamed prose light the map (C3 follow-up):
+  // scan the coalesced agent blocks (chunks can split a mention mid-`[[…]]`, so
+  // per-chunk scanning would miss them), dispatch only the not-yet-seen ones.
+  // The world-command glow slot no-ops safely when the World is off-stage.
+  const requestGlow = useWorldCommand((s) => s.requestGlow);
+  const glowSeen = useRef(new Set<string>());
+  useEffect(() => { glowSeen.current = new Set(); }, [id]); // fresh session, fresh slate
+  useEffect(() => {
+    const prose = vm.blocks.filter((b) => b.kind === "agent").map((b) => b.text).join("\n");
+    const fresh = extractMentions(prose).filter((m) => !glowSeen.current.has(m));
+    if (!fresh.length) return;
+    for (const m of fresh) glowSeen.current.add(m);
+    requestGlow(fresh);
+  }, [vm.blocks, requestGlow]);
 
   const send = () => {
     const text = draft.trim();

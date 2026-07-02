@@ -18,7 +18,7 @@ import { select, type Selection } from "d3-selection";
 import { zoom, zoomIdentity, type ZoomBehavior, type ZoomTransform } from "d3-zoom";
 import { drag } from "d3-drag";
 import type { WorldGhost, WorldGraph, WorldGraphNode } from "#shared/index.js";
-import { deriveAffinity, modulePalette, nodeRadius, moduleHue, cardPicks, CARD_ZOOM, type AffinityLink } from "./model.js";
+import { deriveAffinity, modulePalette, nodeRadius, moduleHue, cardPicks, resolveMentionAddrs, CARD_ZOOM, type AffinityLink } from "./model.js";
 
 interface SimNode extends SimulationNodeDatum, WorldGraphNode { r: number }
 interface SimLink { source: SimNode | string; target: SimNode | string; type: string; cross?: boolean }
@@ -38,6 +38,10 @@ export interface WorldHandle {
   focusModule(module: string): void;
   flyTo(addr: string): void;
   fit(): void;
+  /** Soft accent halo on the named notes (raw mentions: `module:id` or a bare id
+   *  resolved to its unique owner; unknown/ambiguous ignored). Fades after ~4s or
+   *  when the next glow replaces it. The conversation lighting the map (C3). */
+  glow(mentions: string[]): void;
   destroy(): void;
 }
 
@@ -394,6 +398,20 @@ export function mountWorld(container: HTMLElement, cb: WorldCallbacks = {}): Wor
     rebuildGhosts();
   }
 
+  // ── glow (the conversation lighting the map) ──
+  let glowTimer: ReturnType<typeof setTimeout> | null = null;
+  function glow(mentions: string[]): void {
+    if (destroyed) return;
+    const targets = new Set(resolveMentionAddrs(mentions, nodes.map((n) => n.addr)));
+    if (glowTimer) { clearTimeout(glowTimer); glowTimer = null; }
+    nodeSel.classed("zz-world-glow", (d) => targets.has(d.addr)); // replaces the previous glow set
+    if (!targets.size) return;
+    glowTimer = setTimeout(() => {
+      glowTimer = null;
+      if (!destroyed) nodeSel.classed("zz-world-glow", false);
+    }, 4000);
+  }
+
   // ── camera ──
   function fit(): void {
     if (!nodes.length) return;
@@ -436,8 +454,10 @@ export function mountWorld(container: HTMLElement, cb: WorldCallbacks = {}): Wor
     focusModule,
     flyTo,
     fit,
+    glow,
     destroy(): void {
       destroyed = true;
+      if (glowTimer) clearTimeout(glowTimer);
       ro.disconnect();
       sim.stop();
       metaSim.stop();

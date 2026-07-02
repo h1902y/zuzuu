@@ -31,11 +31,19 @@
   stroke: var(--color-app);
   stroke-width: 1.5;
   cursor: pointer;
-  transition: opacity 0.25s ease;
+  transition: opacity 0.25s ease, stroke 0.3s ease, filter 0.6s ease;
 }
 .zz-world-node.hover {
   stroke: var(--color-accent);
   stroke-width: 2.5;
+}
+
+/* the conversation lighting the map (C3 follow-up): a [[mention]] in the agent's
+   answer halos its note — soft, then gone (the engine clears the class ~4s in) */
+.zz-world-node.zz-world-glow {
+  stroke: var(--color-accent);
+  stroke-width: 2.5;
+  filter: drop-shadow(0 0 7px var(--color-accent));
 }
 
 .zz-world-label {

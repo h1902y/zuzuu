@@ -1,6 +1,6 @@
 // client/world/model.ts — the world's pure model (palette · affinity · ghosts · radius).
 import { describe, expect, it } from "vitest";
-import { cardPicks, deriveAffinity, moduleHue, modulePalette, nodeRadius, reconcileGhosts } from "../../src/client/world/model.js";
+import { cardPicks, deriveAffinity, moduleHue, modulePalette, nodeRadius, reconcileGhosts, resolveMentionAddrs } from "../../src/client/world/model.js";
 import type { WorldGraphLink } from "../../src/shared/zuzuu.js";
 
 describe("modulePalette", () => {
@@ -81,5 +81,21 @@ describe("cardPicks — the in-map mini-card rung (C2)", () => {
     ];
     expect(cardPicks(nodes, t, view)).toEqual(["k:center", "k:edge"]);
     expect(cardPicks(nodes, t, view, 1)).toEqual(["k:center"]);
+  });
+});
+
+describe("resolveMentionAddrs (glow targets)", () => {
+  const addrs = ["knowledge:brahman", "journal:2026-07-02", "actions:render", "library:render"];
+  it("module:id must exist verbatim; unknown full addrs drop", () => {
+    expect(resolveMentionAddrs(["knowledge:brahman", "knowledge:ghost"], addrs)).toEqual(["knowledge:brahman"]);
+  });
+  it("a bare id resolves to its unique owner; ambiguous and unknown drop", () => {
+    expect(resolveMentionAddrs(["brahman"], addrs)).toEqual(["knowledge:brahman"]);
+    expect(resolveMentionAddrs(["render"], addrs)).toEqual([]); // actions + library both own it
+    expect(resolveMentionAddrs(["nowhere"], addrs)).toEqual([]);
+  });
+  it("dedupes across forms, input order kept", () => {
+    expect(resolveMentionAddrs(["brahman", "knowledge:brahman", "2026-07-02"], addrs))
+      .toEqual(["knowledge:brahman", "journal:2026-07-02"]);
   });
 });

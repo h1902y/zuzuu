@@ -2,7 +2,7 @@
 // into renderable blocks: coalesced agent text, tool-call lifecycle + diffs, plans,
 // turn dividers, errors, usage — the heart of "render off the TUI" + the trace.
 import { describe, it, expect } from "vitest";
-import { applyAcpMessage, initialAcpView } from "../../src/client/shell/stage/acp-model.js";
+import { applyAcpMessage, extractMentions, initialAcpView } from "../../src/client/shell/stage/acp-model.js";
 import type { AcpServerMessage } from "#shared/index.js";
 
 const fold = (msgs: AcpServerMessage[]) => msgs.reduce(applyAcpMessage, initialAcpView);
@@ -67,5 +67,28 @@ describe("applyAcpMessage", () => {
 
     const denied = fold([{ type: "gate", decision: "deny", title: "rm -rf /", reason: "rule no-root-wipe" }]);
     expect(denied.blocks).toEqual([{ kind: "gate", decision: "deny", title: "rm -rf /", reason: "rule no-root-wipe" }]);
+  });
+});
+
+describe("extractMentions (the conversation lighting the map — C3 follow-up)", () => {
+  it("finds [[module:id]] and [[bare-id]] mentions, deduped, order kept", () => {
+    expect(extractMentions("see [[knowledge:brahman]] and [[atman]], then [[knowledge:brahman]] again"))
+      .toEqual(["knowledge:brahman", "atman"]);
+  });
+  it("ignores mentions inside fenced code blocks and inline code spans", () => {
+    const text = [
+      "real: [[k:hub]]",
+      "```md",
+      "fenced: [[k:fenced]]",
+      "```",
+      "inline `[[k:inline]]` span",
+      "and an unclosed fence:",
+      "```",
+      "[[k:trailing]]",
+    ].join("\n");
+    expect(extractMentions(text)).toEqual(["k:hub"]);
+  });
+  it("rejects non-slug junk and empty brackets", () => {
+    expect(extractMentions("[[]] [[has space]] [[UPPER-ok]] [[-leading]]")).toEqual(["UPPER-ok"]);
   });
 });

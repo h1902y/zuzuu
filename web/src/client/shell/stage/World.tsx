@@ -66,6 +66,17 @@ export function World({ focus }: { focus?: string }) {
     else handle.current.flyTo(c.addr);
   }, [pending, graph.data, consume]);
 
+  // the conversation's [[mention]] glow (C3 follow-up): consume fresh requests;
+  // a glow queued while the map was off-stage goes stale after 8s and is dropped
+  // (lighting the map minutes later would confuse, not orient)
+  const glowReq = useWorldCommand((s) => s.glow);
+  const consumeGlow = useWorldCommand((s) => s.consumeGlow);
+  useEffect(() => {
+    if (!glowReq || !graph.data || !handle.current) return;
+    const g = consumeGlow();
+    if (g && Date.now() - g.at < 8000) handle.current.glow(g.mentions);
+  }, [glowReq, graph.data, consumeGlow]);
+
   if (graph.isLoading) return <div className="grid h-full place-items-center"><Text tone="muted">loading the map…</Text></div>;
   if (graph.data && !graph.data.nodes.length) return <EmptyState icon={Table2} {...emptyCopy("grid-empty")} />;
   return <div ref={ref} className="h-full" role="img" aria-label="project map" />;
