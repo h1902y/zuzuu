@@ -227,9 +227,19 @@ export function startRun(home, workflowModule, workflowId, inputs = {}, actor = 
 
 // ── step execution — the SAME gated/timed path Tier 0/1 use ─────────────────────
 
-function runInlineStep(home, workflowModule, def, inputs, actor) {
+// S2 (audit 2026-07-03-durable-runner-review.md): fold the run's own `idempotency_key`
+// into the step's `ZZ_*` inputs (matching `act()`/`runGated`'s existing `ZZ_${k}` env
+// convention) — so it actually reaches the executing process as `ZZ_IDEMPOTENCY_KEY`,
+// not just recorded on the note. Stable across retries (the key is minted ONCE, never
+// re-minted per attempt — see `tick`), so a tool that dedupes on it sees the SAME value
+// every re-invocation of the same step.
+function withIdempotencyKey(inputs, idempotencyKey) {
+  return idempotencyKey ? { ...inputs, IDEMPOTENCY_KEY: idempotencyKey } : inputs;
+}
+
+function runInlineStep(home, workflowModule, def, inputs, actor, idempotencyKey) {
   const allow = readManifest(home, workflowModule).policy?.run?.allow ?? null;
-  return runGated(home, workflowModule, def.run, { allow, inputs, cwd: repoRoot(), timeout: def.timeout, actor });
+  return runGated(home, workflowModule, def.run, { allow, inputs: withIdempotencyKey(inputs, idempotencyKey), cwd: repoRoot(), timeout: def.timeout, actor });
 }
 
 /** A `note:` step, Tier-2 flavor: mirrors `use/workflow.mjs`'s composition — a leaf
@@ -237,14 +247,14 @@ function runInlineStep(home, workflowModule, def, inputs, actor) {
  *  target is invoked via a FRESH Tier-0 `runWorkflow` (one bounded, synchronous
  *  sub-invocation — "one short invocation" holds even when that invocation is a
  *  whole nested DAG). `via` attributes the run.jsonl entry back to this durable run. */
-function runNoteRefStep(home, def, inputs, actor, runId) {
+function runNoteRefStep(home, def, inputs, actor, runId, idempotencyKey) {
   const addr = splitAddr(def.note);
   if (!addr) return { ran: false, success: false, error: `note ref '${def.note}' must be 'module:id'` };
   const targetPath = itemPath(home, addr.module, addr.id);
   if (!existsSync(targetPath)) return { ran: false, success: false, error: `note ref targets missing note '${def.note}'` };
   const { note: target } = parse(readFileSync(targetPath, 'utf8'), { id: addr.id });
   if (!target) return { ran: false, success: false, error: `note ref targets an unparseable note '${def.note}'` };
-  const stepInputs = def.inputs && typeof def.inputs === 'object' ? def.inputs : inputs;
+  const stepInputs = withIdempotencyKey(def.inputs && typeof def.inputs === 'object' ? def.inputs : inputs, idempotencyKey);
   const via = `${RUNS_MODULE}:${runId}`;
   if (target.type === 'workflow') {
     const nested = runWorkflow(home, addr.module, addr.id, stepInputs, actor, { visited: new Set(), depth: 0, via });
@@ -386,8 +396,8 @@ function tick(home, runId, run, actor) {
   }
 
   const result = kind === 'run'
-    ? runInlineStep(home, addr.module, def, run.inputs, actor)
-    : runNoteRefStep(home, def, run.inputs, actor, runId);
+    ? runInlineStep(home, addr.module, def, run.inputs, actor, target.idempotency_key)
+    : runNoteRefStep(home, def, run.inputs, actor, runId, target.idempotency_key);
 
   target.exit_code = result.exitCode ?? null;
   target.error = result.error ?? null;

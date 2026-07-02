@@ -664,3 +664,50 @@ test('S1: a note-ref step targeting a LEAF ACTION (not a workflow) keeps the fix
     assert.notEqual(stolen.running, true, 'a leaf-action note-ref keeps the same fixed ceiling as before — steal proceeds past it, same as pre-fix behavior');
   });
 });
+
+// ── S2 (audit 2026-07-03-durable-runner-review.md): idempotency_key reaches the
+// executing step's env as ZZ_IDEMPOTENCY_KEY, and stays STABLE across a retry ──────
+
+test('S2: an inline run step\'s child process actually sees ZZ_IDEMPOTENCY_KEY (the documented `${runId}:${stepId}` shape)', () => {
+  withRepo((home, root) => {
+    const log = join(root, 'idem-log');
+    const script = `require('fs').appendFileSync(${JSON.stringify(log)},process.env.ZZ_IDEMPOTENCY_KEY||'none')`;
+    putWorkflow(home, 'actions', 'flow', [{ id: 'a', run: `node -e ${script}` }]);
+    const { runId } = startRun(home, 'actions', 'flow');
+    const r = advanceRun(home, runId);
+    assert.equal(r.status, 'done', r.error);
+    assert.equal(readFileSync(log, 'utf8').trim(), `${runId}:a`, 'the child saw the key — recorded, not decorative');
+  });
+});
+
+test('S2: a RETRIED step\'s child process sees the IDENTICAL key on every attempt (a tool could dedup)', () => {
+  withRepo((home, root) => {
+    const log = join(root, 'idem-log');
+    // ALWAYS fails (marker never appears) — every attempt records the key it saw,
+    // then the run fails after retry.max attempts. `node -e` needs no whitespace.
+    const script = `require('fs').appendFileSync(${JSON.stringify(log)},(process.env.ZZ_IDEMPOTENCY_KEY||'none')+'\\n');process.exit(1)`;
+    putWorkflow(home, 'actions', 'flow', [{ id: 'flaky', run: `node -e ${script}`, retry: { max: 3 } }]);
+    const { runId } = startRun(home, 'actions', 'flow');
+    advanceRun(home, runId); // attempt 1 — retrying
+    advanceRun(home, runId); // attempt 2 — retrying
+    advanceRun(home, runId); // attempt 3 — max reached, run fails (saga runs, no compensate declared)
+    const seen = readFileSync(log, 'utf8').trim().split('\n').filter(Boolean);
+    assert.equal(seen.length, 3, 'the step actually re-executed 3 times');
+    assert.ok(seen.every((k) => k !== 'none'), 'every attempt saw a key');
+    assert.equal(new Set(seen).size, 1, 'ALL THREE attempts saw the SAME key — stable across retries, so a tool could dedup');
+    assert.equal(seen[0], readNote(home, RUNS_MODULE, runId).steps[0].idempotency_key, 'matches the key persisted on the note');
+  });
+});
+
+test('S2: a note-ref step (leaf action via act()) also delivers ZZ_IDEMPOTENCY_KEY', () => {
+  withRepo((home, root) => {
+    const log = join(root, 'idem-log');
+    const script = `require('fs').appendFileSync(${JSON.stringify(log)},process.env.ZZ_IDEMPOTENCY_KEY||'none')`;
+    createNote(home, 'actions', 'leaf', { type: 'action', run: `node -e ${script}` });
+    putWorkflow(home, 'actions', 'flow', [{ id: 'call', note: 'actions:leaf' }]);
+    const { runId } = startRun(home, 'actions', 'flow');
+    const r = advanceRun(home, runId);
+    assert.equal(r.status, 'done', r.error);
+    assert.equal(readFileSync(log, 'utf8').trim(), `${runId}:call`);
+  });
+});
