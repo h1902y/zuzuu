@@ -13,6 +13,7 @@ import type {
   HeldActionResult,
   HeldSessionList,
   ListResponse,
+  ModuleColumnResult,
   ModuleDetail,
   ModuleGenerationList,
   ModuleItem,
@@ -96,6 +97,21 @@ const json = (body: unknown): RequestInit => ({
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify(body),
 });
+const jsonMethod = (method: string, body: unknown): RequestInit => ({ ...json(body), method });
+
+/** The field-config panel's Save body (§H.5) — one shape for both `+ column`
+ *  (add: type required) and "Edit column" (alter: type optional, but the panel
+ *  sends a full-snapshot save so it's present in practice too). Undefined keys
+ *  are omitted client-side; on alter that means "leave unchanged". */
+export interface ColumnFieldBody {
+  type?: string;
+  required?: boolean;
+  options?: string[];
+  default?: string;
+  label?: string;
+  description?: string;
+  computed?: string;
+}
 
 export const api = {
   workspace: () => request<WorkspaceInfo>("/api/workspace"),
@@ -200,6 +216,14 @@ export const api = {
       request<RejectResult>(`/api/zuzuu/staged/${id}/reject`, json({ module, reason })),
     rollback: (key: string, id: string) =>
       request<RollbackResult>(`/api/zuzuu/module/${key}/generation/${id}/rollback`, { method: "POST" }),
+    // §H.5 the field-config panel: add a column (the toolbar's "+ column") or
+    // alter an existing one (the header caret's "Edit column" — name rides the
+    // URL, never the body; rename isn't offered here). Both land instantly
+    // (operator-gated) and mint a generation.
+    addColumn: (key: string, name: string, body: ColumnFieldBody) =>
+      request<ModuleColumnResult>(`/api/zuzuu/module/${key}/column`, json({ name, ...body })),
+    alterColumn: (key: string, name: string, body: ColumnFieldBody) =>
+      request<ModuleColumnResult>(`/api/zuzuu/module/${key}/column/${encodeURIComponent(name)}`, jsonMethod("PATCH", body)),
   },
 
   // the ACP drive lane: create a session, then attach /ws/acp/:id

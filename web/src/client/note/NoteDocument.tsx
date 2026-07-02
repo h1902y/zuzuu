@@ -37,7 +37,14 @@ function GroupCard({ title, children }: { title: string; children: React.ReactNo
 function AttrLine({ row }: { row: AttrRow }) {
   return (
     <div className="flex items-baseline gap-3 border-b border-border px-3 py-1.5 last:border-b-0">
-      <span className="w-28 shrink-0 truncate text-meta text-muted">{row.label}</span>
+      {/* the field-config panel's `description` (§H.5) rides as a native tooltip
+          on the label — a quiet teaching surface, never a second UI element */}
+      <span
+        className={`w-28 shrink-0 truncate text-meta text-muted ${row.description ? "underline decoration-dotted decoration-muted/60 underline-offset-2" : ""}`}
+        title={row.description}
+      >
+        {row.label}
+      </span>
       <span className="min-w-0 flex-1 break-words text-ui text-subtle">{row.value}</span>
       {row.formula && <span className="shrink-0 text-meta text-muted">{row.formula}</span>}
     </div>

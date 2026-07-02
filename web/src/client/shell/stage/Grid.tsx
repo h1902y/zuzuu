@@ -2,7 +2,7 @@
 // the grid-columns core over the ListContext pull-model; a filter input + sortable
 // headers drive the list-state reducer; clicking a row selects it (→ the record stage).
 // Thin: all derivation is in grid-columns.ts / list-state.ts. Static utilities only.
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { NotesListProvider, useList } from "../../data/ListContext.js";
 import { useModuleFilter, filterOf } from "../../state/module-filter.js";
@@ -17,11 +17,12 @@ import { ClauseChips } from "./ClauseChips.js";
 import { FacetChip } from "./FacetChip.js";
 import { TableBuilders } from "./TableBuilders.js";
 import { TableFooter } from "./TableFooter.js";
+import { FieldConfigPanel } from "./FieldConfigPanel.js";
 import { emptyCopy } from "../empty-copy.js";
 import { api } from "../../lib/api.js";
 import { useWorld } from "../world-state.js";
-import { Table2 } from "lucide-react";
-import { Text, EmptyState } from "../../ds/index.js";
+import { Table2, Plus } from "lucide-react";
+import { Text, EmptyState, Button, Icon } from "../../ds/index.js";
 
 function GridInner() {
   const { module, rows, total, loading, state, dispatch } = useList();
@@ -30,8 +31,10 @@ function GridInner() {
   const schema = useQuery({ queryKey: ["zuzuu", "schema", module], queryFn: () => api.zuzuu.schema(module) });
   // schema-aware (P2.2): declared module.md `fields` drive typed columns + ordering;
   // a schemaless module (no fields) falls back to inferred columns from the rows.
-  const cols = gridColumns(fieldsFromSchema(schema.data?.schema), rows);
+  const fields = fieldsFromSchema(schema.data?.schema);
+  const cols = gridColumns(fields, rows);
   const statuses = statusFacets(rows, state.status);
+  const [addingColumn, setAddingColumn] = useState(false);
 
   // §H.3.4: selection lives OUTSIDE the table (the omnibar's context, not chrome);
   // toggle carries the row so the omnibar's export verb has the data without a
@@ -74,6 +77,22 @@ function GridInner() {
           className="w-72 rounded-ui border border-border bg-app px-2 py-1 text-ui text-ink-100 outline-none placeholder:text-muted focus:border-accent-dim"
         />
         <TableBuilders cols={cols} state={state} filterOps={filterOps} dispatch={dispatch} />
+        {/* §H.5: "+ column" — single-module scope only (a schema column has no
+            single home in the unified Everything view). Add mode, anchored. */}
+        <div className="relative ml-auto">
+          <Button variant="ghost" size="sm" onClick={() => setAddingColumn((v) => !v)}>
+            <Icon icon={Plus} size={13} /> Column
+          </Button>
+          {addingColumn && (
+            <FieldConfigPanel
+              module={module}
+              field={null}
+              existingNames={fields.map((f) => f.name)}
+              onClose={() => setAddingColumn(false)}
+              align="right"
+            />
+          )}
+        </div>
       </div>
       {statuses.length > 0 && (
         <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border bg-surface px-6 py-2">
@@ -98,6 +117,8 @@ function GridInner() {
             onChipClick={filterOps.addWhere}
             groupBy={state.groupBy}
             selection={{ selected, toggle: onSelectionToggle }}
+            fields={fields}
+            module={module}
           />
         )}
       </div>

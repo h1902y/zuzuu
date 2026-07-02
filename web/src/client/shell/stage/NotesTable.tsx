@@ -11,7 +11,7 @@
 //     surveying → inspecting never changes surface
 // Cells are READ-ONLY (doctrine): the row's actions live in the omnibar.
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronsUpDown } from "lucide-react";
 import type { ModuleItem } from "#shared/index.js";
 import type { FieldDef } from "../../data/field-registry.js";
 import { cellValue, type GridColumn } from "./grid-columns.js";
@@ -20,6 +20,7 @@ import { attrChips, visibleChips, chipClause, tableColumns, IDENTITY_COL, ATTRS_
 import { groupRows } from "./group-model.js";
 import { TypeGlyph } from "./TypeGlyph.js";
 import { StatusPill } from "./StatusPill.js";
+import { FieldConfigPanel } from "./FieldConfigPanel.js";
 import { NoteDocument } from "../../note/NoteDocument.js";
 import { Icon, Text } from "../../ds/index.js";
 
@@ -49,7 +50,7 @@ function SelectPill({ value }: { value: string }) {
   );
 }
 
-export function NotesTable({ cols, rows, sort, onSort, onRow, renderCell, fields = [], onChipClick, selection, groupBy }: {
+export function NotesTable({ cols, rows, sort, onSort, onRow, renderCell, fields = [], onChipClick, selection, groupBy, module }: {
   /** the CALLER's semantic columns — identity + Attributes are added here */
   cols: GridColumn[];
   rows: ModuleItem[];
@@ -58,7 +59,8 @@ export function NotesTable({ cols, rows, sort, onSort, onRow, renderCell, fields
   onRow: (row: ModuleItem) => void;
   /** optional per-column cell override; return undefined to fall through */
   renderCell?: (row: ModuleItem, col: GridColumn) => ReactNode | undefined;
-  /** the module's declared fields — the expansion's document groups read them */
+  /** the module's declared fields — the expansion's document groups read them
+   *  (and, in single-module scope, the header caret's edit panel). */
   fields?: FieldDef[];
   /** an attribute chip was clicked → its clause joins the filter (§H.2) */
   onChipClick?: (clause: string) => void;
@@ -67,9 +69,14 @@ export function NotesTable({ cols, rows, sort, onSort, onRow, renderCell, fields
   /** one column to group by (§H.3.3/§H.4.3) — collapsible sections with counts +
    *  per-group Σ on number columns; client-side over the loaded page. */
   groupBy?: string | null;
+  /** SINGLE-MODULE scope only (Grid, never Everything — a schema column has no
+   *  single home to alter there): a declared column's header gets an "Edit
+   *  column" caret opening the field-config panel (§H.5). Absent hides it. */
+  module?: string;
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [editingCol, setEditingCol] = useState<string | null>(null);
   const allCols = tableColumns(cols);
   const toggleExpand = (addr: string) =>
     setExpanded((s) => { const n = new Set(s); if (n.has(addr)) n.delete(addr); else n.add(addr); return n; });
@@ -139,23 +146,51 @@ export function NotesTable({ cols, rows, sort, onSort, onRow, renderCell, fields
       <thead>
         <tr className="border-b border-border">
           <th className="w-12 px-2 py-2" aria-label="row" />
-          {allCols.map((c) => (
-            <th key={c.name} className={`px-4 py-2 ${c.align === "right" ? "text-right" : "text-left"} ${c.name === "__identity" ? "sticky left-0 z-10 bg-app" : ""}`}>
-              {c.name === "__attrs" ? (
-                <span className="text-meta font-semibold text-subtle">{c.label}</span>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => onSort(c.name === "__identity" ? "id" : c.name)}
-                  className="inline-flex items-center gap-1.5 text-meta font-semibold text-subtle transition-colors hover:text-ink-100"
-                >
-                  {c.name !== "__identity" && <TypeGlyph type={c.type} computed={Boolean(c.computed)} />}
-                  {c.label}
-                  {(sort?.key === c.name || (c.name === "__identity" && sort?.key === "id")) ? (sort.dir === "asc" ? " ↑" : " ↓") : ""}
-                </button>
-              )}
-            </th>
-          ))}
+          {allCols.map((c) => {
+            const editable = module && c.name !== "__identity" && c.name !== "__attrs";
+            const editField = editable ? (fields.find((f) => f.name === c.name) ?? null) : null;
+            return (
+              <th key={c.name} className={`group relative px-4 py-2 ${c.align === "right" ? "text-right" : "text-left"} ${c.name === "__identity" ? "sticky left-0 z-10 bg-app" : ""}`}>
+                {c.name === "__attrs" ? (
+                  <span className="text-meta font-semibold text-subtle">{c.label}</span>
+                ) : (
+                  <span className="inline-flex items-center gap-0.5">
+                    <button
+                      type="button"
+                      onClick={() => onSort(c.name === "__identity" ? "id" : c.name)}
+                      title={editField?.description}
+                      className="inline-flex items-center gap-1.5 text-meta font-semibold text-subtle transition-colors hover:text-ink-100"
+                    >
+                      {c.name !== "__identity" && <TypeGlyph type={c.type} computed={Boolean(c.computed)} />}
+                      {c.label}
+                      {(sort?.key === c.name || (c.name === "__identity" && sort?.key === "id")) ? (sort.dir === "asc" ? " ↑" : " ↓") : ""}
+                    </button>
+                    {editable && (
+                      <button
+                        type="button"
+                        aria-label={`edit column ${c.name}`}
+                        title="Edit column"
+                        onClick={() => setEditingCol(editingCol === c.name ? null : c.name)}
+                        className="rounded-ui p-0.5 text-muted opacity-0 transition-opacity hover:bg-hover hover:text-ink-100 group-hover:opacity-100 focus-visible:opacity-100"
+                      >
+                        <Icon icon={ChevronsUpDown} size={11} />
+                      </button>
+                    )}
+                  </span>
+                )}
+                {editable && editingCol === c.name && module && (
+                  <FieldConfigPanel
+                    module={module}
+                    field={editField}
+                    name={c.name}
+                    existingNames={fields.map((f) => f.name)}
+                    onClose={() => setEditingCol(null)}
+                    align={c.align === "right" ? "right" : "left"}
+                  />
+                )}
+              </th>
+            );
+          })}
         </tr>
       </thead>
       <tbody>

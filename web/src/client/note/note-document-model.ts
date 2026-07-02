@@ -11,7 +11,7 @@ import { fieldConfig } from "../data/field-registry.js";
 /** Envelope keys the groups never repeat (header/body/footer own them). */
 const OWNED = new Set(["id", "title", "module", "kind", "status", "body", "definition", "relations", "provenance", "payload", "source", "tags", "created_at"]);
 
-export interface AttrRow { key: string; label: string; value: string; formula?: string }
+export interface AttrRow { key: string; label: string; value: string; formula?: string; description?: string }
 export interface RelationRow { rtype: string; target: string; note?: string; cite?: string }
 
 export interface NoteGroups {
@@ -85,6 +85,7 @@ export function noteGroups(item: ModuleItem, fields: FieldDef[]): NoteGroups {
       label: f.label ?? f.name.replace(/[_-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
       value: fieldConfig(f.type).format(v),
       ...(f.computed ? { formula: `ƒ ${f.computed}` } : {}),
+      ...(f.description ? { description: f.description } : {}),
     });
   }
 

@@ -7,8 +7,12 @@ export type FieldType = "text" | "longtext" | "select" | "multi" | "link" | "dat
 
 /** One field's declaration on a module.md `fields` block. `computed` is the
  *  derive formula (e.g. `dateAdd(start_date,duration_days)`) — the value never
- *  lands in the file; the index materializes it (shown as ƒ in headers). */
-export interface FieldDef { name: string; type: FieldType; required?: boolean; label?: string; options?: string[]; computed?: string }
+ *  lands in the file; the index materializes it (shown as ƒ in headers).
+ *  `default` fills the column on `note create` when absent — the string `now`
+ *  is a SENTINEL on `type: date` columns only (resolved at write time; the
+ *  manifest keeps it symbolic, §H.5's CLI prerequisite). `description` is a
+ *  free-form tooltip/help string (header tooltip + schema card). */
+export interface FieldDef { name: string; type: FieldType; required?: boolean; label?: string; options?: string[]; computed?: string; default?: string; description?: string }
 
 export interface FieldConfig {
   type: FieldType;

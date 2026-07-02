@@ -14,6 +14,8 @@ interface RawField {
   required?: unknown;
   options?: unknown;
   computed?: unknown;
+  default?: unknown;
+  description?: unknown;
 }
 
 /** Map a JSON-Schema `type` (the home schema.json) to a workbench FieldType. */
@@ -45,6 +47,8 @@ export function fieldsFromSchema(schema: unknown): FieldDef[] {
           ? { options: f.options as string[] }
           : {}),
         ...(typeof f.computed === "string" && f.computed ? { computed: f.computed } : {}),
+        ...(typeof f.description === "string" && f.description ? { description: f.description } : {}),
+        ...(f.default !== undefined && f.default !== null ? { default: String(f.default) } : {}),
       });
     }
     return out;
