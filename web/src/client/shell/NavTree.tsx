@@ -6,7 +6,7 @@
 // node into select(). Composed from ds primitives (no inline styles / arbitrary values).
 import { type ReactNode, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Circle, Table2, Flag, Home, Search, Settings as SettingsIcon, Bot } from "lucide-react";
+import { Circle, Table2, Flag, Home, Orbit, Search, Settings as SettingsIcon, Bot } from "lucide-react";
 import { api } from "../lib/api.js";
 import { useWorkbench } from "../state/store.js";
 import { useWorld } from "./world-state.js";
@@ -35,7 +35,7 @@ function NavRow({ active, icon, label, badge, onClick }: {
   );
 }
 
-const GLYPH = { overview: Home, setup: Flag, acp: Bot, table: Table2, search: Search, settings: SettingsIcon } as const;
+const GLYPH = { map: Orbit, overview: Home, setup: Flag, acp: Bot, table: Table2, search: Search, settings: SettingsIcon } as const;
 
 /** A row's leading glyph: the session liveness dot (status-toned) or a uniform 14px nav icon. */
 function rowGlyph(row: NavRowModel): ReactNode {

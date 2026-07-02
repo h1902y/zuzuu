@@ -12,9 +12,12 @@ describe("selectActors — the selection → stage/wing morph (no modes)", () =>
   it("row → record + form wing", () => {
     expect(selectActors({ kind: "row", id: "auth", module: "knowledge" })).toEqual({ stage: "record", wing: "form", crumb: ["knowledge", "auth"] });
   });
-  it("home/default → the database overview, wing retracts", () => {
+  it("home/default → THE MAP (map-first, C1); Overview stays an explicit node", () => {
     expect(selectActors({ kind: "overview" }).stage).toBe("overview");
-    expect(selectActors(null)).toEqual({ stage: "overview", wing: "none", crumb: [] });
+    expect(selectActors(null)).toEqual({ stage: "world", wing: "none", crumb: [] });
+  });
+  it("note → the World stays the stage, record opens as the wing (reading never leaves the map)", () => {
+    expect(selectActors({ kind: "note", id: "auth", module: "knowledge" })).toEqual({ stage: "world", wing: "form", crumb: ["knowledge", "auth"] });
   });
   it("the whole-Project surfaces → their stage, wing retracts", () => {
     expect(selectActors({ kind: "search" })).toEqual({ stage: "search", wing: "none", crumb: ["Search"] });

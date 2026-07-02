@@ -6,7 +6,7 @@
 // bespoke SessionRow and the "Set up this Project" link fold into this single model.
 import type { NavNode } from "./shell-state.js";
 
-export type NavGlyph = "overview" | "setup" | "session" | "acp" | "table" | "search" | "settings";
+export type NavGlyph = "map" | "overview" | "setup" | "session" | "acp" | "table" | "search" | "settings";
 export type Liveness = "owner" | "live" | "idle";
 
 export interface NavRowModel {
@@ -58,11 +58,19 @@ export function navModel(input: NavInput): NavModel {
 
   const top: NavRowModel[] = [
     {
+      // map-first (C1): home = the World; a `note` selection is map-anchored too
+      key: "map",
+      node: null,
+      label: "Map",
+      glyph: "map",
+      active: selected === null || selected.kind === "note",
+    },
+    {
       key: "overview",
       node: { kind: "overview" },
       label: "Overview",
       glyph: "overview",
-      active: selected === null || selected.kind === "overview",
+      active: selected?.kind === "overview",
     },
   ];
   if (showSetup) {

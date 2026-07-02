@@ -28,7 +28,9 @@ export function World({ focus }: { focus?: string }) {
   useEffect(() => {
     if (!ref.current) return;
     const world = mountWorld(ref.current, {
-      onSelectNote: (_addr, module, id) => select({ kind: "row", id, module }),
+      // map-first: a node click keeps the World as the stage and opens the record
+      // as the wing (`note`, not `row`) — reading never leaves the map
+      onSelectNote: (_addr, module, id) => select({ kind: "note", id, module }),
       onSelectModule: (module) => select({ kind: "module", id: module }),
       onGhostClick: () => setReview(true), // the in-map review: the gate overlay, in place
     });

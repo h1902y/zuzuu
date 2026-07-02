@@ -14,9 +14,11 @@ const base: NavInput = {
 };
 
 describe("navModel — the unified sidebar rows", () => {
-  it("top: Overview is the home row, active on null or overview selection", () => {
-    expect(navModel(base).top[0]).toMatchObject({ key: "overview", glyph: "overview", active: true });
-    expect(navModel({ ...base, selected: { kind: "overview" } }).top[0]!.active).toBe(true);
+  it("top: Map is the home row (map-first); Overview is the explicit second row", () => {
+    expect(navModel(base).top[0]).toMatchObject({ key: "map", glyph: "map", node: null, active: true });
+    expect(navModel({ ...base, selected: { kind: "note", id: "x", module: "k" } }).top[0]!.active).toBe(true);
+    expect(navModel(base).top[1]).toMatchObject({ key: "overview", glyph: "overview", active: false });
+    expect(navModel({ ...base, selected: { kind: "overview" } }).top[1]!.active).toBe(true);
     expect(navModel({ ...base, selected: { kind: "settings" } }).top[0]!.active).toBe(false);
   });
 

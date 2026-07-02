@@ -35,6 +35,9 @@ export function stageHeaderModel(node: NavNode | null): StageHeaderModel {
       return { show: true, primary: { key: "end-session", label: "End session" } };
     case "row":
       return { show: true, primary: null };
+    case "note":
+      // map-first reading (C1): the World keeps the stage; the crumb names the note
+      return { show: true, primary: null };
     default:
       return { show: false, primary: null };
   }

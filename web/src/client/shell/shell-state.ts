@@ -6,17 +6,20 @@
 // Logic-in-.ts (the project's pattern); the <WorkbenchShell> .tsx renders this.
 
 /** What the center stage shows. (ER is deferred — not a stage actor yet.) */
-export type StageActor = "terminal" | "grid" | "record" | "overview" | "search" | "settings" | "acp";
+export type StageActor = "world" | "terminal" | "grid" | "record" | "overview" | "search" | "settings" | "acp";
 /** What the right wing shows; "none" = the wing retracts (R4). */
 export type WingActor = "review" | "form" | "schema" | "none";
 
 /** A nav-tree node. Sessions and modules are siblings; a row is a note in a module;
  *  search/settings are the whole-Project surfaces. (Search is reached via ⌘K, not the
- *  rail — U4; the top-level graph was demoted to the per-module Table·Graph tab — U2.) */
+ *  rail — U4; the top-level graph was demoted to the per-module Table·Graph tab — U2.)
+ *  `note` is the MAP-first note selection (the World stays the stage, the record opens
+ *  as the wing — reading never leaves the map); `row` remains the full Record stage. */
 export type NavNode =
   | { kind: "session"; id: string }
   | { kind: "module"; id: string }
   | { kind: "row"; id: string; module: string }
+  | { kind: "note"; id: string; module: string }
   | { kind: "overview" }
   | { kind: "search"; query?: string }
   | { kind: "settings" }
@@ -29,17 +32,22 @@ export interface Selection {
   crumb: string[];
 }
 
-/** The selection → actor morph. A null/unknown selection is home = the database (R3). */
+/** The selection → actor morph. A null/unknown selection is home = THE MAP (the
+ *  World is the primary view of the Project — map-first, C1). The Overview stays
+ *  one click away as an explicit node; onboarding still lands on it (the shell
+ *  composes the checklist in — the map never takes over a first-run). */
 export function selectActors(node: NavNode | null): Selection {
   switch (node?.kind) {
     case "session": return { stage: "terminal", wing: "review", crumb: ["session", node.id] };
     case "module": return { stage: "grid", wing: "schema", crumb: [node.id] };
     case "row": return { stage: "record", wing: "form", crumb: [node.module, node.id] };
+    // map-first reading: the World keeps the stage, the record opens as the wing
+    case "note": return { stage: "world", wing: "form", crumb: [node.module, node.id] };
     case "search": return { stage: "search", wing: "none", crumb: ["Search"] };
     case "settings": return { stage: "settings", wing: "none", crumb: ["Settings"] };
     case "acp": return { stage: "acp", wing: "none", crumb: ["Agent", node.id.slice(0, 6)] };
-    case "overview":
-    default: return { stage: "overview", wing: "none", crumb: [] };
+    case "overview": return { stage: "overview", wing: "none", crumb: [] };
+    default: return { stage: "world", wing: "none", crumb: [] };
   }
 }
 

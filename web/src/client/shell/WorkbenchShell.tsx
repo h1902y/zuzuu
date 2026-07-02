@@ -186,7 +186,7 @@ export function WorkbenchShell() {
   const moduleTitle = (id: string) => modules.find((m) => m.id === id)?.title ?? id;
   const stageCrumb =
     selected?.kind === "module" ? [moduleTitle(selected.id)]
-    : selected?.kind === "row" ? [moduleTitle(selected.module), selected.id]
+    : selected?.kind === "row" || selected?.kind === "note" ? [moduleTitle(selected.module), selected.id]
     : selected?.kind === "session" ? [activeSession?.title || "session"]
     : [];
   const stagePrimary =
@@ -263,6 +263,11 @@ export function WorkbenchShell() {
               <AcpView id={selected.id} />
             ) : projectState.isLoading || overview.isLoading ? (
               <Loading />
+            ) : sel.stage === "world" && !onboarding ? (
+              // MAP-FIRST (C1): the steady-state home is the World — the whole Project
+              // as the living map. Onboarding keeps the Overview+checklist below
+              // (the map never takes over a first-run); Overview stays one click away.
+              <World />
             ) : (
               // U5: no hard-swap — the home always renders; onboarding composes IN as a
               // receding companion block (no full-stage takeover), so completing the last
@@ -289,7 +294,7 @@ export function WorkbenchShell() {
           <aside className="hidden w-96 shrink-0 flex-col border-l border-border bg-surface xl:flex">
             {sel.wing === "review" ? (
               <ReviewQueue />
-            ) : sel.wing === "form" && selected?.kind === "row" ? (
+            ) : sel.wing === "form" && (selected?.kind === "row" || selected?.kind === "note") ? (
               <Form module={selected.module} id={selected.id} />
             ) : sel.wing === "schema" && selected?.kind === "module" ? (
               <Schema module={selected.id} />
