@@ -66,3 +66,26 @@ describe("deriveState — live sessions count as activity", () => {
     expect(deriveState({ git: true, zuzuu: true, hooksEnabled: true, hasActivity: true })).toBe("steady");
   });
 });
+
+describe("gatherProjectState — steady survives a CLI failure (the flap P0)", () => {
+  it("a contentful project stays steady from on-disk facts when the CLI can't run", async () => {
+    // git + enabled hooks + a content module on disk — but the CLI spawn fails
+    mkdirSync(path.join(root, ".git"));
+    mkdirSync(path.join(root, ".claude"));
+    writeFileSync(path.join(root, ".claude", "settings.json"), JSON.stringify({ hooks: { Stop: [{ hooks: [{ command: "zz hook Stop #zz-hook" }] }] } }));
+    mkdirSync(path.join(root, ".zuzuu", "crm"), { recursive: true });
+    writeFileSync(path.join(root, ".zuzuu", "crm", "module.md"), "---\ntype: module\nid: crm\n---\n");
+    const s = await gatherProjectState(root, "/nonexistent/zz-binary-for-test");
+    expect(s.state).toBe("steady");
+    expect(s.counts.modules).toBe(1);
+  });
+  it("the safety floor alone (instructions) is NOT activity — still no-activity", async () => {
+    mkdirSync(path.join(root, ".git"));
+    mkdirSync(path.join(root, ".claude"));
+    writeFileSync(path.join(root, ".claude", "settings.json"), JSON.stringify({ hooks: { Stop: [{ hooks: [{ command: "zz hook Stop #zz-hook" }] }] } }));
+    mkdirSync(path.join(root, ".zuzuu", "instructions"), { recursive: true });
+    writeFileSync(path.join(root, ".zuzuu", "instructions", "module.md"), "---\ntype: module\nid: instructions\n---\n");
+    const s = await gatherProjectState(root, "/nonexistent/zz-binary-for-test");
+    expect(s.state).toBe("no-activity");
+  });
+});

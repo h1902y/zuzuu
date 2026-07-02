@@ -78,6 +78,18 @@ export function World({ focus }: { focus?: string }) {
   }, [glowReq, graph.data, consumeGlow]);
 
   if (graph.isLoading) return <div className="grid h-full place-items-center"><Text tone="muted">loading the map…</Text></div>;
-  if (graph.data && !graph.data.nodes.length) return <EmptyState icon={Table2} {...emptyCopy("grid-empty")} />;
+  // a failed graph read must NEVER render a silent black stage (live-audit P0):
+  // say so, offer retry — one transient CLI hiccup shouldn't look like a void
+  if (graph.isError || !graph.data) {
+    return (
+      <div className="grid h-full place-items-center">
+        <div className="flex flex-col items-center gap-2">
+          <Text tone="muted">the map couldn’t load</Text>
+          <Text as="button" interactive size="meta" tone="subtle" onClick={() => void graph.refetch()}>retry</Text>
+        </div>
+      </div>
+    );
+  }
+  if (!graph.data.nodes.length) return <EmptyState icon={Table2} {...emptyCopy("grid-empty")} />;
   return <div ref={ref} className="h-full" role="img" aria-label="project map" />;
 }

@@ -11,6 +11,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import type { ProjectState, ProjectStateKind, HostInfo } from "#shared/index.js";
 import { runZuzuu } from "./zuzuu-cli.js";
+import { listModuleDirs } from "./zuzuu-peek.js";
 
 /** The stable tag `zz enable` writes into every hook command (src/cli/enable.mjs). */
 const HOOK_SIGNATURE = "#zz-hook";
@@ -64,9 +65,20 @@ export async function gatherProjectState(root: string, binary?: string, liveSess
       modules = ov.length;
       pending = ov.reduce((n, e) => n + (e.pending ?? 0), 0);
       contentful = ov.some((e) => e.key !== "instructions" && e.key !== "guardrails"); // a content module materialized beyond the safety floor
+    } else {
+      // CLI absent OR a transient spawn failure. Without this fallback, one bad
+      // spawn read modules=0 → hasActivity=false → the state FLAPPED back to the
+      // session rung and the map-first home vanished (the live-audit P0). The
+      // durable on-disk facts decide instead: module dirs are the truth.
+      const dirs = await listModuleDirs(path.join(root, ".zuzuu"));
+      modules = dirs.length;
+      contentful = dirs.some((d) => d !== "instructions" && d !== "guardrails");
     }
   }
 
+  // steady is derived from DURABLE facts (content modules / pending proposals) —
+  // a live PTY session is a bonus signal, never a requirement: a project you
+  // built yesterday must not regress to onboarding because nothing is running.
   const hasActivity = pending > 0 || liveSessions > 0 || contentful;
   return {
     state: deriveState({ git, zuzuu, hooksEnabled: host.enabled, hasActivity }),
