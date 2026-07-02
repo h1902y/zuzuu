@@ -88,6 +88,33 @@ that history).
   NOT `metal/fs.mjs`'s block-and-steal `withLock`) denies a second concurrent
   run of the same note and steals only a stale one (older than that run's own
   timeout + a 30s grace — a workflow's steps share one lock for the whole run).
+- **Workflow composition (CLI, §I rung 1)**: a `flow` step now takes `note:
+  <module:id>` instead of an inline `run:` string — a step is one or the
+  other, never both, validated up front. A `note:` target resolves at run
+  time through the SAME path a standalone call would take: a leaf runnable
+  note goes through `act()` itself (its own gate, timeout, run-lock, and
+  `logRun`); a `type: workflow` note **recurses** into `runWorkflow`, so
+  workflows compose workflows across the graph. Both shapes stay Tier-0/1
+  invocations (§I.3) — no new execution primitive, only reuse. A visited-set
+  of `module:id` addresses (every workflow on the current call stack)
+  refuses a direct or transitive cycle BEFORE any lock is touched
+  (`workflow cycle: a→b→a`), so a self-reference fails as a named cycle
+  instead of deadlocking on its own lock; `MAX_COMPOSITION_DEPTH` (20)
+  backstops a long acyclic chain the visited-set alone can't catch. The
+  composed call always carries the PARENT's `actor` — never silently
+  `operator` — so an agent-run composed workflow keeps the safety floor's
+  fail-closed gate posture at every nesting level. A composed target
+  acquires its OWN run-lock (refused if it's independently running
+  elsewhere); the parent's own lock, acquired once for the whole run, is
+  never re-touched. On failure, a referenced workflow runs its OWN saga to
+  completion — synchronously, compensations included — BEFORE the failure
+  surfaces to the parent as that one step's failure, so a deep composed
+  failure unwinds inner-saga-first, outer-saga-last. Every composed run's
+  `runs.jsonl` entry gains an optional `via: <module:id>` marker (the
+  IMMEDIATE parent, absent on a non-composed run) — the seam the
+  runs-miner (§I rung 2) will use to attribute a composed failure to the
+  workflow that triggered it. 25 new tests
+  (`tests/unit/workflow-composition.test.mjs`).
 - **The field-config panel (web, §H.5)** — Airtable's edit-field, made zuzuu:
   an anchored popover (never a modal) from a column header's caret ("Edit
   column") or the Grid toolbar's "+ column" (single-module scope; Everything
