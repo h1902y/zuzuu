@@ -21,8 +21,9 @@ export function World({ focus }: { focus?: string }) {
   const handle = useRef<WorldHandle | null>(null);
   const select = useWorld((s) => s.select);
   const setReview = useReview((s) => s.setOpen);
-  // lives under ["zuzuu"] so the brain push (/ws/zuzuu) invalidates it live
-  const graph = useQuery({ queryKey: ["zuzuu", "graph"], queryFn: () => api.zuzuu.graph() });
+  // lives under ["zuzuu"] so the brain push (/ws/zuzuu) invalidates it live;
+  // `definition` rides along for the in-map mini-cards' peek (C2)
+  const graph = useQuery({ queryKey: ["zuzuu", "graph"], queryFn: () => api.zuzuu.graph(["definition"]) });
   const { queue } = useReviewQueue(); // the aggregated cross-module staged summaries (cached, shared with the gate)
 
   useEffect(() => {

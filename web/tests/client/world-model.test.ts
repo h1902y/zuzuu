@@ -1,6 +1,6 @@
 // client/world/model.ts — the world's pure model (palette · affinity · ghosts · radius).
 import { describe, expect, it } from "vitest";
-import { deriveAffinity, moduleHue, modulePalette, nodeRadius, reconcileGhosts } from "../../src/client/world/model.js";
+import { cardPicks, deriveAffinity, moduleHue, modulePalette, nodeRadius, reconcileGhosts } from "../../src/client/world/model.js";
 import type { WorldGraphLink } from "../../src/shared/zuzuu.js";
 
 describe("modulePalette", () => {
@@ -64,5 +64,22 @@ describe("nodeRadius", () => {
     expect(leaf).toBeGreaterThanOrEqual(5);
     expect(hub).toBeLessThanOrEqual(14);
     expect(hub).toBeGreaterThan(leaf);
+  });
+});
+
+describe("cardPicks — the in-map mini-card rung (C2)", () => {
+  const t = { k: 3, x: 0, y: 0 };
+  const view = { w: 600, h: 400 };
+  it("empty below card zoom", () => {
+    expect(cardPicks([{ addr: "k:a", x: 100, y: 66 }], { ...t, k: 2.9 }, view)).toEqual([]);
+  });
+  it("picks on-screen nodes nearest the viewport center, capped", () => {
+    const nodes = [
+      { addr: "k:center", x: 100, y: 66 },   // screen (300,198) ≈ center
+      { addr: "k:edge", x: 190, y: 120 },    // screen (570,360) — on-screen, far
+      { addr: "k:off", x: 900, y: 900 },     // far off-screen
+    ];
+    expect(cardPicks(nodes, t, view)).toEqual(["k:center", "k:edge"]);
+    expect(cardPicks(nodes, t, view, 1)).toEqual(["k:center"]);
   });
 });

@@ -18,7 +18,7 @@ import { select, type Selection } from "d3-selection";
 import { zoom, zoomIdentity, type ZoomBehavior, type ZoomTransform } from "d3-zoom";
 import { drag } from "d3-drag";
 import type { WorldGhost, WorldGraph, WorldGraphNode } from "#shared/index.js";
-import { deriveAffinity, modulePalette, nodeRadius, moduleHue, type AffinityLink } from "./model.js";
+import { deriveAffinity, modulePalette, nodeRadius, moduleHue, cardPicks, CARD_ZOOM, type AffinityLink } from "./model.js";
 
 interface SimNode extends SimulationNodeDatum, WorldGraphNode { r: number }
 interface SimLink { source: SimNode | string; target: SimNode | string; type: string; cross?: boolean }
@@ -57,6 +57,7 @@ export function mountWorld(container: HTMLElement, cb: WorldCallbacks = {}): Wor
   const nodeLayer = scene.append("g");
   const labelLayer = scene.append("g").attr("class", "zz-world-labels");
   const chipLayer = select(container).append("div").attr("class", "zz-world-chips");
+  const cardLayer = select(container).append("div").attr("class", "zz-world-cards");
 
   // ── state ──
   let nodes: SimNode[] = [];
@@ -104,6 +105,7 @@ export function mountWorld(container: HTMLElement, cb: WorldCallbacks = {}): Wor
       scene.attr("transform", transform.toString());
       restyle();
       placeChips();
+      placeCards();
     });
   (svg as Selection<SVGSVGElement, unknown, null, undefined>).call(zoomer);
 
@@ -118,8 +120,42 @@ export function mountWorld(container: HTMLElement, cb: WorldCallbacks = {}): Wor
 
   function restyle(): void {
     const k = transform.k;
-    labelSel.attr("opacity", (d) => (k >= 1.5 ? 0.9 : d.degree >= hubMin() ? 0.75 : 0));
+    // labels hand off to the mini-cards at card zoom (the card carries the title)
+    labelSel.attr("opacity", (d) => (k >= CARD_ZOOM ? 0 : k >= 1.5 ? 0.9 : d.degree >= hubMin() ? 0.75 : 0));
     ghostSel.select("text").attr("opacity", k >= 1.2 ? 0.85 : 0);
+  }
+
+  // ── in-map mini-cards (C2 — the zoom ladder's missing rung): at k ≥ CARD_ZOOM
+  // the nodes nearest the viewport center carry small read-only cards, so reading
+  // never leaves the map. Screen-space HTML (like the chips), keyed by addr.
+  function placeCards(): void {
+    const picks = cardPicks(
+      nodes.filter((n) => n.x != null && n.y != null).map((n) => ({ addr: n.addr, x: n.x ?? 0, y: n.y ?? 0 })),
+      { k: transform.k, x: transform.x, y: transform.y },
+      { w: W, h: H },
+    );
+    const byAddr = new Map(nodes.map((n) => [n.addr, n]));
+    const data = picks.map((a) => byAddr.get(a)).filter((n): n is SimNode => !!n);
+    const sel = cardLayer.selectAll<HTMLDivElement, SimNode>("div.zz-world-card")
+      .data(data, (d) => d.addr);
+    sel.exit().remove();
+    const enter = sel.enter().append("div").attr("class", "zz-world-card");
+    enter.append("div").attr("class", "zz-world-card-title");
+    enter.append("div").attr("class", "zz-world-card-meta");
+    enter.append("div").attr("class", "zz-world-card-peek");
+    const all = enter.merge(sel);
+    all.on("click", (_ev: MouseEvent, d) => cb.onSelectNote?.(d.addr, d.module, d.id));
+    all.select<HTMLDivElement>("div.zz-world-card-title").text((d) => d.title || d.id);
+    all.select<HTMLDivElement>("div.zz-world-card-meta")
+      .text((d) => `${d.type}${d.status ? ` · ${d.status}` : ""}`);
+    all.select<HTMLDivElement>("div.zz-world-card-peek")
+      .text((d) => (d.props?.definition ?? "").slice(0, 140));
+    all.style("border-color", (d) => palette[d.module] ?? "");
+    all.style("transform", (d) => {
+      const x = transform.applyX(d.x ?? 0);
+      const y = transform.applyY((d.y ?? 0) + d.r) + 8;
+      return `translate(${x}px, ${y}px) translate(-50%, 0)`;
+    });
   }
 
   function placeChips(): void {
@@ -181,6 +217,7 @@ export function mountWorld(container: HTMLElement, cb: WorldCallbacks = {}): Wor
     });
 
     placeChips();
+    placeCards();
   }
   sim.on("tick", tick);
   sim.on("end", () => { if (!fitted) { fitted = true; fit(); } });
