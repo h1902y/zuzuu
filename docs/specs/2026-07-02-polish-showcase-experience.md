@@ -96,8 +96,10 @@ screen — the World — and everything else is a toggle, overlay, wing, or dial
 - **Inspectors**: note/module attribute wings slide over the map (§ inspector).
 - **Sessions/terminal**: a dock toggle/overlay — the raw terminal stays FULLY
   functional (hard constraint: never hide a y/n prompt).
-- **Settings**: a dialog. **The nav tree is removed** — the palette (⌘K), the
-  map itself, and the HUD are the navigation.
+- **Settings**: a quiet affordance at the RIGHT of the bottom footer (the
+  Ribbon) opening the settings dialog — always reachable, never disturbing the
+  canvas. **The nav tree is removed** — the palette (⌘K), the map itself, the
+  HUD, and the footer are the navigation.
 - Deep links keep working (URL → open the right overlay over the map).
 
 Sequencing: toggle (in flight) → unified Everything view → inspector wings →
