@@ -32,8 +32,12 @@ const itemPath = (home, m, id) => join(home, m, 'items', `${id}.md`);
 // the `fields` block the standard template would mint for a module id ([] when schemaless)
 const parseFields = (id) => parse(manifestFor(id)).note.fields ?? [];
 
+// NOTE (envelope floor, 02-07-2026): `title` can no longer serve as the
+// reject-fixture — the write boundary FILLS it before validation, so a
+// required-title schema is satisfiable by construction. `owner` plays the
+// missing-required role instead.
 const TASK_FIELDS = [
-  { name: 'title', type: 'text', required: true },
+  { name: 'owner', type: 'text', required: true },
   { name: 'priority', type: 'select', options: ['low', 'high'] },
   { name: 'effort', type: 'number' },
 ];
@@ -46,7 +50,7 @@ test('commit REJECTS a write that violates the schema — missing a required col
     ]);
     assert.equal(r.ok, false, 'the batch is refused');
     assert.equal(r.reverted, true, 'the transaction reverted');
-    assert.match(r.error, /field 'title' is required/);
+    assert.match(r.error, /field 'owner' is required/);
     assert.equal(existsSync(itemPath(home, 'tasks', 't1')), false, 'nothing landed');
     assert.equal(generations(home, 'tasks').active, null, 'no generation minted');
   });
@@ -56,7 +60,7 @@ test('commit REJECTS a select value outside the declared options', () => {
   withRepo((home) => {
     schemaModule(home, 'tasks', TASK_FIELDS);
     const r = commit(home, { actor: 'operator' }, [
-      { module: 'tasks', op: 'create', target: 't1', change: { type: 'task', title: 'A', priority: 'urgent' }, id: 'op-1' },
+      { module: 'tasks', op: 'create', target: 't1', change: { type: 'task', owner: 'a', title: 'A', priority: 'urgent' }, id: 'op-1' },
     ]);
     assert.equal(r.ok, false);
     assert.match(r.error, /field 'priority' must be one of: low, high/);

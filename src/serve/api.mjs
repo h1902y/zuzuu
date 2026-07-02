@@ -10,7 +10,7 @@
 //         reads/run    query · check · act · flow · view · validate
 //         agent lane   stage · staged · approve · reject · plan · apply   (THE gate)
 //         refactors    rename · merge · refactor                   (link-repointing)
-//         operator lane patch · append · create · createMany · remove   (instant, validated)
+//         operator lane patch · append · create · createMany · remove · backfillFloor (instant, validated)
 //         generations  generations · rollback · diff · asOf · timeline
 //         registry     the active role:registry repo (nested handle)
 // why:  hosts should depend on ONE stable surface, not reach into notes/ and the
@@ -30,6 +30,7 @@ import { approve, reject } from '../grow/review.mjs';
 import { planFor, applyPlan } from '../grow/plan.mjs';
 import { renameNote, mergeNotes, refactorField } from '../grow/refactor.mjs';
 import { patchNote, appendNote, createNote, deleteNote, createNotes } from '../grow/edit.mjs';
+import { backfillFloor } from '../grow/backfill.mjs';
 import { generations, diffGenerations, notesAsOf } from '../notes/generation.mjs';
 import { rollback } from '../grow/commit.mjs';
 import { addColumn, alterColumn, dropColumn } from '../grow/schema.mjs';
@@ -119,6 +120,7 @@ export function open(cwd = process.cwd(), { actor = 'operator' } = {}) {
     create: (module, id, change, opts = {}) => createNote(home, module, id, change, { actor, ...opts }),
     createMany: (module, rows, opts = {}) => createNotes(home, module, rows, { actor, ...opts }),
     remove: (module, id) => deleteNote(home, module, id, actor),
+    backfillFloor: (opts = {}) => backfillFloor(home, { actor, ...opts }),
 
     // ── snapshots (per-module generations) ─────────────────────────────────
     generations: (module) => generations(home, module),

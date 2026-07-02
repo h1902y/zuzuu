@@ -201,3 +201,26 @@ export function deriveTitle(body, id = '') {
   }
   return id;
 }
+
+/** Humanize an id into a display title: kebab/underscore slugs → Title Case;
+ *  date-shaped ids (2026 · 2026-07 · 2026-07-02 · 2026-W27 · 2026-Q3) stay
+ *  verbatim — a journal day's name IS the date. */
+export function titleFromId(id) {
+  const s = String(id ?? '').trim();
+  if (!s) return 'Untitled';
+  if (/^\d{4}(-(\d{2}(-\d{2})?|[Ww]\d{1,2}|[Qq][1-4]))?$/.test(s)) return s;
+  return s.split(/[-_]+/).filter(Boolean).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
+/** THE ENVELOPE FLOOR (02-07-2026): title · status are guaranteed non-empty on
+ *  every note that lands through the write boundary — FILLED when absent, never
+ *  overwriting a present value. status → 'active' (the lifecycle default the
+ *  index already assumed); title → the body's first line, else the humanized id.
+ *  Read tolerance is unchanged: legacy/foreign files still parse (`type` remains
+ *  the only PARSE-level requirement); `zz module backfill` heals history. Pure. */
+export function fillFloor(note, id = '') {
+  const out = { ...note };
+  if (typeof out.status !== 'string' || !out.status.trim()) out.status = 'active';
+  if (typeof out.title !== 'string' || !out.title.trim()) out.title = deriveTitle(out.body, titleFromId(id || out.id || ''));
+  return out;
+}

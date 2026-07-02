@@ -220,6 +220,12 @@ export function commit(home, { actor = 'operator' } = {}, batch = [], { label = 
     const captured = []; // pre-images of every file touched, in apply order (the surgical revert)
     const mark = (m) => { if (!dirty.includes(m)) dirty.push(m); };
     for (const op of batch) {
+      // module is STRUCTURAL (location-derived) — an op without one has no home;
+      // refuse before any write (the floor's fourth column, enforced here).
+      if (typeof op.module !== 'string' || !op.module.trim()) {
+        restore(captured);
+        return { ok: false, error: `commit failed on ${op.id ?? op.op}: op missing module`, reverted: captured.length > 0 };
+      }
       mark(op.module);
       captured.push(...snapshot(home, op)); // capture the file's PRE-transaction bytes BEFORE applying
       const r = applyOp(home, op);

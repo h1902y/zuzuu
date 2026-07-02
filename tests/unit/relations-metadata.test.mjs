@@ -71,17 +71,19 @@ test('index: object edges land in link(note,cite); backlinks expose them; relate
 });
 
 test('validate: an object entry without a target is an error; with target is fine', () => {
-  const bad = validateNote({ type: 'knowledge', relations: { uses: [{ note: 'floating' }] } });
+  const bad = validateNote({ type: 'knowledge', title: 'k', status: 'active', relations: { uses: [{ note: 'floating' }] } });
   assert.equal(bad.ok, false);
   assert.match(bad.errors.join(' '), /object entry without a target/);
-  const good = validateNote({ type: 'knowledge', relations: { uses: [{ target: 'x', note: 'n' }] } });
+  const good = validateNote({ type: 'knowledge', title: 'k', status: 'active', relations: { uses: [{ target: 'x', note: 'n' }] } });
   assert.equal(good.ok, true);
 });
 
 test('relate → unrelate round-trips bytes with an OBJECT edge; re-relate updates metadata', () => {
   withRepo((home) => {
-    put(home, 'knowledge', 'a', { type: 'knowledge', title: 'A', body: 'a' });
-    put(home, 'knowledge', 'b', { type: 'knowledge', title: 'B', body: 'b' });
+    // floor-complete fixtures: the write boundary heals missing status on the
+    // first relate, which would defeat a byte round-trip against pre-floor bytes
+    put(home, 'knowledge', 'a', { type: 'knowledge', title: 'A', status: 'active', body: 'a' });
+    put(home, 'knowledge', 'b', { type: 'knowledge', title: 'B', status: 'active', body: 'b' });
     const before = readRaw(home, 'knowledge', 'a');
     const edge = { target: 'knowledge:b', note: 'why', cite: 'r2' };
     let r = commit(home, {}, [{ module: 'knowledge', op: 'relate', change: { from: 'a', type: 'uses', to: edge } }]);

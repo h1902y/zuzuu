@@ -15,7 +15,7 @@ import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync, rmSync
 import { join, basename } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { randomBytes, createHash } from 'node:crypto';
-import { parse, serialize, idFromPath, slugify } from './note.mjs';
+import { parse, serialize, idFromPath, slugify, fillFloor } from './note.mjs';
 import { listModules } from './module.mjs';
 import { homeDir } from './store.mjs';
 import { activeRegistryPath, setActiveRegistry, localRegistryHome } from './registry-pointer.mjs';
@@ -108,7 +108,12 @@ export function moduleContent(home, module) {
     for (const f of readdirSync(dir).filter((x) => x.endsWith('.md')).sort()) {
       const id = f.replace(/\.md$/, '');
       const { ok, note } = parse(readFileSync(join(dir, f), 'utf8'), { id });
-      if (ok) items.push({ id, note });
+      // FLOOR-NORMALIZED: subscribe stages these items and the write boundary
+      // fills title/status on landing — hashing the raw upstream bytes would make
+      // every landed copy read as 'local edit' drift forever. Filling here (both
+      // when pinning upstream AND when digesting the local vendored copy) keeps
+      // the drift signal about REAL edits. Pure; the files are untouched.
+      if (ok) items.push({ id, note: fillFloor(note, id) });
     }
   }
   return { items, digest: contentDigest(items) };

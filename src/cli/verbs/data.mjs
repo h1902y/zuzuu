@@ -368,6 +368,23 @@ export const dataRows = [
     },
   },
   {
+    // heal legacy notes up to the ENVELOPE FLOOR (title/status guaranteed at the
+    // write boundary since 02-07-2026; this brings history into compliance through
+    // the same one door). Deliberately NOT a `doctor --fix` flag: doctor is a read
+    // verb agents may shell — a write behind its flag would hole the generated gate.
+    path: ['module', 'backfill'], plane: 'data', json: true, permission: 'write', agentInvokable: false,
+    usage: 'module backfill [--dry-run]', summary: 'fill missing title/status on legacy notes (one generation per module)',
+    handler: ({ args, cwd, log, json }) => {
+      const r = open(cwd).backfillFloor({ dryRun: !!args['dry-run'] });
+      if (!r.ok) return fail(log, r.error, json);
+      const rows = Object.entries(r.modules).map(([m, n]) => ({ module: m, notes: n }));
+      emit(log, json, r, [r.dryRun ? 'backfill·dry-run' : 'backfilled',
+        rows.length ? rows : [{ module: '—', notes: 0 }], ['module', 'notes'],
+        r.dryRun && r.count ? ['zz module backfill  (apply)'] : []]);
+      return 0;
+    },
+  },
+  {
     // inbound: bulk rows through the operator lane's batch create — ONE transaction,
     // ONE generation, all-or-nothing, schema-validated. Operator-only (agent-denied).
     path: ['module', 'import'], plane: 'data', json: true, permission: 'write', agentInvokable: false,

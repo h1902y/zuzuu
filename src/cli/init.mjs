@@ -17,7 +17,7 @@
 
 import { existsSync, mkdirSync, writeFileSync, readFileSync, appendFileSync } from 'node:fs';
 import { join, basename } from 'node:path';
-import { serialize } from '../notes/note.mjs';
+import { serialize, fillFloor } from '../notes/note.mjs';
 import { manifestFor } from '../notes/module-templates.mjs';
 import { homeDir, repoRoot } from '../notes/store.mjs';
 import { logMutation, read as readLog } from '../notes/log.mjs';
@@ -184,7 +184,8 @@ export function initHome(cwd = process.cwd(), { atRoot = false } = {}) {
   const seedRules = atRoot ? RULES.filter((r) => !r.id.startsWith('protect-brain')) : [...RULES, execGuardRule()];
   const seedInstructions = atRoot ? INSTRUCTIONS.filter((i) => i.id !== 'propose-never-write') : INSTRUCTIONS;
   for (const r of [...seedRules, ...seedInstructions]) {
-    writeOnce(join(home, 'instructions', 'items', `${r.id}.md`), serialize(r), `instructions/${r.id}`);
+    // seeds carry the envelope floor too (title present by authorship; status filled)
+    writeOnce(join(home, 'instructions', 'items', `${r.id}.md`), serialize(fillFloor(r, r.id)), `instructions/${r.id}`);
     ensureSeedLogged(home, 'instructions', r.id); // Layer 4: provenance for the seed
   }
 

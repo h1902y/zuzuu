@@ -73,7 +73,7 @@ test('evolve(create): mints 1, logs `create`, lands the EXACT bytes', () => {
       [{ event: 'create', ts: null, note: 'fact', actor: 'human', proposal: 'stg-30e6e1a4' }],
       'the mutation log records exactly one create with the staged-change provenance');
     assert.equal(bytes(home, 'knowledge', 'fact'),
-      '---\ntype: knowledge\ntitle: Hello\n---\nworld\n',
+      '---\ntype: knowledge\ntitle: Hello\nstatus: active\n---\nworld\n',
       'serialized note bytes — frontmatter then body, exact');
   });
 });
@@ -88,7 +88,7 @@ test('evolve(update): mints +1, logs `update`, MERGES onto current (bytes exact)
     assert.equal(readLog(home, 'knowledge', 'mutations').at(-1).event, 'update');
     assert.equal(readLog(home, 'knowledge', 'mutations').at(-1).proposal, 'stg-74e71453');
     assert.equal(bytes(home, 'knowledge', 'fact'),
-      '---\ntype: knowledge\ntitle: new\ntags:\n  - x\n---\n',
+      '---\ntype: knowledge\ntitle: new\ntags:\n  - x\nstatus: active\n---\n',
       'title changed, tags merged through (one-level merge keeps siblings)');
   });
 });
@@ -105,7 +105,7 @@ test('evolve(relate): mints +1 and logs the edge add as kind `update` (the relat
     assert.equal(last.note, 'fact');
     assert.equal(last.relation, 'related-to', 'the relation type is recorded as extra context');
     assert.equal(bytes(home, 'knowledge', 'fact'),
-      '---\ntype: knowledge\ntitle: F\nrelations:\n  related-to: other\n---\n');
+      '---\ntype: knowledge\ntitle: F\nstatus: active\nrelations:\n  related-to: other\n---\n');
   });
 });
 

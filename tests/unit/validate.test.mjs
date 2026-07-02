@@ -10,12 +10,12 @@ import { stageChange } from '../../src/grow/stage.mjs';
 import { approve } from '../../src/grow/review.mjs';
 
 test('validateNote: type-keyed invariants', () => {
-  assert.equal(validateNote({ type: 'knowledge', title: 'x' }).ok, true);
+  assert.equal(validateNote({ type: 'knowledge', title: 'x', status: 'active' }).ok, true);
   assert.equal(validateNote({ title: 'no type' }).ok, false);
-  assert.equal(validateNote({ type: 'rule', action: 'deny', pattern: 'rm' }).ok, true);
+  assert.equal(validateNote({ type: 'rule', title: 'r', status: 'active', action: 'deny', pattern: 'rm' }).ok, true);
   assert.equal(validateNote({ type: 'rule', action: 'nope', pattern: 'rm' }).ok, false, 'bad action');
   assert.equal(validateNote({ type: 'rule', action: 'deny' }).ok, false, 'rule needs a pattern');
-  assert.equal(validateNote({ type: 'action', run: 'echo' }).ok, true);
+  assert.equal(validateNote({ type: 'action', title: 'a', status: 'active', run: 'echo' }).ok, true);
   assert.equal(validateNote({ type: 'action', title: 'no run' }).ok, false);
 });
 

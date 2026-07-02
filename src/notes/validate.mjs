@@ -60,6 +60,13 @@ export function validateNote(note, fields = []) {
   if (!note || typeof note !== 'object') return { ok: false, errors: ['not an envelope'] };
   const errors = [];
   if (!nonEmptyStr(note.type)) errors.push('missing required field: type');
+  // THE ENVELOPE FLOOR (02-07-2026): title/status must be non-empty. The write
+  // boundary FILLS them before this check ever runs (repo.writeNote → fillFloor),
+  // so a boundary write can't fail here — but `zz validate` on disk now SURFACES
+  // legacy notes that predate the floor instead of hiding them (`zz module
+  // backfill` heals them). Read tolerance unchanged: this is validation, not parse.
+  if (!nonEmptyStr(note.title)) errors.push("the envelope floor: 'title' must be non-empty");
+  if (!nonEmptyStr(note.status)) errors.push("the envelope floor: 'status' must be non-empty");
 
   // ── axis 1: per-type invariants (the load-bearing fields a standard type needs) ──
   if (note.type === 'rule') {
