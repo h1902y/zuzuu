@@ -710,3 +710,60 @@ Temporal-lite is not. The moat stays the star: definitions and their evolution
 are what zuzuu uniquely governs; execution stays humble, tiered, and honest.
 Sequencing unchanged: safety floor → composition → runs-miner → tier-2 runner
 → triggers → Flow view. The CRM proof-project now spans all three tiers.
+
+### §I.4 — Grounded: engines + builders studied (Temporal · Camunda · Airflow · n8n · Windmill · Mobbin)
+
+The field CONVERGES on our design — strong external validation, plus a precise
+vocabulary to adopt. (research brief + Mobbin screens: n8n 817531c3/47384bb9,
+Apollo 1ee9cb3d, Retool da762b17, Intercom cb6e5ce9.)
+
+**The validation (build with confidence):**
+- Windmill (closest cousin, windmill.dev): scripts/flows/secrets ALL git files,
+  deployed via git-sync, PR-reviewed, rollback-able. Our git-generations +
+  review-gate is a proven architecture, not a gamble.
+- Temporal: deterministic-transition / idempotent-side-effect split IS
+  "runs-as-notes" (pure state transitions in frontmatter; side effects in short
+  stateless workers). Their patching PAIN → their fix is "pin each run to the
+  version it started under" — WE GET THIS FREE: a run-note records the workflow
+  GENERATION it started under; in-flight runs never float to a newer def.
+
+**Adopt into the runner spec (rungs, source-attributed):**
+1. **Pin run→generation** (Temporal): run-note stores the workflow gen it began
+   under; the runner reads the def AS-OF that gen. Solves versioning by design.
+2. **Idempotency key per side-effecting step** (Temporal incident + outbox):
+   {key, request-hash, status, canonical-response} in the run-note, TTL > retry
+   window. Prevents the double-email (B5).
+3. **Timeout taxonomy** (Temporal): per step, start-to-close (one attempt) +
+   total (incl retries); our rung-A `timeout:` is start-to-close — add the
+   total budget when retries land.
+4. **Retry policy** (Temporal/Kestra): declarative `retry: {type: exponential,
+   max, cap}` + NON-RETRYABLE error classes (validation fails fast). Two-tier:
+   flow-level onFailure vs per-step errors (Kestra).
+5. **Human wait = signal-vs-timer race** (Camunda): a waiting step races an
+   external signal (ingress/`zz run complete`) against a boundary timer;
+   INTERRUPTING (hard escalate) vs NON-INTERRUPTING (reminder). The 48h ground-
+   worker escalation, formalized. `claim` before work (avoids double-assignment).
+6. **Small closed step vocabulary** (anti-BPMN): resist 100 node types; a step
+   is run|note-ref|wait|gate — four kinds, mirroring our relation-type discipline.
+7. **Layered def-change gate** (Argo GitOps): our review gate is the first layer;
+   promote/enable is a second — a workflow can be reviewed-in but not yet enabled.
+
+**Flow-view UI (adopt for the future web view):**
+- **Editor / Executions tab split** (n8n): definition vs run-history as peer
+  views — maps to generations vs runs-as-notes.
+- **Grid + Gantt** (Airflow): run×step state-colored matrix (click to drill) +
+  single-run latency timeline. THE run-monitoring pattern.
+- **Trigger blast-radius preview** (Apollo "current matches: 5"): a proposed
+  trigger shows what it WOULD fire on — a safety affordance at REVIEW time.
+- **Detached error/compensation nodes** (Retool): failure routes visible,
+  untangled from the happy path.
+- **Pin-data single-step test** (n8n): capture a node's output, replay downstream
+  without re-firing upstream side effects — our "test one tool note" affordance.
+- **Waits are first-class nodes** (n8n "send and wait"): render the wait, not
+  just the work. Canvas triad: palette (= the tool-note registry) / canvas /
+  properties panel.
+
+**Anti-patterns to refuse:** BPMN symbol bloat; unbounded run history (Temporal
+50K-event cap → run-notes must stay compact/compactable); non-observable wait
+state (n8n HITL silent-fail reports → waits must be visible + alertable);
+over-wrapping primitives.
