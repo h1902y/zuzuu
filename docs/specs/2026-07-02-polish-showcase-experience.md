@@ -344,3 +344,23 @@ omnibar acts):
   instant per the actor's lane). Delete/rename/relate likewise. The detail
   never mutates; the omnibar always does — one write door in the UI, matching
   the one write door in the engine.
+
+### §H.2 — Heterogeneous rows: uniform floor + elastic attribute chips
+
+Named columns only work when rows share a schema. The rule, by homogeneity:
+
+- **Everything (heterogeneous)**: a UNIFORM fixed grid of floor columns
+  (id-first identity · module dot · type · status) — widths stable, scanning
+  calm — plus ONE elastic trailing **Attributes** cell: each row's remaining
+  frontmatter as `key: value` chips (2-3 visible, then `+N`), so no attribute
+  is unreachable and no row is wider than another. A chip is CLICKABLE: it
+  pre-fills the filter with that clause (`platform=x`) — attributes surface
+  AND become the query grammar (§H.3 loop closed).
+- **Single-module facet (homogeneous)**: the schema's declared columns become
+  REAL uniform columns (the module IS a table — types give width hints: date/
+  number narrow-fixed, select badge-width, text flex); undeclared extras still
+  ride the trailing chips cell.
+- **Row expansion**: Enter/click expands the row INLINE into the §H.1 detail
+  read (frontmatter rows + GFM body) — the third zoom rung of the table, so
+  surveying → inspecting never changes surface. Edits, as always, only via
+  the omnibar's pre-filled invocations.
