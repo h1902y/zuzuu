@@ -3,6 +3,7 @@
 **Use it**
 - [[Getting Started]]
 - [[Modules as Tables|Modules-as-Tables]]
+- [[Workflows]]
 - [[Two Lanes|Two-Lanes]]
 - [[The World|The-World]]
 - [[The Omnibar|Omnibar]]

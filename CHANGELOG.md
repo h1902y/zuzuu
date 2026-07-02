@@ -53,6 +53,37 @@ that history).
   still honored.
 
 ### Added
+- **The Tier-2 DURABLE RUNNER — "the run is a note" (§I.3/§I.4)**: `zz run
+  start <workflow-module:id> [--input k=v …]` reads a `type: workflow` note,
+  PINS its active generation (`workflow_generation`), and materializes a
+  `type: run` note (a new, dedicated `runs` module — deliberately outside
+  `STANDARD_MODULES`) whose `steps` mirror the workflow's DAG at
+  pending/attempts:0 — no execution yet. `zz run advance <run-id>` is the
+  TICK: it re-reads the pinned generation (`notes/generation.mjs`'s new
+  `noteAsOf`, a single-note time-travel read — a live edit to the workflow
+  after start never reaches an in-flight run), finds the next step whose
+  deps are all done, and executes EXACTLY ONE step through the same gated
+  `act()`/`runGated` path `act`/`flow` already use, writing the new state
+  back through the one write door. `zz run advance --all` is a bounded
+  convenience loop (still sequential ticks, never a daemon) that stops at
+  done/waiting/failed. A step is `run:` · `note:` (Tier-0/1 composition,
+  reused — including recursing into a nested `type: workflow`) · or
+  `wait: {on, timeout?}` — a wait parks the run at `status: waiting,
+  waiting_on: <signal>` (a multi-day human step is just a note, visible in
+  the table) until `zz run signal <run-id> <name>` or `zz run complete
+  <run-id> <step-id>` resolves it; a declared `wait.timeout` is evaluated
+  lazily on the next advance (no scheduler this rung). `retry: {max}`
+  re-picks a failed step up to max attempts (idempotency_key stays STABLE
+  across retries); past max the run fails and the saga compensates its done
+  steps in reverse completion order, STOPPING (not skipping) at the first
+  `irreversible: true` step. Crash-safety = the note IS the state — a
+  re-tick after a crash just re-reads it; semantics are honestly
+  AT-LEAST-ONCE, never "exactly-once." `src/notes/validate.mjs`'s workflow
+  step invariant is generalized alongside this (id + exactly one of
+  run/note/wait, was id+run only) — a pre-existing gap that blocked ANY
+  workflow using composition or wait steps from ever landing through the
+  write door. 48 new tests (`tests/unit/run.test.mjs` +
+  `tests/unit/run-cli.test.mjs`); docs: `docs/guide/Workflows.md`.
 - **Settings & observability (web, §G)** — the workbench teaches its own
   substrate: every magic moment is one click from the plain file that
   explains it. A note's detail (`NoteDocument`, so every container gets it
