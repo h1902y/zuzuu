@@ -12,6 +12,7 @@ import { initHome } from '../../src/cli/init.mjs';
 import { serialize } from '../../src/notes/note.mjs';
 import { count, search } from '../../src/notes/index.mjs';
 import { mint, generations, notesAsOf } from '../../src/notes/generation.mjs';
+import { gate, clearCache } from '../../src/guardrails/gate.mjs';
 
 const ROOT_MARKER = serialize({ type: 'project', title: 't', format: 'zuzuu/v2', body: 'root-mode' });
 const tmp = () => mkdtempSync(join(tmpdir(), 'zz-root-'));
@@ -67,10 +68,15 @@ test('init --root: project.md at root, generic safety floor only, scoped gitigno
     assert.equal(r.home, root, 'the home IS the root');
     assert.match(readFileSync(join(root, 'project.md'), 'utf8'), /format: zuzuu\/v2/);
     assert.ok(existsSync(join(root, 'instructions', 'module.md')), 'instructions module at root');
-    // the .zuzuu-path moat rules don't transplant to root-mode (gating is opt-in there)
+    // the two .zuzuu/-PATH-scoped moat rules don't transplant to root-mode (gating is
+    // opt-in there) — but protect-brain-exec is NOT path-scoped (it denies shelling a
+    // `zz` write verb, a hazard in root-mode too) and DOES ship (SHOULD-FIX 1, audit
+    // 2026-07-03-triggers-review.md — root-mode used to skip it, leaving every write
+    // verb unenforced for an agent shelling `zz` there).
     assert.ok(!existsSync(join(root, 'instructions', 'items', 'protect-brain-writes.md')));
     assert.ok(!existsSync(join(root, 'instructions', 'items', 'protect-brain-shell.md')));
-    assert.ok(!existsSync(join(root, 'instructions', 'items', 'protect-brain-exec.md')));
+    assert.ok(existsSync(join(root, 'instructions', 'items', 'protect-brain-exec.md')), 'the exec-gate rule ships in root-mode too');
+    assert.match(readFileSync(join(root, 'instructions', 'items', 'protect-brain-exec.md'), 'utf8'), /trigger/, 'the current write-verb pattern is seeded, not a stale one');
     assert.ok(existsSync(join(root, 'instructions', 'items', 'no-root-wipe.md')), 'generic floor ships');
     const gi = readFileSync(join(root, '.gitignore'), 'utf8');
     assert.match(gi, /^\.zuzuu\/$/m, 'ephemera dir ignored');
@@ -78,6 +84,30 @@ test('init --root: project.md at root, generic safety floor only, scoped gitigno
     assert.ok(!gi.split('\n').some((l) => l.trim() === '*/runs.jsonl'), 'no dangerous root-wide glob');
     // and the marker now flips resolution for this root
     assert.equal(homeDir(root), root);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+// SHOULD-FIX 1 (docs/audits/2026-07-03-triggers-review.md): before this fix, root-mode
+// NEVER seeded protect-brain-exec, so a root-mode Project (like the personal vault) had
+// NO exec-gate rule at all — every `zz` write verb, including `zz trigger fire`, was
+// unenforced against an agent shelling it via Bash. Drives the REAL gate() against the
+// REAL seeded rule note (not the live-computed regex trigger-cli.test.mjs exercises) —
+// proof the stored pattern, not just the generator function, denies in root-mode too.
+test('init --root: the seeded protect-brain-exec rule denies a shelled write verb (incl. `zz trigger fire`)', () => {
+  const root = tmp();
+  try {
+    const { home } = initHome(root, { atRoot: true });
+    clearCache();
+    const decide = (command) => gate({ home }, { tool: 'Bash', input: { command } });
+
+    for (const command of ['zz trigger fire actions:t1', 'zz trigger enable actions:t1', 'zz note set knowledge x title y']) {
+      const v = decide(command);
+      assert.equal(v?.action, 'deny', `denied in root-mode: ${command}`);
+      assert.equal(v.rule, 'protect-brain-exec');
+    }
+    // reads stay open to the agent
+    assert.equal(decide('zz trigger list'), null);
+    assert.equal(decide('zz query knowledge foo'), null);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 

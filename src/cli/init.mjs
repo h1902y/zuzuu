@@ -13,11 +13,14 @@
 //       It writes envelopes with the note's own serializer — dogfood from byte one.
 // how:  git-citizen — resolves the host repo root and plants `.zuzuu/` there;
 //       NEVER `git init`s. Idempotent + brownfield-safe: never clobbers an
-//       existing module.md or rule (additive only). Zero-dep.
+//       existing module.md or rule (additive only) — EXCEPT `protect-brain-exec`'s
+//       `pattern` field, which RECONCILES to the live command table on every run (it's
+//       generated content, not user prose; see `writeOrReconcilePattern` below and
+//       docs/audits/2026-07-03-triggers-review.md SHOULD-FIX 1). Zero-dep.
 
 import { existsSync, mkdirSync, writeFileSync, readFileSync, appendFileSync } from 'node:fs';
 import { join, basename } from 'node:path';
-import { serialize, fillFloor } from '../notes/note.mjs';
+import { serialize, fillFloor, parse } from '../notes/note.mjs';
 import { manifestFor } from '../notes/module-templates.mjs';
 import { homeDir, repoRoot } from '../notes/store.mjs';
 import { logMutation, read as readLog } from '../notes/log.mjs';
@@ -147,15 +150,26 @@ const ignoreLines = (atRoot, moduleIds = []) => atRoot
   ? ['.zuzuu/', ...moduleIds.map((m) => `${m}/runs.jsonl`)]
   : ['.zuzuu/worktrees/', '.zuzuu/*/runs.jsonl'];
 
+// The two .zuzuu/-PATH-scoped brain rules — they test a `.zuzuu/…` file path, which
+// doesn't exist as a concept in root-mode (there's no dedicated brain subtree; modules
+// sit at the repo root), so they don't transplant there. `protect-brain-exec` is NOT
+// path-scoped — it denies shelling a `zz` WRITE VERB, a hazard in root-mode exactly as
+// much as classic mode (a root-mode agent can still `zz trigger fire`) — so it is NOT
+// in this set; it seeds in BOTH modes (audit 2026-07-03-triggers-review.md, SHOULD-FIX 1).
+const PATH_SCOPED_BRAIN_RULE_IDS = new Set(['protect-brain-writes', 'protect-brain-shell']);
+
 /**
  * Scaffold the home. Idempotent + brownfield-safe (never clobbers).
- * @returns {{ ok, home, created:string[], skipped:string[] }}
+ * @returns {{ ok, home, created:string[], skipped:string[], reconciled:string[] }}
  */
 export function initHome(cwd = process.cwd(), { atRoot = false } = {}) {
   const root = repoRoot(cwd);
   const home = atRoot ? root : homeDir(root);
   const created = [];
   const skipped = [];
+  // Seeds whose GENERATED content re-armed on THIS run (distinct from `created`: the
+  // file already existed, only a field converged) — see `writeOrReconcilePattern`.
+  const reconciled = [];
 
   const ensureDir = (p) => { if (!existsSync(p)) mkdirSync(p, { recursive: true }); };
   const writeOnce = (p, content, label) => {
@@ -163,6 +177,25 @@ export function initHome(cwd = process.cwd(), { atRoot = false } = {}) {
     ensureDir(join(p, '..'));
     writeFileSync(p, content);
     created.push(label);
+  };
+  // The ONE seed that is NOT writeOnce: `protect-brain-exec`'s `pattern` is machine-
+  // generated from the live command table (`gateWriteVerbPattern()`, see execGuardRule's
+  // header), not user prose — a project seeded before a write verb existed (e.g. `zz
+  // trigger fire`) must RE-ARM on the next `zz init`, not stay frozen at first-seed
+  // (SHOULD-FIX 1, docs/audits/2026-07-03-triggers-review.md — `zz doctor` names the
+  // divergence when this hasn't been run yet). Converges ONLY `pattern`; a human's edits
+  // to action/tool/title/reason/body survive untouched. Missing file ⇒ seed it whole
+  // (identical to writeOnce). Fail-soft: an unparseable existing file is left alone —
+  // never blocks init.
+  const writeOrReconcilePattern = (p, rule, label) => {
+    if (!existsSync(p)) { ensureDir(join(p, '..')); writeFileSync(p, serialize(fillFloor(rule, rule.id))); created.push(label); return; }
+    try {
+      const { note } = parse(readFileSync(p, 'utf8'), { id: rule.id });
+      if (!note || note.pattern === rule.pattern) { skipped.push(label); return; }
+      writeFileSync(p, serialize({ ...note, pattern: rule.pattern }));
+      reconciled.push(label);
+      logMutation(home, 'instructions', 'update', rule.id, { actor: 'init', source: 'reconcile' });
+    } catch { skipped.push(label); } // malformed on disk — never block init
   };
 
   ensureDir(home);
@@ -177,20 +210,25 @@ export function initHome(cwd = process.cwd(), { atRoot = false } = {}) {
   ensureDir(join(home, 'instructions', 'staged'));
   writeOnce(join(home, 'instructions', 'module.md'), manifestFor('instructions'), 'instructions/module.md');
   // RULES + the table-generated exec guard (resolved here, lazily — see execGuardRule) + the
-  // best-practice instructions. Each is seeded once (idempotent) with provenance.
-  // Root-mode: the brain shares the root with everything else, so the path-prefix
-  // moat rules (protect-brain-*) don't transplant — write-gating there is opt-in
-  // per module; the generic safety floor still ships.
-  const seedRules = atRoot ? RULES.filter((r) => !r.id.startsWith('protect-brain')) : [...RULES, execGuardRule()];
+  // best-practice instructions. Each is seeded once (idempotent) with provenance — except
+  // protect-brain-exec, which RECONCILES its pattern every run (see writeOrReconcilePattern).
+  // Root-mode: the two .zuzuu/-path moat rules don't transplant (write-gating there is
+  // opt-in per module) but protect-brain-exec still ships — see PATH_SCOPED_BRAIN_RULE_IDS.
+  const seedRules = atRoot
+    ? [...RULES.filter((r) => !PATH_SCOPED_BRAIN_RULE_IDS.has(r.id)), execGuardRule()]
+    : [...RULES, execGuardRule()];
   const seedInstructions = atRoot ? INSTRUCTIONS.filter((i) => i.id !== 'propose-never-write') : INSTRUCTIONS;
   for (const r of [...seedRules, ...seedInstructions]) {
+    const p = join(home, 'instructions', 'items', `${r.id}.md`);
+    const label = `instructions/${r.id}`;
     // seeds carry the envelope floor too (title present by authorship; status filled)
-    writeOnce(join(home, 'instructions', 'items', `${r.id}.md`), serialize(fillFloor(r, r.id)), `instructions/${r.id}`);
+    if (r.id === 'protect-brain-exec') writeOrReconcilePattern(p, r, label);
+    else writeOnce(p, serialize(fillFloor(r, r.id)), label);
     ensureSeedLogged(home, 'instructions', r.id); // Layer 4: provenance for the seed
   }
 
   ensureGitignore(root, atRoot, ['instructions']);
-  return { ok: true, home, created, skipped };
+  return { ok: true, home, created, skipped, reconciled };
 }
 
 /** Layer 4 provenance: ensure a seeded note has a `create` mutation in its module log

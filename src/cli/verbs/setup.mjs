@@ -11,9 +11,12 @@ export const setupRows = [
     usage: 'init [--root]', summary: 'scaffold the Project — .zuzuu/ by default, or the repo root itself (--root)',
     handler: ({ args, cwd, log, json }) => {
       const r = initHome(cwd, { atRoot: !!args.root });
-      emit(log, json, { ok: true, home: r.home, created: r.created, skipped: r.skipped },
-        ['init', [{ home: r.home, created: r.created.length, skipped: r.skipped.length }], ['home', 'created', 'skipped']]);
+      emit(log, json, { ok: true, home: r.home, created: r.created, skipped: r.skipped, reconciled: r.reconciled },
+        ['init', [{ home: r.home, created: r.created.length, skipped: r.skipped.length, reconciled: r.reconciled.length }], ['home', 'created', 'skipped', 'reconciled']]);
       if (r.created.length && !json) log(`created: ${r.created.join(', ')}`);
+      // the exec-gate re-arming (SHOULD-FIX 1): a write verb added since this Project was
+      // last seeded now denies again — worth a human seeing it, not just a silent field patch.
+      if (r.reconciled.length && !json) log(`reconciled (a write verb was added to the table since last seed — the exec gate re-armed): ${r.reconciled.join(', ')}`);
       return 0;
     },
   },

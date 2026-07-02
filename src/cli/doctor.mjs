@@ -19,6 +19,8 @@ import { leftoverWarning } from './session.mjs';
 import { open } from '../serve/api.mjs';
 import { toon } from '../notes/toon.mjs';
 import { listTriggers } from '../grow/trigger.mjs';
+import { readNote } from '../notes/repo.mjs';
+import { gateWriteVerbPattern } from './commands.mjs';
 
 /** A structured health report: {problems[], warnings[], info[], ok}. */
 export function doctorReport(cwd = process.cwd()) {
@@ -53,6 +55,26 @@ export function doctorReport(cwd = process.cwd()) {
     if (mods.length) {
       const cronTriggers = listTriggers(zz.home).filter((t) => t.onKind === 'cron');
       if (cronTriggers.length) warnings.push(`${cronTriggers.length} cron trigger(s) declared — local zuzuu never auto-fires them (hosted-tier only); fire manually with \`zz trigger fire <module:id>\``);
+    }
+    // exec-gate staleness (SHOULD-FIX 1, docs/audits/2026-07-03-triggers-review.md): the
+    // `protect-brain-exec` rule's stored PATTERN is a snapshot of gateWriteVerbPattern()
+    // taken the last time `zz init` seeded/reconciled it — if a write verb is added to
+    // the command table afterward (e.g. `zz trigger fire`), an EXISTING Project's stored
+    // pattern goes stale and the new verb slips the Bash-bypass gate unblocked, silently.
+    // A root-mode Project seeded before this fix never got the rule AT ALL (root-mode
+    // used to skip every `protect-brain-*` rule, including this non-path-scoped one) —
+    // surfaces the same way, as "missing entirely". `zz init` reconciles/seeds it; name
+    // the gap here so it's caught before it bites, not after.
+    if (mods.length) {
+      try {
+        const execRule = readNote(home, 'instructions', 'protect-brain-exec');
+        const current = gateWriteVerbPattern();
+        if (!execRule) {
+          warnings.push('no protect-brain-exec exec-gate rule — an agent could shell a `zz` write verb (e.g. `zz trigger fire`) unblocked; run `zz init` to seed it');
+        } else if (execRule.pattern !== current) {
+          warnings.push('the protect-brain-exec exec-gate pattern is stale (a write verb was added to the command table since this Project was last seeded) — run `zz init` to reconcile it');
+        }
+      } catch { /* fail-soft — a broken probe degrades to silence, not a crash */ }
     }
   } else {
     problems.push(`no .zuzuu/ home — run \`zz init\``);

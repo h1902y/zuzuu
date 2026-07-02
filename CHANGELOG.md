@@ -8,6 +8,27 @@ that history).
 ## [Unreleased]
 
 ### Fixed
+- **The exec-gate can no longer go stale or ship unseeded** (SHOULD-FIX 1,
+  `docs/audits/2026-07-03-triggers-review.md`): the `protect-brain-exec` guardrail
+  (denies an agent shelling a `zz`/`zuzuu` WRITE verb — the Bash-bypass hole) stores
+  its pattern in a seeded rule note, and `zz init` used to seed it ONCE
+  (`writeOnce`) — an EXISTING project's stored pattern froze at first-seed, so a
+  write verb added later (e.g. `zz trigger fire`) was never denied there until a
+  human noticed. Worse, **root-mode never seeded it at all** (a blanket
+  `protect-brain-*` filter meant to skip only the two `.zuzuu/`-PATH-scoped rules
+  accidentally caught this non-path-scoped one too) — a root-mode Project (the kind
+  the personal vault uses) shipped with NO exec-gate rule, full stop. Fixed two
+  ways: `zz init` now RECONCILES `protect-brain-exec`'s `pattern` field (and only
+  that field — a human's edits to action/tool/reason/body survive) to the live
+  `gateWriteVerbPattern()` on every run, converging a stale install instead of
+  freezing it; and root-mode now seeds `protect-brain-exec` like classic mode
+  does. `zz doctor` also gained a new check: it flags a missing or stale
+  `protect-brain-exec` rule as a warning, so the gap is discoverable without
+  reading source. Kept the pattern STORED-in-a-note (not computed live at gate
+  time) deliberately — every other guardrail rule is a user-editable note, and
+  the gate is generic over "whatever rules live in this module," never
+  special-cased per rule id; reconciling the one generated field is the fix that
+  respects that architecture.
 - **The live-audit fixes (map-first for real)**: the World home renders on cold
   caches and survives project-state flaps (fs-fallback + durable-facts steady +
   the mount-race fix); root-mode projects read as Projects in state/health/

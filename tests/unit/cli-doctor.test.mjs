@@ -67,6 +67,45 @@ test('doctor: a cron trigger warns that local zuzuu never auto-fires it (hosted-
   });
 });
 
+// ── SHOULD-FIX 1 (docs/audits/2026-07-03-triggers-review.md): the exec-gate must not
+// go stale/missing silently ────────────────────────────────────────────────────────
+
+test('doctor: a fresh init has NO exec-gate warning (classic AND root-mode)', () => {
+  withDir((cwd) => {
+    initHome(cwd);
+    const r = doctorReport(cwd);
+    assert.ok(!r.warnings.some((w) => /exec-gate/.test(w)), r.warnings.join('\n'));
+  });
+  withDir((cwd) => {
+    initHome(cwd, { atRoot: true });
+    const r = doctorReport(cwd);
+    assert.ok(!r.warnings.some((w) => /exec-gate/.test(w)), r.warnings.join('\n'));
+  });
+});
+
+test('doctor: a MISSING protect-brain-exec rule is flagged (e.g. a pre-fix root-mode Project, or a deleted seed)', async () => {
+  const { rmSync: rm } = await import('node:fs');
+  withDir((cwd) => {
+    initHome(cwd);
+    rm(join(cwd, '.zuzuu', 'instructions', 'items', 'protect-brain-exec.md'));
+    const r = doctorReport(cwd);
+    assert.ok(r.warnings.some((w) => /no protect-brain-exec exec-gate rule/.test(w)), r.warnings.join('\n'));
+  });
+});
+
+test('doctor: a STALE protect-brain-exec pattern (missing a write verb the table now has) is flagged', async () => {
+  const { readFileSync, writeFileSync } = await import('node:fs');
+  const { parse, serialize } = await import('../../src/notes/note.mjs');
+  withDir((cwd) => {
+    initHome(cwd);
+    const p = join(cwd, '.zuzuu', 'instructions', 'items', 'protect-brain-exec.md');
+    const { note } = parse(readFileSync(p, 'utf8'), { id: 'protect-brain-exec' });
+    writeFileSync(p, serialize({ ...note, pattern: '(?:\\bzz|\\bzuzuu(?:\\.mjs)?)\\s+(?:note\\s+set)\\b' }));
+    const r = doctorReport(cwd);
+    assert.ok(r.warnings.some((w) => /protect-brain-exec exec-gate pattern is stale/.test(w)), r.warnings.join('\n'));
+  });
+});
+
 test('explain: a known topic prints it; no topic lists all', () => {
   const out = [];
   explain('modules', (s) => out.push(s));
