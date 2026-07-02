@@ -141,3 +141,21 @@ until the daemon aggregate route lands (the §H.3.3 follow-up already named).
 | Clause state single-sourced | PASS — typed input, attribute chips, and Filter panel all route through `useTableFilter`; sort/group write the reducer directly but are table-local (not map-mirrored) by design |
 | Operator writes instant (two-lanes) | FAIL — see S1 |
 | Filter grammar honored end-to-end (§H.3.1) | FAIL — see B1 |
+
+---
+
+## Fixed (same day)
+
+The BLOCKER, all three SHOULD-FIXes, and one trivial NIT — same-day, small commits, each gated on typecheck + full suite (721, up from 713) + build.
+
+| Finding | Commit | What changed |
+|---|---|---|
+| B1 — comparison/inequality filters dropped | `6f425d3` | `buildModuleQueryFlags` (`web/src/server/zuzuu-peek.ts`) now parses the op FIRST (longest-first, mirroring the CLI's own `parseWhere`), validates the key AFTER stripping the op, clamps the value, and forwards `key<op>value` verbatim — for both `/module/:key` and `/items`. Seam test: a `>=` clause asserted in the CLI argv through both routes (`web/tests/server/zuzuu-routes.test.ts`), plus a pure unit test for the full op grammar. |
+| S1 — Selection→Delete routed the operator's delete through the agent gate | `80f8a45` | Delete is now a two-step in-omnibar flow: "Delete N selected" pushes a count-confirm row ("Delete N rows — Enter to confirm"; Esc cancels, nothing written); confirming loops the daemon's existing instant per-row route (`DELETE /module/:key/row/:id` → `zz note delete`, added as `api.zuzuu.deleteRow`) — no proposals, no gate. The one-batch-verb gap is noted in code. Export and the agent-lane twin (`dataProvider.remove`) are untouched. |
+| S2 — stale selection leaks across navigation | `78940de` (store) + `80f8a45` (omnibar) | `clearIfScope` + `useClearSelectionOnQueryChange` (`web/src/client/state/table-selection.ts`) clear a table's selection on scope, filter, sort, or page change (one cleanup-based effect covers both). The omnibar's selection count and delete/export targets now read `selectionFor(currentScope)` (derived from the world selection), never the raw store. Pure store regression test added (no React). |
+| S3 — footer Σ read as a grand total when paginated | `1f08086` | `isPartialSum(total, loadedRows)` (`web/src/client/shell/stage/group-model.ts`, pure/tested) qualifies the footer's Σ as "page Σ" in a dashed chip whenever the server has more matching rows than are loaded; unchanged (and un-labelled) when the whole match set fits on one page. |
+| N4 — phantom `pl-31` Tailwind class | `b7f2ed4` | Replaced with `pl-[7.75rem]` (`web/src/client/note/NoteDocument.tsx`) — the relation edge-note indent actually renders now. |
+
+**Live verify** (rebuilt daemon, `~/Documents/personal`, claude-in-chrome): on the `actions` module table, `duration_days>=30` narrowed 8 rows → 4 (`job-application-prep`, `linkedin-industry-visibility`, `reddit-community-presence`, `twitter-profile-growth`, Σ 150) and dismissing the chip restored all 8 (Σ 193) — B1 confirmed live end-to-end. In the unified Everything table, selecting 2 rows and invoking Delete from ⌘K showed the count-confirm row exactly as designed ("Delete 2 rows — Enter to confirm"); Esc'd out without confirming — nothing was written (verified against the vault's git status and item count after the session). Changing the active filter made the Selection group disappear from the omnibar entirely, reproduced twice. Zero console messages (errors or otherwise) across the full session.
+
+Deferred (not in this pass, all previously flagged optional/NIT): N1 (multi-session provenance truncation), N2 (dead `width="wing"` branch), N3 (dead `propertyStack` export), N5 (the `k=a>=b` parser edge case — pathological, noted-only in the original review).
