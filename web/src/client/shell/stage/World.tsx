@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Table2 } from "lucide-react";
 import { api } from "../../lib/api.js";
 import { useWorld } from "../world-state.js";
+import { useWorldCommand } from "../../state/world-command.js";
 import { useReview } from "../../state/review.js";
 import { useReviewQueue } from "../review/use-review-queue.js";
 import { mountWorld, type WorldHandle } from "../../world/world.js";
@@ -52,6 +53,18 @@ export function World({ focus }: { focus?: string }) {
   useEffect(() => {
     if (focus && graph.data) handle.current?.focusModule(focus);
   }, [focus, graph.data]);
+
+  // the palette's camera commands (C3): consume once the engine has data
+  const pending = useWorldCommand((s) => s.pending);
+  const consume = useWorldCommand((s) => s.consume);
+  useEffect(() => {
+    if (!pending || !graph.data || !handle.current) return;
+    const c = consume();
+    if (!c) return;
+    if (c.kind === "fit") handle.current.fit();
+    else if (c.kind === "focusModule") handle.current.focusModule(c.module);
+    else handle.current.flyTo(c.addr);
+  }, [pending, graph.data, consume]);
 
   if (graph.isLoading) return <div className="grid h-full place-items-center"><Text tone="muted">loading the map…</Text></div>;
   if (graph.data && !graph.data.nodes.length) return <EmptyState icon={Table2} {...emptyCopy("grid-empty")} />;

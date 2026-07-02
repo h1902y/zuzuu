@@ -6,6 +6,7 @@
 import { useEffect, useReducer, useRef, useState } from "react";
 import { Send, Square, Wrench, Brain, ListChecks, TriangleAlert, CircleDot, ShieldQuestion, ShieldX, ShieldCheck } from "lucide-react";
 import { AcpConnection } from "../../lib/acp-client.js";
+import { useAcpIntent } from "../../state/acp-intent.js";
 import { applyAcpMessage, initialAcpView, type AcpView as AcpVM, type Block } from "./acp-model.js";
 import { Stack, Inline, Text, Button, Icon } from "../../ds/index.js";
 
@@ -35,6 +36,15 @@ export function AcpView({ id }: { id: string }) {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [vm.blocks.length]);
+
+  // the omnibar's `/prompt` hand-off (C3): one-shot — take() empties the queue,
+  // so a re-render can never double-send.
+  const takeIntent = useAcpIntent((s) => s.take);
+  useEffect(() => {
+    if (!vm.ready) return;
+    const queued = takeIntent();
+    if (queued) connRef.current?.send({ type: "prompt", text: queued });
+  }, [vm.ready, takeIntent]);
 
   const send = () => {
     const text = draft.trim();

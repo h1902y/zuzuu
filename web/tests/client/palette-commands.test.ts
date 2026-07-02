@@ -1,6 +1,6 @@
 // P2.5 — the grouped command-palette model.
 import { describe, it, expect } from "vitest";
-import { buildPaletteGroups } from "../../src/client/palette/palette-commands.js";
+import { buildPaletteGroups, omniGroup } from "../../src/client/palette/palette-commands.js";
 
 const base = {
   sessions: [{ id: "s1", title: "build" }],
@@ -42,5 +42,29 @@ describe("buildPaletteGroups", () => {
     expect(review.value).toMatch(/approve/);
     const table = groups.find((g) => g.heading === "Tables")!.commands[0]!;
     expect(table.value).toMatch(/module/);
+  });
+});
+
+describe("omniGroup — the omnibar's prefix modes (C3)", () => {
+  const modules = [{ id: "knowledge", title: "Knowledge" }, { id: "social", title: "Social" }];
+  it("null outside the prefix modes", () => {
+    expect(omniGroup("", modules)).toBeNull();
+    expect(omniGroup("plain search", modules)).toBeNull();
+  });
+  it("/prompt → one converse command carrying the prompt", () => {
+    const g = omniGroup("/summarize my week", modules)!;
+    expect(g.heading).toBe("Converse");
+    expect(g.commands[0]!.action).toEqual({ kind: "converse", prompt: "summarize my week" });
+  });
+  it("/ alone → a non-selecting placeholder", () => {
+    expect(omniGroup("/", modules)!.commands[0]!.action).toEqual({ kind: "noop" });
+  });
+  it("> alone lists everything; >fi filters to fit; module names focus islands", () => {
+    const all = omniGroup(">", modules)!;
+    expect(all.commands.map((c) => c.action.kind)).toEqual(["world-fit", "review", "world-module", "world-module"]);
+    const fit = omniGroup(">fi", modules)!;
+    expect(fit.commands.some((c) => c.action.kind === "world-fit")).toBe(true);
+    const mod = omniGroup(">module social", modules)!;
+    expect(mod.commands.some((c) => c.action.kind === "world-module" && (c.action as { id: string }).id === "social")).toBe(true);
   });
 });

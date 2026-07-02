@@ -3,6 +3,10 @@
 // project · Sessions · Tables) from the live context; each command carries a typed
 // action descriptor (not a closure) so the grouping/ordering/labeling is pure +
 // tested, and PaletteBody just maps the descriptor → a store call. Empty groups drop.
+// C3 completes the omnibar: `>` = world commands (fit · module · review), `/` = the
+// conversation (routed to the EXISTING ACP lane — the real interactive host).
+
+import { fuzzyScore } from "./palette-logic.js";
 
 export type PaletteAction =
   | { kind: "review" }
@@ -18,6 +22,10 @@ export type PaletteAction =
   | { kind: "open-note"; module: string; id: string }
   | { kind: "see-all-search"; query: string }
   | { kind: "create-note"; query: string }
+  // C3 — the omnibar modes: world camera commands + the ACP conversation hand-off
+  | { kind: "world-fit" }
+  | { kind: "world-module"; id: string }
+  | { kind: "converse"; prompt: string }
   | { kind: "noop" };
 
 export interface PaletteCommand {
@@ -100,4 +108,40 @@ export function buildPaletteGroups(ctx: PaletteContext): PaletteGroup[] {
   }
 
   return groups;
+}
+
+/** C3 — the omnibar's prefix modes. `/prompt` → ONE converse command (the ACP lane);
+ *  `>cmd` → the world commands (fit · review · module <name>, self-filtered — the
+ *  palette disables cmdk's filter in omni mode). null = not in an omni mode. */
+export function omniGroup(
+  query: string,
+  modules: { id: string; title: string }[],
+): PaletteGroup | null {
+  if (query.startsWith("/")) {
+    const prompt = query.slice(1).trim();
+    return {
+      heading: "Converse",
+      commands: [prompt
+        ? { value: "omni-converse", label: `Ask the agent — “${prompt}”`, action: { kind: "converse", prompt } }
+        : { value: "omni-converse", label: "Ask the agent — type your prompt…", action: { kind: "noop" } }],
+    };
+  }
+  if (query.startsWith(">")) {
+    const rest = query.slice(1).trim().toLowerCase();
+    const moduleArg = rest.replace(/^module\s*/, "");
+    const commands: PaletteCommand[] = [];
+    if (!rest || fuzzyScore(rest, "fit") !== null) {
+      commands.push({ value: "omni-fit", label: "fit — frame the whole map", action: { kind: "world-fit" } });
+    }
+    if (!rest || fuzzyScore(rest, "review") !== null) {
+      commands.push({ value: "omni-review", label: "review — open the gate", action: { kind: "review" } });
+    }
+    for (const m of modules) {
+      if (!rest || fuzzyScore(moduleArg, m.id) !== null || fuzzyScore(rest, `module ${m.id}`) !== null) {
+        commands.push({ value: `omni-module-${m.id}`, label: `module ${m.id} — focus the island`, action: { kind: "world-module", id: m.id } });
+      }
+    }
+    return commands.length ? { heading: "World", commands } : { heading: "World", commands: [{ value: "omni-none", label: "no matching command", action: { kind: "noop" } }] };
+  }
+  return null;
 }

@@ -20,14 +20,20 @@ import { dataProvider } from "../data/provider.js";
 import { newNoteId } from "../shell/stage/stage-header.js";
 import { toast } from "../state/toast.js";
 import { fuzzyScore } from "./palette-logic.js";
-import { buildPaletteGroups, type PaletteAction } from "./palette-commands.js";
+import { buildPaletteGroups, omniGroup, type PaletteAction } from "./palette-commands.js";
 import { notesGroup } from "./palette-rank.js";
+import { useWorldCommand } from "../state/world-command.js";
+import { useAcpIntent } from "../state/acp-intent.js";
 
 export default function PaletteBody() {
   const setPalette = useWorld((s) => s.setPalette);
   const select = useWorld((s) => s.select);
   const selected = useWorld((s) => s.selected);
   const sessions = useWorkbench((s) => s.sessions);
+  const acpSessions = useWorkbench((s) => s.acpSessions);
+  const registerAcp = useWorkbench((s) => s.registerAcp);
+  const requestWorld = useWorldCommand((s) => s.request);
+  const queuePrompt = useAcpIntent((s) => s.set);
   const setReview = useReview((s) => s.setOpen);
   const startSession = useStartSession();
   const enterProject = useEnterProject();
@@ -55,7 +61,10 @@ export default function PaletteBody() {
     hosts: HOSTS,
   });
   const notes = notesGroup(query, notesQuery.data ?? [], notesLoading);
-  const allGroups = notes ? [...groups, notes] : groups;
+  // C3 — the omnibar's prefix modes take over the palette: `>` world commands,
+  // `/` the conversation. Omni groups self-filter, so cmdk's filter stands down.
+  const omni = omniGroup(query, overview.data?.modules ?? []);
+  const allGroups = omni ? [omni] : notes ? [...groups, notes] : groups;
 
   const close = () => setPalette(false);
 
@@ -70,7 +79,32 @@ export default function PaletteBody() {
       case "open-session": select({ kind: "session", id: action.id }); break;
       case "open-module": select({ kind: "module", id: action.id }); break;
       case "switch-project": void enterProject(action.path); break;
-      case "open-note": select({ kind: "row", id: action.id, module: action.module }); break;
+      case "open-note":
+        // map-first (C3): open in the map — the World keeps the stage, the record
+        // opens as the wing, and the camera flies to the node.
+        select({ kind: "note", id: action.id, module: action.module });
+        requestWorld({ kind: "flyTo", addr: `${action.module}:${action.id}` });
+        break;
+      case "world-fit": select(null); requestWorld({ kind: "fit" }); break;
+      case "world-module": select(null); requestWorld({ kind: "focusModule", module: action.id }); break;
+      case "converse": {
+        // route to the EXISTING ACP drive lane (enhance, never reinvent): reuse the
+        // newest registered agent session, else create one; the prompt is queued and
+        // AcpView sends it on ready. The raw terminal lane is untouched.
+        const prompt = action.prompt;
+        void (async () => {
+          let id = acpSessions.at(-1)?.id ?? null;
+          if (!id) {
+            const created = await api.acp.create().catch(() => null);
+            if (!created) { toast("Couldn't start the agent (ACP) — try a terminal session", "error"); return; }
+            registerAcp(created.id);
+            id = created.id;
+          }
+          queuePrompt(prompt);
+          select({ kind: "acp", id });
+        })();
+        break;
+      }
       case "see-all-search": select({ kind: "search", query: action.query }); break;
       case "create-note": {
         // THE INVERSION — a create stages a proposal through the review gate, never a
@@ -89,7 +123,7 @@ export default function PaletteBody() {
     <div className="animate-fade fixed inset-0 z-50 flex justify-center bg-scrim pt-[12vh]" onClick={close}>
       <Command
         label="Command palette"
-        filter={(value, search) => { const s = fuzzyScore(search, value); return s === null ? 0 : 1 / (1 + s); }}
+        filter={omni ? () => 1 : (value, search) => { const s = fuzzyScore(search, value); return s === null ? 0 : 1 / (1 + s); }}
         className="animate-pop h-fit w-[560px] max-w-[90vw] overflow-hidden rounded-ui border border-border bg-elevated shadow-overlay"
         onClick={(e) => e.stopPropagation()}
       >
@@ -97,7 +131,7 @@ export default function PaletteBody() {
           autoFocus
           value={query}
           onValueChange={setQuery}
-          placeholder="jump to anything, or search your notes…"
+          placeholder="find anything · >world commands · /ask the agent"
           className="w-full border-b border-border bg-transparent px-4 py-3 text-body text-ink-100 outline-none placeholder:text-muted"
         />
         <Command.List className="max-h-[50vh] overflow-y-auto p-1">
