@@ -64,14 +64,28 @@ export class ApiError extends Error {
   }
 }
 
+/** The most PRECISE reason in a failed mutation's body (audit item 4). A 502 from
+ *  the daemon carries `{error: "zuzuu command failed", stderr, data}` where `data`
+ *  is the CLI's structured refusal (`{ok:false, error: "field 'company' is
+ *  required"}`) — that inner reason is what the user can act on; the generic
+ *  wrapper is what they used to get. Exported for tests. */
+export function apiErrorMessage(status: number, body: unknown): string {
+  const b = body as { error?: unknown; stderr?: unknown; data?: unknown } | null;
+  const inner = (b?.data as { error?: unknown } | undefined)?.error;
+  if (typeof inner === "string" && inner.trim()) return inner.trim();
+  if (typeof b?.stderr === "string" && b.stderr.trim()) return b.stderr.trim().split("\n").at(-1)!;
+  if (typeof b?.error === "string" && b.error.trim()) return b.error;
+  return `request failed (${status})`;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, init);
   if (!res.ok) {
     if (res.status === 401) {
       throw new ApiError(401, "not authorized — open the URL printed by the zz-web daemon");
     }
-    const body = (await res.json().catch(() => null)) as { error?: string } | null;
-    throw new ApiError(res.status, body?.error ?? `request failed (${res.status})`);
+    const body: unknown = await res.json().catch(() => null);
+    throw new ApiError(res.status, apiErrorMessage(res.status, body));
   }
   return res.json() as Promise<T>;
 }
