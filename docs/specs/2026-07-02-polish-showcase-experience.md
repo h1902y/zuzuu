@@ -364,3 +364,46 @@ Named columns only work when rows share a schema. The rule, by homogeneity:
   read (frontmatter rows + GFM body) — the third zoom rung of the table, so
   surveying → inspecting never changes surface. Edits, as always, only via
   the omnibar's pre-filled invocations.
+
+### §H.3 — Tabular operations: the full set (design discussion, 02-07 late)
+
+**1 · Filtering — one grammar, three entry points.** The filter input parses:
+free text → FTS clause; `key<op>value` → where clause; `#tag` → tag clause;
+special predicates → `is:orphan` (no links) · `has:body`/`no:body` ·
+`is:invalid` (floor/schema violations — the compliance lens) · `actor:agent|
+human` (provenance) · **`linked:<addr>`** (rows whose relations point at a note
+— the graph-aware filter no other table product has; backlinks as a WHERE).
+Every active clause renders as a dismissible chip. Facet rows (module · type ·
+status · tags) are just SUGGESTED clauses — clicking a facet = typing its
+clause. Attribute chips on rows (§H.2) are the third entry. All AND-composed,
+all server-side.
+
+**2 · Sorting.** Column-header click cycles asc/desc (core columns SQL-native;
+module-scoped EAV columns via the existing post-hydration path; stable addr
+tiebreak always). Single sort + tiebreak, no multi-sort (YAGNI).
+
+**3 · Group-by + aggregates (query v2 surfaced).** Group by any column →
+collapsible sections; headers carry counts and, when a numeric column is
+grouped-over, the aggregate ("active 6 · Σ duration_days 156"). One group-by
+at a time; powered by the existing aggregate() — no new engine.
+
+**4 · Selection + bulk ops — selection is context, the omnibar is the verb.**
+Multi-select rows (click-drag / x key) → the omnibar's context becomes "N rows":
+verbs = set <field> across selection · retype · delete · relate all to <addr> ·
+export selection. Bulk lands as ONE batch through commit (one generation,
+all-or-nothing); the agent-lane twin ("ask the agent to …") stages proposals.
+No bulk action ever lives as table chrome — omnibar only (§E doctrine).
+
+**5 · Column operations.** Show/hide/reorder as VIEW state (not global);
+column-header menu = canned omnibar invocations (sort · group by this ·
+filter by this · hide). In single-module scope, "add column" = the guided
+schema dialog (module add-column, operator-gated as today).
+
+**6 · Views close the loop.** Any filter+sort+group+column state → "Save as
+view" (a type:view note — gated, versioned, shareable); views render as chips
+and omnibar nouns; ONE view drives BOTH projections (table state ⟷ map
+spotlight). Export honors the current view (filtered CSV/JSON — the --where
+flags already ride module export's query).
+
+**7 · Cells stay read-only** (§H.1): click → pre-filled omnibar `set` verb;
+row expansion → inline detail. Pagination stays server-side.
