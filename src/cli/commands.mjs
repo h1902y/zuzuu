@@ -23,6 +23,7 @@
 
 import { setupRows } from './verbs/setup.mjs';
 import { dataRows } from './verbs/data.mjs';
+import { runRows } from './verbs/run.mjs';
 import { evolutionRows } from './verbs/evolution.mjs';
 import { inspectionRows } from './verbs/inspection.mjs';
 import { sessionRows } from './verbs/session.mjs';
@@ -85,6 +86,7 @@ const aliasRows = [
 export const COMMANDS = [
   ...setupRows,
   ...dataRows,
+  ...runRows,
   ...evolutionRows,
   ...inspectionRows,
   commandsRow,
@@ -207,10 +209,11 @@ const PLANE_LABEL = {
   inspection: 'inspect', session: 'sessions', registry: 'registry',
   steer: 'session briefs', host: 'hosts',
 };
-const NS_ORDER = ['module', 'note', 'gen', 'session', 'host', 'registry'];
+const NS_ORDER = ['module', 'note', 'run', 'gen', 'session', 'host', 'registry'];
 const NS_LABEL = {
   module: 'module — alter a typed-column schema (operator-gated)',
   note: 'note — edit notes (gated writes)',
+  run: 'run — the Tier-2 durable runner (the run is a note)',
   gen: 'gen — generations (the lineage)',
   session: 'session — the per-session git surface',
   host: 'host — launch & lifecycle',

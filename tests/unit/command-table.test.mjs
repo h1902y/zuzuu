@@ -49,7 +49,7 @@ const SWITCH_VERBS = [
 // level — as a canonical row (Tier-1) OR a deprecating alias — so the switch's surface
 // is intact. `module` is both a flat read verb AND a namespace (its Rung-6 schema
 // alter-table ops — add/alter/drop-column — live under it).
-const NAMESPACES = ['gen', 'host', 'module', 'note', 'registry', 'session'];
+const NAMESPACES = ['gen', 'host', 'module', 'note', 'registry', 'run', 'session'];
 
 /** Resolve a row to the handler it ultimately runs (following an `alias` pointer). */
 const canonicalOf = (row) => row.alias

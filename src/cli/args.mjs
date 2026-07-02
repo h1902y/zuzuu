@@ -48,11 +48,13 @@ export function whereFilters(rest) {
 }
 
 /** Repeated `--field k=v` → a change object. `coerce(key, value)` maps each value
- *  (identity by default; `note create` passes the schema-aware coercion). */
-export function fieldPairs(rest, coerce = (_k, v) => v) {
+ *  (identity by default; `note create` passes the schema-aware coercion). `flagName`
+ *  overrides the scanned flag (default `--field`) — `zz run start`'s `--input k=v`
+ *  reuses this SAME repeated-pair grammar rather than a second hand-rolled scanner. */
+export function fieldPairs(rest, coerce = (_k, v) => v, flagName = '--field') {
   const out = {};
   for (let i = 0; i < rest.length; i++) {
-    if (rest[i] === '--field' && rest[i + 1] != null) {
+    if (rest[i] === flagName && rest[i + 1] != null) {
       const eq = rest[i + 1].indexOf('=');
       if (eq > 0) {
         const k = rest[i + 1].slice(0, eq);
