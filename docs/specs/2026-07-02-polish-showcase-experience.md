@@ -492,3 +492,55 @@ reference:
   pre-filled omnibar invocation.
 Same component, three widths: panel (~420) · wing (~360) · row-expansion (full
 row width, groups collapse to two columns).
+
+## I — Zus that run: the self-correcting DAG (envisioned + grounded, 03-07-2026)
+
+**The thesis extension**: a process IS a note — so processes inherit everything:
+queryable rows, graph nodes, GENERATIONS (versioned workflows, rollback-able),
+provenance, and gate-governed evolution. No workflow engine has this: workflows
+that improve through an evidence-gated proposal loop.
+
+**Grounded audit (code-verified, file:line in the runnable-substrate scan):**
+- Action notes: `run:` + inputs→`ZZ_*` env vars; spawnSync at repo root; output
+  captured; every run gated (rule regex deny/ask/allow) + allowlisted
+  (`policy.run.allow`) + repo-root path check. runs.jsonl records actor ·
+  session · inputs · outcome — MODEL.md already names it "the feedback edge
+  for observe".
+- Workflow notes are TRUE DAGs — steps carry `depends-on` (Kahn topo-sort),
+  saga compensations run in REVERSE on failure, each step gated. (Better than
+  assumed.) But: sequential walk only; steps are INLINE shell strings — no
+  cross-note composition; idempotency/resume explicitly deferred; NO TIMEOUT
+  (spawnSync can hang forever).
+- Self-correction edge designed but UNWIRED: observe mines session transcripts,
+  never runs.jsonl.
+- Containment = gating, not isolation: no OS sandbox (tiers aspirational);
+  `bash -c` sub-trees bypass the gate by design; the gate is FAIL-OPEN on
+  malformed rules; act/flow are agentInvokable (the gate, not the actor check,
+  is the protection).
+- Relations between notes are purely descriptive — nothing executes from
+  depends-on/blocks across notes. No trigger/scheduler of any kind.
+
+**The gap ladder (leverage order — SAFETY BEFORE AUTOMATION):**
+1. **Composition** (S): a step may be `note: <module:id>` instead of inline
+   `run:` — workflows compose runnable notes; reuse + the DAG spans the graph.
+2. **The runs-miner** (M): observe's sibling reads runs.jsonl → failure/flake/
+   drift evidence → staged proposals against the action/workflow notes. This
+   wires the designed feedback edge; self-correction becomes real, gated.
+3. **The safety floor** (M, PREREQUISITE for 4): per-run timeout; fail-CLOSED
+   gating for agent-initiated runs; a containment decision (sandbox-runtime
+   integration or an honest "advisory-only" label per action); run concurrency
+   discipline (the commit lock exists; runs need one).
+4. **Triggers as notes** (M): `type: trigger` — {on: cron expr | commit |
+   note-change filter, run: <action ref>} — automation itself is a gated,
+   versioned note: agents PROPOSE triggers, humans approve, generations track
+   them. Every triggered run passes the same gate. Never before rung 3.
+5. **The Flow projection** (M): [Table · Map · Flow] — the third view: runnable
+   glyphs, depends-on/step edges as arrows (topo left→right), LIVE run state on
+   nodes via the brain push (idle · running · green/red last-outcome ring),
+   compensation edges firing on failure, ghost edges for proposed workflow
+   changes — the moat in the DAG. Replay a run's traversal like the biography.
+6. Parallel step execution · retry/resume · idempotency keys · typed step
+   ports (FieldDefs as input/output contracts) (L, later).
+
+One-line pitch this earns: **knowledge that runs, processes that learn, and a
+human gate on both.**
