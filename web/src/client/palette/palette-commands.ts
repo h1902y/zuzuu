@@ -10,7 +10,8 @@ import { fuzzyScore } from "./palette-logic.js";
 
 export type PaletteAction =
   | { kind: "review" }
-  | { kind: "overview" }
+  | { kind: "overview" } // legacy deep-link — lands on the map (§D)
+  | { kind: "settings-dialog" } // §D: Settings is a dialog, not a screen
   | { kind: "projects-home" }
   | { kind: "new-shell" }
   | { kind: "new-agent"; host: string }
@@ -82,8 +83,9 @@ export function buildPaletteGroups(ctx: PaletteContext): PaletteGroup[] {
     heading: "Navigate",
     commands: [
       { value: "everything all notes unified table", label: "Everything", action: { kind: "open-everything" } },
-      { value: "overview home base", label: "Overview", action: { kind: "overview" } },
+      // §D: the Overview page retired — the map + the needs-me HUD carry its signal
       { value: "all projects launcher manage", label: "All projects", action: { kind: "projects-home" } },
+      { value: "settings preferences config host", label: "Settings", action: { kind: "settings-dialog" } },
     ],
   });
 

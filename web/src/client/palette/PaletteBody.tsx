@@ -35,6 +35,7 @@ import { proposalsGroup, viewsGroup, type StagedRow } from "../omnibar/omni-sour
 import { OmniDetail } from "../omnibar/OmniDetail.js";
 import { AcpConversation } from "../shell/stage/AcpView.js";
 import { useModuleFilter } from "../state/module-filter.js";
+import { useSettingsDialog } from "../state/settings-dialog.js";
 
 export default function PaletteBody() {
   const setPalette = useWorld((s) => s.setPalette);
@@ -153,7 +154,8 @@ export default function PaletteBody() {
     switch (action.kind) {
       case "noop": return; // the loading placeholder — keep the palette open
       case "review": setReview(true); break;
-      case "overview": select({ kind: "overview" }); break;
+      case "overview": select(null); break; // §D: the retired page's deep link lands on the map
+      case "settings-dialog": useSettingsDialog.getState().setOpen(true); break;
       case "projects-home": goHome(); break;
       case "new-shell": void startSession("shell"); break;
       case "new-agent": void startSession("agent", action.host); break;

@@ -5,8 +5,10 @@
 // state (R5). No modes — sessions and modules are sibling node-types in one tree.
 // Logic-in-.ts (the project's pattern); the <WorkbenchShell> .tsx renders this.
 
-/** What the center stage shows. (ER is deferred — not a stage actor yet.) */
-export type StageActor = "world" | "terminal" | "grid" | "everything" | "record" | "overview" | "search" | "settings" | "acp";
+/** What the center stage shows. (ER is deferred — not a stage actor yet.)
+ *  §D: `overview` and `settings` retired as stages — the needs-me HUD pill +
+ *  the greeting absorbed the Overview; Settings is a footer-opened dialog. */
+export type StageActor = "world" | "terminal" | "grid" | "everything" | "record" | "search" | "acp";
 /** What the right wing shows; "none" = the wing retracts (R4). */
 export type WingActor = "review" | "form" | "schema" | "none";
 
@@ -50,9 +52,11 @@ export function selectActors(node: NavNode | null): Selection {
     // the New-note draft: the module's table stays the stage; the draft form is the wing
     case "draft": return { stage: "grid", wing: "form", crumb: [node.module, "new note"] };
     case "search": return { stage: "search", wing: "none", crumb: ["Search"] };
-    case "settings": return { stage: "settings", wing: "none", crumb: ["Settings"] };
     case "acp": return { stage: "acp", wing: "none", crumb: ["Agent", node.id.slice(0, 6)] };
-    case "overview": return { stage: "overview", wing: "none", crumb: [] };
+    // §D deep-link compat: the retired screens land on the map — the HUD pill
+    // carries the Overview's signal; Settings opens as a dialog (its own store).
+    case "settings": return { stage: "world", wing: "none", crumb: [] };
+    case "overview": return { stage: "world", wing: "none", crumb: [] };
     default: return { stage: "world", wing: "none", crumb: [] };
   }
 }

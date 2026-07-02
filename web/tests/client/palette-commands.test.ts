@@ -18,9 +18,9 @@ describe("buildPaletteGroups", () => {
       "Navigate", "Actions", "Switch project", "Sessions", "Tables",
     ]);
   });
-  it("Navigate carries Overview + All projects", () => {
+  it("Navigate carries Everything + All projects + Settings (Overview retired — §D)", () => {
     const nav = buildPaletteGroups(base)[0]!;
-    expect(nav.commands.map((c) => c.action.kind)).toEqual(["open-everything", "overview", "projects-home"]);
+    expect(nav.commands.map((c) => c.action.kind)).toEqual(["open-everything", "projects-home", "settings-dialog"]);
   });
   it("Actions includes one New-agent per host", () => {
     const actions = buildPaletteGroups(base).find((g) => g.heading === "Actions")!;

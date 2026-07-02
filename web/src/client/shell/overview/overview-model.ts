@@ -88,6 +88,29 @@ export function homeModel(input: {
   };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// §D — the needs-me HUD pill: the Overview page retired; its composite signal
+// lives ON the map as a persistent, calm chip (click → the review overlay).
+// Integrity rides the same pill as a quiet dot — trust stays visible (PL-4).
+
+export interface HudModel {
+  /** render the pill at all (calm nothing when everything's quiet) */
+  show: boolean;
+  label: string;
+  /** the quiet integrity dot (broken · orphans · stale > 0) */
+  integrity: boolean;
+}
+
+export function hudModel(pending: number, held: number, integrity: number): HudModel {
+  const needsMe = pending + held;
+  if (needsMe === 0 && integrity === 0) return { show: false, label: "", integrity: false };
+  return {
+    show: true,
+    label: needsMe > 0 ? `${needsMe} need${needsMe === 1 ? "s" : ""} you` : `${integrity} integrity`,
+    integrity: integrity > 0,
+  };
+}
+
 /** Name BOTH review classes so the home is honest about what needs the user. */
 export function needsMeCopy(pending: number, held: number): string {
   const parts: string[] = [];

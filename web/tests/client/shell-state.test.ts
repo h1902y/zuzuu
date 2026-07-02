@@ -12,16 +12,16 @@ describe("selectActors — the selection → stage/wing morph (no modes)", () =>
   it("row → record + form wing", () => {
     expect(selectActors({ kind: "row", id: "auth", module: "knowledge" })).toEqual({ stage: "record", wing: "form", crumb: ["knowledge", "auth"] });
   });
-  it("home/default → THE MAP (map-first, C1); Overview stays an explicit node", () => {
-    expect(selectActors({ kind: "overview" }).stage).toBe("overview");
+  it("home/default → THE MAP (map-first, C1); the retired Overview deep-links to it (§D)", () => {
+    expect(selectActors({ kind: "overview" }).stage).toBe("world");
     expect(selectActors(null)).toEqual({ stage: "world", wing: "none", crumb: [] });
   });
   it("note → the World stays the stage, record opens as the wing (reading never leaves the map)", () => {
     expect(selectActors({ kind: "note", id: "auth", module: "knowledge" })).toEqual({ stage: "world", wing: "form", crumb: ["knowledge", "auth"] });
   });
-  it("the whole-Project surfaces → their stage, wing retracts", () => {
+  it("the whole-Project surfaces → their stage, wing retracts (settings is a DIALOG now — §D)", () => {
     expect(selectActors({ kind: "search" })).toEqual({ stage: "search", wing: "none", crumb: ["Search"] });
-    expect(selectActors({ kind: "settings" })).toEqual({ stage: "settings", wing: "none", crumb: ["Settings"] });
+    expect(selectActors({ kind: "settings" })).toEqual({ stage: "world", wing: "none", crumb: [] });
   });
   it("acp session → the ACP conversation stage, wing retracts (short-id crumb)", () => {
     expect(selectActors({ kind: "acp", id: "abcdef1234" })).toEqual({ stage: "acp", wing: "none", crumb: ["Agent", "abcdef"] });

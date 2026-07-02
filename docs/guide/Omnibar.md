@@ -61,3 +61,40 @@ panel: streamed replies, tool cards, permission prompts — and `[[mentions]]`
 glow their nodes on the map behind. Esc pops back to the list; the
 conversation keeps running. The raw terminal stays available for full-fidelity
 sessions (`>` new shell, or the Sessions rows).
+
+## The adapter (§E.3) — plain language routes to the right command
+
+Type an intent instead of a command: the adapter resolves it over the CLOSED
+registry and shows its reading as the top **Do** row — Enter confirms, nothing
+auto-executes.
+
+- `add a lead acme to crm` → the crm draft form, pre-filled (staging on save —
+  the gate decides; the row carries the `proposal` badge honestly).
+- `show knowledge as a map` → the island. `open crm rows` → the table.
+- `review pending proposals` → the gate. `zoom out the map` → fit.
+
+Three tiers, cheapest first: exact grammar (untouched) → deterministic synonym
++ slot-filling (offline, no model) → when neither can place a 3+ word intent,
+ONE row offers **Ask the agent to do this →**, routing the raw text to the `/`
+chat with a sanctioned-channels preamble. There is deliberately no bespoke
+function-calling: the ACP lane + the review gate IS the tier-3 resolver.
+
+## The greeting (§E.4) — the zero-state is an assist
+
+⌘K with nothing typed greets you: a time-aware salutation, then a calm brief —
+what needs you (pending proposals + held sessions), where you were (the last
+session), integrity when it's worth a look — and **Suggested** rows (Review N ·
+Resume · Start a session · Open Everything), each an ordinary registry
+invocation. Typing collapses it; Esc lands on the World. The first open of the
+day presents it once. Composed entirely from existing reads — the greeting
+never spawns anything.
+
+## One screen (§D)
+
+There is one screen — the World. The Overview and Setup pages are retired: the
+needs-me pill (top-right, on the map) carries the Overview's signal and opens
+the gate; onboarding runs as a consent dialog sequence over the dimmed World
+(the recorded per-rung consent gates, relocated verbatim); Settings opens as a
+dialog from the footer's right edge; the nav rail is gone — ⌘K, the map, the
+HUD, and the footer are the navigation. Sessions live in the omnibar (type a
+session's name; Enter resumes — the raw terminal exactly as reachable as ever).

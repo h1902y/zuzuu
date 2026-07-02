@@ -25,7 +25,9 @@ import { Checklist } from "./onboarding/Checklist.js";
 import { companionView } from "./onboarding/companion-state.js";
 import { onboardingStep, recordConsent, reopen, RUNG_ROUTE, describeSetupFailure, type ConsentRecord, type PrepRungId, type SetupFailure } from "./onboarding/onboarding-state.js";
 import { loadConsent, saveConsent } from "./onboarding/onboarding-consent.js";
-import { Overview } from "./overview/Overview.js";
+import { hudModel } from "./overview/overview-model.js";
+import { HudPill } from "./HudPill.js";
+import { useSettingsDialog } from "../state/settings-dialog.js";
 import { Grid } from "./stage/Grid.js";
 import { Everything } from "./stage/Everything.js";
 import { Record } from "./stage/Record.js";
@@ -46,7 +48,6 @@ import { useEndSession } from "../state/end-session.js";
 import { EndSessionDialog } from "./session/EndSessionDialog.js";
 import { Loading, ThemeToggle, AppHeader, Text } from "../ds/index.js";
 import { useReview } from "../state/review.js";
-import { NavTree } from "./NavTree.js";
 import { Switcher } from "./switcher/Switcher.js";
 import { Ribbon } from "./Ribbon.js";
 
@@ -174,11 +175,22 @@ export function WorkbenchShell() {
   const sessionsLite = sessions.map((s) => ({ id: s.id, live: s.alive, lastActiveAt: s.createdAt }));
   const pState: ProjectStateKind | undefined = projectState.data?.state;
   // content modules (beyond the safety floor) flip the home to the map even when a
-  // later rung is open — the checklist stays reachable via the nav setup node
+  // later rung is open — the open rung stays reachable via the ribbon hint
   const contentModules = modules.filter((m) => m.id !== "instructions" && m.id !== "guardrails").length;
   const onboarding = pState !== undefined && homeMode(pState, contentModules) === "onboarding";
-  // ribbon setup nudge (R8) — only when home (the checklist) isn't the current view, so the same prompt never double-surfaces
-  const setupHint = pState !== undefined && pState !== "steady" && selected !== null ? RUNG_HINT[currentRung(pState)] : undefined;
+  // ribbon setup nudge (R8) — visible whenever a rung is open and the checklist
+  // dialog isn't (the dialog only shows during full onboarding)
+  const setupHint = pState !== undefined && pState !== "steady" && !onboarding ? RUNG_HINT[currentRung(pState)] : undefined;
+  // §D — the needs-me HUD pill: the Overview's composite signal, ON the map
+  const heldQ = useQuery({ queryKey: ["zuzuu", "held"], queryFn: api.zuzuu.held });
+  const integrity = modules.reduce((n, m) => n + (m.counts?.errors ?? 0), 0);
+  const hud = hudModel(
+    Object.values(pendingByModule).reduce((n, v) => n + v, 0),
+    heldQ.data?.held?.length ?? 0,
+    integrity,
+  );
+  const settingsOpen = useSettingsDialog((s) => s.open);
+  const setSettingsOpen = useSettingsDialog((s) => s.setOpen);
 
   // The per-step CONSENT GATE (U3): setup no longer auto-fires. A durable consent record
   // (localStorage, per-workspace) + the mechanical state derive the onboarding step; the
@@ -270,9 +282,10 @@ export function WorkbenchShell() {
       />
 
       <div className="flex min-h-0 flex-1">
-        <NavTree />
-
-        <main className="flex min-w-0 flex-1 flex-col bg-app">
+        {/* §D: the nav tree is retired — the palette (⌘K), the map, the HUD pill,
+            and the footer ARE the navigation; sessions live in the omnibar source. */}
+        <main className="relative flex min-w-0 flex-1 flex-col bg-app">
+          <HudPill hud={hud} onClick={() => setReview(true)} />
           {header.show && (
             <StageHeader crumb={stageCrumb} primary={stagePrimary} tabs={stageTabs} activeTab={activeTab} onTab={onTab} />
           )}
@@ -338,35 +351,15 @@ export function WorkbenchShell() {
               <Record module={selected.module} id={selected.id} />
             ) : sel.stage === "search" ? (
               <Search />
-            ) : sel.stage === "settings" ? (
-              <Settings />
             ) : sel.stage === "acp" && selected?.kind === "acp" ? (
               <AcpView id={selected.id} />
             ) : projectState.isLoading || overview.isLoading ? (
               <Loading />
-            ) : sel.stage === "world" && !onboarding ? (
-              // MAP-FIRST (C1): the steady-state home is the World — the whole Project
-              // as the living map. Onboarding keeps the Overview+checklist below
-              // (the map never takes over a first-run); Overview stays one click away.
-              <World />
             ) : (
-              // U5: no hard-swap — the home always renders; onboarding composes IN as a
-              // receding companion block (no full-stage takeover), so completing the last
-              // rung recedes in place instead of snapping to the dashboard.
-              <Overview
-                name={workspace.data?.name ?? "this project"}
-                emoji={workspace.data?.emoji}
-                path={workspace.data?.root ?? ""}
-                enabled={projectState.data?.host.enabled ?? false}
-                modules={modules}
-                sessions={sessions}
-                onStartSession={() => void startSession()}
-                onReview={() => setReview(true)}
-                companion={onboarding && pState ? (
-                  <Checklist projectName={workspace.data?.name ?? "this project"} companion step={onboardStep} failure={setupError} onAffirm={affirmRung} onDecline={declineRung} onReopen={reopenRung} onRetry={retrySetup} onStartSession={onStartSession} starting={busy === "session"} />
-                ) : undefined}
-                segue={pState !== undefined && companionView(pState, sessions.length).segue}
-              />
+              // MAP-FIRST, single-screen (§D): the home IS the World, always — an
+              // onboarding project shows its (empty) world too, with the checklist
+              // riding above as a dialog. There is no other home screen.
+              <World />
             )}
           </div>
         </main>
@@ -388,7 +381,32 @@ export function WorkbenchShell() {
         )}
       </div>
 
-      <Ribbon sessions={sessionsLite} pendingByModule={pendingByModule} setupHint={setupHint} onReview={() => setReview(true)} />
+      <Ribbon sessions={sessionsLite} pendingByModule={pendingByModule} setupHint={setupHint} onReview={() => setReview(true)} onSettings={() => setSettingsOpen(true)} />
+
+      {/* §D — onboarding is a DIALOG SEQUENCE over the dimmed World: the recorded
+          consent gates (per-rung affirm/decline/reopen, resumable, failures inline
+          with retry) relocate verbatim; only the container changed. Not dismissible
+          — consent is the way through, exactly as the checklist page was. */}
+      {onboarding && pState && (
+        <div className="animate-fade fixed inset-0 z-40 flex items-center justify-center bg-scrim p-10">
+          <div className="animate-pop max-h-full w-full max-w-xl overflow-y-auto rounded-lg border border-border bg-elevated p-8 shadow-overlay">
+            {companionView(pState, sessions.length).label && (
+              <div className="mb-4 text-meta text-muted">{companionView(pState, sessions.length).label}</div>
+            )}
+            <Checklist projectName={workspace.data?.name ?? "this project"} companion step={onboardStep} failure={setupError} onAffirm={affirmRung} onDecline={declineRung} onReopen={reopenRung} onRetry={retrySetup} onStartSession={onStartSession} starting={busy === "session"} />
+          </div>
+        </div>
+      )}
+
+      {/* §D — Settings: a dialog from the footer's right edge; the canvas undisturbed */}
+      {settingsOpen && (
+        <>
+          <button type="button" aria-label="close settings" onClick={() => setSettingsOpen(false)} className="animate-fade fixed inset-0 z-40 bg-scrim" />
+          <div className="animate-pop fixed inset-x-0 top-16 z-50 mx-auto flex max-h-96 w-full max-w-2xl flex-col overflow-y-auto rounded-lg border border-border bg-elevated shadow-overlay">
+            <Settings />
+          </div>
+        </>
+      )}
 
       {reviewOpen && (
         <>
