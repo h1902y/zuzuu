@@ -24,6 +24,19 @@ that history).
 - The corpus signature is computed once per index rebuild, not twice.
 
 ### Added
+- **The World (web)**: the workbench's map surface is now a real two-level force
+  world (`client/world/` — module bodies with repulsion/collision/affinity springs
+  driving per-note physics), ported from the startpage galaxy: constellation chips
+  (drag an island, click a module), dotted boundary rings, semantic-zoom label
+  bands, addr-keyed everything. **The moat renders in the map**: pending create
+  proposals appear as dashed pulsing ghost nodes orbiting their module; approve →
+  the ghost solidifies into a real node (live, via the brain push). Replaces the
+  fixed-circle ModuleGraph stub.
+- **Competitive frame** in the README: vs agent-harness wrappers (our modules
+  graduate) and vs Notion/Airtable/Obsidian/Tana/Anytype (agent-grown ·
+  human-gated · git-native · local-first).
+- Dedicated `check` integrity tests (was the top coverage risk: newly load-bearing
+  as the home's trust signal, previously untested).
 - **Query engine v2**: `--where` grows comparison operators (`k>=v`, `k<=v`,
   `k>v`, `k<v`, `k!=v` — numeric operands compare numerically, everything else
   lexicographically, which is exactly right for ISO dates); `--group-by <key>

@@ -75,6 +75,15 @@ Three things make it safe and sticky:
 | sessions & versions | **git's object model** — session = branch, generation = commit, rollback = `git restore` (no parallel blob store) |
 | the query store | **`node:sqlite`** — FTS5 + recursive-CTE graph walks over your markdown, rebuilt on demand, zero-dep |
 
+## Where zuzuu sits (the competitive frame)
+
+Two arenas, one product:
+
+- **vs agent-harness wrappers** (static CLAUDE.md/skills bundles): our modules **graduate** — the loop grows them from real sessions, through a human gate. A wrapper configures; zuzuu learns.
+- **vs personal databases & PKM** (Notion, Airtable, Obsidian, Tana, Anytype): a module IS a table and a note IS a row there too — but ours is **agent-grown** (the rows accrete from conversation and observed work, not manual entry), **human-gated** (an agent can only *propose*; automated memory systems poison themselves — the gate is the defense none of them ship), **git-native** (every generation is a commit; rollback is forward motion; sync is `git push`), and **local-first, zero-dep, plain markdown** (no server, no lock-in — your table is a folder you can read).
+
+The four properties together are the moat: *conversing about your project keeps building your personal application*, and nothing lands you didn't approve.
+
 ## Host coverage
 
 zuzuu is host-agnostic by construction (the capture core iterates detected adapters, never a host name). **Five hosts ship, each built against that host's own real on-disk format** — Claude Code (transcript JSONL), Codex (rollout JSONL), Gemini CLI (logs.json), OpenCode (SQLite), pi (session JSONL). `zz observe` mines them all; the lifecycle hook + the `PreToolUse` guardrails gate (it hard-blocks `rm -rf /` and friends, fails open on anything it can't evaluate) are wired for Claude Code, with the same hook path mapping the other hosts' lifecycle events.
