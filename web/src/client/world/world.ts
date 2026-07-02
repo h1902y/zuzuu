@@ -42,6 +42,10 @@ export interface WorldHandle {
    *  resolved to its unique owner; unknown/ambiguous ignored). Fades after ~4s or
    *  when the next glow replaces it. The conversation lighting the map (C3). */
   glow(mentions: string[]): void;
+  /** The module filter, rendered spatially: the named addrs stay lit, everything
+   *  else dims (nodes, labels, links without a lit end). PERSISTENT until replaced
+   *  or cleared with null — unlike glow, this is a lens, not a flash. */
+  spotlight(addrs: string[] | null): void;
   destroy(): void;
 }
 
@@ -139,7 +143,10 @@ export function mountWorld(container: HTMLElement, cb: WorldCallbacks = {}): Wor
       { w: W, h: H },
     );
     const byAddr = new Map(nodes.map((n) => [n.addr, n]));
-    const data = picks.map((a) => byAddr.get(a)).filter((n): n is SimNode => !!n);
+    // under a spotlight, only lit notes earn cards — a card on a dimmed node
+    // would read as the filter lying
+    const data = picks.map((a) => byAddr.get(a))
+      .filter((n): n is SimNode => !!n && (spot === null || spot.has(n.addr)));
     const sel = cardLayer.selectAll<HTMLDivElement, SimNode>("div.zz-world-card")
       .data(data, (d) => d.addr);
     sel.exit().remove();
@@ -356,6 +363,7 @@ export function mountWorld(container: HTMLElement, cb: WorldCallbacks = {}): Wor
     buildChips();
     rebuildGhosts();
     restyle();
+    applySpotlight(); // the joins rebuilt the selections — the lens must survive new data
     sim.alpha(prev.size ? 0.3 : 0.9).restart();
   }
 
@@ -396,6 +404,21 @@ export function mountWorld(container: HTMLElement, cb: WorldCallbacks = {}): Wor
     if (destroyed) return;
     rawGhosts = list;
     rebuildGhosts();
+  }
+
+  // ── spotlight (the module filter, spatial) ──
+  let spot: Set<string> | null = null;
+  const addrOf = (v: SimNode | string): string => (typeof v === "string" ? v : v.addr);
+  function applySpotlight(): void {
+    nodeSel.classed("zz-world-dim", (d) => spot !== null && !spot.has(d.addr));
+    labelSel.classed("zz-world-dim", (d) => spot !== null && !spot.has(d.addr));
+    linkSel.classed("zz-world-dim", (d) =>
+      spot !== null && !(spot.has(addrOf(d.source)) || spot.has(addrOf(d.target))));
+  }
+  function spotlight(addrs: string[] | null): void {
+    if (destroyed) return;
+    spot = addrs === null ? null : new Set(addrs);
+    applySpotlight();
   }
 
   // ── glow (the conversation lighting the map) ──
@@ -455,6 +478,7 @@ export function mountWorld(container: HTMLElement, cb: WorldCallbacks = {}): Wor
     flyTo,
     fit,
     glow,
+    spotlight,
     destroy(): void {
       destroyed = true;
       if (glowTimer) clearTimeout(glowTimer);

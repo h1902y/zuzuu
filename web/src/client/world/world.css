@@ -46,6 +46,12 @@
   filter: drop-shadow(0 0 7px var(--color-accent));
 }
 
+/* the module filter as a LENS: everything outside the spotlight recedes but
+   stays present — the filter narrows attention, it never pretends notes left */
+.zz-world-node.zz-world-dim { opacity: 0.12; pointer-events: none; }
+.zz-world-label.zz-world-dim { opacity: 0 !important; }
+.zz-world-link.zz-world-dim { stroke-opacity: 0.05; }
+
 .zz-world-label {
   fill: var(--color-ink-300);
   font-family: var(--font-mono-data);

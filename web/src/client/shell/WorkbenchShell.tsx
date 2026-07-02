@@ -12,6 +12,7 @@ import { Composer } from "../composer/Composer.js";
 import { api, ApiError } from "../lib/api.js";
 import { brainEvents } from "../lib/brain-events.js";
 import { useModuleView, viewOf, type ModuleView } from "../state/module-view.js";
+import { FilterChips } from "./stage/FilterChips.js";
 import { useWorkbench } from "../state/store.js";
 import { useWorld } from "./world-state.js";
 import { selectActors } from "./shell-state.js";
@@ -264,9 +265,18 @@ export function WorkbenchShell() {
                 </>
               )
             ) : sel.stage === "grid" && selected?.kind === "module" ? (
-              // the Graph tab mounts the WHOLE world, focused on this module —
-              // physics is project-level (two coupled sims); focus is a camera move
-              activeModuleTab === "graph" ? <World focus={selected.id} /> : <Grid module={selected.id} />
+              // the Map projection mounts the WHOLE world, focused on this module —
+              // physics is project-level (two coupled sims); focus is a camera move.
+              // The shared filter rides both projections: chips above the map name
+              // the spotlight; the same lens filters the table.
+              activeModuleTab === "graph" ? (
+                <div className="flex min-h-0 flex-1 flex-col">
+                  <FilterChips module={selected.id} />
+                  <div className="min-h-0 flex-1"><World focus={selected.id} /></div>
+                </div>
+              ) : (
+                <Grid module={selected.id} />
+              )
             ) : sel.stage === "grid" && selected?.kind === "draft" ? (
               // the New-note draft: the module's table stays visible; the form is the wing
               <Grid module={selected.module} />

@@ -12,7 +12,8 @@ import { useWorldCommand } from "../../state/world-command.js";
 import { useReview } from "../../state/review.js";
 import { useReviewQueue } from "../review/use-review-queue.js";
 import { mountWorld, type WorldHandle } from "../../world/world.js";
-import { reconcileGhosts } from "../../world/model.js";
+import { reconcileGhosts, spotlightAddrs } from "../../world/model.js";
+import { useModuleFilter, filterOf, isFiltering } from "../../state/module-filter.js";
 import { emptyCopy } from "../empty-copy.js";
 import { EmptyState, Text } from "../../ds/index.js";
 import "../../world/world.css";
@@ -63,6 +64,19 @@ export function World({ focus }: { focus?: string }) {
   useEffect(() => {
     if (focus && graph.data) handle.current?.focusModule(focus);
   }, [focus, graph.data]);
+
+  // the module filter, spatial: the grid's active filter (shared store) becomes a
+  // spotlight on the focused island — matching notes lit, the rest receding. The
+  // chip row above the map (FilterChips) names the filter and clears it.
+  const filter = useModuleFilter((s) => (focus ? filterOf(s.byModule, focus) : null));
+  useEffect(() => {
+    if (!handle.current || !graph.data) return;
+    if (focus && filter && isFiltering(filter)) {
+      handle.current.spotlight(spotlightAddrs(graph.data.nodes, focus, filter));
+    } else {
+      handle.current.spotlight(null);
+    }
+  }, [focus, filter, graph.data]);
 
   // the palette's camera commands (C3): consume once the engine has data
   const pending = useWorldCommand((s) => s.pending);
