@@ -25,6 +25,8 @@ export type PaletteAction =
   // C3 — the omnibar modes: world camera commands + the ACP conversation hand-off
   | { kind: "world-fit" }
   | { kind: "world-module"; id: string }
+  // the Table⇄Map toggle (>table / >map): flip the current module's projection
+  | { kind: "module-view"; view: "table" | "graph" }
   | { kind: "converse"; prompt: string }
   | { kind: "noop" };
 
@@ -132,6 +134,13 @@ export function omniGroup(
     const commands: PaletteCommand[] = [];
     if (!rest || fuzzyScore(rest, "fit") !== null) {
       commands.push({ value: "omni-fit", label: "fit — frame the whole map", action: { kind: "world-fit" } });
+    }
+    // the two projections of the current module (T also toggles them in place)
+    if (!rest || fuzzyScore(rest, "table") !== null) {
+      commands.push({ value: "omni-table", label: "table — this module as rows", action: { kind: "module-view", view: "table" } });
+    }
+    if (!rest || fuzzyScore(rest, "map") !== null) {
+      commands.push({ value: "omni-map", label: "map — this module as an island", action: { kind: "module-view", view: "graph" } });
     }
     if (!rest || fuzzyScore(rest, "review") !== null) {
       commands.push({ value: "omni-review", label: "review — open the gate", action: { kind: "review" } });

@@ -11,6 +11,7 @@ import { TermView } from "../term/TermView.js";
 import { Composer } from "../composer/Composer.js";
 import { api, ApiError } from "../lib/api.js";
 import { brainEvents } from "../lib/brain-events.js";
+import { useModuleView, viewOf, type ModuleView } from "../state/module-view.js";
 import { useWorkbench } from "../state/store.js";
 import { useWorld } from "./world-state.js";
 import { selectActors } from "./shell-state.js";
@@ -70,7 +71,10 @@ export function WorkbenchShell() {
   const projectState = useQuery({ queryKey: ["zuzuu", "project-state"], queryFn: api.zuzuu.projectState });
   const qc = useQueryClient();
   const [busy, setBusy] = useState<RungId | null>(null);
-  const [moduleView, setModuleView] = useState<string>("table"); // the module stage's Table·Graph tab (P2.7)
+  // the module stage's Table⇄Map projection lives in a per-module store so the
+  // T shortcut and the palette (>table / >map) reach it from anywhere
+  const viewByModule = useModuleView((s) => s.byModule);
+  const setModuleView = useModuleView((s) => s.set);
   const [sessionView, setSessionView] = useState<string>("terminal"); // the session stage's Terminal·Changes tab (P2.8)
   const reviewOpen = useReview((s) => s.open);
   const setReview = useReview((s) => s.setOpen);
@@ -86,14 +90,14 @@ export function WorkbenchShell() {
     brainEvents.start(() => void qc.invalidateQueries({ queryKey: ["zuzuu"] }));
   }, [qc]);
 
-  // Reset each stage's tab when the SELECTION changes, so a tab choice (Graph /
-  // Changes) never leaks to the next module/session (it's a per-node view, not global).
-  const moduleId = selected?.kind === "module" ? selected.id : null;
+  // The session tab resets on selection change (a per-node view). The MODULE view
+  // does not: it lives per-module in the module-view store — a choice never leaks
+  // to the NEXT module (the C1 rule holds), and a return visit keeps its projection.
   const sessionId = selected?.kind === "session" ? selected.id : null;
-  useEffect(() => { setModuleView("table"); }, [moduleId]);
   useEffect(() => { setSessionView("terminal"); }, [sessionId]);
 
-  // Global shortcuts: ⌘K opens the omnibar; R toggles the review gate (unless typing / in a terminal).
+  // Global shortcuts: ⌘K opens the omnibar; R toggles the review gate; T flips the
+  // module stage's Table⇄Map projection (unless typing / in a terminal).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setPalette(true); return; }
@@ -101,6 +105,11 @@ export function WorkbenchShell() {
       const el = e.target as HTMLElement;
       if (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable) return;
       if (e.key === "r" || e.key === "R") { e.preventDefault(); setReview(!useReview.getState().open); }
+      else if (e.key === "t" || e.key === "T") {
+        // ONE continuous space, two projections — T toggles them in a module context
+        const sel = useWorld.getState().selected;
+        if (sel?.kind === "module") { e.preventDefault(); useModuleView.getState().toggle(sel.id); }
+      }
       else if (e.key === "Escape") setReview(false);
     };
     window.addEventListener("keydown", onKey);
@@ -197,15 +206,18 @@ export function WorkbenchShell() {
       : header.primary?.key === "end-session" && activeSession
         ? { label: "End session", icon: Power, variant: "outline" as const, onClick: () => requestEnd(activeSession) }
         : null;
-  // the stage tab strips: a module's Table·Graph (P2.7), a session's Terminal·Changes (P2.8).
-  const MODULE_TABS: StageTab[] = [{ key: "table", label: "Table" }, { key: "graph", label: "Graph" }];
+  // the stage tab strips: a module's Table⇄Map segmented toggle (one control, two
+  // projections of one space — `T` flips it), a session's Terminal·Changes (P2.8).
+  const MODULE_TABS: StageTab[] = [{ key: "table", label: "Table" }, { key: "graph", label: "Map" }];
   const totalPending = Object.values(pendingByModule).reduce((n, v) => n + v, 0);
   const SESSION_TABS = sessionTabs(totalPending);
-  const activeModuleTab = resolveTab(MODULE_TABS, moduleView);
+  const activeModuleTab = selected?.kind === "module" ? resolveTab(MODULE_TABS, viewOf(viewByModule, selected.id)) : undefined;
   const activeSessionTab = resolveTab(SESSION_TABS, sessionView);
   const stageTabs = selected?.kind === "module" ? MODULE_TABS : selected?.kind === "session" ? SESSION_TABS : undefined;
   const activeTab = selected?.kind === "module" ? activeModuleTab : selected?.kind === "session" ? activeSessionTab : undefined;
-  const onTab = selected?.kind === "module" ? setModuleView : selected?.kind === "session" ? setSessionView : undefined;
+  const onTab = selected?.kind === "module"
+    ? (key: string) => setModuleView(selected.id, key as ModuleView)
+    : selected?.kind === "session" ? setSessionView : undefined;
 
   return (
     <div className="flex h-full flex-col">

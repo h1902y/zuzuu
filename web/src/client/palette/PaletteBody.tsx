@@ -24,6 +24,7 @@ import { buildPaletteGroups, omniGroup, type PaletteAction } from "./palette-com
 import { notesGroup } from "./palette-rank.js";
 import { useWorldCommand } from "../state/world-command.js";
 import { useAcpIntent } from "../state/acp-intent.js";
+import { useModuleView } from "../state/module-view.js";
 
 export default function PaletteBody() {
   const setPalette = useWorld((s) => s.setPalette);
@@ -90,6 +91,24 @@ export default function PaletteBody() {
         break;
       case "world-fit": select(null); requestWorld({ kind: "fit" }); break;
       case "world-module": select(null); requestWorld({ kind: "focusModule", module: action.id }); break;
+      case "module-view": {
+        // flip the projection of the module IN CONTEXT (selected module, or the
+        // module of the focused note/row/draft). No module context: >map falls back
+        // to the World home (the whole map); >table has nothing to project — say so.
+        const module = selected?.kind === "module" ? selected.id
+          : selected?.kind === "note" || selected?.kind === "row" || selected?.kind === "draft" ? selected.module
+            : null;
+        if (module) {
+          useModuleView.getState().set(module, action.view);
+          select({ kind: "module", id: module });
+        } else if (action.view === "graph") {
+          select(null);
+          requestWorld({ kind: "fit" });
+        } else {
+          toast("no table in focus — try >module <name> first");
+        }
+        break;
+      }
       case "converse": {
         // route to the EXISTING ACP drive lane (enhance, never reinvent): reuse the
         // newest registered agent session, else create one; the prompt is queued and

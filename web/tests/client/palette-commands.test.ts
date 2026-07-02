@@ -61,10 +61,16 @@ describe("omniGroup — the omnibar's prefix modes (C3)", () => {
   });
   it("> alone lists everything; >fi filters to fit; module names focus islands", () => {
     const all = omniGroup(">", modules)!;
-    expect(all.commands.map((c) => c.action.kind)).toEqual(["world-fit", "review", "world-module", "world-module"]);
+    expect(all.commands.map((c) => c.action.kind)).toEqual(["world-fit", "module-view", "module-view", "review", "world-module", "world-module"]);
     const fit = omniGroup(">fi", modules)!;
     expect(fit.commands.some((c) => c.action.kind === "world-fit")).toBe(true);
     const mod = omniGroup(">module social", modules)!;
     expect(mod.commands.some((c) => c.action.kind === "world-module" && (c.action as { id: string }).id === "social")).toBe(true);
+  });
+  it(">table / >map flip the module projection (the Table⇄Map toggle)", () => {
+    const table = omniGroup(">table", modules)!;
+    expect(table.commands.some((c) => c.action.kind === "module-view" && (c.action as { view: string }).view === "table")).toBe(true);
+    const map = omniGroup(">map", modules)!;
+    expect(map.commands.some((c) => c.action.kind === "module-view" && (c.action as { view: string }).view === "graph")).toBe(true);
   });
 });
