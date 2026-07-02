@@ -72,6 +72,17 @@ export function ephemeraDir(root = repoRoot()) {
   return join(root, '.zuzuu');
 }
 
+/** `ephemeraDir`, but for a caller that already has a HOME (not a root) — e.g.
+ *  `notes/log.mjs`'s secrets resolution, which only ever receives `home`. Classic
+ *  mode's home already IS `.zuzuu` (== `ephemeraDir(root)`, unchanged); root-mode's
+ *  home IS the repo root, so ephemera is `<home>/.zuzuu`. Distinguished with the
+ *  SAME root-marker sniff `homeDir` uses (in root-mode home === root, so the marker
+ *  lives at `<home>/project.md`) — never a path-shape guess. Resolves to the SAME
+ *  physical `.zuzuu/` dir as `ephemeraDir(root)` in both modes. */
+export function ephemeraDirFromHome(home) {
+  return isZuzuuRoot(home) ? join(home, '.zuzuu') : home;
+}
+
 // ── out-of-repo, machine-local dirs (XDG) ─────────────────────────────────────
 // Rebuildable cache + transient run-state do NOT belong in the tracked tree (even
 // gitignored). They live in OS dirs keyed to THIS project by a hash of its home

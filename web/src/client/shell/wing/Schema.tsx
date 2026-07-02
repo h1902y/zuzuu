@@ -3,20 +3,26 @@
 // ƒ formula) + its per-module generation LINEAGE STRIP (§G.2 — teach the
 // substrate): a compact horizontal strip (n · relative mintedAt · from-count),
 // current highlighted. Clicking a chip opens its detail: "what changed" (the
-// real gen.diff route) + a QUIET rollback hint — rollback is destructive, so
-// it stays a canned omnibar-invocation hint this pass, never a wired button
-// (the capability still rides api.zuzuu.rollback for a future omnibar wiring).
-// Columns are READ-ONLY (§H.6 doctrine): edit via the grid's header caret or
-// "+ column" toolbar (FieldConfigPanel), never a second write surface.
+// real gen.diff route) + "rollback to here" — routes through the EXISTING
+// `POST .../generation/:id/rollback` (already wired + tested; the omnibar has no
+// rollback verb yet, so a hint pointing at ⌘K would promise a feature that isn't
+// there) with the honest consequence printed beside it: rollback is FORWARD
+// motion, a new generation, never a destructive rewrite. Columns are READ-ONLY
+// (§H.6 doctrine): edit via the grid's header caret or "+ column" toolbar
+// (FieldConfigPanel), never a second write surface.
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { GitCompare } from "lucide-react";
 import type { GenerationSummary } from "#shared/index.js";
 import { api } from "../../lib/api.js";
+import { toast } from "../../state/toast.js";
 import { relativeTimeFromIso } from "../../lib/time.js";
+import { modulePath } from "../../lib/plain-file.js";
+import { PlainFilePath } from "../../lib/PlainFilePath.js";
+import { useRootMode } from "../../state/root-mode.js";
 import { fieldsFromSchema } from "../stage/schema-fields.js";
 import { TypeGlyph } from "../stage/TypeGlyph.js";
-import { Stack, Inline, Text, Icon, Box } from "../../ds/index.js";
+import { Stack, Inline, Text, Icon, Box, Button } from "../../ds/index.js";
 
 const STATUS_TONE: Record<string, "accent" | "danger" | "subtle"> = { A: "accent", D: "danger", M: "subtle" };
 
@@ -66,10 +72,13 @@ function GenerationChip({ g, active, open, onToggle, nowMs }: {
 }
 
 export function Schema({ module }: { module: string }) {
+  const qc = useQueryClient();
   const schema = useQuery({ queryKey: ["zuzuu", "schema", module], queryFn: () => api.zuzuu.schema(module) });
   const q = useQuery({ queryKey: ["zuzuu", "generations", module], queryFn: () => api.zuzuu.generations(module) });
   const fields = fieldsFromSchema(schema.data?.schema);
+  const rootMode = useRootMode();
   const [openGen, setOpenGen] = useState<string | null>(null);
+  const [rollingBack, setRollingBack] = useState(false);
 
   if (q.isLoading) return <div className="grid h-full place-items-center"><Text tone="muted">loading…</Text></div>;
   const data = q.data;
@@ -77,6 +86,17 @@ export function Schema({ module }: { module: string }) {
   const openIdx = data ? data.generations.findIndex((g) => g.id === openGen) : -1;
   const openG = openIdx >= 0 ? data!.generations[openIdx] : null;
   const prevG = openIdx > 0 ? data!.generations[openIdx - 1] : null;
+
+  async function rollback(id: string) {
+    setRollingBack(true);
+    try {
+      await api.zuzuu.rollback(module, id);
+      toast(`Rolled ${module} back to gen ${id} — landed as a new generation`);
+      void qc.invalidateQueries({ queryKey: ["zuzuu"] });
+      setOpenGen(null);
+    } catch { toast("Couldn’t roll back", "error"); }
+    finally { setRollingBack(false); }
+  }
 
   return (
     <div className="h-full overflow-y-auto p-6">
@@ -106,8 +126,12 @@ export function Schema({ module }: { module: string }) {
               ))}
             </div>
           )}
-          {/* §G.3 — the contract, visible: the schema card names its own file. */}
-          <Text size="meta" tone="muted">this is a plain file — {module}/module.md</Text>
+          {/* §G.3 — the contract, visible: the schema card names its own file
+              (root-mode aware — undefined while loading holds the generic path). */}
+          <Inline gap="xs" align="baseline">
+            <Text size="meta" tone="muted">this is a plain file —</Text>
+            <PlainFilePath path={rootMode === undefined ? `${module}/module.md` : modulePath(module, rootMode)} />
+          </Inline>
         </Stack>
 
         <Stack gap="md">
@@ -132,16 +156,19 @@ export function Schema({ module }: { module: string }) {
               {openG && (
                 <Box pad="sm" bg="surface" border="hairline" radius="ui">
                   <Stack gap="sm">
-                    {/* rollback: a QUIET hint, never a wired button here — destructive
-                        (§G.2's explicit call). The capability itself still lives at
-                        api.zuzuu.rollback for a future real omnibar invocation. */}
+                    {/* rollback: routes through the EXISTING, already-wired gen
+                        rollback path (§G.2's explicit instruction) — the consequence
+                        printed beside it, since Airtable can't say this: rollback is
+                        FORWARD motion, a new generation, never a rewrite in place. */}
                     {openG.id !== data.active && (
-                      <Text
-                        size="meta" tone="muted" mono
-                        title="rollback is destructive — this pass shows the invocation it maps to, not a button; run it from the omnibar (⌘K) once wired"
-                      >
-                        {`> gen rollback ${module} ${openG.id}`}
-                      </Text>
+                      <Inline gap="sm" align="center" wrap>
+                        <Button variant="outline" size="sm" disabled={rollingBack} onClick={() => void rollback(openG.id)}>
+                          {rollingBack ? "Rolling back…" : `Roll back to gen ${openG.id}`}
+                        </Button>
+                        <Text size="meta" tone="muted">
+                          → lands as gen {data.active ? Number(data.active) + 1 : "N+1"} — a new forward generation, rollback-able itself
+                        </Text>
+                      </Inline>
                     )}
                     <Stack gap="xs">
                       <Inline gap="xs" align="center">

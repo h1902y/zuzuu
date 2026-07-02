@@ -21,6 +21,7 @@
 
 import { existsSync, appendFileSync, readFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
+import { ephemeraDirFromHome } from './store.mjs';
 
 const MUTATIONS = new Set(['create', 'update', 'delete', 'deprecate']);
 const RUNS = new Set(['run', 'query']);
@@ -40,6 +41,10 @@ export const REDACTED = '‹redacted›';
  * `readSecretValues`) is redacted regardless of its key — catches a secret riding in
  * under an innocuous name (e.g. `inputs.lead_email_password`'s twin, a raw value
  * passed as `inputs.x`). Never mutates `inputs`; returns a new object.
+ * NIT (audit 2026-07-03): top-level only — a secret nested at `inputs.config.token`
+ * is not matched. Harmless today because `use/act.mjs` flattens inputs to
+ * `ZZ_<k>=String(v)` before spawning, so inputs are always flat scalars in practice;
+ * revisit if/when typed/structured step inputs land.
  */
 export function redactInputs(inputs, secretValues = []) {
   if (!inputs || typeof inputs !== 'object') return inputs;
@@ -52,15 +57,19 @@ export function redactInputs(inputs, secretValues = []) {
 }
 
 /**
- * Read secret VALUES (never names) from `<home>/secrets.env` (KEY=value lines, one
- * per line, gitignored — §I.1.3's secrets doctrine: notes reference names, values
- * resolve at run time). Fail-soft → [] when the file is missing, empty, or
- * unreadable — a run must never fail because its secrets file couldn't be read for
- * redaction purposes (the child's own env read, in use/act.mjs, is separate and
- * untouched by this).
+ * Read secret VALUES (never names) from `<ephemera>/secrets.env` (KEY=value lines,
+ * one per line, gitignored — §I.1.3's secrets doctrine: notes reference names,
+ * values resolve at run time). `<ephemera>` is `ephemeraDirFromHome(home)` — in
+ * classic mode `home` already IS `.zuzuu`, so this coincides with the old
+ * `<home>/secrets.env`; in root-mode `home` is the repo root, so this resolves to
+ * `<root>/.zuzuu/secrets.env` (gitignored) instead of the un-gitignored
+ * `<root>/secrets.env` a bare `join(home, ...)` would have produced. Fail-soft → []
+ * when the file is missing, empty, or unreadable — a run must never fail because its
+ * secrets file couldn't be read for redaction purposes (the child's own env read, in
+ * use/act.mjs, is separate and untouched by this).
  */
 export function readSecretValues(home) {
-  const path = join(home, 'secrets.env');
+  const path = join(ephemeraDirFromHome(home), 'secrets.env');
   if (!existsSync(path)) return [];
   try {
     return readFileSync(path, 'utf8')

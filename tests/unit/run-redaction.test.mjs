@@ -15,6 +15,17 @@ function withHome(setup, fn) {
   setup(home);
   try { return fn(home); } finally { rmSync(root, { recursive: true, force: true }); }
 }
+
+// a root-mode home: the repo root itself, marked by a root project.md (see
+// tests/unit/root-mode.test.mjs) — home === root, so secrets must resolve via the
+// ephemera dir helper (`<root>/.zuzuu/secrets.env`), never a bare `<root>/secrets.env`.
+const ROOT_MARKER = serialize({ type: 'project', title: 't', format: 'zuzuu/v2', body: 'root-mode' });
+function withRootModeHome(setup, fn) {
+  const root = mkdtempSync(join(tmpdir(), 'zz-redact-root-'));
+  writeFileSync(join(root, 'project.md'), ROOT_MARKER);
+  setup(root);
+  try { return fn(root); } finally { rmSync(root, { recursive: true, force: true }); }
+}
 const writeZu = (home, module, id, note) => {
   mkdirSync(join(home, module, 'items'), { recursive: true });
   writeFileSync(join(home, module, 'items', `${id}.md`), serialize({ id, ...note }));
@@ -74,6 +85,23 @@ test('readSecretValues: fail-soft — missing file returns []', () => {
   });
 });
 
+// SF1 (audit 2026-07-03): root-mode's home IS the repo root, so secrets must resolve
+// via the ephemera dir (`<root>/.zuzuu/secrets.env`, gitignored), never a bare
+// `<home>/secrets.env` (== `<root>/secrets.env`, un-gitignored, and not where the
+// doctrine puts them) — this is the test whose absence hid the bug.
+test('readSecretValues: root-mode home resolves via the ephemera dir, not a bare <root>/secrets.env', () => {
+  withRootModeHome((root) => {
+    // the doctrine-correct location: <root>/.zuzuu/secrets.env (gitignored ephemera)
+    mkdirSync(join(root, '.zuzuu'), { recursive: true });
+    writeFileSync(join(root, '.zuzuu', 'secrets.env'), 'STRIPE_KEY=sk-test-rootmode\n');
+    // a decoy at the OLD, buggy location — must NOT be read
+    writeFileSync(join(root, 'secrets.env'), 'DECOY_KEY=sk-test-decoy\n');
+  }, (root) => {
+    const values = readSecretValues(root); // home === root in root-mode
+    assert.deepEqual(values, ['sk-test-rootmode'], 'reads the ephemera-dir secrets file, ignores the un-gitignored decoy at the root');
+  });
+});
+
 // ── logRun: redacts the LOGGED copy only ─────────────────────────────────────
 
 test('logRun: redacts a secret-shaped key before writing to runs.jsonl', () => {
@@ -99,6 +127,25 @@ test('logRun: redacts an input VALUE that matches a secrets.env value, by value 
   });
 });
 
+// SF1 (audit 2026-07-03): the same value-under-an-innocuous-key trigger, but on a
+// ROOT-MODE home (home === repo root) — this is the test whose absence hid the bug.
+// Before the fix, readSecretValues(root) read a nonexistent `<root>/secrets.env`
+// (the doctrine-correct file lives at `<root>/.zuzuu/secrets.env`), silently got [],
+// and trigger (2) of redactInputs redacted nothing on the real root-mode deployment.
+test('logRun: root-mode — a secret value under an innocuous key IS redacted (regression for SF1)', () => {
+  withRootModeHome((root) => {
+    mkdirSync(join(root, '.zuzuu'), { recursive: true });
+    writeFileSync(join(root, '.zuzuu', 'secrets.env'), 'STRIPE_KEY=sk-test-rootmode\n');
+  }, (root) => {
+    const home = root; // root-mode: home IS the repo root
+    mkdirSync(join(home, 'actions'), { recursive: true });
+    logRun(home, 'actions', 'x', { inputs: { comment: 'sk-test-rootmode', other: 'fine' }, exitCode: 0, success: true });
+    const logged = read(home, 'actions', 'runs')[0];
+    assert.equal(logged.inputs.comment, REDACTED, 'root-mode: the secret value leaked under an innocuous key — still caught');
+    assert.equal(logged.inputs.other, 'fine');
+  });
+});
+
 // ── act(): end to end — the env passed to the CHILD stays real; only the log redacts ──
 
 test('act: the child process sees the REAL secret value; only runs.jsonl is redacted', () => {
@@ -113,5 +160,25 @@ test('act: the child process sees the REAL secret value; only runs.jsonl is reda
     assert.match(r.stdout, /sk-live-realvalue/, 'the CHILD got the real, unredacted value');
     const logged = read(home, 'actions', 'runs')[0];
     assert.equal(logged.inputs.apiKey, REDACTED, 'the LOGGED copy is redacted');
+  });
+});
+
+// SF1 (audit 2026-07-03): the same end-to-end proof, on a ROOT-MODE home, with the
+// secret riding under an INNOCUOUS key (value-match trigger, not the key-shape
+// heuristic) — the exact combination the audit found untested and broken.
+test('act: root-mode end to end — a secret under an innocuous key is redacted in the log; the child still gets the real value', () => {
+  withRootModeHome((root) => {
+    mkdirSync(join(root, '.zuzuu'), { recursive: true });
+    writeFileSync(join(root, '.zuzuu', 'secrets.env'), 'STRIPE_KEY=sk-test-rootmode\n');
+    writeManifest(root, 'actions', { note_type: 'action' });
+    writeZu(root, 'actions', 'echo-secret', { type: 'action', title: 'echo', run: 'printenv ZZ_comment' });
+  }, (root) => {
+    const home = root; // root-mode: home IS the repo root
+    const ctx = { home, module: 'actions', manifest: readManifest(home, 'actions') };
+    const r = act(ctx, 'echo-secret', { comment: 'sk-test-rootmode' });
+    assert.equal(r.ok, true);
+    assert.match(r.stdout, /sk-test-rootmode/, 'the CHILD got the real, unredacted value');
+    const logged = read(home, 'actions', 'runs')[0];
+    assert.equal(logged.inputs.comment, REDACTED, 'root-mode: LOGGED copy is redacted even though "comment" is not a secret-shaped key');
   });
 });

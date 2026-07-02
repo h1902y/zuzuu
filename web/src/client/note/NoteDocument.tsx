@@ -12,6 +12,8 @@ import { Command } from "lucide-react";
 import { Gfm } from "../lib/Gfm.js";
 import { api } from "../lib/api.js";
 import { relativeTimeFromIso } from "../lib/time.js";
+import { notePath, modulePath } from "../lib/plain-file.js";
+import { PlainFilePath } from "../lib/PlainFilePath.js";
 import { moduleHue } from "../world/model.js";
 import { TypeGlyph } from "../shell/stage/TypeGlyph.js";
 import { StatusPill } from "../shell/stage/StatusPill.js";
@@ -20,6 +22,7 @@ import { noteGroups, leadOf, bornHere, targetAddr, type AttrRow } from "./note-d
 import { historyExtra, historyOpLabel } from "./note-history-model.js";
 import { useWorld } from "../shell/world-state.js";
 import { useWorldCommand } from "../state/world-command.js";
+import { useRootMode } from "../state/root-mode.js";
 import { Icon, Text } from "../ds/index.js";
 
 export type NoteDocumentWidth = "panel" | "wing" | "row";
@@ -88,6 +91,9 @@ export function NoteDocument({ item, fields = [], width = "panel" }: {
   const born = bornHere(item);
   const body = typeof item.body === "string" ? item.body : "";
   const two = width === "row"; // row expansion: full width, groups in two columns
+  // §G.3 — the plain-file link: root-mode aware (undefined while project-state is
+  // still loading — the caption holds rather than guess a wrong prefix).
+  const rootMode = useRootMode();
 
   // §G.1 — a note's history: the module's log.jsonl filtered to this note (the
   // daemon's peek-only /history route — no CLI verb backs this read). Collapsed
@@ -143,8 +149,12 @@ export function NoteDocument({ item, fields = [], width = "panel" }: {
           <GroupCard title="Core">{groups.core.map((r) => <AttrLine key={r.key} row={r} />)}</GroupCard>
         )}
         {groups.schema.length > 0 && (
-          // §G.3 — the contract, visible: the schema card names its own file.
-          <GroupCard title="Fields" footnote={`this is a plain file — ${item.module}/module.md`}>
+          // §G.3 — the contract, visible: the schema card names its own file
+          // (root-mode aware — undefined while loading holds the generic line).
+          <GroupCard
+            title="Fields"
+            footnote={`this is a plain file — ${rootMode === undefined ? `${item.module}/module.md` : modulePath(item.module, rootMode)}`}
+          >
             {groups.schema.map((r) => <AttrLine key={r.key} row={r} />)}
           </GroupCard>
         )}
@@ -220,17 +230,22 @@ export function NoteDocument({ item, fields = [], width = "panel" }: {
       )}
 
       {/* quiet footer + the ONE affordance (doctrine: edits only via the omnibar) */}
-      <div className="flex items-center justify-between gap-3 border-t border-border pt-2">
-        {bornAt ? (
-          <Text as="button" interactive size="meta" tone="muted" onClick={openBornInHistory}>
-            {born ? `born: ${born}` : "born here"}
-          </Text>
-        ) : (
-          <Text size="meta" tone="muted">{born ? `born: ${born}` : `${item.module}:${item.id}`}</Text>
-        )}
-        <span className="inline-flex items-center gap-1 text-meta text-muted">
-          <Icon icon={Command} size={12} /> K to act
-        </span>
+      <div className="flex flex-col gap-1 border-t border-border pt-2">
+        <div className="flex items-center justify-between gap-3">
+          {bornAt ? (
+            <Text as="button" interactive size="meta" tone="muted" onClick={openBornInHistory}>
+              {born ? `born: ${born}` : "born here"}
+            </Text>
+          ) : (
+            <Text size="meta" tone="muted">{born ? `born: ${born}` : `${item.module}:${item.id}`}</Text>
+          )}
+          <span className="inline-flex items-center gap-1 text-meta text-muted">
+            <Icon icon={Command} size={12} /> K to act
+          </span>
+        </div>
+        {/* §G.3 — the plain-file link: this note IS a file; show the path + copy,
+            never a file-opener (the browser can't reach the local filesystem). */}
+        {rootMode !== undefined && <PlainFilePath path={notePath(item.module, item.id, rootMode)} />}
       </div>
     </div>
   );
