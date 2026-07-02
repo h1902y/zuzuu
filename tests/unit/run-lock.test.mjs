@@ -10,7 +10,7 @@ import { readManifest } from '../../src/notes/module.mjs';
 import { cacheDir } from '../../src/notes/store.mjs';
 import { acquireRunLock } from '../../src/use/run-lock.mjs';
 import { act } from '../../src/use/act.mjs';
-import { runWorkflow } from '../../src/use/workflow.mjs';
+import { runWorkflow, workflowStaleAfterMs } from '../../src/use/workflow.mjs';
 
 function withHome(setup, fn) {
   const root = mkdtempSync(join(tmpdir(), 'zz-lock-'));
@@ -145,5 +145,40 @@ test('workflow: a concurrent invocation of the same workflow note is refused', (
     held.release();
     const r2 = runWorkflow(home, 'actions', 'flow');
     assert.equal(r2.ok, true);
+  });
+});
+
+// SF2 (audit 2026-07-03): the lock staleness window must cover a worst-case
+// failure-then-full-rollback, not just the run phase — else a legitimate rollback
+// still in flight can have its own lock stolen by a concurrent invocation, the exact
+// double-run the lock exists to prevent.
+test('workflow: the lock staleness window covers a worst-case failure-then-full-rollback (compensation budget included)', () => {
+  const steps = [
+    { id: 'a', run: 'true', compensate: 'true', timeout: 5 },
+    { id: 'b', run: 'true', compensate: 'true', timeout: 5, 'depends-on': 'a' },
+    { id: 'c', run: 'false', timeout: 5, 'depends-on': 'b' }, // fails → rolls back a and b
+  ];
+  const staleAfterMs = workflowStaleAfterMs(steps); // 15s run budget + 240s compensation budget + grace
+  withHome((home) => {
+    writeZu(home, 'actions', 'flow', { type: 'workflow', title: 'w', steps });
+  }, (home) => {
+    const held = acquireRunLock(home, 'actions', 'flow', staleAfterMs);
+    assert.equal(held.ok, true);
+    const dir = join(cacheDir(home), 'run-locks', 'actions__flow.lock');
+
+    // backdate to JUST inside the worst-case window (age < staleAfterMs) — a run that
+    // failed late and is still legitimately rolling back must NOT lose its lock. The
+    // OLD (buggy) computation omitted the compensation budget entirely, so an age
+    // like this (well past run-phase-only budget) would have been misjudged stale.
+    const justInside = new Date(Date.now() - (staleAfterMs - 5_000));
+    utimesSync(dir, justInside, justInside);
+    const stillRolling = runWorkflow(home, 'actions', 'flow');
+    assert.equal(stillRolling.running, true, 'still within the worst-case rollback window — refused, not stolen');
+
+    // push past the FULL worst-case window — now genuinely stale, steal proceeds
+    const pastWindow = new Date(Date.now() - (staleAfterMs + 5_000));
+    utimesSync(dir, pastWindow, pastWindow);
+    const stolen = runWorkflow(home, 'actions', 'flow');
+    assert.notEqual(stolen.running, true, 'past the full window — the lock was reacquired (stolen), not refused');
   });
 });

@@ -38,6 +38,26 @@ function topoSort(steps) {
 }
 
 /**
+ * The workflow-wide lock staleness window: the worst-case total time a legitimate
+ * run could still be holding the lock. That's every step's own resolved timeout
+ * (the run phase) PLUS, for every step that carries a `compensate`, a compensation
+ * timeout budget (the rollback phase) — a failure downstream of several completed
+ * steps runs compensations for ALL of them in reverse. The compensation loop below
+ * calls `runGated` with NO per-step timeout override, so each compensation actually
+ * runs at `resolveTimeoutMs()`'s DEFAULT (not the step's own `timeout:`, which only
+ * governs the primary run) — budget that same default, not the step's `timeout`, so
+ * the window matches what can really happen. Without this term a late failure whose
+ * full rollback runs near the compensation default could outlive the window and let
+ * a concurrent invocation steal the lock mid-rollback — the exact double-run the
+ * lock exists to prevent, at the most fragile moment.
+ */
+export function workflowStaleAfterMs(steps) {
+  const runBudget = steps.reduce((sum, s) => sum + resolveTimeoutMs(s.timeout), 0);
+  const compensateBudget = steps.filter((s) => s.compensate).length * resolveTimeoutMs();
+  return runBudget + compensateBudget + LOCK_GRACE_MS;
+}
+
+/**
  * Run a workflow note. `actor` ('operator' default | 'agent', stamped at the dispatch
  * boundary and threaded here from wire.mjs's `flow` registration) rides into every
  * step's runGated call — an unattended agent actor fails CLOSED on a malformed rule /
@@ -56,9 +76,9 @@ export function runWorkflow(home, module, id, inputs = {}, actor = 'operator') {
   const ordered = topoSort(note.steps);
   if (!ordered) return { ok: false, error: 'workflow steps have a cycle or a dangling depends-on' };
 
-  // one lock for the WHOLE workflow; its staleness window is the sum of every step's
-  // own resolved timeout (the worst-case total run time) + grace.
-  const staleAfterMs = ordered.reduce((sum, s) => sum + resolveTimeoutMs(s.timeout), 0) + LOCK_GRACE_MS;
+  // one lock for the WHOLE workflow; its staleness window is the worst-case total
+  // run + rollback time (see workflowStaleAfterMs).
+  const staleAfterMs = workflowStaleAfterMs(ordered);
   const lock = acquireRunLock(home, module, id, staleAfterMs);
   if (!lock.ok) return { ok: false, ...lock };
 

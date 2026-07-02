@@ -5,7 +5,8 @@ import { mkdtempSync, rmSync, mkdirSync, writeFileSync, existsSync, readFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { serialize } from '../../src/notes/note.mjs';
-import { runWorkflow } from '../../src/use/workflow.mjs';
+import { runWorkflow, workflowStaleAfterMs } from '../../src/use/workflow.mjs';
+import { LOCK_GRACE_MS } from '../../src/use/run-lock.mjs';
 
 function withHome(fn) {
   const root = mkdtempSync(join(tmpdir(), 'zz-flow-'));
@@ -63,4 +64,28 @@ test('workflow: a cycle / dangling dep is refused', () => {
     put(home, 'notflow', { type: 'action', run: 'true' });
     assert.match(runWorkflow(home, 'actions', 'notflow').error, /not a workflow/);
   });
+});
+
+// SF2 (audit 2026-07-03) — the lock staleness window must budget the compensation
+// (rollback) phase, not just the run phase, because a failed workflow runs every
+// completed step's `compensate` before releasing the lock.
+test('workflowStaleAfterMs: budgets step timeouts AND a default compensation timeout per compensable step, plus grace', () => {
+  const steps = [
+    { id: 'a', run: 'true', compensate: 'true', timeout: 5 },   // compensable
+    { id: 'b', run: 'true', compensate: 'true', timeout: 5 },   // compensable
+    { id: 'c', run: 'false', timeout: 5 },                       // no compensate
+  ];
+  // 3 steps * 5s each (run phase) + 2 compensable steps * the compensation loop's
+  // DEFAULT timeout (120s — compensations get no per-step override) + grace.
+  const expected = 5_000 * 3 + 120_000 * 2 + LOCK_GRACE_MS;
+  assert.equal(workflowStaleAfterMs(steps), expected);
+});
+
+test('workflowStaleAfterMs: a workflow with no compensable steps adds no rollback budget', () => {
+  const steps = [{ id: 'a', run: 'true', timeout: 5 }, { id: 'b', run: 'true', timeout: 5 }];
+  assert.equal(workflowStaleAfterMs(steps), 5_000 * 2 + LOCK_GRACE_MS);
+});
+
+test('workflowStaleAfterMs: a step with no declared timeout budgets the run-phase default (120s)', () => {
+  assert.equal(workflowStaleAfterMs([{ id: 'a', run: 'true' }]), 120_000 + LOCK_GRACE_MS);
 });
