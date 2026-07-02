@@ -167,3 +167,42 @@ stateful-concurrency bug that WILL bite once the daemon/trigger rung drives conc
 ticks), and fold in S2 (make the idempotency key usable, or stop claiming it is) and S3
 (test the lock and the re-tick). The NITs are polish. The single-driver path shipping
 today is correct as-is.
+
+## Fixed (2026-07-03)
+
+All three SHOULD-FIXes landed as gated, individually green commits on
+`feat/personal-app-roadmap`; two NITs folded in as a fourth. 624/624 tests green
+(617 baseline + 7 new).
+
+| Finding | Commit | What changed |
+|---|---|---|
+| **S1** — run-note lock under-budgets a `note:`-to-workflow tick | `db00517` | `runNoteLockBudgetMs` peeks (lock-free) at the step `advanceRun` is about to tick; when it's a `note:` step whose target is a `type: workflow`, the lock is sized via `workflowStaleAfterMs` over THAT workflow's own steps (the same primitive already fixing Tier-0 composition's lock) instead of the fixed `MAX_TIMEOUT_S`+grace ceiling. Every other step shape (inline `run:`, `wait:`, note-ref-to-leaf-action) keeps the unchanged fixed budget. **Chose per-tick sizing over the audit's offered fallback** (rejecting note-ref-to-workflow steps in a single tick) — see "S1: which approach" below. Two new tests: a slow multi-step nested workflow's lock window covers it (concurrent advance refused, not stolen, until genuinely past the new budget); a note-ref-to-leaf-action keeps the old fixed ceiling unaffected. |
+| **S2** — `idempotency_key` recorded but never delivered | `cef39c7` | `withIdempotencyKey` folds the run's per-step key into the step's `ZZ_*` inputs (matching `act()`/`runGated`'s existing `ZZ_${k}` env convention), so both `runInlineStep` and `runNoteRefStep` now deliver it to the child process as `ZZ_IDEMPOTENCY_KEY`. Three new tests: an inline step's child sees the documented `${runId}:${stepId}` key; a retried step sees the IDENTICAL key on every attempt (1 of 1 unique value across 3 executions); a note-ref (leaf action via `act()`) also delivers it. |
+| **S3** — no concurrency / crash-window tests | `1da5994` | Two new tests, no production change: (a) the lock's core job — two concurrent `advanceRun` calls on one run, the second refused `{running:true}`, the step never double-executed; (b) the died-after-spawn-before-write window — hand-construct a step whose side effect "ran" (attempt/started/idempotency_key already set) but the note still shows `pending` (mirrors the existing crash-recovery test's pattern), then assert at-least-once re-execution AND that the idempotency key is identical pre/post re-execution (a real tool could dedup against it). |
+| **N1** (nit) — garbage `wait.timeout` passes validate | `753724f` | `validate.mjs`'s workflow-step axis now also rejects an unparseable `wait.timeout` at the write door (a local duration regex — not an import of `run.mjs`'s `DURATION_RE`, keeping `notes/` acyclic). `startRun`'s own `stepShapeError` check is left in place as defense-in-depth. Updated the existing garbage-timeout test to assert the (now-primary) write-door refusal. |
+| **N3** (nit) — `checkWaitTimeout` waits forever on a bad `started` | `753724f` | A missing/unparseable `started` on a step with a DECLARED `wait.timeout` now fails safe toward progress (treated as timed out) instead of silently waiting forever — a one-line condition flip. |
+| N2, N4, N5 | deferred | Not trivial (≤2 lines): N2 needs a clearer error message path through Tier-0's `stepShapeError`; N4 (unbounded run history) needs a compaction design; N5 (`noteAsOf`'s position-based generation lookup) needs a trailer-number-keyed rewrite of `commitForN`. Left for a follow-up. |
+
+### S1: which approach, and why
+
+Chose **per-tick lock sizing** (`runNoteLockBudgetMs`) over the audit's offered
+fallback (refusing a note-ref-to-workflow step in a single durable tick). The
+fallback would have been simpler, but `note-ref: a note: step targeting ANOTHER
+workflow recurses through Tier-0 runWorkflow` (`tests/unit/run.test.mjs`) already
+exercises composition end-to-end as a load-bearing feature of the tier's stated
+design (§I rung 1's composition, extended to Tier-2 by `runNoteRefStep`) — rejecting
+the shape would have silently regressed working functionality to close a sizing bug,
+not a shape bug. Per-tick sizing fixes the actual defect (the BUDGET was wrong, not
+the FEATURE) and mirrors the fix already applied to Tier-0's own composition lock
+(`workflowStaleAfterMs`, `use/workflow.mjs`) — one budgeting primitive, reused, rather
+than two different doctrines for the same shape at two tiers.
+
+### Deviations from the fix sketches
+
+None load-bearing. S1's docstring on `advanceRun` previously asserted the note-ref
+step "budgets the lock at the same generous ceiling the Tier-0 composition audit
+settled on" — that claim was aspirational, not implemented; it now accurately
+describes the actual (new) per-tick behavior. `resolveWait`'s lock was left on the
+fixed ceiling (unchanged, just renamed to the shared `DEFAULT_RUN_LOCK_MS` constant
+for DRY) since it never executes a step — over-provisioning there is safe, only
+under-provisioning (S1's actual bug) is dangerous.
