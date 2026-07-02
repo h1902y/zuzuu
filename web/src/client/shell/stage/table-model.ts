@@ -59,7 +59,9 @@ export function lifecycleTone(status: unknown): LifecycleTone {
 // ── the filter input's grammar (§H.3.1): one line, three clause kinds ─────────
 // free text → FTS · `key<op>value` → a where clause · `#tag` → a tag clause
 // (tags live in the EAV prop table, so a tag clause IS a where clause on `tag`).
-const OPS = [">=", "<=", "!=", "=", ">", "<"] as const;
+/** Exported for the Filter builder panel's op picker (§H.4.3) — the SAME list the
+ *  typed input's parser tries, longest-first. */
+export const OPS = [">=", "<=", "!=", "=", ">", "<"] as const;
 const KEY_RE = /^[a-z0-9][a-z0-9_-]*$/i;
 
 export type InputClause =

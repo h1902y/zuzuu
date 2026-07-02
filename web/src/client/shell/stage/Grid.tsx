@@ -14,6 +14,7 @@ import { parseInputClause } from "./table-model.js";
 import { useTableFilter } from "./use-table-filter.js";
 import { ClauseChips } from "./ClauseChips.js";
 import { FacetChip } from "./FacetChip.js";
+import { TableBuilders } from "./TableBuilders.js";
 import { emptyCopy } from "../empty-copy.js";
 import { api } from "../../lib/api.js";
 import { useWorld } from "../world-state.js";
@@ -56,6 +57,7 @@ function GridInner() {
           placeholder={`filter ${module}… (or key=value, #tag)`}
           className="w-72 rounded-ui border border-border bg-app px-2 py-1 text-ui text-ink-100 outline-none placeholder:text-muted focus:border-accent-dim"
         />
+        <TableBuilders cols={cols} state={state} filterOps={filterOps} dispatch={dispatch} />
         <Text size="meta" tone="muted">{total} {total === 1 ? "row" : "rows"}</Text>
       </div>
       {statuses.length > 0 && (

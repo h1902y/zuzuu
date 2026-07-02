@@ -13,9 +13,13 @@ export interface SortState { key: string; dir: "asc" | "desc" }
  *  `status` is the lifecycle facet (seed/active/archived/deprecated) — a dedicated
  *  axis like `kind`, not a where clause (the daemon route + buildModuleQueryFlags
  *  already accept `--status`, §H.3.1's facet row). */
-export interface ListState { text: string; kind: string; status: string; where: string[]; sort: SortState | null; page: number; pageSize: number }
+/** `groupBy` (§H.3.3/§H.4.3) is a TABLE-local view axis — one group-by at a time,
+ *  applied client-side over the loaded page (no server aggregate route exists yet
+ *  for `module items`, only the CLI's own `zz query --group-by`); it never rides
+ *  queryOf/ListQuery. */
+export interface ListState { text: string; kind: string; status: string; where: string[]; sort: SortState | null; groupBy: string | null; page: number; pageSize: number }
 
-export const initialListState: ListState = { text: "", kind: "", status: "", where: [], sort: null, page: 0, pageSize: 50 };
+export const initialListState: ListState = { text: "", kind: "", status: "", where: [], sort: null, groupBy: null, page: 0, pageSize: 50 };
 
 export type ListAction =
   | { type: "setText"; text: string }
@@ -25,6 +29,8 @@ export type ListAction =
   | { type: "removeWhere"; clause: string }
   | { type: "setWhere"; where: string[] }
   | { type: "toggleSort"; key: string }
+  | { type: "setSort"; key: string; dir: "asc" | "desc" }
+  | { type: "setGroupBy"; groupBy: string | null }
   | { type: "setPage"; page: number }
   | { type: "reset" };
 
@@ -40,6 +46,10 @@ export function listReducer(s: ListState, a: ListAction): ListState {
       const dir: "asc" | "desc" = s.sort?.key === a.key && s.sort.dir === "asc" ? "desc" : "asc";
       return { ...s, sort: { key: a.key, dir }, page: 0 };
     }
+    // the Sort BUILDER sets an explicit field+direction (vs toggleSort's header-click
+    // cycle) — the same underlying SortState, a second way to write it (§H.4.3).
+    case "setSort": return { ...s, sort: { key: a.key, dir: a.dir }, page: 0 };
+    case "setGroupBy": return { ...s, groupBy: a.groupBy };
     case "setPage": return { ...s, page: a.page };
     case "reset": return initialListState;
   }

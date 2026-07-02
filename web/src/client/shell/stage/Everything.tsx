@@ -15,6 +15,7 @@ import { parseInputClause } from "./table-model.js";
 import { useTableFilter } from "./use-table-filter.js";
 import { ClauseChips } from "./ClauseChips.js";
 import { ModuleDot, FacetChip } from "./FacetChip.js";
+import { TableBuilders } from "./TableBuilders.js";
 import { NotesTable } from "./NotesTable.js";
 import { emptyCopy } from "../empty-copy.js";
 import { api } from "../../lib/api.js";
@@ -67,6 +68,7 @@ function EverythingInner({ moduleFacet, onModuleFacet }: { moduleFacet: string; 
           placeholder="filter everything… (or key=value, #tag)"
           className="w-72 rounded-ui border border-border bg-app px-2 py-1 text-ui text-ink-100 outline-none placeholder:text-muted focus:border-accent-dim"
         />
+        <TableBuilders cols={EVERYTHING_COLUMNS} state={state} filterOps={filterOps} dispatch={dispatch} />
         <Text size="meta" tone="muted">{total} {total === 1 ? "row" : "rows"}</Text>
       </div>
       {(modules.length > 1 || rows.length > 0) && (

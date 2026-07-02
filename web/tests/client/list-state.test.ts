@@ -40,6 +40,23 @@ describe("list-state reducer", () => {
     expect(s.page).toBe(0);
   });
 
+  it("setSort (the Sort builder, §H.4.3) writes an EXPLICIT field+direction, unlike toggleSort's cycle", () => {
+    let s = listReducer({ ...initialListState, page: 3, sort: { key: "title", dir: "asc" } }, { type: "setSort", key: "tier", dir: "desc" });
+    expect(s.sort).toEqual({ key: "tier", dir: "desc" });
+    expect(s.page).toBe(0);
+    // picking the SAME key+dir again is a no-op write, not a toggle (toggleSort would flip it)
+    s = listReducer(s, { type: "setSort", key: "tier", dir: "desc" });
+    expect(s.sort).toEqual({ key: "tier", dir: "desc" });
+  });
+
+  it("setGroupBy (the Group builder, §H.3.3) is a table-local axis — it does NOT reset the page", () => {
+    let s = listReducer({ ...initialListState, page: 3 }, { type: "setGroupBy", groupBy: "status" });
+    expect(s.groupBy).toBe("status");
+    expect(s.page).toBe(3);
+    s = listReducer(s, { type: "setGroupBy", groupBy: null });
+    expect(s.groupBy).toBeNull();
+  });
+
   it("queryOf carries the whole control state (filter + sort + page) to getList", () => {
     expect(queryOf(initialListState)).toEqual({ text: "", kind: "", status: "", where: [], sort: null, page: 0, pageSize: 50 });
     const s = { ...initialListState, text: "x", kind: "fact", status: "active", sort: { key: "title", dir: "desc" as const }, page: 2 };
