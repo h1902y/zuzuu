@@ -42,6 +42,13 @@ that history).
 - The corpus signature is computed once per index rebuild, not twice.
 
 ### Added
+- **The envelope floor**: `title · module · type · status` are never null on a
+  landed note — filled at the write boundary (status → `active`, title → body
+  first line else humanized id), never overwritten; reads stay tolerant.
+  `zz validate` surfaces legacy violations; **`zz module backfill [--dry-run]`**
+  heals history through the one door (one generation per module, provenance-
+  logged, idempotent). Registry digests floor-normalize so subscriptions don't
+  false-drift.
 - **The global page (the globe)**: the projects launcher retires into the same
   World+greeting grammar as a project — projects are nodes (sized by note count,
   needs-me ring, emoji), a greeting rolls up review across projects, selecting one

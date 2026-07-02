@@ -62,6 +62,7 @@ Regenerates dist/index.json from src/cards/. Safe to run anytime.   ← the body
 ```
 
 - **`type`** is the *only* required field and the sole discriminator (`knowledge` · `action` · `rule` · `instruction` · `episode` · `module` · `project`) — not a folder, not a class.
+- **The envelope floor** (02-07-2026): the WRITE boundary additionally guarantees `title` and `status` non-empty on every landed note — filled when absent (status → `active`; title → body first line, else the humanized id), never overwritten. Parsing stays tolerant; `zz module backfill` heals pre-floor history.
 - **`id`** is the filename stem, injected by the caller, **never in the frontmatter** (the file *is* its id): `knowledge/items/card-schema.md` → `card-schema`.
 - **frontmatter** takes any keys (only `type` required); a **body** of free markdown follows the fence.
 

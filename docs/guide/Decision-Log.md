@@ -147,3 +147,21 @@ included — stays "a view onto a Project, not the Project." Map-first means the
 map is the primary VIEW; the files remain the truth. The raw terminal stays
 reachable per the conversational-composer spec ("never hide the terminal so
 completely the user can't answer a y/n").
+
+## 02-07-2026 — The envelope floor: write-boundary guarantee, read tolerance unchanged
+
+`title · module · type · status` are never null on a landed note. The guarantee
+lives at the ONE write boundary, not at parse: `repo.writeNote` FILLS the floor
+(status → `active`; title → the body's first line, else the humanized id — date
+ids stay verbatim) before validation, never overwriting a present value. Reads
+stay tolerant — legacy/foreign files still parse; `type` remains the only
+parse-level requirement. A verbatim `move` preserves bytes exactly.
+
+Consequences, recorded: `zz validate` now SURFACES pre-floor notes (instead of
+hiding them); `zz module backfill [--dry-run]` heals history through the same
+door (one generation per module, provenance `{backfill: envelope-floor}`,
+idempotent — deliberately not a `doctor --fix` flag, since doctor is an
+agent-shellable read and a write behind its flag would hole the generated
+execution gate); registry content digests are floor-normalized so a landed
+subscription never reads as false local-edit drift; a schema declaring `title`
+as required is satisfiable by construction now.
