@@ -37,6 +37,8 @@ export const COMMAND_CATALOG = {
   // ── module reads (the dashboard CRUD surface) ──
   "module.overview": { id: "module.overview", path: ["module", "overview"], params: [], flags: {} },
   "module.items": { id: "module.items", path: ["module", "items"], params: ["key"], flags: {} },
+  // the UNIFIED table (one table over everything): every module's rows, same contract
+  "module.items.all": { id: "module.items.all", path: ["module", "items"], params: [{ const: "--all" }], flags: {} },
   "module.item": { id: "module.item", path: ["module", "item"], params: ["key", "id"], flags: {} },
   "module.schema": { id: "module.schema", path: ["module", "schema"], params: ["key"], flags: {} },
   // deprecated key-first lineage read (the daemon still shells this shape; argv-faithful)

@@ -173,6 +173,9 @@ export const api = {
     // the module's notes — optionally filtered·sorted·paginated server-side (the index
     // SELECT). No query ⇒ the whole module (the default the graph/search/review reads use).
     module: (key: string, query?: ModuleQuery) => request<ModuleDetail>(`/api/zuzuu/module/${key}${moduleQs(query)}`),
+    // the UNIFIED table (one table over everything): every module's rows, one page —
+    // each row carries its module; the Everything grid renders module as a column
+    items: (query?: ModuleQuery) => request<ModuleDetail>(`/api/zuzuu/items${moduleQs(query)}`),
     item: (key: string, id: string) => request<ModuleItem>(`/api/zuzuu/module/${key}/item/${id}`),
     schema: (key: string) => request<ModuleSchema>(`/api/zuzuu/module/${key}/schema`),
     generations: (key: string) => request<ModuleGenerationList>(`/api/zuzuu/module/${key}/generations`),

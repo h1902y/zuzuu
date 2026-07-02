@@ -116,6 +116,7 @@ export const COMMANDS = [
 const CATALOG_SUBFORMS = [
   { id: 'module.overview', path: ['module', 'overview'], params: [], flags: {} },
   { id: 'module.items', path: ['module', 'items'], params: ['key'], flags: {} },
+  { id: 'module.items.all', path: ['module', 'items'], params: [{ const: '--all' }], flags: {} },
   { id: 'module.item', path: ['module', 'item'], params: ['key', 'id'], flags: {} },
   { id: 'module.schema', path: ['module', 'schema'], params: ['key'], flags: {} },
   { id: 'module.generations', path: ['module'], params: ['key', { const: 'generations' }], flags: {} },

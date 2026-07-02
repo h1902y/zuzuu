@@ -183,21 +183,25 @@ export const dataRows = [
         return 0;
       }
       if (a === 'items') {
-        if (!b) return fail(log, 'usage: zz module items <key>', json);
+        // `--all` = the UNIFIED table: every module's rows through the SAME contract
+        // (searchRows with module:'' spans the Project; each row carries its module).
+        // One table over everything — module becomes a column, not a silo.
+        const all = !!args.all || b === '--all';
+        if (!b && !all) return fail(log, 'usage: zz module items <key>  ·  zz module items --all', json);
         // The module-as-table query: filter (--text/--type/--tag/--status/--where k=v) +
         // --sort + --limit/--offset all run in the index SELECT (searchRows composes
         // search+count), so filtering is NOT "fetch everything + filter in JS." Each match
         // is then hydrated to its FULL envelope off disk (the lossless source of truth), so
         // a custom column round-tripped on disk is no longer truncated — the data-loss-in-view.
         const opts = {
-          module: b,
+          module: all ? '' : b,
           text: args.text || '', type: args.type || '', tag: args.tag || '', status: args.status || '',
           where: whereFilters(rest), sort: parseSort(args.sort),
           limit: args.limit !== undefined ? Number(args.limit) : 10000,
           offset: Number(args.offset) || 0,
         };
         const { items: notes, total } = searchRows(zz.home, opts);
-        const items = notes.map((note) => projectRow(note, b));
+        const items = notes.map((note) => projectRow(note, note.module ?? b));
         // shape: { items, total, errors } + `kind` — the daemon's moduleEnvelopeItems passes
         // this straight through as the shared ModuleItem[] (`total` = the pre-paginate count,
         // so the grid paginates); CLI-absent degrades to peek.

@@ -86,6 +86,26 @@ export function createZuzuuReadApi(getRoot: () => string, binary?: string): Hono
     return c.json({ key, items, total, staged, errors, ...(degraded ? { degraded: true } : {}) });
   });
 
+  // The UNIFIED table (one table over everything): every module's rows through the
+  // same filter·sort·paginate contract — `zz module items --all`. Each row carries
+  // its module; the Everything grid renders module as a COLUMN, not a silo. No peek
+  // fallback: with the CLI absent the unified view degrades to empty (the per-module
+  // routes still peek).
+  app.get("/items", async (c) => {
+    const root = getRoot();
+    const flags = buildModuleQueryFlags({
+      text: c.req.query("text"), type: c.req.query("type"), status: c.req.query("status"),
+      tag: c.req.query("tag"), sort: c.req.query("sort"), where: c.req.queries("where"),
+      limit: c.req.query("limit"), offset: c.req.query("offset"),
+    });
+    const viaCli = await runCommand(root, "module.items.all", {}, { binary, extra: flags }) as
+      { items?: unknown[]; total?: number; errors?: unknown[] } | null;
+    if (viaCli && Array.isArray(viaCli.items)) {
+      return c.json({ key: "", items: viaCli.items, total: viaCli.total ?? viaCli.items.length, staged: [], errors: viaCli.errors ?? [] });
+    }
+    return c.json({ key: "", items: [], total: 0, staged: [], errors: [], degraded: true });
+  });
+
   // One record (getOne) — CLI `zz module item <key> <id>`. Absent/unknown → 404.
   app.get("/module/:key/item/:id", async (c) => {
     const key = c.req.param("key");

@@ -38,9 +38,12 @@ const toModuleQuery = (q: ListQuery) => ({
 
 export function makeDataProvider(zuzuu: ZuzuuApi = api.zuzuu) {
   return {
-    /** getList — one server-filtered·sorted·paginated page + the staged queue + total. */
+    /** getList — one server-filtered·sorted·paginated page + the staged queue + total.
+     *  module "" = the UNIFIED scope (one table over everything — /api/zuzuu/items). */
     async getList(module: string, query: ListQuery): Promise<ListResult> {
-      const detail = await zuzuu.module(module, toModuleQuery(query));
+      const detail = module === ""
+        ? await zuzuu.items(toModuleQuery(query))
+        : await zuzuu.module(module, toModuleQuery(query));
       return {
         items: detail.items,
         total: detail.total ?? detail.items.length,
