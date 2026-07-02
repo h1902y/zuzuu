@@ -83,6 +83,22 @@ export interface ModuleQueryParams {
   sort?: string; where?: string[]; limit?: string; offset?: string;
 }
 
+/** The `--where key<op>value` op grammar, op-aware and longest-first — MIRRORS the
+ *  CLI's own `parseWhere` (src/cli/args.mjs) exactly (same op set, same first-match
+ *  scan) so a clause that parses here parses identically once it reaches the index.
+ *  B1: this used to split on the first `=` and rebuild `key=value`, so `tier>=2`
+ *  became key `tier>` (fails SAFE_SLUG, dropped) and `tier>2` had no `=` at all
+ *  (dropped) — comparison/inequality filters silently never reached the CLI. */
+const WHERE_OPS = [">=", "<=", "!=", "=", ">", "<"] as const;
+
+function parseWhereClause(raw: string): { key: string; op: string; value: string } | null {
+  for (const op of WHERE_OPS) {
+    const at = raw.indexOf(op);
+    if (at > 0) return { key: raw.slice(0, at), op, value: raw.slice(at + op.length) };
+  }
+  return null;
+}
+
 /** Map validated query params → the `module items` CLI flags (no leading `module items
  *  <key>` — the caller prepends those). Each axis is independently guarded; an invalid
  *  value is simply dropped (degrade, never 400 on a stray filter). */
@@ -95,11 +111,13 @@ export function buildModuleQueryFlags(p: ModuleQueryParams): string[] {
   if (p.tag && SAFE_ID.test(p.tag)) flags.push("--tag", p.tag);
   if (p.sort && SAFE_SORT.test(p.sort)) flags.push("--sort", p.sort);
   for (const w of p.where ?? []) {
-    const eq = w.indexOf("=");
-    if (eq <= 0) continue;
-    const key = w.slice(0, eq);
-    const value = clampText(w.slice(eq + 1));
-    if (SAFE_SLUG.test(key) && value) flags.push("--where", `${key}=${value}`);
+    // op parsed FIRST (longest-first), THEN the key is validated — parsing on `=`
+    // before the op is chosen is exactly the B1 bug (a `>=`/`<=`/`!=` clause's key
+    // would carry the trailing comparison char and fail SAFE_SLUG).
+    const parsed = parseWhereClause(w);
+    if (!parsed) continue;
+    const value = clampText(parsed.value);
+    if (SAFE_SLUG.test(parsed.key) && value) flags.push("--where", `${parsed.key}${parsed.op}${value}`);
   }
   const limit = intParam(p.limit);
   if (limit != null) flags.push("--limit", String(limit));

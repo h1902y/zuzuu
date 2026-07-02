@@ -76,6 +76,29 @@ describe("createZuzuuApi file routes", () => {
     expect(argv).toContain("--limit 2");
     expect(argv).toContain("--offset 4");
   });
+  it("GET /module/:key forwards a `>=` comparison clause verbatim (B1: used to be split on the first `=` and dropped)", async () => {
+    fixtureHome(root);
+    const app = createZuzuuApi(() => root, { binary: argvItemsStub(root, 7) });
+    // tier>=2 as typed by the client (table-model.ts OPS / TableBuilders.tsx) — the
+    // op-aware parse must beat a naive split-on-`=` (which would see key `tier>`,
+    // fail SAFE_SLUG, and drop the clause silently).
+    const res = await app.request("/module/knowledge?where=tier%3E%3D2");
+    const body = await res.json();
+    expect(body.total).toBe(7);
+    const argv: string = body.items[0].argv;
+    expect(argv).toContain("--where tier>=2");
+    expect(argv).not.toContain("--where tier=2");
+  });
+  it("GET /items (the unified table) also forwards comparison/inequality clauses verbatim (both list routes share buildModuleQueryFlags)", async () => {
+    fixtureHome(root);
+    const app = createZuzuuApi(() => root, { binary: argvItemsStub(root, 3) });
+    const res = await app.request("/items?where=start_date%3C%3D2026-07-02&where=k%21%3Dv");
+    const body = await res.json();
+    expect(body.total).toBe(3);
+    const argv: string = body.items[0].argv;
+    expect(argv).toContain("--where start_date<=2026-07-02");
+    expect(argv).toContain("--where k!=v");
+  });
   it("GET /module/:key/item/:id surfaces the current note body (the update diff's 'before' source)", async () => {
     fixtureHome(root);
     // The update diff (U3) reads the CURRENT note body as its 'before'. The item
@@ -376,5 +399,15 @@ describe("buildModuleQueryFlags — query params → `module items` flags", () =
     expect(buildModuleQueryFlags({ type: "../evil", status: "a b", sort: "title;drop", where: ["noeq", "=v"], limit: "-1", offset: "x" })).toEqual([]);
     // a control char in free text is stripped to a space (spawn is argv-array, but clamp anyway)
     expect(buildModuleQueryFlags({ text: "a\nb" })).toEqual(["--text", "a b"]);
+  });
+  it("B1: the full op grammar (>=,<=,!=,=,>,<) is parsed op-first and reconstructed verbatim — not split on the first `=`", () => {
+    expect(buildModuleQueryFlags({ where: ["tier>=2", "start_date<=2026-07-02", "k!=v", "n>3", "m<9", "priority=high"] }))
+      .toEqual([
+        "--where", "tier>=2", "--where", "start_date<=2026-07-02", "--where", "k!=v",
+        "--where", "n>3", "--where", "m<9", "--where", "priority=high",
+      ]);
+    // the key is validated AFTER the op is stripped — a naive split-on-`=` would see
+    // key `tier>` here (fails SAFE_SLUG) and drop the clause; that was the bug.
+    expect(buildModuleQueryFlags({ where: ["tier>=2"] })).not.toEqual([]);
   });
 });
