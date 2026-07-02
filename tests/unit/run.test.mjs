@@ -711,3 +711,61 @@ test('S2: a note-ref step (leaf action via act()) also delivers ZZ_IDEMPOTENCY_K
     assert.equal(readFileSync(log, 'utf8').trim(), `${runId}:call`);
   });
 });
+
+// ── S3 (audit 2026-07-03-durable-runner-review.md): the two failure modes the tier
+// exists to survive, previously untested — concurrent advances, and the died-after-
+// spawn/before-write crash window ─────────────────────────────────────────────────
+
+test('S3: THE LOCK\'S CORE JOB — two concurrent advances on the same run: one ticks, the other is refused (not a double-run)', () => {
+  withRepo((home) => {
+    putWorkflow(home, 'actions', 'flow', [{ id: 'a', run: 'true' }]);
+    const { runId } = startRun(home, 'actions', 'flow');
+    // hold the run-note lock manually — simulates a concurrent advanceRun already
+    // in flight on the same run (mirrors run-lock.test.mjs's `act()` refusal pattern).
+    const held = acquireRunLock(home, RUNS_MODULE, runId, 60_000);
+    assert.equal(held.ok, true);
+
+    const r = advanceRun(home, runId);
+    assert.equal(r.ok, false);
+    assert.equal(r.running, true);
+    assert.match(r.error, /already running/);
+    assert.equal(readNote(home, RUNS_MODULE, runId).steps[0].status, 'pending', 'the refused caller never executed the step — no double-run');
+
+    held.release();
+    const r2 = advanceRun(home, runId);
+    assert.equal(r2.ok, true);
+    assert.equal(r2.status, 'done', 'released — the ONE legitimate advance proceeds normally');
+  });
+});
+
+test('S3: crash window — a step whose side effect ran but the note still shows pending is safely re-executed at-least-once, with the SAME idempotency key both times', () => {
+  withRepo((home, root) => {
+    const log = join(root, 'idem-log');
+    const script = `require('fs').appendFileSync(${JSON.stringify(log)},(process.env.ZZ_IDEMPOTENCY_KEY||'none')+'\\n')`;
+    putWorkflow(home, 'actions', 'flow', [{ id: 'sfx', run: `node -e ${script}` }]);
+    const { runId } = startRun(home, 'actions', 'flow');
+
+    // simulate: a tick spawned the child (the side effect "ran" — attempt minted,
+    // started stamped, idempotency_key minted) but died BEFORE the write-door write
+    // landed — the note still shows the step `pending`, exactly as a real crash
+    // (process killed between spawnSync returning and writeRun completing) would
+    // leave it. A completely independent write, no in-memory state carried over.
+    const before = readNote(home, RUNS_MODULE, runId);
+    const simulatedKey = `${runId}:sfx`;
+    const now = new Date().toISOString();
+    const patched = before.steps.map((s) => (s.id === 'sfx' ? { ...s, attempts: 1, started: now, idempotency_key: simulatedKey } : s));
+    const w = evolve(home, RUNS_MODULE, { id: 'sim-crash-window', op: 'update', target: runId, change: { steps: patched } });
+    assert.equal(w.ok, true, w.error);
+
+    // the next (real) tick re-executes it — AT-LEAST-ONCE is the documented contract
+    const r = advanceRun(home, runId);
+    assert.equal(r.status, 'done', r.error);
+    const after = readNote(home, RUNS_MODULE, runId);
+    const step = after.steps.find((s) => s.id === 'sfx');
+    assert.equal(step.attempts, 2, 're-executed — attempts incremented from the simulated 1 (at-least-once, not exactly-once)');
+    assert.equal(step.idempotency_key, simulatedKey, 'the key MINTED ONCE (simulated on the crashed attempt) survives the re-execution unchanged');
+
+    const seen = readFileSync(log, 'utf8').trim().split('\n').filter(Boolean);
+    assert.deepEqual(seen, [simulatedKey], 'the child that actually ran on re-execution saw the SAME key already on the note — a real tool COULD dedup against it');
+  });
+});
