@@ -5,6 +5,7 @@
 - [[Modules as Tables|Modules-as-Tables]]
 - [[Two Lanes|Two-Lanes]]
 - [[The World|The-World]]
+- [[The Omnibar|Omnibar]]
 - [[Daemon & API|Daemon-API]]
 - [[Workbench]]
 - [[Module Standard]]

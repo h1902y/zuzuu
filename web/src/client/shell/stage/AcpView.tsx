@@ -1,8 +1,11 @@
-// shell/stage/AcpView.tsx — the ACP drive-lane stage (Spike #2). Connects to
-// /ws/acp/:id, folds the structured stream through acp-model (pure), and renders it as
-// a custom conversation surface OFF the host TUI: agent text, thoughts, tool-call cards
-// with a status lifecycle + inline diffs, plans, turn dividers — plus a composer.
-// The in-memory view-model IS the recordable trace. Thin: derivation lives in acp-model.
+// shell/stage/AcpView.tsx — the ACP drive lane. Connects to /ws/acp/:id, folds the
+// structured stream through acp-model (pure), and renders it as a custom conversation
+// surface OFF the host TUI: agent text, thoughts, tool-call cards with a status
+// lifecycle + inline diffs, plans, turn dividers — plus a composer.
+// TWO surfaces mount the SAME machinery (§E.1 stage 3 — enhance, never reinvent):
+// the full stage (AcpView) and the omnibar's chat panel (AcpConversation compact).
+// They share the session — the daemon replays its trace to a (re)joining socket, so
+// closing the panel loses nothing; the conversation continues in the background.
 import { useEffect, useReducer, useRef, useState } from "react";
 import { Send, Square, Wrench, Brain, ListChecks, TriangleAlert, CircleDot, ShieldQuestion, ShieldX, ShieldCheck } from "lucide-react";
 import { AcpConnection } from "../../lib/acp-client.js";
@@ -15,7 +18,14 @@ const TOOL_STATUS_TONE: Record<string, string> = {
   completed: "text-success", failed: "text-danger", in_progress: "text-warning", pending: "text-muted",
 };
 
+/** The stage wrapper: header + the shared conversation surface. */
 export function AcpView({ id }: { id: string }) {
+  return <AcpConversation id={id} />;
+}
+
+/** The conversation surface both the stage and the omnibar chat panel mount.
+ *  `compact` tightens paddings for the panel. */
+export function AcpConversation({ id, compact = false }: { id: string; compact?: boolean }) {
   const [vm, dispatch] = useReducer(applyAcpMessage, initialAcpView);
   const [draft, setDraft] = useState("");
   const [decided, setDecided] = useState<Record<string, "allow" | "deny">>({});
@@ -69,9 +79,10 @@ export function AcpView({ id }: { id: string }) {
     setDraft("");
   };
 
+  const pad = compact ? "px-3" : "px-6";
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex shrink-0 items-center gap-2 border-b border-border px-6 py-3">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className={`flex shrink-0 items-center gap-2 border-b border-border ${pad} ${compact ? "py-2" : "py-3"}`}>
         <Icon icon={CircleDot} size={14} />
         <Text size="meta" weight="semibold">Agent (ACP)</Text>
         <Text size="meta" tone="muted">· {vm.status}</Text>
@@ -80,7 +91,7 @@ export function AcpView({ id }: { id: string }) {
         )}
       </div>
 
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+      <div ref={scrollRef} className={`min-h-0 flex-1 overflow-y-auto ${pad} py-4`}>
         {!vm.blocks.length ? (
           <Text tone="muted" size="ui">{vm.ready ? "Ready — send a prompt below." : "Connecting to the agent…"}</Text>
         ) : (
@@ -90,7 +101,7 @@ export function AcpView({ id }: { id: string }) {
         )}
       </div>
 
-      <div className="flex shrink-0 items-end gap-2 border-t border-border px-6 py-3">
+      <div className={`flex shrink-0 items-end gap-2 border-t border-border ${pad} ${compact ? "py-2" : "py-3"}`}>
         <textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}

@@ -30,6 +30,7 @@ import { useModuleView } from "../state/module-view.js";
 import { emptyStack, push, pop, top, placeholderFor, hintFor, laneBadge, type OmniStack } from "../omnibar/omni-shell.js";
 import { proposalsGroup, viewsGroup, type StagedRow } from "../omnibar/omni-sources.js";
 import { OmniDetail } from "../omnibar/OmniDetail.js";
+import { AcpConversation } from "../shell/stage/AcpView.js";
 import { useModuleFilter } from "../state/module-filter.js";
 
 export default function PaletteBody() {
@@ -164,7 +165,10 @@ export default function PaletteBody() {
       case "converse": {
         // route to the EXISTING ACP drive lane (enhance, never reinvent): reuse the
         // newest registered agent session, else create one; the prompt is queued and
-        // AcpView sends it on ready. The raw terminal lane is untouched.
+        // the conversation surface sends it on ready. §E.1 surface 4: chat renders
+        // IN the panel (a pushed view — Esc pops, the conversation continues in the
+        // background; the daemon replays its trace on reattach). The raw terminal
+        // lane is untouched, and nothing auto-fires — this runs only on Enter.
         const prompt = action.prompt;
         void (async () => {
           let id = acpSessions.at(-1)?.id ?? null;
@@ -175,9 +179,9 @@ export default function PaletteBody() {
             id = created.id;
           }
           queuePrompt(prompt);
-          select({ kind: "acp", id });
+          pushView({ kind: "chat", id });
         })();
-        break;
+        return; // the panel stays open — chat is a pushed surface, not a hand-off
       }
       case "see-all-search": select({ kind: "search", query: action.query }); break;
       case "open-row": select({ kind: "row", module: action.module, id: action.id }); break;
@@ -241,16 +245,23 @@ export default function PaletteBody() {
         value={focusVal}
         onValueChange={setFocusVal}
         onKeyDown={onShellKeyDown}
-        className={`animate-pop h-fit ${detail ? "w-[840px]" : "w-[560px]"} max-w-[92vw] overflow-hidden rounded-ui border border-border bg-elevated shadow-overlay`}
+        className={`animate-pop h-fit ${detail || view?.kind === "chat" ? "w-[840px]" : "w-[560px]"} max-w-[92vw] overflow-hidden rounded-ui border border-border bg-elevated shadow-overlay`}
         onClick={(e) => e.stopPropagation()}
       >
-        <Command.Input
-          autoFocus
-          value={query}
-          onValueChange={setQuery}
-          placeholder={placeholderFor(stack)}
-          className="w-full border-b border-border bg-transparent px-4 py-3 text-body text-ink-100 outline-none placeholder:text-muted"
-        />
+        {view?.kind !== "chat" && (
+          <Command.Input
+            autoFocus
+            value={query}
+            onValueChange={setQuery}
+            placeholder={placeholderFor(stack)}
+            className="w-full border-b border-border bg-transparent px-4 py-3 text-body text-ink-100 outline-none placeholder:text-muted"
+          />
+        )}
+        {view?.kind === "chat" ? (
+          <div className="h-[60vh]">
+            <AcpConversation id={view.id} compact />
+          </div>
+        ) : (
         <div className="flex">
           <Command.List className={`max-h-[50vh] ${detail ? "w-[55%]" : "w-full"} overflow-y-auto p-1`}>
             <Command.Empty className="px-3 py-4 text-meta text-muted">no matches</Command.Empty>
@@ -268,6 +279,7 @@ export default function PaletteBody() {
             </div>
           )}
         </div>
+        )}
       </Command>
     </div>
   );
