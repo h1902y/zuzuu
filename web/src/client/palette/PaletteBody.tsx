@@ -19,7 +19,7 @@ import { api } from "../lib/api.js";
 import { dataProvider } from "../data/provider.js";
 import { newNoteId } from "../shell/stage/stage-header.js";
 import { toast } from "../state/toast.js";
-import { fuzzyScore } from "./palette-logic.js";
+import { paletteFilterScore } from "./palette-logic.js";
 import { buildPaletteGroups, omniGroup, type PaletteAction } from "./palette-commands.js";
 import { notesGroup } from "./palette-rank.js";
 import { useWorldCommand } from "../state/world-command.js";
@@ -123,7 +123,7 @@ export default function PaletteBody() {
     <div className="animate-fade fixed inset-0 z-50 flex justify-center bg-scrim pt-[12vh]" onClick={close}>
       <Command
         label="Command palette"
-        filter={omni ? () => 1 : (value, search) => { const s = fuzzyScore(search, value); return s === null ? 0 : 1 / (1 + s); }}
+        filter={omni ? () => 1 : paletteFilterScore}
         className="animate-pop h-fit w-[560px] max-w-[90vw] overflow-hidden rounded-ui border border-border bg-elevated shadow-overlay"
         onClick={(e) => e.stopPropagation()}
       >
