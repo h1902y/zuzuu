@@ -60,12 +60,16 @@ function tokenize(run) {
  * (every run gets one — `opts.timeout`, seconds, clamped by resolveTimeoutMs). The
  * shared primitive for `act` (one note) and the workflow runner (one step). No
  * logging here.
+ * `opts.actor` ('operator' default | 'agent') rides into the guardrails gate — an
+ * unattended agent actor fails CLOSED on a malformed rule / engine error / `ask`
+ * verdict (see guardrails/gate.mjs); an interactive operator keeps the original
+ * fail-open, ask-passes contract (a human is present to see the run and decide).
  * @returns {{ ran, exitCode?, success?, stdout?, stderr?, denied?, timedOut?, error? }}
  */
-export function runGated(home, module, command, { allow = null, inputs = {}, cwd, timeout } = {}) {
+export function runGated(home, module, command, { allow = null, inputs = {}, cwd, timeout, actor = 'operator' } = {}) {
   // the gate applies to curated runs too — a deny rule blocks them. No explicit
   // module → it enforces both `instructions` (the default) and legacy `guardrails`.
-  const verdict = gate({ home }, { tool: 'Bash', input: { command } });
+  const verdict = gate({ home, actor }, { tool: 'Bash', input: { command } });
   if (verdict && verdict.action === 'deny') {
     return { ran: false, denied: true, error: `blocked by rule ${verdict.rule}: ${verdict.reason}` };
   }
@@ -92,11 +96,14 @@ export function runGated(home, module, command, { allow = null, inputs = {}, cwd
 }
 
 /**
- * Run a note. Fail-soft return — never throws.
+ * Run a note. Fail-soft return — never throws. `ctx.actor` (stamped at the dispatch
+ * boundary — serve/dispatch.mjs's `invoke` always supplies it) rides into the
+ * guardrails gate via runGated — see its doc comment for the fail-open/fail-closed
+ * split.
  * @returns {{ ok, ran, exitCode?, success?, stdout?, stderr?, timedOut?, error?, denied? }}
  */
 export function act(ctx, id, inputs = {}) {
-  const { home, module, manifest } = ctx;
+  const { home, module, manifest, actor = 'operator' } = ctx;
   const path = itemPath(home, module, id);
   if (!existsSync(path)) return { ok: false, ran: false, error: `no note '${module}:${id}'` };
   const { ok, note } = parse(readFileSync(path, 'utf8'), { id });
@@ -105,8 +112,8 @@ export function act(ctx, id, inputs = {}) {
 
   // policy: the note's own policy narrows the module default (never widens)
   const policy = { ...(manifest.policy ?? {}), ...(note.policy ?? {}) };
-  const r = runGated(home, module, note.run, { allow: policy.run?.allow ?? null, inputs, timeout: note.timeout });
+  const r = runGated(home, module, note.run, { allow: policy.run?.allow ?? null, inputs, timeout: note.timeout, actor });
   if (!r.ran) return { ok: false, ...r };
-  logRun(home, module, id, { inputs, exitCode: r.exitCode, success: r.success, timedOut: r.timedOut });
+  logRun(home, module, id, { inputs, exitCode: r.exitCode, success: r.success, timedOut: r.timedOut, actor });
   return { ok: r.success, ...r };
 }

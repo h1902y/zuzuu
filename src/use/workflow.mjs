@@ -37,9 +37,14 @@ function topoSort(steps) {
 }
 
 /**
- * Run a workflow note. @returns {{ ok, steps?, failedStep?, compensations?, error? }}
+ * Run a workflow note. `actor` ('operator' default | 'agent', stamped at the dispatch
+ * boundary and threaded here from wire.mjs's `flow` registration) rides into every
+ * step's runGated call — an unattended agent actor fails CLOSED on a malformed rule /
+ * engine error / `ask` verdict (guardrails/gate.mjs); an interactive operator keeps
+ * the original fail-open, ask-passes contract.
+ * @returns {{ ok, steps?, failedStep?, compensations?, error? }}
  */
-export function runWorkflow(home, module, id, inputs = {}) {
+export function runWorkflow(home, module, id, inputs = {}, actor = 'operator') {
   const path = itemPath(home, module, id);
   if (!existsSync(path)) return { ok: false, error: `no note '${module}:${id}'` };
   const { note } = parse(readFileSync(path, 'utf8'), { id });
@@ -56,20 +61,20 @@ export function runWorkflow(home, module, id, inputs = {}) {
     // a step's own `timeout:` overrides the run default (resolveTimeoutMs, act.mjs);
     // a timed-out step is just another failed step — it falls straight into the same
     // saga-compensation path below.
-    const r = runGated(home, module, step.run, { allow, inputs, cwd: root, timeout: step.timeout });
+    const r = runGated(home, module, step.run, { allow, inputs, cwd: root, timeout: step.timeout, actor });
     results.push({ id: step.id, ran: r.ran, success: !!r.success, exitCode: r.exitCode, denied: r.denied, timedOut: !!r.timedOut });
     if (!r.ran || !r.success) {
       // compensate completed steps in reverse (saga rollback for side effects)
       const compensations = [];
       for (const s of [...done].reverse()) if (s.compensate) {
-        const c = runGated(home, module, s.compensate, { allow, inputs, cwd: root });
+        const c = runGated(home, module, s.compensate, { allow, inputs, cwd: root, actor });
         compensations.push({ id: s.id, success: !!c.success });
       }
-      logRun(home, module, id, { inputs, success: false, timedOut: !!r.timedOut });
+      logRun(home, module, id, { inputs, success: false, timedOut: !!r.timedOut, actor });
       return { ok: false, failedStep: step.id, error: r.error ?? `step '${step.id}' failed (exit ${r.exitCode})`, steps: results, compensations };
     }
     done.push(step);
   }
-  logRun(home, module, id, { inputs, success: true });
+  logRun(home, module, id, { inputs, success: true, actor });
   return { ok: true, steps: results };
 }
