@@ -322,3 +322,25 @@ make zuzuu's tables special. The native design:
 Principle: the table exposes the SAME power the CLI has — nothing more,
 nothing less — and every column earns its place from the schema or the
 envelope, never from a hardcoded floor.
+
+### §H.1 — The item detail view: a beautiful READ, edits only via omnibar
+
+The note detail (record/omnibar detail/wing) is a VIEW-ONLY document — no
+inline edit affordances anywhere (the §E doctrine: the canvas browses, the
+omnibar acts):
+
+- **Frontmatter, read gracefully**: schema-aware attribute rows (label · typed
+  rendering — dates as text, selects as badges, numbers aligned, links/relations
+  as chips that FLY THE MAP), tags as chips, provenance + actor as the "born
+  here" line, custom keys under a quiet "also carries" (OKF tolerance visible),
+  computed columns shown with their formula.
+- **Body as GitHub-flavored markdown**: tables · fenced code with highlighting ·
+  task lists · blockquotes/callouts, rendered with the existing safe renderer
+  approach (no raw HTML injection). Empty body renders as the honest signal it
+  is ("no take yet"), never invented placeholder prose.
+- **Every edit is an omnibar invocation**: the detail's only affordances are
+  canned invocations — an "Act ⌘K" hint, and per-attribute quiet targets that
+  PRE-FILL the omnibar with the right verb ("set priority …" → staged or
+  instant per the actor's lane). Delete/rename/relate likewise. The detail
+  never mutates; the omnibar always does — one write door in the UI, matching
+  the one write door in the engine.
