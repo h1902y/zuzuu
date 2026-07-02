@@ -146,9 +146,17 @@ export function NotesTable({ cols, rows, sort, onSort, onRow, renderCell, fields
       <thead>
         <tr className="border-b border-border">
           <th className="w-12 px-2 py-2" aria-label="row" />
-          {allCols.map((c) => {
+          {allCols.map((c, colIdx) => {
             const editable = module && c.name !== "__identity" && c.name !== "__attrs";
             const editField = editable ? (fields.find((f) => f.name === c.name) ?? null) : null;
+            // the edit panel is ~320px wide; a LEFT-anchored popover on a column
+            // past the table's midpoint runs off (or under the wing sidebar, when
+            // one is open) — anchor from the column's own edge nearest the table
+            // border instead of always "left" (c.align is TEXT alignment, a
+            // different axis, but doubles as a cheap position signal here: a
+            // right-aligned cell is a date/number column, which skews later in
+            // typical schemas) OR simple position: past the halfway column.
+            const nearRight = c.align === "right" || colIdx >= Math.max(1, Math.ceil(allCols.length / 2));
             return (
               <th key={c.name} className={`group relative px-4 py-2 ${c.align === "right" ? "text-right" : "text-left"} ${c.name === "__identity" ? "sticky left-0 z-10 bg-app" : ""}`}>
                 {c.name === "__attrs" ? (
@@ -185,7 +193,7 @@ export function NotesTable({ cols, rows, sort, onSort, onRow, renderCell, fields
                     name={c.name}
                     existingNames={fields.map((f) => f.name)}
                     onClose={() => setEditingCol(null)}
-                    align={c.align === "right" ? "right" : "left"}
+                    align={nearRight ? "right" : "left"}
                   />
                 )}
               </th>
