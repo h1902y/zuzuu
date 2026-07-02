@@ -163,3 +163,20 @@ Consent-first onboarding copy · the schema'd Grid with labels/defaults ·
 generations wing with rollback one click away · the ghost/review loop over the
 map with keyboard triage and reject-reasons · CSV import materializing in the
 World live · zero-crash stability throughout.
+
+## Fixed (same day)
+
+Items 1–5 + 7 landed on `feat/personal-app-roadmap`, each re-verified LIVE in
+Chrome against this audit's repros:
+
+| # | Finding | Commits | Live verification |
+|---|---|---|---|
+| 1 | Map-first home never renders (state flap · blank stage) | `4aa2e3c` `5cad913` `be0142f` | opening the vault lands on the World (295+ circles); fs-fallback kills the flap; contentful projects get the map home mid-rung; the cold-cache mount race (loading early-return vs the once-only ref effect) was the true "empty black stage" |
+| 2 | Root-mode reads as no-project | `edc4b93` | vault: `state: hooks-off→steady`, 6 modules, launcher shows 289 notes/6 tables; never "Create the brain" |
+| 3 | "New note" stages unapprovable proposals | `fad1878` | form-first draft wing: typed fields, required markers, select options; Stage disabled until approvable |
+| 4 | Approve failures swallow the reason | `e4e8341` | `apiErrorMessage` prefers the CLI's structured refusal; toasts carry it |
+| 5 | /ws/zuzuu doesn't follow workspace switches | `71a41fd` `3994eca` | instrumented: 3 sockets across a personal→wa-agent→personal round trip, old ones closed, the live one pushed a CLI touch into the open map; degraded graph reads now retry instead of rendering "No notes yet" over 290 notes |
+| 7 | Palette Enter prefers a fuzzy Navigate item | `6fd240c` + follow-up | live: "brahman" selects `knowledge:brahman` (it had ranked a PROJECT SWITCH first); exact substring outranks fuzzy; content leads on a live query |
+
+Still open from the top-10: 6 (module creation UI) · 8 (boot-into-project) ·
+9 (truthful small copy) · 10 (bundle-staleness nudge).

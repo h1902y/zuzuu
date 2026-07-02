@@ -8,6 +8,13 @@ that history).
 ## [Unreleased]
 
 ### Fixed
+- **The live-audit fixes (map-first for real)**: the World home renders on cold
+  caches and survives project-state flaps (fs-fallback + durable-facts steady +
+  the mount-race fix); root-mode projects read as Projects in state/health/
+  launcher; "New note" is form-first (never an unapprovable proposal); approve
+  failures surface the CLI's precise reason; the brain push follows workspace
+  switches and degraded graph reads retry instead of rendering an empty project;
+  palette Enter prefers the literal note match.
 - **The daemon's overview never used the CLI fast path**: the route expected
   `{modules}` but `zz module overview --json` emits a rows array — every project
   fell through to the degraded frontmatter peek. The route now maps the CLI rows
