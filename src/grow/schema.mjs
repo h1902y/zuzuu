@@ -43,10 +43,14 @@ function writeSchema(home, module, path, note, fields, label) {
 }
 
 // Build a clean FieldDef from CLI inputs — only the keys that carry meaning.
-function fieldDef(name, type, { required = false, options = null } = {}) {
+// `default` fills the column on `note create` when absent; `label` is the human/UI
+// display name (a form can render real fields instead of inferring from keys).
+function fieldDef(name, type, { required = false, options = null, def = undefined, label = null } = {}) {
   const f = { name, type };
   if (required) f.required = true;
   if (Array.isArray(options) && options.length) f.options = options;
+  if (def !== undefined) f.default = def;
+  if (label) f.label = label;
   return f;
 }
 
@@ -73,8 +77,10 @@ export function alterColumn(home, module, name, opts = {}) {
   if (opts.type && !FIELD_TYPES.has(opts.type)) return { ok: false, error: `unknown type '${opts.type}' — one of ${[...FIELD_TYPES].join('|')}` };
   const required = opts.required !== undefined ? opts.required : cur.required;
   const options = opts.options !== undefined ? opts.options : cur.options;
+  const def = opts.def !== undefined ? opts.def : cur.default;
+  const label = opts.label !== undefined ? opts.label : cur.label;
   const next = [...s.fields];
-  next[idx] = fieldDef(name, type, { required, options });
+  next[idx] = fieldDef(name, type, { required, options, def, label });
   return writeSchema(home, module, s.path, s.note, next, `alter-column ${module}.${name}`);
 }
 

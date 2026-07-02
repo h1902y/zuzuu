@@ -13,6 +13,7 @@ import { itemPath } from '../notes/store.mjs';
 import { readManifest } from '../notes/module.mjs';
 import { readNote } from '../notes/repo.mjs';
 import { evolve } from './evolve.mjs';
+import { commit } from './commit.mjs';
 
 // a CLI value is text; coerce JSON (numbers/booleans/lists) but keep a plain string
 const coerce = (v) => { try { return JSON.parse(v); } catch { return v; } };
@@ -58,4 +59,49 @@ export function appendNote(home, module, id, text, actor = 'operator') {
   if (!cur) return { ok: false, error: `no note '${module}:${id}'` };
   const body = [cur.body, text].filter((s) => s && s.trim()).join('\n');
   return evolve(home, module, { id: `append-${id}`, op: 'update', target: id, change: { body } }, actor);
+}
+
+// ── the operator lane: direct row create/delete ──────────────────────────────
+// The human building their own app gets INSTANT CRUD — still through the one
+// write boundary (validated, logged, minted), never exposed to the agent
+// (the CLI rows are agentInvokable:false; the agent's channel stays stage→review).
+
+// Fill absent declared columns from the schema's `default`s — the row lands complete.
+function withDefaults(home, module, change) {
+  const out = { ...change };
+  for (const f of readManifest(home, module).fields ?? []) {
+    if (f?.name && f.default !== undefined && (out[f.name] === undefined || out[f.name] === '')) out[f.name] = f.default;
+  }
+  return out;
+}
+
+/** Create a note DIRECTLY → one generation. `force` replaces an existing note
+ *  (the upsert); without it an existing id is an error, not a silent overwrite. */
+export function createNote(home, module, id, change = {}, { actor = 'operator', force = false } = {}) {
+  if (!force && existsSync(itemPath(home, module, id))) {
+    return { ok: false, error: `note '${module}:${id}' already exists (note set edits · --force replaces)` };
+  }
+  return evolve(home, module, { id: `create-${id}`, op: 'create', target: id, change: withDefaults(home, module, change) }, actor);
+}
+
+/** Delete a note DIRECTLY → one generation. (Referrers keep their edges — `zz check`
+ *  will flag them; `note fold` is the merge-aware alternative.) */
+export function deleteNote(home, module, id, actor = 'operator') {
+  if (!existsSync(itemPath(home, module, id))) return { ok: false, error: `no note '${module}:${id}'` };
+  return evolve(home, module, { id: `delete-${id}`, op: 'delete', target: id }, actor);
+}
+
+/** Create MANY rows in ONE transaction → one generation (the batch/import path).
+ *  All-or-nothing: any invalid row reverts the whole batch. */
+export function createNotes(home, module, rows, { actor = 'operator', force = false } = {}) {
+  if (!Array.isArray(rows) || !rows.length) return { ok: false, error: 'batch needs a non-empty array of rows' };
+  if (rows.some((r) => !r || typeof r !== 'object' || !r.id)) return { ok: false, error: 'every row needs an id' };
+  if (!force) {
+    const dup = rows.find((r) => existsSync(itemPath(home, module, r.id)));
+    if (dup) return { ok: false, error: `note '${module}:${dup.id}' already exists (--force replaces)` };
+  }
+  const batch = rows.map(({ id, ...change }) => ({ module, id: `create-${id}`, op: 'create', target: id, change: withDefaults(home, module, change) }));
+  const res = commit(home, { actor }, batch, { label: `create ${rows.length} row(s) in ${module}` });
+  if (!res.ok) return res;
+  return { ok: true, created: res.results.map((r) => r.note), generations: res.generations };
 }

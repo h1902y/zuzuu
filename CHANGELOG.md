@@ -24,6 +24,17 @@ that history).
 - The corpus signature is computed once per index rebuild, not twice.
 
 ### Added
+- **The operator lane — direct row CRUD** (Phase 1 of the personal-app roadmap):
+  `zz note create <m> <id> --type t [--field k=v …] [--body text] [--force]`,
+  `zz note delete <m> <id>`, and `zz note create <m> --batch '<json>'` (many rows,
+  ONE transaction, ONE generation, all-or-nothing). Instant for the human building
+  their own app; still validated + provenance-logged + minted through the one
+  write boundary; **agents are refused** — both in-process (`commit` refuses
+  `actor:'agent'`) and at the shell (the generated execution gate denies the new
+  verbs automatically: write-permission ∧ not agent-invokable). Schema `default`s
+  fill absent columns on create.
+- **Schema v1.5**: a FieldDef may carry `default` (fills on create) and `label`
+  (the UI display name) — `module add-column/alter-column --default v --label l`.
 - **Cross-module search**: `zz query --all [text]` searches the whole project
   (the index primitive always could; the verb's surface forced a per-module loop).
 - `--json` on `query`, `note view`, `check`, `validate`, `gen log` — the read

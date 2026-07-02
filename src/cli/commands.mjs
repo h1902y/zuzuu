@@ -34,6 +34,7 @@ import { renderNoteDiff } from '../use/diff.mjs';
 import { toon } from '../notes/toon.mjs';
 import { searchRows, readEnvelopes } from '../notes/rows.mjs';
 import { moduleCounts } from '../notes/index.mjs';
+import { coerceForField } from '../grow/edit.mjs';
 
 // The read projection's column SKIP set — mirrors the client grid's `inferKeys`
 // (web/src/client/shell/stage/grid-columns.ts): `module` is implicit, `body` is the
@@ -360,11 +361,16 @@ export const COMMANDS = [
   // itself. `module schema <k>` (the READ) stays inside the `module` handler above.
   {
     path: ['module', 'add-column'], plane: 'data', json: true, permission: 'admin', agentInvokable: false,
-    usage: 'module add-column <k> <name> <type> [--required] [--options a,b]', summary: 'add a typed column to a module schema',
+    usage: 'module add-column <k> <name> <type> [--required] [--options a,b] [--default v] [--label l]', summary: 'add a typed column to a module schema',
     handler: ({ args, cwd, log, json }) => {
       const [m, name, type] = args._;
-      if (!m || !name || !type) return fail(log, 'usage: zz module add-column <key> <name> <type> [--required] [--options a,b]', json);
-      const opts = { required: !!args.required, options: args.options ? String(args.options).split(',').map((s) => s.trim()).filter(Boolean) : null };
+      if (!m || !name || !type) return fail(log, 'usage: zz module add-column <key> <name> <type> [--required] [--options a,b] [--default v] [--label l]', json);
+      const opts = {
+        required: !!args.required,
+        options: args.options ? String(args.options).split(',').map((s) => s.trim()).filter(Boolean) : null,
+        def: args.default !== undefined && args.default !== true ? args.default : undefined,
+        label: args.label && args.label !== true ? String(args.label) : null,
+      };
       const r = open(cwd).addColumn(m, name, type, opts);
       if (!r.ok) return fail(log, r.error, json);
       emit(log, json, { key: m, fields: r.fields, generation: r.generation }, ['schema', r.fields, ['name', 'type', 'required']]);
@@ -373,14 +379,16 @@ export const COMMANDS = [
   },
   {
     path: ['module', 'alter-column'], plane: 'data', json: true, permission: 'admin', agentInvokable: false,
-    usage: 'module alter-column <k> <name> [--type t] [--required] [--options a,b]', summary: 'change a column (type · required · options)',
+    usage: 'module alter-column <k> <name> [--type t] [--required] [--options a,b] [--default v] [--label l]', summary: 'change a column (type · required · options · default · label)',
     handler: ({ args, cwd, log, json }) => {
       const [m, name] = args._;
-      if (!m || !name) return fail(log, 'usage: zz module alter-column <key> <name> [--type <t>] [--required] [--options a,b]', json);
+      if (!m || !name) return fail(log, 'usage: zz module alter-column <key> <name> [--type <t>] [--required] [--options a,b] [--default v] [--label l]', json);
       const opts = {};
       if (args.type) opts.type = String(args.type);
       if (args.required !== undefined) opts.required = !!args.required;
       if (args.options !== undefined) opts.options = String(args.options).split(',').map((s) => s.trim()).filter(Boolean);
+      if (args.default !== undefined && args.default !== true) opts.def = args.default;
+      if (args.label !== undefined) opts.label = args.label && args.label !== true ? String(args.label) : null;
       const r = open(cwd).alterColumn(m, name, opts);
       if (!r.ok) return fail(log, r.error, json);
       emit(log, json, { key: m, fields: r.fields, generation: r.generation }, ['schema', r.fields, ['name', 'type', 'required']]);
@@ -444,6 +452,64 @@ export const COMMANDS = [
       if (!r.ok && !r.steps) return fail(log, r.error);
       log(toon('flow', r.steps, ['id', 'success', 'exitCode']));
       if (!r.ok) { log(`✗ failed at step '${r.failedStep}'${r.compensations?.length ? ` — compensated ${r.compensations.length} step(s)` : ''}`); return 1; }
+      return 0;
+    },
+  },
+  {
+    // THE OPERATOR LANE: direct row create — instant CRUD for the human building
+    // their own app. Still lands through commit() (validated + logged + minted);
+    // agentInvokable:false keeps the agent on its stage→review channel.
+    path: ['note', 'create'], plane: 'data', json: true, permission: 'write', agentInvokable: false,
+    usage: 'note create <m> <id> --type t [--field k=v …] [--body text] [--force] · note create <m> --batch <json>',
+    summary: 'create a row directly (schema defaults fill in; --force = upsert; --batch = many rows, one generation)',
+    handler: ({ args, cwd, log, json, rest }) => {
+      const zz = open(cwd);
+      const [m, id] = args._;
+      if (!m) return fail(log, 'usage: zz note create <module> <id> --type t [--field k=v …] [--body text] [--force]', json);
+      // batch path: --batch '<json array of {id, type, …fields}>' — one commit, one generation
+      if (args.batch) {
+        let rows;
+        try { rows = JSON.parse(args.batch); } catch { return fail(log, 'invalid --batch JSON', json); }
+        const r = zz.createMany(m, rows, { force: !!args.force });
+        if (!r.ok) return fail(log, r.error, json);
+        emit(log, json, { ok: true, created: r.created, generations: r.generations },
+          ['created', r.created.map((x) => ({ id: x })), ['id']]);
+        return 0;
+      }
+      if (!id) return fail(log, 'usage: zz note create <module> <id> --type t [--field k=v …]', json);
+      // change body: --change <json> (machine) OR --field k=v repeated (human sugar;
+      // values coerce schema-aware) + --type/--body conveniences.
+      let change = {};
+      if (args.change) { try { change = JSON.parse(args.change); } catch { return fail(log, 'invalid --change JSON', json); } }
+      else {
+        for (let i = 0; i < rest.length; i++) {
+          if (rest[i] === '--field' && rest[i + 1] != null) {
+            const eq = rest[i + 1].indexOf('=');
+            if (eq > 0) {
+              const k = rest[i + 1].slice(0, eq);
+              change[k] = coerceForField(zz.home, m, k, rest[i + 1].slice(eq + 1));
+            }
+            i++;
+          }
+        }
+      }
+      if (args.type && args.type !== true) change.type = String(args.type);
+      if (args.body && args.body !== true) change.body = String(args.body);
+      const r = zz.create(m, id, change, { force: !!args.force });
+      if (!r.ok) return fail(log, r.error, json);
+      emit(log, json, { ok: true, addr: `${m}:${id}` }, ['created', [{ addr: `${m}:${id}` }], ['addr']]);
+      return 0;
+    },
+  },
+  {
+    path: ['note', 'delete'], plane: 'data', json: true, permission: 'write', agentInvokable: false,
+    usage: 'note delete <m> <id>', summary: 'delete a row directly (referrers flagged by zz check; fold merges instead)',
+    handler: ({ args, cwd, log, json }) => {
+      const [m, id] = args._;
+      if (!m || !id) return fail(log, 'usage: zz note delete <module> <id>', json);
+      const r = open(cwd).remove(m, id);
+      if (!r.ok) return fail(log, r.error, json);
+      emit(log, json, { ok: true, deleted: `${m}:${id}` }, ['deleted', [{ addr: `${m}:${id}` }], ['addr']]);
       return 0;
     },
   },

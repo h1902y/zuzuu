@@ -19,7 +19,7 @@ import { stageChange, listStaged } from '../grow/stage.mjs';
 import { approve, reject } from '../grow/review.mjs';
 import { planFor, applyPlan } from '../grow/plan.mjs';
 import { renameNote, mergeNotes, refactorField } from '../grow/refactor.mjs';
-import { patchNote, appendNote } from '../grow/edit.mjs';
+import { patchNote, appendNote, createNote, deleteNote, createNotes } from '../grow/edit.mjs';
 import { generations, diffGenerations, notesAsOf } from '../notes/generation.mjs';
 import { rollback } from '../grow/commit.mjs';
 import { addColumn, alterColumn, dropColumn } from '../grow/schema.mjs';
@@ -104,6 +104,13 @@ export function open(cwd = process.cwd(), { actor = 'operator' } = {}) {
     // ── scoped edits ────────────────────────────────────────────────────────
     patch: (module, id, key, value) => patchNote(home, module, id, key, value, actor),
     append: (module, id, text) => appendNote(home, module, id, text, actor),
+
+    // ── the operator lane: direct row CRUD (instant; still validated + logged +
+    //    minted through commit(); the agent never reaches these — its channel
+    //    stays stage→review, and the CLI rows are agentInvokable:false) ───────
+    create: (module, id, change, opts = {}) => createNote(home, module, id, change, { actor, ...opts }),
+    createMany: (module, rows, opts = {}) => createNotes(home, module, rows, { actor, ...opts }),
+    remove: (module, id) => deleteNote(home, module, id, actor),
 
     // ── snapshots (per-module generations) ─────────────────────────────────
     generations: (module) => generations(home, module),
