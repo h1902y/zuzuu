@@ -407,3 +407,39 @@ flags already ride module export's query).
 
 **7 · Cells stay read-only** (§H.1): click → pre-filled omnibar `set` verb;
 row expansion → inline detail. Pagination stays server-side.
+
+### §H.4 — Airtable grid language, studied (Mobbin) → adopt/reject
+
+From the reference screens (mobbin.com/screens/… 0a97a6ad, ccf261ba, f7af9d5b,
+a626dea7, 8c95c04c, 9b2045e0, 3eb862e7, 03aa705b):
+
+ADOPT (translated to ds tokens, dark):
+1. **Field-type icons in column headers** — every header carries its type glyph
+   (text · select · date · number · link · bool · ƒ computed) + a per-column
+   caret menu. We HAVE the types; show them.
+2. **Column-header menu** = sort asc/desc · filter by this field · group by
+   this field · hide — each a canned omnibar invocation (§H.3.5 confirmed by
+   Airtable's own menu).
+3. **Anchored builder panels, not dialogs**: Filter ("Where [field] [op]
+   [value] · + add condition"), Group ("pick a field"), Sort — small panels
+   under the toolbar buttons that COMPOSE the same clause grammar; the chips
+   row stays the visible state (builders write chips; typists type them).
+4. **Select values as colored pills** — options get stable hues (hash), status
+   lifecycle gets fixed semantic hues; module keeps its island dot.
+5. **Frozen identity column** + row-number rail (hover → select checkbox);
+   crisp separators, tight ~32px rows, generous column width defaults.
+6. **Footer aggregates**: record count always; per-numeric-column Σ/avg when
+   grouped or selected ("Sum 830" under a number column — query v2 serves it).
+7. **Hidden-fields pill** in the toolbar ("N hidden") — column state visible.
+8. **Color-by** (row left-edge strip by a select field) — cheap, high-signal.
+
+REJECT (doctrine):
+- Inline cell editing (cells read-only; click → pre-filled omnibar verb).
+- The left views rail (single-screen: views are toolbar chips + omnibar nouns).
+- Manual row reorder (+drag), inline + add-row grid cell — 'new row' is a
+  toolbar affordance invoking the omnibar create form.
+- Multiple view TYPES (calendar/kanban/gantt) — our second projection is the
+  MAP; other projections are future, not this pass.
+
+Toolbar final shape: [n hidden] [Filter] [Group] [Sort] [Color] · clause chips
+below · count+aggregates footer. The builders and the grammar are ONE state.
