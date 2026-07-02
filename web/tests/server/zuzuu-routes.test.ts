@@ -151,6 +151,51 @@ describe("createZuzuuApi file routes", () => {
     expect((await app.request("/module/..%2f..%2fetc")).status).toBe(404);
   });
 
+  it("GET /module/:key/item/:id/history reads log.jsonl, filters to the note, newest first, capped 50 (§G.1)", async () => {
+    const agent = fixtureHome(root);
+    const lines = [
+      { event: "create", ts: null, note: "k1", actor: "human", proposal: "p1" },
+      { event: "update", ts: null, note: "other", actor: "human" }, // a different note — must be filtered out
+      { event: "update", ts: "2026-06-20T10:00:00Z", note: "k1", actor: "human" },
+      "not json at all", // a corrupt line — skipped, doesn't break the rest
+      { event: "update", ts: null, note: "k1", actor: "init", backfill: "envelope-floor" },
+    ];
+    const text = lines.map((l) => (typeof l === "string" ? l : JSON.stringify(l))).join("\n") + "\n";
+    writeFileSync(path.join(agent, "knowledge", "log.jsonl"), text);
+    const app = createZuzuuApi(() => root, { binary: "x" });
+    const body = await (await app.request("/module/knowledge/item/k1/history")).json();
+    expect(body.key).toBe("knowledge");
+    expect(body.id).toBe("k1");
+    // newest first: the last-written k1 line (the backfill update) comes first
+    expect(body.entries).toHaveLength(3);
+    expect(body.entries[0]).toMatchObject({ event: "update", actor: "init", backfill: "envelope-floor" });
+    expect(body.entries[2]).toMatchObject({ event: "create", proposal: "p1" });
+    // bornAt is the earliest create entry
+    expect(body.bornAt).toMatchObject({ event: "create", note: "k1", proposal: "p1" });
+  });
+  it("GET /module/:key/item/:id/history: no log.jsonl → empty entries, null bornAt (never a 500)", async () => {
+    fixtureHome(root);
+    const app = createZuzuuApi(() => root, { binary: "x" });
+    const body = await (await app.request("/module/knowledge/item/nope/history")).json();
+    expect(body).toEqual({ key: "knowledge", id: "nope", entries: [], bornAt: null });
+  });
+  it("GET /module/:key/item/:id/history is root-mode aware (log.jsonl at <module>/log.jsonl, no .zuzuu/)", async () => {
+    writeFileSync(path.join(root, "project.md"), "---\ntype: project\nformat: zuzuu/v2\n---\n");
+    mkdirSync(path.join(root, "crm", "items"), { recursive: true });
+    writeFileSync(path.join(root, "crm", "module.md"), "---\ntype: module\nid: crm\n---\n");
+    writeFileSync(path.join(root, "crm", "log.jsonl"), `${JSON.stringify({ event: "create", ts: null, note: "acme", actor: "human" })}\n`);
+    const app = createZuzuuApi(() => root, { binary: "x" });
+    const body = await (await app.request("/module/crm/item/acme/history")).json();
+    expect(body.entries).toHaveLength(1);
+    expect(body.bornAt).toMatchObject({ event: "create", note: "acme" });
+  });
+  it("GET /module/:key/item/:id/history rejects unsafe slugs/ids", async () => {
+    fixtureHome(root);
+    const app = createZuzuuApi(() => root, { binary: "x" });
+    expect((await app.request("/module/..%2f..%2fetc/item/k1/history")).status).toBe(404);
+    expect((await app.request("/module/knowledge/item/..%2f..%2fetc/history")).status).toBe(400);
+  });
+
   it("GET /held shells `zz session status --json` → the id-enriched held[] (U6)", async () => {
     fixtureHome(root);
     const status = JSON.stringify({

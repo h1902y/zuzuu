@@ -15,10 +15,12 @@ import {
   listModuleDirs,
   moduleEnvelopeItems,
   peekModuleItems,
+  readMutationLog,
   resolveHome,
   stagedSummary,
   readJsonDir,
 } from "./zuzuu-peek.js";
+import type { HistoryEntry } from "#shared/index.js";
 
 export function createZuzuuReadApi(getRoot: () => string, binary?: string): Hono {
   const app = new Hono();
@@ -118,6 +120,23 @@ export function createZuzuuReadApi(getRoot: () => string, binary?: string): Hono
     const viaCli = await runCommand(getRoot(), "module.item", { key, id }, { binary });
     if (viaCli) return c.json(viaCli);
     return c.json({ error: "not found" }, 404);
+  });
+
+  // A note's history (§G.1) — the module's log.jsonl filtered to ONE note, newest
+  // first, capped 50. Peek-only (readMutationLog — no CLI verb exists for this;
+  // §G's brief is explicit: don't add one this pass). root-mode aware via
+  // resolveHome, same as every other read here.
+  app.get("/module/:key/item/:id/history", async (c) => {
+    const key = c.req.param("key");
+    const id = c.req.param("id");
+    if (!SAFE_SLUG.test(key)) return c.json({ error: "unknown module" }, 404);
+    if (!SAFE_ID.test(id)) return c.json({ error: "bad id" }, 400);
+    const home = await homeDir(getRoot());
+    const all = (await readMutationLog(home, key)) as HistoryEntry[];
+    const mine = all.filter((e) => e.note === id);
+    const entries = mine.slice(-50).reverse(); // last 50 in file order, newest first
+    const bornAt = mine.find((e) => e.event === "create") ?? null;
+    return c.json({ key, id, entries, bornAt });
   });
 
   app.get("/module/:key/schema", async (c) => {

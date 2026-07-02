@@ -126,6 +126,37 @@ export interface ModuleSchema {
   source?: string;
 }
 
+// ── A note's history (§G.1) — the module's mutation log, filtered to one note ──
+
+/** One line of a module's log.jsonl (src/notes/log.mjs's `append`/`logMutation`).
+ *  `event` is the mutation kind (create|update|delete|deprecate); `ts` is ISO or
+ *  null (most mutation-log entries are honestly null today — nothing in the write
+ *  path stamps one yet, see log.mjs); `actor` names who did it (human|agent|
+ *  migration|ingestion are the substrate's named buckets — `agent` never lands in
+ *  practice since the moat refuses a non-operator commit, and migration/ingestion
+ *  are designed-not-yet-wired per §I.2 — anything else, e.g. `init`'s seed writes,
+ *  rides through as its raw string, never relabeled). Everything past the four
+ *  known keys is a per-op breadcrumb (`proposal`, `backfill`, `rename`, `merge`,
+ *  `refactor`, `rollback`, `relation`, …) — read tolerantly, never enumerated. */
+export interface HistoryEntry {
+  event: string;
+  ts: string | null;
+  note: string;
+  actor?: string;
+  [k: string]: unknown;
+}
+
+/** GET /module/:key/item/:id/history — one note's mutation trail: the module's
+ *  log.jsonl filtered to `note === id`, newest first, capped 50. `bornAt` is the
+ *  earliest `create` entry (the footer's "born here" line links to it); null when
+ *  the note predates the log (a legacy note, or the log itself is absent). */
+export interface NoteHistoryResponse {
+  key: string;
+  id: string;
+  entries: HistoryEntry[];
+  bornAt: HistoryEntry | null;
+}
+
 // ── Module overview (ONE call for the whole panel root) ───────────────────────
 
 /** One module in GET /overview. The peek fallback (CLI absent) omits

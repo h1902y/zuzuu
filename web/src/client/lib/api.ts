@@ -19,6 +19,7 @@ import type {
   ModuleItem,
   ModuleOverviewResponse,
   ModuleSchema,
+  NoteHistoryResponse,
   ProjectState,
   ProjectsList,
   RecentsList,
@@ -194,6 +195,9 @@ export const api = {
     // each row carries its module; the Everything grid renders module as a column
     items: (query?: ModuleQuery) => request<ModuleDetail>(`/api/zuzuu/items${moduleQs(query)}`),
     item: (key: string, id: string) => request<ModuleItem>(`/api/zuzuu/module/${key}/item/${id}`),
+    // a note's history (§G.1): the module's mutation-log entries filtered to this
+    // note, newest first — the NoteDocument's collapsed History group.
+    history: (key: string, id: string) => request<NoteHistoryResponse>(`/api/zuzuu/module/${key}/item/${id}/history`),
     schema: (key: string) => request<ModuleSchema>(`/api/zuzuu/module/${key}/schema`),
     generations: (key: string) => request<ModuleGenerationList>(`/api/zuzuu/module/${key}/generations`),
     // a write resolves to a PENDING proposal (a staged change), not a landed row — it

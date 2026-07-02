@@ -224,6 +224,25 @@ export async function moduleEnvelopeItems(root: string, home: string, key: strin
   return { items, total: items.length, errors: [], degraded: true };
 }
 
+/** Read a module's mutation log (§G.1) — `<home>/<module>/log.jsonl`, the durable
+ *  provenance trail `src/notes/log.mjs`'s `append`/`logMutation` writes. A peek,
+ *  not a CLI call: there is no `zz log …` verb (nothing to shell), so this is the
+ *  ONLY read path — mirrors log.mjs's own `read()` line-by-line without importing
+ *  src/ (the daemon stays out-of-process). Fail-soft: missing file → [], a
+ *  malformed line is skipped and the rest still reads (append-only files can end
+ *  mid-write on a crash). Lines are already in chronological (append) order — the
+ *  route reverses for "newest first"; no `ts` field is needed to order them. */
+export async function readMutationLog(home: string, module: string): Promise<Record<string, unknown>[]> {
+  let text: string;
+  try { text = await fsp.readFile(path.join(home, module, "log.jsonl"), "utf8"); } catch { return []; }
+  const out: Record<string, unknown>[] = [];
+  for (const line of text.split("\n")) {
+    if (!line.trim()) continue;
+    try { out.push(JSON.parse(line)); } catch { /* skip a bad line, keep the rest */ }
+  }
+  return out;
+}
+
 /** Read every *.json in a dir into objects; missing dir → [], corrupt file → skipped. */
 export async function readJsonDir(dir: string): Promise<Record<string, unknown>[]> {
   let names: string[] = [];
