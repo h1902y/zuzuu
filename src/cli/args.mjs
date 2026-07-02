@@ -13,6 +13,7 @@
 //       Zero-dep.
 
 import { toon } from '../notes/toon.mjs';
+import { WHERE_OPS } from '../notes/validate.mjs';
 
 /** A flag value as a string — '' when absent or bare (`--title` with no value). */
 export const str = (v) => (v && v !== true ? String(v) : '');
@@ -27,9 +28,11 @@ export const list = (v) => (v && v !== true ? String(v).split(',').map((s) => s.
 export const flag = (v) => v === true || v === 'true' || v === '1';
 
 /** Repeated `--where key<op>val` → [{key,value,op}] (the EAV column filters;
- *  op ∈ = != >= <= > <). A pair without an operator (or empty key) is skipped. */
+ *  op ∈ WHERE_OPS, the canonical list — notes/validate.mjs, audit
+ *  2026-07-03-triggers-review.md NIT 1). A pair without an operator (or empty key) is
+ *  skipped. */
 export function parseWhere(pair) {
-  for (const op of ['>=', '<=', '!=', '=', '>', '<']) { // longest first
+  for (const op of WHERE_OPS) { // longest first
     const at = pair.indexOf(op);
     if (at > 0) return { key: pair.slice(0, at), op, value: pair.slice(at + op.length) };
   }

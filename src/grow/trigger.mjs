@@ -53,6 +53,7 @@
 import { readNote } from '../notes/repo.mjs';
 import { search, count } from '../notes/index.mjs';
 import { searchRows } from '../notes/rows.mjs';
+import { WHERE_OPS } from '../notes/validate.mjs';
 import { patchNote } from './edit.mjs';
 import { startRun } from './run.mjs';
 
@@ -71,13 +72,20 @@ export function isTriggerEnabled(trigger) {
   return ENABLED_TRUE.has(String(v ?? '').toLowerCase());
 }
 
-// ── the note-change filter grammar — mirrors cli/args.mjs's `parseWhere` (a string
-// clause `'key<op>value'`) but is NOT an import of it: cli/ imports grow/ (this file),
-// so the reverse import would cycle. A structured `{key, op?, value}` clause needs no
-// parsing at all. ──────────────────────────────────────────────────────────────────
-const CLAUSE_OPS = ['>=', '<=', '!=', '=', '>', '<']; // longest first
-function parseClauseString(pair) {
-  for (const op of CLAUSE_OPS) {
+// ── the note-change filter grammar — parses the SAME string clause `'key<op>value'`
+// cli/args.mjs's `parseWhere` does (`zz query --where`), off the SAME WHERE_OPS
+// constant (notes/validate.mjs — audit 2026-07-03-triggers-review.md NIT 1: this used
+// to be an independently-mirrored `CLAUSE_OPS` array with nothing pinning it equal to
+// `parseWhere`'s). NOT an import of `parseWhere` itself: cli/ imports grow/ (this
+// file), so importing cli/args.mjs back would cycle — importing the shared OPS
+// constant from notes/ (which both cli/ and grow/ may freely import downward) avoids
+// that while still killing the duplication. A structured `{key, op?, value}` clause
+// needs no parsing at all. ─────────────────────────────────────────────────────────
+// Exported so a test can pin it against cli/args.mjs's `parseWhere` directly (audit
+// 2026-07-03-triggers-review.md NIT 1's "a test asserting the two parsers accept the
+// identical op set") — not otherwise used outside this file.
+export function parseClauseString(pair) {
+  for (const op of WHERE_OPS) { // longest first
     const at = pair.indexOf(op);
     if (at > 0) return { key: pair.slice(0, at), op, value: pair.slice(at + op.length) };
   }

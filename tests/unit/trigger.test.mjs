@@ -7,14 +7,16 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { validateNote, TRIGGER_ON_KINDS, isParseableCronExpr } from '../../src/notes/validate.mjs';
+import { validateNote, TRIGGER_ON_KINDS, isParseableCronExpr, WHERE_OPS } from '../../src/notes/validate.mjs';
 import { createNote } from '../../src/grow/edit.mjs';
 import { readNote, listNoteIds, writeNote } from '../../src/notes/repo.mjs';
 import { initHome } from '../../src/cli/init.mjs';
 import {
   listTriggers, showTrigger, triggerMatches, fireTrigger, setTriggerEnabled, isTriggerEnabled,
+  parseClauseString,
 } from '../../src/grow/trigger.mjs';
 import { startRun } from '../../src/grow/run.mjs';
+import { parseWhere } from '../../src/cli/args.mjs';
 
 function withRepo(fn) {
   const cwd = mkdtempSync(join(tmpdir(), 'zz-trigger-'));
@@ -126,6 +128,29 @@ test('validateNote: enabled must be boolean-ish (tolerates the un-coerced "true"
   const bad = validateNote({ ...base, type: 'trigger', on: { kind: 'manual' }, run: 'actions:flow', enabled: 'maybe' });
   assert.equal(bad.ok, false);
   assert.ok(bad.errors.some((e) => /enabled.*boolean/.test(e)));
+});
+
+// ── WHERE_OPS — the trigger filter parser and the query --where parser must accept the
+// IDENTICAL op set (NIT 1, docs/audits/2026-07-03-triggers-review.md): before this, the
+// same 6 ops were hand-mirrored in five places with nothing pinning them equal — an op
+// added to one copy and forgotten in another would silently under-count the blast-radius
+// preview (or reject a clause `zz query --where` accepts). Now both parsers import the
+// SAME notes/validate.mjs WHERE_OPS constant; this pins their observable BEHAVIOR equal
+// too, not just that they happen to reference the same array. ──────────────────────────
+
+test('WHERE_OPS: parseClauseString (trigger blast-radius) and parseWhere (zz query --where) parse every clause IDENTICALLY', () => {
+  const clauses = [
+    'tier>=2', 'tier<=2', 'tier!=2', 'tier=2', 'tier>2', 'tier<2', // one per op
+    'a>=b>=c', // ambiguous but both parsers must resolve it the SAME way
+    'not-a-clause-at-all', '', 'tier>=', // malformed/edge inputs
+  ];
+  for (const c of clauses) {
+    assert.deepEqual(parseClauseString(c), parseWhere(c), `identical parse for '${JSON.stringify(c)}'`);
+  }
+});
+
+test('WHERE_OPS: the canonical op set is exactly the documented 6, longest-first', () => {
+  assert.deepEqual(WHERE_OPS, ['>=', '<=', '!=', '=', '>', '<']);
 });
 
 // ── isTriggerEnabled — the second-gate coercion (SHOULD-FIX 2, docs/audits/

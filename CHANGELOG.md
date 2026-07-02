@@ -8,6 +8,17 @@ that history).
 ## [Unreleased]
 
 ### Fixed
+- **The `--where` comparison operators are now ONE canonical list** (NIT 1,
+  `docs/audits/2026-07-03-triggers-review.md`): `cli/args.mjs`'s `parseWhere`
+  (`zz query --where`), `notes/index.mjs`'s `EAV_OPS` (the real query engine),
+  `notes/validate.mjs`'s trigger where-clause shape check (twice), and
+  `grow/trigger.mjs`'s blast-radius clause parser each hand-mirrored the same 6
+  operators with nothing pinning them equal — an op added to one copy and
+  forgotten in another would silently under-count the trigger blast-radius
+  preview (or reject a clause `zz query --where` accepts). `notes/validate.mjs`
+  now exports `WHERE_OPS`, the single source; the other four import it. No
+  behavior change (the values and order were already identical); a new test
+  pins `parseClauseString` and `parseWhere` to parse every clause identically.
 - **`isTriggerEnabled`'s string-coercion edge is now test-covered** (SHOULD-FIX 2,
   `docs/audits/2026-07-03-triggers-review.md`): the second gate's read of `enabled`
   was correct by reading — a raw string `"false"`/`"no"`/`"0"` (the un-coerced shape

@@ -16,6 +16,7 @@ import { createHash } from 'node:crypto';
 import { parse, edgeEntries } from './note.mjs';
 import { itemsDir, cacheDir } from './store.mjs';
 import { readManifest } from './module.mjs';
+import { WHERE_OPS } from './validate.mjs';
 import { sqlite } from '../metal/sqlite.mjs';
 import { readText, mkdirp, remove } from '../metal/fs.mjs';
 
@@ -220,11 +221,13 @@ function ftsQuery(text) {
 // so the read projection shares ONE source of truth for "is this sort SQL-native?".
 export const SORTABLE_COLUMNS = new Set(['title', 'status', 'type', 'id', 'addr']);
 
-// The EAV comparison operators a `--where` filter may carry. `=` is index-served
-// (prop_kv); the ranges scan the key's rows. Values are TEXT in the EAV — a purely
-// numeric operand compares numerically (CAST), everything else lexicographically,
-// which is exactly right for ISO dates ('2026-07-02' >= '2026-01-01').
-const EAV_OPS = new Set(['=', '!=', '>', '<', '>=', '<=']);
+// The EAV comparison operators a `--where` filter may carry — the canonical list lives
+// in notes/validate.mjs's WHERE_OPS (audit 2026-07-03-triggers-review.md NIT 1; this
+// used to be an independent copy). `=` is index-served (prop_kv); the ranges scan the
+// key's rows. Values are TEXT in the EAV — a purely numeric operand compares
+// numerically (CAST), everything else lexicographically, which is exactly right for
+// ISO dates ('2026-07-02' >= '2026-01-01').
+const EAV_OPS = new Set(WHERE_OPS);
 const isNumeric = (v) => typeof v === 'number' || (typeof v === 'string' && v.trim() !== '' && !Number.isNaN(Number(v)));
 
 function eavCondition({ key, value, op = '=' }, args) {

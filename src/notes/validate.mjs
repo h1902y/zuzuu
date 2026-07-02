@@ -25,7 +25,20 @@ const nonEmptyStr = (v) => typeof v === 'string' && v.trim() !== '';
 // file never imports grow/trigger.mjs back).
 export const TRIGGER_ON_KINDS = new Set(['manual', 'note-change', 'cron', 'ingress']);
 const TRIGGER_EVENTS = new Set(['create', 'update']);
-const TRIGGER_WHERE_OPS = new Set(['=', '!=', '>', '<', '>=', '<=']);
+
+// The EAV `--where` comparison operators — the ONE canonical list (audit
+// 2026-07-03-triggers-review.md NIT 1). Before this, the same 6 ops were hand-mirrored
+// in FIVE places (this file twice, `cli/args.mjs`'s `parseWhere`, `notes/index.mjs`'s
+// `EAV_OPS`, `grow/trigger.mjs`'s `CLAUSE_OPS`) with nothing pinning them equal — add an
+// op to one copy and forget another, and the blast-radius preview grammar silently
+// diverges from the real query grammar (or vice versa). notes/ is the schema source of
+// truth (zero-dep, importable downward by both grow/ and cli/ — see TRIGGER_ON_KINDS
+// above), so this is where it lives; `index.mjs`, `args.mjs`, and `trigger.mjs` all
+// import THIS array instead of re-declaring it. Longest-first — `>=`/`<=`/`!=` must be
+// tried before their one-char prefix (`>`/`<`/`=`) or a two-char operator would never
+// match past its own prefix.
+export const WHERE_OPS = ['>=', '<=', '!=', '=', '>', '<'];
+const TRIGGER_WHERE_OPS = new Set(WHERE_OPS);
 
 // `run: 'module:id'` — a LOCAL module:id shape check (mirrors use/workflow.mjs's
 // `splitAddr` exactly, independently pinned — see the workflow block below for why
@@ -38,12 +51,12 @@ const isModuleIdAddr = (v) => {
 };
 
 // A note-change `on.where` clause is well-formed as either a string `'key<op>value'`
-// (the SAME grammar `zz query --where` parses — cli/args.mjs's `parseWhere`,
-// independently mirrored here for the same acyclicity reason) or an object
+// (the SAME grammar `zz query --where` parses — cli/args.mjs's `parseWhere`, now the
+// SAME WHERE_OPS constant, not an independent mirror — see above) or an object
 // `{key, op?, value}`.
 function wellFormedWhereClause(c) {
   if (typeof c === 'string') {
-    return ['>=', '<=', '!=', '=', '>', '<'].some((op) => {
+    return WHERE_OPS.some((op) => {
       const at = c.indexOf(op);
       return at > 0;
     });
