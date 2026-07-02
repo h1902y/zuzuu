@@ -42,6 +42,32 @@ that history).
 - The corpus signature is computed once per index rebuild, not twice.
 
 ### Added
+- **Settings & observability (web, §G)** — the workbench teaches its own
+  substrate: every magic moment is one click from the plain file that
+  explains it. A note's detail (`NoteDocument`, so every container gets it
+  for free) grows a collapsed **History** group above the footer — the
+  module's `log.jsonl` filtered to that note, actor-glyphed (human · agent ·
+  migration · init) with the op and its "why" (proposal id, backfill marker,
+  rename/merge/refactor/rollback breadcrumb) and a relative time (`ts` is
+  honestly `null` on most entries today — rendered as "time not recorded,"
+  never invented); the footer's "born here" line opens History and scrolls to
+  the note's earliest `create` row. The module wing's GENERATIONS section
+  becomes a compact horizontal **generation strip** (gen N · relative mint
+  time · from-count, active highlighted); opening a chip shows real
+  **"what changed"** (a new `GET .../generation/:from/diff/:to` route + `gen
+  diff` daemon-catalog entry — the CLI declares no `io` for that cold verb
+  yet, so the module/from/to positionals ride as pre-validated `extra`,
+  mirroring `module.items`'s query-flag extra) and a **"roll back to here"**
+  button that prints the honest consequence ("lands as gen N+1 — a new
+  forward generation") before routing through the EXISTING, already-wired
+  rollback path. Every note/module surface grows a quiet **plain-file
+  caption** (path + copy button, root-mode aware — `<module>/items/<id>.md`
+  vs `.zuzuu/<module>/items/<id>.md`; never a file-opener, since a browser
+  page can't reach the local filesystem). Settings gains an **"Under the
+  hood"** section naming `log.jsonl` · `generations.json` · `module.md` ·
+  `project.md` (one sentence + a guide link each) plus daemon facts (port ·
+  Project root · root-mode yes/no — `ProjectState` gains a `rootMode` field).
+  New guide page: [Observability](https://github.com/h1902y/zuzuu/wiki/Observability).
 - **The run safety floor (CLI, §I rung 3)**: `act`/`flow` runs were the one place
   with no bound — `spawnSync` had no timeout, the guardrails gate was fail-open
   for every actor, run-log inputs went to `runs.jsonl` verbatim, and nothing

@@ -6,6 +6,7 @@
 - [[Two Lanes|Two-Lanes]]
 - [[The World|The-World]]
 - [[The Omnibar|Omnibar]]
+- [[Observability]]
 - [[Daemon & API|Daemon-API]]
 - [[Workbench]]
 - [[Module Standard]]
