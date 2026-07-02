@@ -49,6 +49,15 @@ describe("buildZuzuuArgv — the (commandId, params) → argv builder", () => {
     ["module.schema", { key: "knowledge" }, undefined, ["module", "schema", "knowledge"]],
     ["module.generations", { key: "knowledge" }, undefined, ["module", "knowledge", "generations"]],
     ["module.items", { key: "knowledge" }, ["--text", "blue", "--where", "p=high"], ["module", "items", "knowledge", "--text", "blue", "--where", "p=high"]],
+    // §H.5 the field-config panel: add-column / alter-column
+    ["module.add-column", { module: "crm", name: "tier", type: "number", required: "true", options: undefined, default: "3", label: "Tier", description: "priority tier", computed: undefined }, undefined,
+      ["module", "add-column", "crm", "tier", "number", "--required", "true", "--default", "3", "--label", "Tier", "--description", "priority tier"]],
+    ["module.add-column", { module: "crm", name: "stage", type: "select", options: "lead,won,lost" }, undefined,
+      ["module", "add-column", "crm", "stage", "select", "--options", "lead,won,lost"]],
+    ["module.alter-column", { module: "actions", name: "end_date", type: "date", computed: "dateAdd(start_date,duration_days)", label: "Window end" }, undefined,
+      ["module", "alter-column", "actions", "end_date", "--type", "date", "--label", "Window end", "--computed", "dateAdd(start_date,duration_days)"]],
+    ["module.alter-column", { module: "crm", name: "owner", required: "false" }, undefined,
+      ["module", "alter-column", "crm", "owner", "--required", "false"]],
   ];
   for (const [id, params, extra, want] of CASES) {
     it(`${id} (${JSON.stringify(params)}) → ${want.join(" ")}`, () => {

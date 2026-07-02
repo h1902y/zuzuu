@@ -381,6 +381,98 @@ describe("createZuzuuApi POST /module/new (WS-D guided creation)", () => {
 });
 
 
+const patch = (app: ReturnType<typeof createZuzuuApi>, p: string, body?: unknown) =>
+  app.request(p, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
+
+describe("createZuzuuApi POST /module/:key/column + PATCH .../column/:name (§H.5 field-config panel)", () => {
+  it("POST add-column → 200 with the CLI's JSON; builds the right argv", async () => {
+    fixtureHome(root);
+    const app = createZuzuuApi(() => root, { binary: argvStub(root, "zuzuu-addcol.sh") });
+    const res = await post(app, "/module/crm/column", {
+      name: "tier", type: "number", required: true, default: "3", label: "Tier", description: "priority tier",
+    });
+    expect(res.status).toBe(200);
+    expect((await res.json()).argv).toBe(
+      "module|add-column|crm|tier|number|--required|true|--default|3|--label|Tier|--description|priority tier|--json|",
+    );
+  });
+  it("POST add-column with select options → comma-joined --options", async () => {
+    fixtureHome(root);
+    const app = createZuzuuApi(() => root, { binary: argvStub(root, "zuzuu-addcol2.sh") });
+    const res = await post(app, "/module/crm/column", { name: "stage", type: "select", options: ["lead", "won", "lost"] });
+    expect(res.status).toBe(200);
+    expect((await res.json()).argv).toBe("module|add-column|crm|stage|select|--options|lead,won,lost|--json|");
+  });
+  it("PATCH alter-column → 200 with the CLI's JSON; builds the right argv (name rides the URL, never the body)", async () => {
+    fixtureHome(root);
+    const app = createZuzuuApi(() => root, { binary: argvStub(root, "zuzuu-altercol.sh") });
+    const res = await patch(app, "/module/actions/column/end_date", {
+      type: "date", computed: "dateAdd(start_date,duration_days)", label: "Window end",
+    });
+    expect(res.status).toBe(200);
+    expect((await res.json()).argv).toBe(
+      "module|alter-column|actions|end_date|--type|date|--label|Window end|--computed|dateAdd(start_date,duration_days)|--json|",
+    );
+  });
+  it("PATCH alter-column required:false rides as an explicit string (the flag() fix)", async () => {
+    fixtureHome(root);
+    const app = createZuzuuApi(() => root, { binary: argvStub(root, "zuzuu-altercol2.sh") });
+    const res = await patch(app, "/module/crm/column/owner", { required: false });
+    expect(res.status).toBe(200);
+    expect((await res.json()).argv).toBe("module|alter-column|crm|owner|--required|false|--json|");
+  });
+  it("PATCH alter-column with no type omits --type (type stays untouched)", async () => {
+    fixtureHome(root);
+    const app = createZuzuuApi(() => root, { binary: argvStub(root, "zuzuu-altercol3.sh") });
+    const res = await patch(app, "/module/crm/column/owner", { description: "who owns this" });
+    expect(res.status).toBe(200);
+    expect((await res.json()).argv).toBe("module|alter-column|crm|owner|--description|who owns this|--json|");
+  });
+  it("POST add-column → 502 + stderr tail when the CLI fails; 503 when absent", async () => {
+    fixtureHome(root);
+    const failed = createZuzuuApi(() => root, { binary: failStub(root, "column 'tier' already exists") });
+    const res = await post(failed, "/module/crm/column", { name: "tier", type: "number" });
+    expect(res.status).toBe(502);
+    expect((await res.json()).stderr).toMatch(/already exists/);
+    const absent = createZuzuuApi(() => root, { binary: "definitely-not-a-real-binary-zzz" });
+    expect((await post(absent, "/module/crm/column", { name: "tier", type: "number" })).status).toBe(503);
+  });
+  it("PATCH alter-column → 502/503 same as every other mutation", async () => {
+    fixtureHome(root);
+    const failed = createZuzuuApi(() => root, { binary: failStub(root, "no column 'ghost'") });
+    expect((await patch(failed, "/module/crm/column/ghost", { label: "x" })).status).toBe(502);
+    const absent = createZuzuuApi(() => root, { binary: "definitely-not-a-real-binary-zzz" });
+    expect((await patch(absent, "/module/crm/column/ghost", { label: "x" })).status).toBe(503);
+  });
+  it("bad module / bad column name / bad type / bad options / non-boolean required → 400 without spawn", async () => {
+    fixtureHome(root);
+    const { stub, marker } = markerStub(root);
+    const app = createZuzuuApi(() => root, { binary: stub });
+    expect((await post(app, "/module/Bad/column", { name: "x", type: "text" })).status).toBe(400); // uppercase fails SAFE_SLUG
+    expect((await post(app, "/module/crm/column", { name: "Bad Name", type: "text" })).status).toBe(400);
+    expect((await post(app, "/module/crm/column", { name: "ok", type: "notatype" })).status).toBe(400);
+    expect((await post(app, "/module/crm/column", { name: "ok" })).status).toBe(400); // type required on add
+    expect((await post(app, "/module/crm/column", { name: "ok", type: "select", options: ["a,b"] })).status).toBe(400); // comma in an option
+    expect((await post(app, "/module/crm/column", { name: "ok", type: "text", required: "true" })).status).toBe(400); // required must be a real boolean
+    expect((await patch(app, "/module/crm/column/Bad%20Name", { label: "x" })).status).toBe(400);
+    expect((await patch(app, "/module/crm/column/ok", { type: "notatype" })).status).toBe(400);
+    expect(existsSync(marker)).toBe(false);
+  });
+  it("over-long description / too many options → 400 without spawn", async () => {
+    fixtureHome(root);
+    const { stub, marker } = markerStub(root);
+    const app = createZuzuuApi(() => root, { binary: stub });
+    expect((await post(app, "/module/crm/column", { name: "ok", type: "text", description: "x".repeat(1001) })).status).toBe(400);
+    const many = Array.from({ length: 51 }, (_, i) => `o${i}`);
+    expect((await post(app, "/module/crm/column", { name: "ok", type: "select", options: many })).status).toBe(400);
+    expect(existsSync(marker)).toBe(false);
+  });
+});
+
 // The pure param → flags mapping (buildModuleQueryFlags): each axis guarded
 // independently; an invalid value is dropped, never a hard error (degrade).
 describe("buildModuleQueryFlags — query params → `module items` flags", () => {

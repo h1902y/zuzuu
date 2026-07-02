@@ -183,6 +183,18 @@ export interface RollbackResult {
   active: string;
 }
 
+/** POST /module/:key/column and PATCH /module/:key/column/:name (§H.5, the
+ *  field-config panel) — the CLI's `module add-column`/`alter-column` JSON, passed
+ *  through whole: the module's fields AFTER the change + the generation it minted
+ *  (rollback-able). `fields` rides untyped here (raw FieldDef-shaped objects) —
+ *  the client re-derives typed FieldDef[] via schema-fields.ts, same as the
+ *  GET .../schema route's `fields` block. */
+export interface ModuleColumnResult {
+  key: string;
+  fields: Record<string, unknown>[];
+  generation: number;
+}
+
 /** POST /module/:key/stage — the write entry-door. A create/update resolves to a
  *  PENDING proposal (a staged change), NOT a landed row: it surfaces in the review
  *  queue and lands only on approve. The handle the DataProvider returns from a write. */

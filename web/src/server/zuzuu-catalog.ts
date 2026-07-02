@@ -47,6 +47,12 @@ export const COMMAND_CATALOG = {
   "module.new": { id: "module.new", path: ["module", "new"], params: ["id"], flags: { title: "--title", tagline: "--tagline", capabilities: "--capabilities", kinds: "--kinds", required: "--required" } },
   "module.enable": { id: "module.enable", path: ["module", "enable"], params: ["key"], flags: {} },
   "module.disable": { id: "module.disable", path: ["module", "disable"], params: ["key"], flags: {} },
+  // ── module schema writes (§H.5, the field-config panel): ALTER TABLE on a
+  //    module's typed-column schema. `required` rides as an explicit 'true'/'false'
+  //    string (never bare) — a bare truthiness check on the CLI side can't express
+  //    "turn it off" (see src/cli/args.mjs `flag()`).
+  "module.add-column": { id: "module.add-column", path: ["module", "add-column"], params: ["module", "name", "type"], flags: { required: "--required", options: "--options", default: "--default", label: "--label", description: "--description", computed: "--computed" } },
+  "module.alter-column": { id: "module.alter-column", path: ["module", "alter-column"], params: ["module", "name"], flags: { type: "--type", required: "--required", options: "--options", default: "--default", label: "--label", description: "--description", computed: "--computed" } },
   // deprecated key-first rollback (no `generation` subword — Rung 9's reconciled shape)
   "module.rollback": { id: "module.rollback", path: ["module"], params: ["key", { const: "rollback" }, "id"], flags: {} },
   // ── the review gate + the write entry-door ──
