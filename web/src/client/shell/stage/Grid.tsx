@@ -8,7 +8,12 @@ import { NotesListProvider, useList } from "../../data/ListContext.js";
 import { useModuleFilter, filterOf } from "../../state/module-filter.js";
 import { gridColumns } from "./grid-columns.js";
 import { NotesTable } from "./NotesTable.js";
+import { statusFacets } from "./everything-model.js";
 import { fieldsFromSchema } from "./schema-fields.js";
+import { parseInputClause } from "./table-model.js";
+import { useTableFilter } from "./use-table-filter.js";
+import { ClauseChips } from "./ClauseChips.js";
+import { FacetChip } from "./FacetChip.js";
 import { emptyCopy } from "../empty-copy.js";
 import { api } from "../../lib/api.js";
 import { useWorld } from "../world-state.js";
@@ -18,19 +23,22 @@ import { Text, EmptyState } from "../../ds/index.js";
 function GridInner() {
   const { module, rows, total, loading, state, dispatch } = useList();
   const select = useWorld((s) => s.select);
-  const patchFilter = useModuleFilter((s) => s.patch);
+  const filterOps = useTableFilter(module, state, dispatch);
   const schema = useQuery({ queryKey: ["zuzuu", "schema", module], queryFn: () => api.zuzuu.schema(module) });
   // schema-aware (P2.2): declared module.md `fields` drive typed columns + ordering;
   // a schemaless module (no fields) falls back to inferred columns from the rows.
   const cols = gridColumns(fieldsFromSchema(schema.data?.schema), rows);
+  const statuses = statusFacets(rows, state.status);
 
-  // the filter is the module's LENS, not a grid detail: every change mirrors to
-  // the shared store so the Map projection spotlights the same subset (Table⇄Map
-  // is one space); scroll position survives a projection round-trip the same way.
-  const setText = (text: string) => {
-    dispatch({ type: "setText", text });
-    patchFilter(module, { text });
+  // the typed input speaks the CLI's own grammar (§H.3.1): free text live-filters
+  // via FTS as you type; Enter on a `key<op>value`/`#tag` shape commits it as a
+  // dismissible where clause instead (parseInputClause tells the two apart).
+  const onInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== "Enter") return;
+    const parsed = parseInputClause(state.text);
+    if (parsed?.kind === "where") { filterOps.addWhere(parsed.clause); filterOps.setText(""); }
   };
+
   const scrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = scrollRef.current;
@@ -43,12 +51,21 @@ function GridInner() {
       <div className="flex shrink-0 items-center gap-3 border-b border-border px-6 py-3">
         <input
           value={state.text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder={`filter ${module}…`}
-          className="w-64 rounded-ui border border-border bg-app px-2 py-1 text-ui text-ink-100 outline-none placeholder:text-muted focus:border-accent-dim"
+          onChange={(e) => filterOps.setText(e.target.value)}
+          onKeyDown={onInputKeyDown}
+          placeholder={`filter ${module}… (or key=value, #tag)`}
+          className="w-72 rounded-ui border border-border bg-app px-2 py-1 text-ui text-ink-100 outline-none placeholder:text-muted focus:border-accent-dim"
         />
         <Text size="meta" tone="muted">{total} {total === 1 ? "row" : "rows"}</Text>
       </div>
+      {statuses.length > 0 && (
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border bg-surface px-6 py-2">
+          {statuses.map((f) => (
+            <FacetChip key={`s:${f.value}`} label={f.value} active={f.active} onClick={() => filterOps.setStatus(f.active ? "" : f.value)} />
+          ))}
+        </div>
+      )}
+      <ClauseChips text={state.text} where={state.where} onClearText={() => filterOps.setText("")} onRemoveWhere={filterOps.removeWhere} />
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
         {loading ? (
           <div className="grid h-full place-items-center"><Text tone="muted">loading…</Text></div>
@@ -61,6 +78,7 @@ function GridInner() {
             sort={state.sort}
             onSort={(key) => dispatch({ type: "toggleSort", key })}
             onRow={(row) => select({ kind: "row", id: row.id, module })}
+            onChipClick={filterOps.addWhere}
           />
         )}
       </div>

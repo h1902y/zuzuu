@@ -27,18 +27,31 @@ export function moduleFacets(modules: readonly { id: string }[], active: string)
   return modules.map((m) => ({ value: m.id, active: m.id === active }));
 }
 
-/** The type facets: distinct kinds present on the loaded page (an honest, cheap
+/** Distinct values of one string field present on the loaded page (an honest, cheap
  *  source — the full distinct-set would need its own aggregate round trip), the
- *  active kind always included even when the page no longer shows it. */
-export function typeFacets(rows: readonly Pick<ModuleItem, "kind">[], active: string): Facet[] {
-  const kinds: string[] = [];
+ *  active value always included even when the page no longer shows it. Shared by
+ *  the type and status facet rows (§H.3.1: facets are just suggested clauses). */
+function fieldFacets(rows: readonly Record<string, unknown>[], key: string, active: string): Facet[] {
+  const values: string[] = [];
   const seen = new Set<string>();
   for (const r of rows) {
-    const k = r.kind || "";
-    if (k && !seen.has(k)) { seen.add(k); kinds.push(k); }
+    const v = typeof r[key] === "string" ? (r[key] as string) : "";
+    if (v && !seen.has(v)) { seen.add(v); values.push(v); }
   }
-  if (active && !seen.has(active)) kinds.unshift(active);
-  return kinds.map((k) => ({ value: k, active: k === active }));
+  if (active && !seen.has(active)) values.unshift(active);
+  return values.map((v) => ({ value: v, active: v === active }));
+}
+
+/** The type facets: distinct kinds present on the loaded page. */
+export function typeFacets(rows: readonly Pick<ModuleItem, "kind">[], active: string): Facet[] {
+  return fieldFacets(rows as readonly Record<string, unknown>[], "kind", active);
+}
+
+/** The status facets: distinct lifecycle values present on the loaded page (§H.3.1's
+ *  facet row — module/type/status/tags; status additionally renders as a StatusPill
+ *  elsewhere, but the facet CHIP itself is plain text like type). */
+export function statusFacets(rows: readonly Pick<ModuleItem, "status">[], active: string): Facet[] {
+  return fieldFacets(rows as readonly Record<string, unknown>[], "status", active);
 }
 
 /** A facet click → the next filter value (toggle: clicking the active one clears). */

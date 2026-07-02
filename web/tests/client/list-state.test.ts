@@ -34,9 +34,15 @@ describe("list-state reducer", () => {
     expect(s.where).toEqual(["a=b", "c=d"]);
   });
 
+  it("setStatus reset the page, mirroring setKind's facet-axis shape", () => {
+    const s = listReducer({ ...initialListState, page: 3 }, { type: "setStatus", status: "active" });
+    expect(s.status).toBe("active");
+    expect(s.page).toBe(0);
+  });
+
   it("queryOf carries the whole control state (filter + sort + page) to getList", () => {
-    expect(queryOf(initialListState)).toEqual({ text: "", kind: "", where: [], sort: null, page: 0, pageSize: 50 });
-    const s = { ...initialListState, text: "x", kind: "fact", sort: { key: "title", dir: "desc" as const }, page: 2 };
-    expect(queryOf(s)).toEqual({ text: "x", kind: "fact", where: [], sort: { key: "title", dir: "desc" }, page: 2, pageSize: 50 });
+    expect(queryOf(initialListState)).toEqual({ text: "", kind: "", status: "", where: [], sort: null, page: 0, pageSize: 50 });
+    const s = { ...initialListState, text: "x", kind: "fact", status: "active", sort: { key: "title", dir: "desc" as const }, page: 2 };
+    expect(queryOf(s)).toEqual({ text: "x", kind: "fact", status: "active", where: [], sort: { key: "title", dir: "desc" }, page: 2, pageSize: 50 });
   });
 });

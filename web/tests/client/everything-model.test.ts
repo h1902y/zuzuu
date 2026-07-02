@@ -1,7 +1,7 @@
 // The unified Everything view's pure model: fixed core columns (the envelope
 // floor), facet rows, and the toggle-facet mapping.
 import { describe, it, expect } from "vitest";
-import { EVERYTHING_COLUMNS, moduleFacets, typeFacets, toggleFacet } from "../../src/client/shell/stage/everything-model.js";
+import { EVERYTHING_COLUMNS, moduleFacets, typeFacets, statusFacets, toggleFacet } from "../../src/client/shell/stage/everything-model.js";
 import { modulePalette } from "../../src/client/world/model.js";
 import type { ModuleItem } from "#shared/index.js";
 
@@ -24,6 +24,12 @@ describe("everything-model — one table over every module", () => {
     // filtered down to a page that no longer carries the active kind → it still shows (clearable)
     expect(typeFacets([{ kind: "concept" }] as ModuleItem[], "activity").map((f) => f.value)).toEqual(["activity", "concept"]);
     expect(typeFacets([] as ModuleItem[], "activity")[0]).toEqual({ value: "activity", active: true });
+  });
+
+  it("status facets mirror the type facets' shape (§H.3.1's lifecycle facet row)", () => {
+    const rows = [{ status: "active" }, { status: "active" }, { status: "seed" }] as ModuleItem[];
+    expect(statusFacets(rows, "").map((f) => f.value)).toEqual(["active", "seed"]);
+    expect(statusFacets([] as ModuleItem[], "archived")[0]).toEqual({ value: "archived", active: true });
   });
 
   it("toggleFacet: clicking the active facet clears it; a new one replaces", () => {
