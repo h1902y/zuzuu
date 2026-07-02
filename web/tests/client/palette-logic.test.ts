@@ -30,3 +30,10 @@ describe("paletteFilterScore — exact substring beats fuzzy subsequence (audit 
     expect(paletteFilterScore("anything", "")).toBe(1);
   });
 });
+
+describe("the adapter sentinel (§E.3)", () => {
+  it("omni-adapter rows pin to the top tie — the resolver already consumed the query", () => {
+    expect(paletteFilterScore("omni-adapter-do", "add a lead acme to crm")).toBe(1);
+    expect(paletteFilterScore("omni-adapter-agent", "summarize the week")).toBe(1);
+  });
+});

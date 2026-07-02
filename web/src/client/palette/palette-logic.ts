@@ -30,6 +30,11 @@ export function fuzzyScore(query: string, text: string): number | null {
  *  the exact branch; sentinel/Navigate ties resolve by group order. */
 export function paletteFilterScore(value: string, search: string): number {
   if (!search) return 1;
+  // §E.3 — the adapter's rows are ABOUT the current input by construction (the
+  // resolver consumed the whole query before emitting them); the text scorer
+  // can't know that, so the sentinel prefix pins them to the top tie (the Do
+  // group renders first in DOM, and cmdk keeps DOM order on ties).
+  if (value.startsWith("omni-adapter")) return 1;
   if (value.toLowerCase().includes(search.toLowerCase())) return 1;
   const s = fuzzyScore(search, value);
   return s === null ? 0 : 1 / (2 + s);
