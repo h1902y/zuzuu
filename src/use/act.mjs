@@ -12,11 +12,11 @@
 //       OUTSIDE the repo is denied. Captures {stdout, stderr, exitCode, success}.
 //       Zero-dep. Runs are gated + allowlisted, not OS-sandboxed.
 //
-// THE SAFETY FLOOR (§I rung 3): every run gets a TIMEOUT — spawnSync has no bound of
-// its own and can hang forever otherwise. (Further floor rungs — the gate's
-// fail-closed posture for an unattended `agent` actor, redacted run-log inputs, and
-// the per-note run lock — land alongside this in guardrails/gate.mjs, notes/log.mjs,
-// and use/run-lock.mjs respectively.)
+// THE SAFETY FLOOR (§I rung 3): every run gets a TIMEOUT (spawnSync has no bound of
+// its own); the gate fails CLOSED for an unattended `agent` actor (guardrails/
+// gate.mjs); run-log inputs are redacted (notes/log.mjs); and act() refuses a SECOND
+// concurrent run of the same note (use/run-lock.mjs) rather than letting two
+// invocations' children interleave.
 
 import { existsSync, readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
@@ -25,6 +25,7 @@ import { parse } from '../notes/note.mjs';
 import { itemPath, repoRoot } from '../notes/store.mjs';
 import { logRun } from '../notes/log.mjs';
 import { gate } from '../guardrails/gate.mjs';
+import { acquireRunLock, LOCK_GRACE_MS } from './run-lock.mjs';
 
 // A run's `timeout:` field (seconds) is clamped into this window — no note, however
 // trusted, can opt OUT of a bound (spawnSync with no timeout can hang forever); the
@@ -99,8 +100,9 @@ export function runGated(home, module, command, { allow = null, inputs = {}, cwd
  * Run a note. Fail-soft return — never throws. `ctx.actor` (stamped at the dispatch
  * boundary — serve/dispatch.mjs's `invoke` always supplies it) rides into the
  * guardrails gate via runGated — see its doc comment for the fail-open/fail-closed
- * split.
- * @returns {{ ok, ran, exitCode?, success?, stdout?, stderr?, timedOut?, error?, denied? }}
+ * split. Refuses a concurrent run of the SAME note (the run lock, use/run-lock.mjs)
+ * rather than letting two invocations' children interleave.
+ * @returns {{ ok, ran, exitCode?, success?, stdout?, stderr?, timedOut?, error?, denied?, running? }}
  */
 export function act(ctx, id, inputs = {}) {
   const { home, module, manifest, actor = 'operator' } = ctx;
@@ -110,10 +112,19 @@ export function act(ctx, id, inputs = {}) {
   if (!ok || !note) return { ok: false, ran: false, error: `unparseable note '${id}'` };
   if (!note.run) return { ok: false, ran: false, error: `note '${id}' is not runnable (no run)` };
 
-  // policy: the note's own policy narrows the module default (never widens)
-  const policy = { ...(manifest.policy ?? {}), ...(note.policy ?? {}) };
-  const r = runGated(home, module, note.run, { allow: policy.run?.allow ?? null, inputs, timeout: note.timeout, actor });
-  if (!r.ran) return { ok: false, ...r };
-  logRun(home, module, id, { inputs, exitCode: r.exitCode, success: r.success, timedOut: r.timedOut, actor });
-  return { ok: r.success, ...r };
+  // the run lock's staleness window is THIS run's own resolved timeout + grace — a
+  // held lock younger than that is presumed a genuinely running note; older, its
+  // holder almost certainly crashed past its own timeout, so it's stolen.
+  const lock = acquireRunLock(home, module, id, resolveTimeoutMs(note.timeout) + LOCK_GRACE_MS);
+  if (!lock.ok) return { ok: false, ran: false, ...lock };
+  try {
+    // policy: the note's own policy narrows the module default (never widens)
+    const policy = { ...(manifest.policy ?? {}), ...(note.policy ?? {}) };
+    const r = runGated(home, module, note.run, { allow: policy.run?.allow ?? null, inputs, timeout: note.timeout, actor });
+    if (!r.ran) return { ok: false, ...r };
+    logRun(home, module, id, { inputs, exitCode: r.exitCode, success: r.success, timedOut: r.timedOut, actor });
+    return { ok: r.success, ...r };
+  } finally {
+    lock.release();
+  }
 }
