@@ -8,6 +8,18 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import { runCommand } from "./zuzuu-catalog.js";
 
+/** Resolve the Project HOME for the peek: root-mode (a root `project.md` carrying
+ *  `type: project` + `format: zuzuu/…` — the marker src/notes/store.mjs sniffs)
+ *  means modules live at the REPO ROOT; classic mode keeps them under `.zuzuu/`.
+ *  The peek was `.zuzuu`-only before, so a root-mode project degraded to empty. */
+export async function resolveHome(root: string): Promise<string> {
+  try {
+    const head = (await fsp.readFile(path.join(root, "project.md"), "utf8")).slice(0, 2048);
+    if (/^type:\s*project\s*$/m.test(head) && /^format:\s*zuzuu\//m.test(head)) return root;
+  } catch { /* no root marker → classic */ }
+  return path.join(root, ".zuzuu");
+}
+
 /** Enumerate the ACTUAL module dirs on disk for the CLI-absent degraded fallback:
  *  non-dot subdirs of `.zuzuu` that hold a `module.md` (mirrors src/notes/module.mjs
  *  listModules). No prebuilt content modules — an empty Project has only instructions,

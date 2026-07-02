@@ -6,7 +6,6 @@
 import fsp from "node:fs/promises";
 import path from "node:path";
 import { Hono } from "hono";
-import { resolveSafe } from "./safe-path.js";
 import { runCommand, runCommandText } from "./zuzuu-catalog.js";
 import { readHeld } from "./held-sessions.js";
 import {
@@ -16,14 +15,18 @@ import {
   listModuleDirs,
   moduleEnvelopeItems,
   peekModuleItems,
+  resolveHome,
   stagedSummary,
   readJsonDir,
 } from "./zuzuu-peek.js";
 
 export function createZuzuuReadApi(getRoot: () => string, binary?: string): Hono {
   const app = new Hono();
-  const homeDir = (root: string) => resolveSafe(root, ".zuzuu");
-  const stagedOf = (home: string, key: string) => readJsonDir(path.join(home, key, "staged"));
+  // root-mode aware: the peek's module dirs live at the repo root when the root
+  // project.md marker is present; `.zuzuu/` otherwise. STAGED proposals live under
+  // `.zuzuu/<module>/staged` in BOTH modes (ephemera never move to the root).
+  const homeDir = (root: string) => resolveHome(root);
+  const stagedOf = (root: string, key: string) => readJsonDir(path.join(root, ".zuzuu", key, "staged"));
 
   // The batched module surface: ONE `zuzuu module overview --json` spawn covers
   // all modules (manifest ui descriptors + counts + top titles + pending). CLI
@@ -31,12 +34,29 @@ export function createZuzuuReadApi(getRoot: () => string, binary?: string): Hono
   // kit's built-in metadata).
   app.get("/overview", async (c) => {
     const root = getRoot();
-    const viaCli = await runCommand(root, "module.overview", {}, { binary }) as { modules?: unknown[] } | null;
-    if (viaCli && Array.isArray(viaCli.modules)) return c.json(viaCli);
+    const viaCli = await runCommand(root, "module.overview", {}, { binary }) as
+      | { modules?: unknown[] }
+      | Array<{ key: string; title?: string; enabled?: boolean; items: number; pending: number; top?: string[] }>
+      | null;
+    if (viaCli && !Array.isArray(viaCli) && Array.isArray(viaCli.modules)) return c.json(viaCli);
+    // the CLI emits a bare rows array ({key,title,items,pending,top,enabled}) —
+    // map it onto the dashboard DTO (this route used to expect {modules} and fell
+    // through to the degraded peek on EVERY project; the map is the real fast path)
+    if (Array.isArray(viaCli)) {
+      const modules = viaCli.map((r) => ({
+        id: r.key,
+        title: r.title || r.key,
+        enabled: r.enabled ?? true,
+        counts: { items: r.items ?? 0, pending: r.pending ?? 0, errors: 0 },
+        top: Array.isArray(r.top) ? r.top : [],
+        declarative: false,
+      }));
+      return c.json({ modules });
+    }
     const home = await homeDir(root);
     const ids = await listModuleDirs(home); // real dirs on disk, not a hardcoded list
     const modules = await Promise.all(ids.map(async (id) => {
-      const [items, staged] = await Promise.all([peekModuleItems(home, id), stagedOf(home, id)]);
+      const [items, staged] = await Promise.all([peekModuleItems(home, id), stagedOf(root, id)]);
       return {
         id,
         title: id.charAt(0).toUpperCase() + id.slice(1),
@@ -62,7 +82,7 @@ export function createZuzuuReadApi(getRoot: () => string, binary?: string): Hono
       limit: c.req.query("limit"), offset: c.req.query("offset"),
     });
     const { items, total, errors, degraded } = await moduleEnvelopeItems(root, home, key, binary, flags);
-    const staged = (await stagedOf(home, key)).map((p) => stagedSummary(p, key));
+    const staged = (await stagedOf(root, key)).map((p) => stagedSummary(p, key));
     return c.json({ key, items, total, staged, errors, ...(degraded ? { degraded: true } : {}) });
   });
 

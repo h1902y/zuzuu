@@ -33,7 +33,7 @@ import { openerText, closerText, steerText, writeHandoff, parkItem, clearParking
 import { renderNoteDiff } from '../use/diff.mjs';
 import { toon } from '../notes/toon.mjs';
 import { searchRows, readEnvelopes } from '../notes/rows.mjs';
-import { moduleCounts, aggregate } from '../notes/index.mjs';
+import { moduleCounts, aggregate, search as idxSearch } from '../notes/index.mjs';
 import { coerceForField } from '../grow/edit.mjs';
 import { graphData } from '../serve/graph.mjs';
 import { exportRows, toCsv, parseCsv } from '../use/table.mjs';
@@ -336,11 +336,20 @@ export const COMMANDS = [
         // counts come from ONE GROUP BY (moduleCounts) — the old per-module
         // `query limit 10000 → .length` was M index opens + M row materializations
         // for numbers one query already had (the digest fast path, reused).
+        // `top` (3 titles per module, the dashboard tiles) rides ONE brief
+        // cross-module search — never an open per module.
         const counts = moduleCounts(zz.home);
+        const topOf = {};
+        for (const n of idxSearch(zz.home, { limit: 100000 })) {
+          const m = n.addr.slice(0, n.addr.indexOf(':'));
+          (topOf[m] ??= []).length < 3 && topOf[m].push(n.title || n.addr.slice(n.addr.indexOf(':') + 1));
+        }
         const rows = zz.modules().map((mod) => ({
           key: mod.id, title: mod.title ?? mod.id, note_type: mod.note_type ?? '',
+          enabled: mod.enabled !== false,
           items: counts[mod.id] ?? 0,
           pending: zz.staged(mod.id).length, capabilities: mod.capabilities ?? [],
+          top: topOf[mod.id] ?? [],
         }));
         emit(log, json, rows, ['overview', rows, ['key', 'items', 'pending']]);
         return 0;

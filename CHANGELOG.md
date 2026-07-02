@@ -8,6 +8,17 @@ that history).
 ## [Unreleased]
 
 ### Fixed
+- **The daemon's overview never used the CLI fast path**: the route expected
+  `{modules}` but `zz module overview --json` emits a rows array — every project
+  fell through to the degraded frontmatter peek. The route now maps the CLI rows
+  (which gained `enabled` + `top`: 3 titles per module from ONE brief cross-module
+  search) onto the dashboard DTO.
+- **The daemon's peek is root-mode aware**: `resolveHome` sniffs the root
+  `project.md` marker, so a root-mode project's modules resolve at the repo root
+  (they degraded to an empty dashboard before); staged proposals keep reading from
+  `.zuzuu/<module>/staged` in both modes.
+- `@agentclientprotocol/sdk` added to the root `optionalDependencies` — the ACP
+  lane (the Claude Code default) failed to boot from a bare install without it.
 - **Cross-module bare-id relations now resolve to their owner module.** A bare
   relation target (`informs: muscle-group-map`) written from another module used
   to be qualified to the *source* module — a nonexistent address — silently losing
