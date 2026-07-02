@@ -42,6 +42,26 @@ that history).
 - The corpus signature is computed once per index rebuild, not twice.
 
 ### Added
+- **The run safety floor (CLI, §I rung 3)**: `act`/`flow` runs were the one place
+  with no bound — `spawnSync` had no timeout, the guardrails gate was fail-open
+  for every actor, run-log inputs went to `runs.jsonl` verbatim, and nothing
+  stopped two concurrent runs of the same note. Four fixes, all in
+  `use/act.mjs`/`use/workflow.mjs`/`use/run-lock.mjs`/`guardrails/gate.mjs`/
+  `notes/log.mjs`: (1) every run/step gets a clamped `timeout:` (default 120s,
+  cap 600s; `spawnSync({timeout, killSignal: 'SIGKILL'})`) — a timed-out run
+  reports `{timedOut:true, success:false}` and logs the marker, a timed-out
+  workflow step triggers the normal saga compensation; (2) the gate now reads
+  `ctx.actor` — an unattended `agent` actor fails **CLOSED** on a malformed
+  rule, an engine error, or an `ask` verdict (nobody is present to answer it),
+  while an interactive `operator` keeps the original fail-open, ask-passes
+  contract; (3) `logRun` redacts a COPY of `inputs` before writing — any
+  secret-shaped key (`/key|token|secret|password|passwd|credential|auth/i`)
+  or any value matching a secret loaded from `<home>/secrets.env` — the child
+  process still gets the real values; (4) a REFUSE-FAST per-note run lock
+  (`use/run-lock.mjs`, keyed `module:id` under the XDG cache dir, deliberately
+  NOT `metal/fs.mjs`'s block-and-steal `withLock`) denies a second concurrent
+  run of the same note and steals only a stale one (older than that run's own
+  timeout + a 30s grace — a workflow's steps share one lock for the whole run).
 - **The field-config panel (web, §H.5)** — Airtable's edit-field, made zuzuu:
   an anchored popover (never a modal) from a column header's caret ("Edit
   column") or the Grid toolbar's "+ column" (single-module scope; Everything

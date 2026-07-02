@@ -193,7 +193,7 @@ through `review`; use reads + runs.**
 Each verb heads a small **family**.
 
 - **query** — retrieve: FTS + graph walk, BM25-ranked, TOON output. *Family:* `view` (page a body) · `links` (out-relations + inbound **backlinks**) · `diff` (note↔note — the change preview `plan`/`review` render; generation↔generation diff is a **version** op, below).
-- **act** — run a runnable note, gated + allowlisted (each run appends to `runs.jsonl`). *Family:* `flow` (a `type: workflow` DAG of run-steps, compensating on failure).
+- **act** — run a runnable note, gated + allowlisted (each run appends to `runs.jsonl`). *Family:* `flow` (a `type: workflow` DAG of run-steps, compensating on failure). **The safety floor** (§I rung 3, `use/act.mjs` · `use/run-lock.mjs`): every run gets a clamped **timeout** (`timeout:`, default 120s, cap 600s) · the guardrails gate fails **CLOSED** for an unattended `agent` actor (malformed rule / engine error / `ask` verdict all deny) while an interactive `operator` keeps the original fail-open contract · run-log inputs are **redacted** (secret-shaped keys, secret-matching values) before they reach `runs.jsonl` · a per-note **run lock** refuses a concurrent run of the same note, stealing only a stale (crashed-past-its-timeout) one.
 - **check** — integrity: broken links · orphans · stale. *Family:* `validate` (the type-keyed invariants **plus** a module's declared typed-column **schema** — a `module.md` `fields` block, the 8 FieldTypes — enforced as a **pre-write reject** at the write boundary: a note that violates its schema never lands. "A module is a TABLE, a note a ROW, the columns are the schema"; absent `fields` ⇒ schemaless).
 
 ### Grow — the loop (every write human-gated)
