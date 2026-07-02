@@ -387,3 +387,43 @@ export interface WorldGhost {
   stagedId: string;
   title: string;
 }
+
+// ── The Flow projection (/api/zuzuu/flow) — §I rung 5: the third view of a
+// Project. Every `type: workflow` note project-wide, joined with its runs (the
+// `runs` module) for a run-count/latest-status summary — the data the header
+// toggle's availability check and the workflow picker both need in one read. ──
+
+/** One workflow note's run tally, by the `runs` module's `status` field. */
+export interface FlowRunCounts {
+  total: number;
+  running: number;
+  waiting: number;
+  done: number;
+  failed: number;
+}
+
+export interface FlowLatestRun {
+  id: string;
+  status: string;
+  startedAt: string | null;
+}
+
+/** One `type: workflow` note, summarized for the Flow picker + the toggle's
+ *  availability check. `addr` is `module:id` (the Flow NavNode's target). */
+export interface FlowWorkflowSummary {
+  addr: string;
+  module: string;
+  id: string;
+  title: string;
+  stepCount: number;
+  runs: FlowRunCounts;
+  latestRun: FlowLatestRun | null;
+}
+
+/** GET /api/zuzuu/flow — every workflow note project-wide + its run summary.
+ *  `degraded: true` = the CLI is absent (the workflow list read failed); the
+ *  toggle then reads "unavailable" rather than falsely "no workflows yet." */
+export interface FlowListResponse {
+  workflows: FlowWorkflowSummary[];
+  degraded?: boolean;
+}

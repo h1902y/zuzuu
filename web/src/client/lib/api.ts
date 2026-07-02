@@ -10,6 +10,7 @@ import type {
   DeleteRowResult,
   DirListing,
   FileListResponse,
+  FlowListResponse,
   GenerationDiffResult,
   HeldActionResult,
   HeldSessionList,
@@ -183,6 +184,10 @@ export const api = {
     graph: (props?: string[]) =>
       request<WorldGraph>(`/api/zuzuu/graph${props?.length ? `?props=${encodeURIComponent(props.join(","))}` : ""}`),
     projectState: () => request<ProjectState>("/api/zuzuu/project-state"),
+    // the Flow projection's summary read (§I rung 5): every workflow note + its
+    // run counts/latest-status — feeds the header toggle's availability check,
+    // the `>flow` palette command, and the Flow stage's workflow picker.
+    flow: () => request<FlowListResponse>("/api/zuzuu/flow"),
     // the held-session CODE queue — sessions awaiting a merge decision (the close
     // card's code section reads it). CLI absent / non-git → { held: [] }.
     held: () => request<HeldSessionList>("/api/zuzuu/held"),

@@ -7,8 +7,11 @@
 
 /** What the center stage shows. (ER is deferred — not a stage actor yet.)
  *  §D: `overview` and `settings` retired as stages — the needs-me HUD pill +
- *  the greeting absorbed the Overview; Settings is a footer-opened dialog. */
-export type StageActor = "world" | "terminal" | "grid" | "everything" | "record" | "search" | "acp";
+ *  the greeting absorbed the Overview; Settings is a footer-opened dialog.
+ *  `flow` is the third projection (§I rung 5) — a workflow note's steps as a
+ *  DAG, with its runs overlaid live; read-only (no canvas edits, no run control
+ *  this pass — see docs/guide/Flow-View.md). */
+export type StageActor = "world" | "terminal" | "grid" | "everything" | "record" | "search" | "acp" | "flow";
 /** What the right wing shows; "none" = the wing retracts (R4). */
 export type WingActor = "review" | "form" | "schema" | "none";
 
@@ -27,7 +30,10 @@ export type NavNode =
   | { kind: "overview" }
   | { kind: "search"; query?: string }
   | { kind: "settings" }
-  | { kind: "acp"; id: string }; // an ACP drive-lane agent session (structured conversation)
+  | { kind: "acp"; id: string } // an ACP drive-lane agent session (structured conversation)
+  // §I rung 5 — the Flow projection: `module`+`id` focus one workflow's DAG +
+  // runs; both absent = Flow HOME (the workflow picker).
+  | { kind: "flow"; module?: string; id?: string };
 
 export interface Selection {
   stage: StageActor;
@@ -53,12 +59,26 @@ export function selectActors(node: NavNode | null): Selection {
     case "draft": return { stage: "grid", wing: "form", crumb: [node.module, "new note"] };
     case "search": return { stage: "search", wing: "none", crumb: ["Search"] };
     case "acp": return { stage: "acp", wing: "none", crumb: ["Agent", node.id.slice(0, 6)] };
+    // Flow: focused (module+id) shows that workflow's DAG; otherwise the picker.
+    // No wing — the DAG/run overlay IS the reading surface (mirrors the map).
+    case "flow": return { stage: "flow", wing: "none", crumb: node.module && node.id ? ["Flow", node.module, node.id] : ["Flow"] };
     // §D deep-link compat: the retired screens land on the map — the HUD pill
     // carries the Overview's signal; Settings opens as a dialog (its own store).
     case "settings": return { stage: "world", wing: "none", crumb: [] };
     case "overview": return { stage: "world", wing: "none", crumb: [] };
     default: return { stage: "world", wing: "none", crumb: [] };
   }
+}
+
+/** Selecting a workflow note anywhere (map or table) focuses Flow on it instead
+ *  of the ordinary note/row selection (§I rung 5) — a workflow's DAG is a more
+ *  useful reading than its flat frontmatter. `asNote` is which NavNode kind the
+ *  caller would otherwise produce for a NON-workflow note (World's map click
+ *  keeps the World as the stage and opens the record as the wing — `"note"`;
+ *  Grid/Everything's row click opens the full Record stage — `"row"`). */
+export function noteOrFlowNav(module: string, id: string, isWorkflow: boolean, asNote: "note" | "row"): NavNode {
+  if (isWorkflow) return { kind: "flow", module, id };
+  return asNote === "note" ? { kind: "note", id, module } : { kind: "row", id, module };
 }
 
 export interface SessionLite { id: string; live?: boolean; lastActiveAt?: number }

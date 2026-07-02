@@ -259,6 +259,67 @@ export function createZuzuuReadApi(getRoot: () => string, binary?: string): Hono
     return c.json({ nodes: [], links: [], degraded: true });
   });
 
+  // The Flow projection's summary read (§I rung 5): every `type: workflow` note
+  // project-wide (`module items --all --type workflow` — the SAME unified-table
+  // verb `/items` already shells), joined with the `runs` module's notes grouped
+  // by their `workflow` field. Two spawns, no new CLI verb — composing the
+  // existing `module items` shape was NOT clunky here, so no bespoke catalog
+  // entry was needed; the join (counts + latest-by-created_at) is the only new
+  // logic, and it belongs server-side so the toggle's availability check and the
+  // workflow picker both read one small document instead of two + a client join.
+  // Root-mode aware via runCommand→resolveHome same as every other route; no peek
+  // fallback (a workflow's `steps` never survive the frontmatter-scalar peek —
+  // `degraded: true` when the CLI can't answer, same doctrine as /graph).
+  app.get("/flow", async (c) => {
+    const root = getRoot();
+    const wfFlags = buildModuleQueryFlags({ type: "workflow" });
+    const viaWf = await runCommand(root, "module.items.all", {}, { binary, extra: wfFlags }) as
+      { items?: Array<Record<string, unknown>> } | null;
+    if (!viaWf || !Array.isArray(viaWf.items)) return c.json({ workflows: [], degraded: true });
+    const workflows = viaWf.items;
+    if (!workflows.length) return c.json({ workflows: [] });
+
+    // the `runs` module may not exist yet (no run has ever started) — that's a
+    // normal empty state, not a degraded read: runCommand already returns null on
+    // ANY CLI failure (absent binary, non-zero exit, unparseable), so an unknown
+    // module here just yields an empty run list, same as "started none yet."
+    const viaRuns = await runCommand(root, "module.items", { key: "runs" }, { binary }) as
+      { items?: Array<Record<string, unknown>> } | null;
+    const runs = Array.isArray(viaRuns?.items) ? viaRuns.items : [];
+    const byWorkflow = new Map<string, Array<Record<string, unknown>>>();
+    for (const r of runs) {
+      const wf = typeof r.workflow === "string" ? r.workflow : null;
+      if (!wf) continue;
+      const list = byWorkflow.get(wf);
+      if (list) list.push(r); else byWorkflow.set(wf, [r]);
+    }
+
+    const RUN_STATUSES = ["running", "waiting", "done", "failed"] as const;
+    const summaries = workflows.map((w) => {
+      const module = String(w.module ?? "");
+      const id = String(w.id ?? "");
+      const addr = `${module}:${id}`;
+      const wruns = byWorkflow.get(addr) ?? [];
+      const counts = { total: wruns.length, running: 0, waiting: 0, done: 0, failed: 0 };
+      for (const r of wruns) {
+        const st = String(r.status ?? "");
+        if ((RUN_STATUSES as readonly string[]).includes(st)) counts[st as typeof RUN_STATUSES[number]] += 1;
+      }
+      const latest = wruns.length
+        ? wruns.slice().sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")))[0]
+        : undefined;
+      return {
+        addr, module, id, title: String(w.title ?? id),
+        stepCount: Array.isArray(w.steps) ? w.steps.length : 0,
+        runs: counts,
+        latestRun: latest
+          ? { id: String(latest.id ?? ""), status: String(latest.status ?? ""), startedAt: typeof latest.started_at === "string" ? latest.started_at : null }
+          : null,
+      };
+    });
+    return c.json({ workflows: summaries });
+  });
+
   // The CODE gate queue: the workspace's held sessions awaiting a merge decision
   // (shells `zz session status --json` → its `held[]`, id-enriched). The close card's
   // code section reads this to surface the diff summary + mergeability beside the
