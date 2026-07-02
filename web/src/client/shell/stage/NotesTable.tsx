@@ -17,10 +17,11 @@ import type { FieldDef } from "../../data/field-registry.js";
 import { cellValue, type GridColumn } from "./grid-columns.js";
 import type { SortState } from "../../data/list-state.js";
 import { attrChips, visibleChips, chipClause, tableColumns, IDENTITY_COL, ATTRS_COL } from "./table-model.js";
+import { groupRows } from "./group-model.js";
 import { TypeGlyph } from "./TypeGlyph.js";
 import { StatusPill } from "./StatusPill.js";
 import { NoteDocument } from "../../note/NoteDocument.js";
-import { Icon } from "../../ds/index.js";
+import { Icon, Text } from "../../ds/index.js";
 
 export interface NotesTableSelection {
   selected: ReadonlySet<string>;
@@ -48,7 +49,7 @@ function SelectPill({ value }: { value: string }) {
   );
 }
 
-export function NotesTable({ cols, rows, sort, onSort, onRow, renderCell, fields = [], onChipClick, selection }: {
+export function NotesTable({ cols, rows, sort, onSort, onRow, renderCell, fields = [], onChipClick, selection, groupBy }: {
   /** the CALLER's semantic columns — identity + Attributes are added here */
   cols: GridColumn[];
   rows: ModuleItem[];
@@ -63,11 +64,17 @@ export function NotesTable({ cols, rows, sort, onSort, onRow, renderCell, fields
   onChipClick?: (clause: string) => void;
   /** multi-select (§H.3.4) — absent hides the checkboxes */
   selection?: NotesTableSelection;
+  /** one column to group by (§H.3.3/§H.4.3) — collapsible sections with counts +
+   *  per-group Σ on number columns; client-side over the loaded page. */
+  groupBy?: string | null;
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const allCols = tableColumns(cols);
   const toggleExpand = (addr: string) =>
     setExpanded((s) => { const n = new Set(s); if (n.has(addr)) n.delete(addr); else n.add(addr); return n; });
+  const toggleGroup = (value: string) =>
+    setCollapsedGroups((s) => { const n = new Set(s); if (n.has(value)) n.delete(value); else n.add(value); return n; });
 
   const cell = (row: ModuleItem, c: GridColumn): ReactNode => {
     const over = renderCell?.(row, c);
@@ -133,64 +140,91 @@ export function NotesTable({ cols, rows, sort, onSort, onRow, renderCell, fields
         </tr>
       </thead>
       <tbody>
-        {rows.map((row, idx) => {
-          const addr = addrOf(row);
-          const isOpen = expanded.has(addr);
-          const isSelected = selection?.selected.has(addr) ?? false;
-          return [
-            <tr
-              key={addr}
-              onClick={() => onRow(row)}
-              className={`group h-8 cursor-pointer border-b border-border transition-colors hover:bg-hover ${isSelected ? "bg-selected" : ""}`}
-            >
-              {/* the rail: row number → (hover/selected) checkbox + expansion chevron */}
-              <td className="w-12 px-2 py-1.5">
-                <span className="flex items-center gap-1">
-                  {selection ? (
-                    <>
-                      <span className={`text-meta text-muted ${isSelected ? "hidden" : "group-hover:hidden"}`}>{idx + 1}</span>
-                      <input
-                        type="checkbox"
-                        aria-label={`select ${addr}`}
-                        checked={isSelected}
-                        onChange={() => selection.toggle(addr)}
-                        onClick={(e) => e.stopPropagation()}
-                        className={`${isSelected ? "" : "hidden group-hover:block"} accent-accent`}
-                      />
-                    </>
-                  ) : (
-                    <span className="text-meta text-muted">{idx + 1}</span>
-                  )}
-                  <button
-                    type="button"
-                    aria-label={isOpen ? "collapse" : "expand"}
-                    onClick={(e) => { e.stopPropagation(); toggleExpand(addr); }}
-                    className="rounded-ui p-0.5 text-muted opacity-0 transition-opacity hover:bg-hover hover:text-ink-100 group-hover:opacity-100"
-                  >
-                    <Icon icon={isOpen ? ChevronDown : ChevronRight} size={12} />
-                  </button>
-                </span>
-              </td>
-              {allCols.map((c) => (
-                <td
-                  key={c.name}
-                  className={`max-w-xs px-4 py-1.5 text-subtle ${c.align === "right" ? "text-right" : "text-left"} ${c.name === "__identity" ? "sticky left-0 z-10 bg-app group-hover:bg-hover" : "truncate"}`}
-                >
-                  {cell(row, c)}
-                </td>
-              ))}
-            </tr>,
-            isOpen ? (
-              <tr key={`${addr}#doc`} className="border-b border-border">
-                <td className="px-2 py-1.5" />
-                <td colSpan={allCols.length} className="px-4 py-3">
-                  <NoteDocument item={row} fields={fields} width="row" />
-                </td>
-              </tr>
-            ) : null,
-          ];
-        })}
+        {groupBy
+          ? groupRows(rows, groupBy, allCols).flatMap((g) => {
+              const collapsed = collapsedGroups.has(g.value);
+              const sumEntries = Object.entries(g.sums);
+              return [
+                <tr key={`§${g.value}`} className="border-b border-border bg-surface">
+                  <td colSpan={allCols.length + 1} className="px-2 py-1.5">
+                    <button
+                      type="button"
+                      onClick={() => toggleGroup(g.value)}
+                      className="flex w-full items-center gap-2 text-left text-meta font-semibold text-subtle transition-colors hover:text-ink-100"
+                    >
+                      <Icon icon={collapsed ? ChevronRight : ChevronDown} size={12} />
+                      {g.value} <Text tone="muted">{g.rows.length}</Text>
+                      {sumEntries.length > 0 && (
+                        <span className="ml-auto flex items-center gap-3 pr-4 font-normal">
+                          {sumEntries.map(([k, v]) => <Text key={k} size="meta" tone="muted">{`Σ ${k} ${v}`}</Text>)}
+                        </span>
+                      )}
+                    </button>
+                  </td>
+                </tr>,
+                ...(collapsed ? [] : g.rows.flatMap((row, idx) => renderRowPair(row, idx))),
+              ];
+            })
+          : rows.flatMap((row, idx) => renderRowPair(row, idx))}
       </tbody>
     </table>
   );
+
+  function renderRowPair(row: ModuleItem, idx: number): ReactNode[] {
+    const addr = addrOf(row);
+    const isOpen = expanded.has(addr);
+    const isSelected = selection?.selected.has(addr) ?? false;
+    return [
+      <tr
+        key={addr}
+        onClick={() => onRow(row)}
+        className={`group h-8 cursor-pointer border-b border-border transition-colors hover:bg-hover ${isSelected ? "bg-selected" : ""}`}
+      >
+        {/* the rail: row number → (hover/selected) checkbox + expansion chevron */}
+        <td className="w-12 px-2 py-1.5">
+          <span className="flex items-center gap-1">
+            {selection ? (
+              <>
+                <span className={`text-meta text-muted ${isSelected ? "hidden" : "group-hover:hidden"}`}>{idx + 1}</span>
+                <input
+                  type="checkbox"
+                  aria-label={`select ${addr}`}
+                  checked={isSelected}
+                  onChange={() => selection.toggle(addr)}
+                  onClick={(e) => e.stopPropagation()}
+                  className={`${isSelected ? "" : "hidden group-hover:block"} accent-accent`}
+                />
+              </>
+            ) : (
+              <span className="text-meta text-muted">{idx + 1}</span>
+            )}
+            <button
+              type="button"
+              aria-label={isOpen ? "collapse" : "expand"}
+              onClick={(e) => { e.stopPropagation(); toggleExpand(addr); }}
+              className="rounded-ui p-0.5 text-muted opacity-0 transition-opacity hover:bg-hover hover:text-ink-100 group-hover:opacity-100"
+            >
+              <Icon icon={isOpen ? ChevronDown : ChevronRight} size={12} />
+            </button>
+          </span>
+        </td>
+        {allCols.map((c) => (
+          <td
+            key={c.name}
+            className={`max-w-xs px-4 py-1.5 text-subtle ${c.align === "right" ? "text-right" : "text-left"} ${c.name === "__identity" ? "sticky left-0 z-10 bg-app group-hover:bg-hover" : "truncate"}`}
+          >
+            {cell(row, c)}
+          </td>
+        ))}
+      </tr>,
+      isOpen ? (
+        <tr key={`${addr}#doc`} className="border-b border-border">
+          <td className="px-2 py-1.5" />
+          <td colSpan={allCols.length} className="px-4 py-3">
+            <NoteDocument item={row} fields={fields} width="row" />
+          </td>
+        </tr>
+      ) : null,
+    ];
+  }
 }

@@ -16,6 +16,7 @@ import { useTableFilter } from "./use-table-filter.js";
 import { ClauseChips } from "./ClauseChips.js";
 import { ModuleDot, FacetChip } from "./FacetChip.js";
 import { TableBuilders } from "./TableBuilders.js";
+import { TableFooter } from "./TableFooter.js";
 import { NotesTable } from "./NotesTable.js";
 import { emptyCopy } from "../empty-copy.js";
 import { api } from "../../lib/api.js";
@@ -69,7 +70,6 @@ function EverythingInner({ moduleFacet, onModuleFacet }: { moduleFacet: string; 
           className="w-72 rounded-ui border border-border bg-app px-2 py-1 text-ui text-ink-100 outline-none placeholder:text-muted focus:border-accent-dim"
         />
         <TableBuilders cols={EVERYTHING_COLUMNS} state={state} filterOps={filterOps} dispatch={dispatch} />
-        <Text size="meta" tone="muted">{total} {total === 1 ? "row" : "rows"}</Text>
       </div>
       {(modules.length > 1 || rows.length > 0) && (
         <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border bg-surface px-6 py-2">
@@ -101,9 +101,11 @@ function EverythingInner({ moduleFacet, onModuleFacet }: { moduleFacet: string; 
             onRow={(row) => select({ kind: "row", id: row.id, module: row.module })}
             renderCell={renderCell}
             onChipClick={filterOps.addWhere}
+            groupBy={state.groupBy}
           />
         )}
       </div>
+      <TableFooter total={total} rows={rows} cols={EVERYTHING_COLUMNS} />
     </div>
   );
 }

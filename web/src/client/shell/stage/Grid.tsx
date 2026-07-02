@@ -15,6 +15,7 @@ import { useTableFilter } from "./use-table-filter.js";
 import { ClauseChips } from "./ClauseChips.js";
 import { FacetChip } from "./FacetChip.js";
 import { TableBuilders } from "./TableBuilders.js";
+import { TableFooter } from "./TableFooter.js";
 import { emptyCopy } from "../empty-copy.js";
 import { api } from "../../lib/api.js";
 import { useWorld } from "../world-state.js";
@@ -58,7 +59,6 @@ function GridInner() {
           className="w-72 rounded-ui border border-border bg-app px-2 py-1 text-ui text-ink-100 outline-none placeholder:text-muted focus:border-accent-dim"
         />
         <TableBuilders cols={cols} state={state} filterOps={filterOps} dispatch={dispatch} />
-        <Text size="meta" tone="muted">{total} {total === 1 ? "row" : "rows"}</Text>
       </div>
       {statuses.length > 0 && (
         <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border bg-surface px-6 py-2">
@@ -81,9 +81,11 @@ function GridInner() {
             onSort={(key) => dispatch({ type: "toggleSort", key })}
             onRow={(row) => select({ kind: "row", id: row.id, module })}
             onChipClick={filterOps.addWhere}
+            groupBy={state.groupBy}
           />
         )}
       </div>
+      <TableFooter total={total} rows={rows} cols={cols} />
     </div>
   );
 }
