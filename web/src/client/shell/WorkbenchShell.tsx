@@ -12,6 +12,7 @@ import { Composer } from "../composer/Composer.js";
 import { api, ApiError } from "../lib/api.js";
 import { brainEvents } from "../lib/brain-events.js";
 import { useModuleView, viewOf, type ModuleView } from "../state/module-view.js";
+import { useWorldCommand } from "../state/world-command.js";
 import { FilterChips } from "./stage/FilterChips.js";
 import { useWorkbench } from "../state/store.js";
 import { useWorld } from "./world-state.js";
@@ -107,9 +108,18 @@ export function WorkbenchShell() {
       if (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable) return;
       if (e.key === "r" || e.key === "R") { e.preventDefault(); setReview(!useReview.getState().open); }
       else if (e.key === "t" || e.key === "T") {
-        // ONE continuous space, two projections — T toggles them in a module context
+        // ONE continuous space, two projections — T toggles them in a module context;
+        // deep inside an island on the World home, T crystallizes it into its table
         const sel = useWorld.getState().selected;
         if (sel?.kind === "module") { e.preventDefault(); useModuleView.getState().toggle(sel.id); }
+        else {
+          const deep = useWorldCommand.getState().deep;
+          if (deep) {
+            e.preventDefault();
+            useModuleView.getState().set(deep, "table");
+            select({ kind: "module", id: deep });
+          }
+        }
       }
       else if (e.key === "Escape") setReview(false);
     };
@@ -269,13 +279,17 @@ export function WorkbenchShell() {
               // physics is project-level (two coupled sims); focus is a camera move.
               // The shared filter rides both projections: chips above the map name
               // the spotlight; the same lens filters the table.
+              // the projection swap CRYSTALLIZES (keyed fade — the island resolving
+              // into rows and back; a full FLIP node→row correspondence is future polish)
               activeModuleTab === "graph" ? (
-                <div className="flex min-h-0 flex-1 flex-col">
+                <div key="map" className="animate-fade flex min-h-0 flex-1 flex-col">
                   <FilterChips module={selected.id} />
                   <div className="min-h-0 flex-1"><World focus={selected.id} /></div>
                 </div>
               ) : (
-                <Grid module={selected.id} />
+                <div key="table" className="animate-fade flex min-h-0 flex-1 flex-col">
+                  <Grid module={selected.id} />
+                </div>
               )
             ) : sel.stage === "grid" && selected?.kind === "draft" ? (
               // the New-note draft: the module's table stays visible; the form is the wing

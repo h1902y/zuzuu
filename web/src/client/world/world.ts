@@ -18,7 +18,7 @@ import { select, type Selection } from "d3-selection";
 import { zoom, zoomIdentity, type ZoomBehavior, type ZoomTransform } from "d3-zoom";
 import { drag } from "d3-drag";
 import type { WorldGhost, WorldGraph, WorldGraphNode } from "#shared/index.js";
-import { deriveAffinity, modulePalette, nodeRadius, moduleHue, cardPicks, resolveMentionAddrs, CARD_ZOOM, type AffinityLink } from "./model.js";
+import { deriveAffinity, modulePalette, nodeRadius, moduleHue, cardPicks, resolveMentionAddrs, deepZoomModule, CARD_ZOOM, type AffinityLink } from "./model.js";
 
 interface SimNode extends SimulationNodeDatum, WorldGraphNode { r: number }
 interface SimLink { source: SimNode | string; target: SimNode | string; type: string; cross?: boolean }
@@ -30,6 +30,9 @@ export interface WorldCallbacks {
   onSelectNote?: (addr: string, module: string, id: string) => void;
   onSelectModule?: (module: string) => void;
   onGhostClick?: (module: string, stagedId: string) => void;
+  /** fires when the viewport dives into (or leaves) a single island at deep zoom —
+   *  the crystallize affordance ("open as table") hangs off it. Change-only. */
+  onDeepZoom?: (module: string | null) => void;
 }
 
 export interface WorldHandle {
@@ -106,6 +109,12 @@ export function mountWorld(container: HTMLElement, cb: WorldCallbacks = {}): Wor
     .stop();
 
   // ── zoom ──
+  let lastDeep: string | null = null;
+  function checkDeepZoom(): void {
+    const spreads = [...spread.entries()].map(([module, s]) => ({ module, cx: s.cx, cy: s.cy, r: s.r }));
+    const deep = deepZoomModule(spreads, { k: transform.k, x: transform.x, y: transform.y }, { w: W, h: H });
+    if (deep !== lastDeep) { lastDeep = deep; cb.onDeepZoom?.(deep); }
+  }
   const zoomer: ZoomBehavior<SVGSVGElement, unknown> = zoom<SVGSVGElement, unknown>()
     .scaleExtent([0.15, 8])
     .on("zoom", (ev: { transform: ZoomTransform }) => {
@@ -114,6 +123,7 @@ export function mountWorld(container: HTMLElement, cb: WorldCallbacks = {}): Wor
       restyle();
       placeChips();
       placeCards();
+      checkDeepZoom();
     });
   (svg as Selection<SVGSVGElement, unknown, null, undefined>).call(zoomer);
 

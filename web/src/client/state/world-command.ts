@@ -24,8 +24,12 @@ export interface GlowRequest {
 interface WorldCommandState {
   pending: WorldCommand | null;
   glow: GlowRequest | null;
+  /** the island the map is deep-zoomed into (the crystallize affordance's target;
+   *  the T shortcut reads it when no module is selected). Set by the mounted World. */
+  deep: string | null;
   request: (c: WorldCommand) => void;
   requestGlow: (mentions: string[]) => void;
+  setDeep: (module: string | null) => void;
   consume: () => WorldCommand | null;
   consumeGlow: () => GlowRequest | null;
 }
@@ -33,8 +37,10 @@ interface WorldCommandState {
 export const useWorldCommand = create<WorldCommandState>((set, get) => ({
   pending: null,
   glow: null,
+  deep: null,
   request: (pending) => set({ pending }),
   requestGlow: (mentions) => { if (mentions.length) set({ glow: { mentions, at: Date.now() } }); },
+  setDeep: (deep) => set({ deep }),
   consume: () => {
     const c = get().pending;
     if (c) set({ pending: null });

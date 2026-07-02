@@ -14,6 +14,7 @@ import { useReviewQueue } from "../review/use-review-queue.js";
 import { mountWorld, type WorldHandle } from "../../world/world.js";
 import { reconcileGhosts, spotlightAddrs } from "../../world/model.js";
 import { useModuleFilter, filterOf, isFiltering } from "../../state/module-filter.js";
+import { useModuleView } from "../../state/module-view.js";
 import { emptyCopy } from "../empty-copy.js";
 import { EmptyState, Text } from "../../ds/index.js";
 import "../../world/world.css";
@@ -23,6 +24,9 @@ export function World({ focus }: { focus?: string }) {
   const handle = useRef<WorldHandle | null>(null);
   const select = useWorld((s) => s.select);
   const setReview = useReview((s) => s.setOpen);
+  const deep = useWorldCommand((s) => s.deep);
+  const setDeep = useWorldCommand((s) => s.setDeep);
+  const setView = useModuleView((s) => s.set);
   // lives under ["zuzuu"] so the brain push (/ws/zuzuu) invalidates it live;
   // `definition` rides along for the in-map mini-cards' peek (C2). A DEGRADED
   // read (CLI spawn contention — e.g. racing a CLI write's index rebuild) is an
@@ -46,10 +50,18 @@ export function World({ focus }: { focus?: string }) {
       onSelectNote: (_addr, module, id) => select({ kind: "note", id, module }),
       onSelectModule: (module) => select({ kind: "module", id: module }),
       onGhostClick: () => setReview(true), // the in-map review: the gate overlay, in place
+      onDeepZoom: (module) => setDeep(module), // deep in one island → the crystallize affordance
     });
     handle.current = world;
-    return () => { handle.current = null; world.destroy(); };
-  }, [select, setReview]);
+    return () => { handle.current = null; setDeep(null); world.destroy(); };
+  }, [select, setReview, setDeep]);
+
+  // the crystallize gesture: deep inside one island, the table is the sharper
+  // instrument — offer it, never hijack the zoom
+  const crystallize = (module: string) => {
+    setView(module, "table");
+    select({ kind: "module", id: module });
+  };
 
   useEffect(() => {
     if (graph.data) handle.current?.setData(graph.data);
@@ -120,6 +132,15 @@ export function World({ focus }: { focus?: string }) {
   return (
     <div className="relative h-full">
       <div ref={ref} className="h-full" role="img" aria-label="project map" />
+      {deep && !overlay && (
+        <button
+          type="button"
+          onClick={() => crystallize(deep)}
+          className="animate-fade absolute bottom-4 left-1/2 -translate-x-1/2 rounded-ui border border-border bg-elevated px-3 py-1.5 text-meta text-subtle shadow-overlay transition-colors hover:text-ink-100"
+        >
+          open <span className="font-semibold">{deep}</span> as table — T
+        </button>
+      )}
       {overlay && <div className="absolute inset-0 grid place-items-center bg-app">{overlay}</div>}
     </div>
   );
