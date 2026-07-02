@@ -362,7 +362,7 @@ export function WorkbenchShell() {
             {sel.wing === "review" ? (
               <ReviewQueue />
             ) : sel.wing === "form" && selected?.kind === "draft" ? (
-              <NewNoteForm key={selected.module} module={selected.module} />
+              <NewNoteForm key={selected.module} module={selected.module} seed={selected.seed} />
             ) : sel.wing === "form" && (selected?.kind === "row" || selected?.kind === "note") ? (
               <Form module={selected.module} id={selected.id} />
             ) : sel.wing === "schema" && selected?.kind === "module" ? (

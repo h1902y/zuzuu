@@ -18,13 +18,13 @@ import { Stack, Text, Button } from "../../ds/index.js";
 
 const input = "w-full rounded-ui border border-border bg-app px-2 py-1 text-ui text-ink-100 outline-none placeholder:text-muted focus:border-accent-dim";
 
-export function NewNoteForm({ module }: { module: string }) {
+export function NewNoteForm({ module, seed }: { module: string; seed?: string }) {
   const schema = useQuery({ queryKey: ["zuzuu", "schema", module], queryFn: () => api.zuzuu.schema(module) });
   const select = useWorld((s) => s.select);
   const qc = useQueryClient();
   const [id, setId] = useState(() => newNoteId(Date.now()));
   const [type, setType] = useState("note");
-  const [title, setTitle] = useState("");
+  const [title, setTitle] = useState(seed ?? ""); // the adapter's slot-filled title (§E.3)
   const [body, setBody] = useState("");
   const [values, setValues] = useState<Record<string, string>>({});
   const [staging, setStaging] = useState(false);

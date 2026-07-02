@@ -21,7 +21,7 @@ export type NavNode =
   | { kind: "everything" } // the UNIFIED table: one grid over every module (module = a column)
   | { kind: "row"; id: string; module: string }
   | { kind: "note"; id: string; module: string }
-  | { kind: "draft"; module: string } // the New-note draft (form-first — audit item 3)
+  | { kind: "draft"; module: string; seed?: string } // the New-note draft (form-first — audit item 3); seed = the adapter's pre-filled title (§E.3)
   | { kind: "overview" }
   | { kind: "search"; query?: string }
   | { kind: "settings" }

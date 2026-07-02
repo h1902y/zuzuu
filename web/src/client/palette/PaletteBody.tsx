@@ -28,6 +28,7 @@ import { useWorldCommand } from "../state/world-command.js";
 import { useAcpIntent } from "../state/acp-intent.js";
 import { useModuleView } from "../state/module-view.js";
 import { emptyStack, push, pop, top, placeholderFor, hintFor, laneBadge, type OmniStack } from "../omnibar/omni-shell.js";
+import { adapterGroup } from "../omnibar/omni-adapter.js";
 import { proposalsGroup, viewsGroup, type StagedRow } from "../omnibar/omni-sources.js";
 import { OmniDetail } from "../omnibar/OmniDetail.js";
 import { AcpConversation } from "../shell/stage/AcpView.js";
@@ -87,14 +88,19 @@ export default function PaletteBody() {
   // C3 — the omnibar's prefix modes take over the palette: `>` world commands,
   // `/` the conversation. Omni groups self-filter, so cmdk's filter stands down.
   const omni = omniGroup(query, overview.data?.modules ?? []);
+  // §E.3 — the ADAPTER: a plain-language intent resolves to ONE registry
+  // invocation, rendered as the top "Do" row (Enter confirms, never auto-runs);
+  // unresolvable intents get the single agent-fallback row. Self-filtered.
+  const doGroup = adapterGroup(query, { modules: overview.data?.modules ?? [] });
   // audit item 7: with a live query, CONTENT leads — the notes group renders first
   // so the best note is the default Enter target (cmdk keeps DOM order for ties;
   // the exact-substring filter score already zeroes most command noise).
-  // root order: querying → content first (notes · views), then commands, proposals
-  // trailing; idle → what needs you first (proposals), then commands.
+  // root order: querying → the adapter's resolution first (it consumed the WHOLE
+  // input, so when it fires it's the best reading), then content (notes · views),
+  // then commands; idle → what needs you first (proposals), then commands.
   const extras = [views, proposals].filter((g): g is NonNullable<typeof g> => g != null);
   const rootGroups = omni ? [omni]
-    : notes && query.trim() ? [notes, ...extras, ...groups]
+    : notes && query.trim() ? [...(doGroup ? [doGroup] : []), notes, ...extras, ...groups]
       : [...(proposals ? [proposals] : []), ...groups, ...(views ? [views] : []), ...(notes ? [notes] : [])];
 
   // A pushed ACTION PANEL replaces the root list (Raycast): one group, the noun's
@@ -210,6 +216,11 @@ export default function PaletteBody() {
         select(scope ? { kind: "module", id: scope } : { kind: "everything" });
         break;
       }
+      case "draft-note":
+        // §E.3 — the adapter's create resolution: the DRAFT wing opens pre-filled;
+        // staging happens on the form's save (the gate decides — never a blind write)
+        select({ kind: "draft", module: action.module, ...(action.title ? { seed: action.title } : {}) });
+        break;
       case "create-note": {
         // THE INVERSION — a create stages a proposal through the review gate, never a
         // direct write. Target the selected module, else default to knowledge.

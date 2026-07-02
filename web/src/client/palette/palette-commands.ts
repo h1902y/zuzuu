@@ -36,6 +36,9 @@ export type PaletteAction =
   | { kind: "approve-proposal"; module: string; id: string }
   | { kind: "reject-proposal"; module: string; id: string }
   | { kind: "run-view"; module: string; text: string; noteKind: string }
+  // §E.3 — the adapter's create resolution: open the DRAFT form pre-filled (the
+  // form stages on save — the gate decides; the adapter never writes directly)
+  | { kind: "draft-note"; module: string; title: string }
   | { kind: "noop" };
 
 export interface PaletteCommand {
