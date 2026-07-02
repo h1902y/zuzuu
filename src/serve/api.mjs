@@ -1,12 +1,22 @@
-// src/serve/api.mjs — the one programmatic surface over a Project.
+// src/serve/api.mjs — the one programmatic surface over a Project (the de-facto
+// public API: the CLI veneer thins down to it, the web daemon shells verbs that
+// call it, a future embedder imports it).
 //
-// what: a single import that composes the notes substrate + the verbs & loop into the clean
-//       façade every host (CLI veneer, web daemon, plugin) consumes. `open(cwd)`
-//       resolves the home once; the returned handle exposes the five verbs plus
-//       the gate, snapshots, and proposals — all bound to that home.
-// why:  hosts should depend on ONE stable surface, not reach into notes/ and
-//       the verbs/loop internals. This is the seam the CLI thins down to and the
-//       daemon calls — so the verb set stays legible and swappable underneath.
+// what: `open(cwd, {actor}) → handle`, every method bound to that home. The surface,
+//       grouped as the handle lays it out:
+//         inspection   modules
+//         schema DDL   addColumn · alterColumn · dropColumn        (operator-gated)
+//         lifecycle    moduleNew · moduleSetEnabled · mintGeneration
+//         reads/run    query · check · act · flow · view · validate
+//         agent lane   stage · staged · approve · reject · plan · apply   (THE gate)
+//         refactors    rename · merge · refactor                   (link-repointing)
+//         operator lane patch · append · create · createMany · remove   (instant, validated)
+//         generations  generations · rollback · diff · asOf · timeline
+//         registry     the active role:registry repo (nested handle)
+// why:  hosts should depend on ONE stable surface, not reach into notes/ and the
+//       verbs/loop internals. The two write lanes are the design: the AGENT reaches
+//       writes only through stage→review (commit refuses actor:'agent'); the
+//       OPERATOR's own edits land directly — validated, logged, minted, instant.
 // how:  thin binding over the registry + the human-gate (review) + snapshot
 //       primitives. registerAll() is idempotent, so opening is cheap and safe to
 //       repeat. Zero-dep.
@@ -87,7 +97,7 @@ export function open(cwd = process.cwd(), { actor = 'operator' } = {}) {
     view: (module, id, opts) => unwrap(invoke(home, module, 'view', { actor }, id, opts)),
     validate: (module = '') => unwrap(invoke(home, module, 'validate', { actor })),
 
-    // ── the human gate (review is interactive — not a registry verb) ────────
+    // ── the AGENT lane: propose → the human gate (review) ───────────────────
     // The WRITE methods thread `actor` into `commit`, which refuses a non-operator.
     stage: (module, p) => stageChange(home, module, p),  // stage writes staged JSON, not notes — the agent's sanctioned channel, never gated
     staged: (module) => listStaged(home, module),
@@ -101,13 +111,11 @@ export function open(cwd = process.cwd(), { actor = 'operator' } = {}) {
     merge: (module, src, dst) => mergeNotes(home, module, src, dst, actor),
     refactor: (module, key, from, to) => refactorField(home, module, key, from, to, actor),
 
-    // ── scoped edits ────────────────────────────────────────────────────────
-    patch: (module, id, key, value) => patchNote(home, module, id, key, value, actor),
-    append: (module, id, text) => appendNote(home, module, id, text, actor),
-
-    // ── the operator lane: direct row CRUD (instant; still validated + logged +
+    // ── the OPERATOR lane: direct writes (instant; still validated + logged +
     //    minted through commit(); the agent never reaches these — its channel
     //    stays stage→review, and the CLI rows are agentInvokable:false) ───────
+    patch: (module, id, key, value) => patchNote(home, module, id, key, value, actor),
+    append: (module, id, text) => appendNote(home, module, id, text, actor),
     create: (module, id, change, opts = {}) => createNote(home, module, id, change, { actor, ...opts }),
     createMany: (module, rows, opts = {}) => createNotes(home, module, rows, { actor, ...opts }),
     remove: (module, id) => deleteNote(home, module, id, actor),
