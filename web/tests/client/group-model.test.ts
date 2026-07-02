@@ -1,6 +1,6 @@
 // §H.3.3/§H.4.6 — client-side group-by + Σ aggregates over the loaded page.
 import { describe, it, expect } from "vitest";
-import { groupRows, totalSums } from "../../src/client/shell/stage/group-model.js";
+import { groupRows, totalSums, isPartialSum } from "../../src/client/shell/stage/group-model.js";
 import type { ModuleItem } from "#shared/index.js";
 import type { GridColumn } from "../../src/client/shell/stage/grid-columns.js";
 
@@ -49,5 +49,20 @@ describe("totalSums — the footer's grand-total Σ", () => {
 
   it("no number columns ⇒ no sums", () => {
     expect(totalSums([item()], [{ name: "title", label: "Title", type: "text", align: "left" }])).toEqual({});
+  });
+});
+
+// S3 — the footer's Σ must never read as a grand total when it's really only a
+// sum over the loaded page.
+describe("isPartialSum — the footer's Σ is a page sum, not a grand total, once total exceeds what's loaded", () => {
+  it("total > loaded rows ⇒ partial (pagination truncated the set)", () => {
+    expect(isPartialSum(156, 50)).toBe(true);
+  });
+  it("total === loaded rows ⇒ NOT partial (the whole match set fit on the page — the Σ is genuinely complete)", () => {
+    expect(isPartialSum(12, 12)).toBe(false);
+  });
+  it("total < loaded rows never happens in practice, but is treated as complete (never false-flagged partial)", () => {
+    expect(isPartialSum(0, 0)).toBe(false);
+    expect(isPartialSum(5, 8)).toBe(false);
   });
 });

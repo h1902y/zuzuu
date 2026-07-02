@@ -42,5 +42,14 @@ export function groupRows(rows: readonly ModuleItem[], key: string, cols: readon
   });
 }
 
-/** The footer's grand-total Σ across every loaded row (grouped or not). */
+/** The footer's Σ across every LOADED row (grouped or not) — same honesty caveat
+ *  as the module doc above: a PAGE sum, not a true grand total, whenever the
+ *  server has more matching rows than fit on one page. */
 export const totalSums = sumsOf;
+
+/** S3: is the footer's Σ a PARTIAL (page-only) sum rather than the true grand
+ *  total? True whenever the server's pre-paginate `total` exceeds what's actually
+ *  loaded — the exact condition under which a reader could mistake the Σ for a
+ *  sum over ALL matching rows instead of just the rows on screen. TableFooter uses
+ *  this to qualify/style the Σ so it never silently overclaims. */
+export const isPartialSum = (total: number, loadedRows: number): boolean => total > loadedRows;
