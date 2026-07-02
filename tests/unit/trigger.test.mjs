@@ -128,6 +128,57 @@ test('validateNote: enabled must be boolean-ish (tolerates the un-coerced "true"
   assert.ok(bad.errors.some((e) => /enabled.*boolean/.test(e)));
 });
 
+// ── isTriggerEnabled — the second-gate coercion (SHOULD-FIX 2, docs/audits/
+// 2026-07-03-triggers-review.md): correct by reading, but previously untested on the
+// exact STRING path a `zz stage --field enabled=false` proposal lands un-coerced. ──
+
+test('isTriggerEnabled: absent/blank reads as NOT enabled (safe default off)', () => {
+  assert.equal(isTriggerEnabled({}), false);
+  assert.equal(isTriggerEnabled({ enabled: undefined }), false);
+  assert.equal(isTriggerEnabled({ enabled: null }), false);
+  assert.equal(isTriggerEnabled({ enabled: '' }), false);
+  assert.equal(isTriggerEnabled(null), false, 'a null trigger note never reads enabled');
+});
+
+test('isTriggerEnabled: the STRING "false"/"no"/"0" reads as NOT enabled (the exact coercion edge)', () => {
+  assert.equal(isTriggerEnabled({ enabled: 'false' }), false);
+  assert.equal(isTriggerEnabled({ enabled: 'no' }), false);
+  assert.equal(isTriggerEnabled({ enabled: '0' }), false);
+  // case-insensitive, matching validate.mjs's COERCIBLE.bool tolerance
+  assert.equal(isTriggerEnabled({ enabled: 'FALSE' }), false);
+  assert.equal(isTriggerEnabled({ enabled: 'maybe' }), false, 'an unrecognized string is NOT truthy — safe default');
+});
+
+test('isTriggerEnabled: the STRING "true"/"yes"/"1" reads as enabled', () => {
+  assert.equal(isTriggerEnabled({ enabled: 'true' }), true);
+  assert.equal(isTriggerEnabled({ enabled: 'yes' }), true);
+  assert.equal(isTriggerEnabled({ enabled: '1' }), true);
+  assert.equal(isTriggerEnabled({ enabled: 'TRUE' }), true, 'case-insensitive');
+});
+
+test('isTriggerEnabled: a real boolean short-circuits the string table (both directions)', () => {
+  assert.equal(isTriggerEnabled({ enabled: true }), true);
+  assert.equal(isTriggerEnabled({ enabled: false }), false);
+});
+
+test('fireTrigger: refuses when `enabled` is the UN-COERCED STRING "false" (not just the boolean)', () => {
+  withRepo((cwd) => {
+    initHome(cwd);
+    const home = join(cwd, '.zuzuu');
+    createNote(home, 'actions', 'flow', { type: 'workflow', title: 'f', steps: [{ id: 'a', run: 'true' }] });
+    // {validate:false}: plant the exact shape `zz stage --field enabled=false` lands
+    // un-coerced — a string, not a real boolean — bypassing the write-door coercion to
+    // exercise fireTrigger's OWN read of it directly.
+    writeNote(home, 'actions', 't1', {
+      type: 'trigger', title: 'T', status: 'active', on: { kind: 'manual' }, run: 'actions:flow', enabled: 'false',
+    }, { validate: false });
+    const r = fireTrigger(home, 'actions', 't1');
+    assert.equal(r.ok, false);
+    assert.equal(r.refused, true);
+    assert.match(r.error, /disabled/);
+  });
+});
+
 // ── the write door: a malformed trigger is refused BEFORE it lands (mirrors validate.test.mjs) ──
 
 test('the gate refuses a malformed trigger note before it is written', () => {

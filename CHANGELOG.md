@@ -8,6 +8,14 @@ that history).
 ## [Unreleased]
 
 ### Fixed
+- **`isTriggerEnabled`'s string-coercion edge is now test-covered** (SHOULD-FIX 2,
+  `docs/audits/2026-07-03-triggers-review.md`): the second gate's read of `enabled`
+  was correct by reading — a raw string `"false"`/`"no"`/`"0"` (the un-coerced shape
+  `zz stage --field enabled=false` can land) already read as NOT enabled — but had
+  zero direct test coverage; every existing fire/enable test used a real boolean,
+  which round-trips through YAML on its own and never exercises the string table.
+  No behavior change; added direct assertions on the string/boolean/absent matrix
+  plus a `fireTrigger` case against a hand-planted string `enabled:'false'` note.
 - **The exec-gate can no longer go stale or ship unseeded** (SHOULD-FIX 1,
   `docs/audits/2026-07-03-triggers-review.md`): the `protect-brain-exec` guardrail
   (denies an agent shelling a `zz`/`zuzuu` WRITE verb — the Bash-bypass hole) stores
