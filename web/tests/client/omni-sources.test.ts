@@ -1,7 +1,7 @@
 // omnibar/omni-sources.ts — proposals + saved-views sources (§E.1 stage 2).
 import { describe, it, expect } from "vitest";
 import type { ModuleItem } from "#shared/index.js";
-import { proposalsGroup, viewsGroup, viewLens } from "../../src/client/omnibar/omni-sources.js";
+import { proposalsGroup, viewsGroup, viewLens, selectionGroup } from "../../src/client/omnibar/omni-sources.js";
 
 const item = (over: Partial<ModuleItem> & Record<string, unknown>): ModuleItem =>
   ({ id: "x", module: "m", kind: "concept", title: "", status: "", ...over }) as ModuleItem;
@@ -42,5 +42,19 @@ describe("saved views", () => {
     expect(g.commands[0]!.action).toMatchObject({ kind: "run-view", module: "actions", noteKind: "activity" });
     expect(viewsGroup([view], "zzz")).toBeNull();
     expect(viewsGroup([item({ id: "n1" })], "")).toBeNull();
+  });
+});
+
+describe("selectionGroup — §H.3.4: selection is context, the omnibar is the verb", () => {
+  it("no selection → no group", () => {
+    expect(selectionGroup(0)).toBeNull();
+  });
+
+  it("two verbs this pass — export (instant) and delete (proposal) — carry the count in the label", () => {
+    const g = selectionGroup(3)!;
+    expect(g.heading).toBe("Selection");
+    expect(g.commands.map((c) => c.label)).toEqual(["Export 3 as CSV", "Delete 3 selected"]);
+    expect(g.commands.map((c) => c.lane)).toEqual(["instant", "proposal"]);
+    expect(g.commands.map((c) => c.action.kind)).toEqual(["export-selection", "delete-selection"]);
   });
 });

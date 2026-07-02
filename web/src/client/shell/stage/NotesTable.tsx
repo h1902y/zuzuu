@@ -10,7 +10,7 @@
 //   · row expansion (chevron/Enter) → the shared NoteDocument inline (§H.6) —
 //     surveying → inspecting never changes surface
 // Cells are READ-ONLY (doctrine): the row's actions live in the omnibar.
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import type { ModuleItem } from "#shared/index.js";
 import type { FieldDef } from "../../data/field-registry.js";
@@ -75,6 +75,25 @@ export function NotesTable({ cols, rows, sort, onSort, onRow, renderCell, fields
     setExpanded((s) => { const n = new Set(s); if (n.has(addr)) n.delete(addr); else n.add(addr); return n; });
   const toggleGroup = (value: string) =>
     setCollapsedGroups((s) => { const n = new Set(s); if (n.has(value)) n.delete(value); else n.add(value); return n; });
+
+  // §H.3.4: "rail checkboxes + x key." The x key toggles whichever row the mouse
+  // is over — a hovered-row ref (not React state) so keydown reads it without a
+  // rerender on every mouseenter, and skips when focus is inside a text input
+  // (typing an 'x' in the filter box must never select a row).
+  const hoverAddr = useRef<string | null>(null);
+  useEffect(() => {
+    if (!selection) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "x" || e.metaKey || e.ctrlKey || e.altKey) return;
+      const el = document.activeElement;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT")) return;
+      if (!hoverAddr.current) return;
+      e.preventDefault();
+      selection.toggle(hoverAddr.current);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selection]);
 
   const cell = (row: ModuleItem, c: GridColumn): ReactNode => {
     const over = renderCell?.(row, c);
@@ -178,6 +197,8 @@ export function NotesTable({ cols, rows, sort, onSort, onRow, renderCell, fields
       <tr
         key={addr}
         onClick={() => onRow(row)}
+        onMouseEnter={() => { hoverAddr.current = addr; }}
+        onMouseLeave={() => { if (hoverAddr.current === addr) hoverAddr.current = null; }}
         className={`group h-8 cursor-pointer border-b border-border transition-colors hover:bg-hover ${isSelected ? "bg-selected" : ""}`}
       >
         {/* the rail: row number → (hover/selected) checkbox + expansion chevron */}

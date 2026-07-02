@@ -6,6 +6,7 @@ import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { NotesListProvider, useList } from "../../data/ListContext.js";
 import { useModuleFilter, filterOf } from "../../state/module-filter.js";
+import { useTableSelection, selectionFor } from "../../state/table-selection.js";
 import { gridColumns } from "./grid-columns.js";
 import { NotesTable } from "./NotesTable.js";
 import { statusFacets } from "./everything-model.js";
@@ -31,6 +32,16 @@ function GridInner() {
   // a schemaless module (no fields) falls back to inferred columns from the rows.
   const cols = gridColumns(fieldsFromSchema(schema.data?.schema), rows);
   const statuses = statusFacets(rows, state.status);
+
+  // §H.3.4: selection lives OUTSIDE the table (the omnibar's context, not chrome);
+  // toggle carries the row so the omnibar's export verb has the data without a
+  // second fetch.
+  const selected = useTableSelection((s) => selectionFor(s, module));
+  const toggleSelection = useTableSelection((s) => s.toggle);
+  const onSelectionToggle = (addr: string) => {
+    const [, id] = addr.split(":");
+    toggleSelection(module, addr, id ? rows.find((r) => r.id === id) : undefined);
+  };
 
   // the typed input speaks the CLI's own grammar (§H.3.1): free text live-filters
   // via FTS as you type; Enter on a `key<op>value`/`#tag` shape commits it as a
@@ -82,6 +93,7 @@ function GridInner() {
             onRow={(row) => select({ kind: "row", id: row.id, module })}
             onChipClick={filterOps.addWhere}
             groupBy={state.groupBy}
+            selection={{ selected, toggle: onSelectionToggle }}
           />
         )}
       </div>

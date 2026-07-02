@@ -9,6 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Table2 } from "lucide-react";
 import { NotesListProvider, useList } from "../../data/ListContext.js";
 import { useModuleFilter, filterOf } from "../../state/module-filter.js";
+import { useTableSelection, selectionFor, EVERYTHING_SELECTION_SCOPE } from "../../state/table-selection.js";
 import { modulePalette } from "../../world/model.js";
 import { EVERYTHING_COLUMNS, moduleFacets, typeFacets, statusFacets, toggleFacet } from "./everything-model.js";
 import { parseInputClause } from "./table-model.js";
@@ -59,6 +60,13 @@ function EverythingInner({ moduleFacet, onModuleFacet }: { moduleFacet: string; 
 
   const statuses = statusFacets(rows, state.status);
 
+  // §H.3.4: selection lives OUTSIDE the table; a row's addr is `module:id` here
+  // since Everything spans modules, so the lookup keys on the addr, not just id.
+  const selected = useTableSelection((s) => selectionFor(s, EVERYTHING_SELECTION_SCOPE));
+  const toggleSelection = useTableSelection((s) => s.toggle);
+  const onSelectionToggle = (addr: string) =>
+    toggleSelection(EVERYTHING_SELECTION_SCOPE, addr, rows.find((r) => `${r.module}:${r.id}` === addr));
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex shrink-0 items-center gap-3 border-b border-border px-6 py-3">
@@ -102,6 +110,7 @@ function EverythingInner({ moduleFacet, onModuleFacet }: { moduleFacet: string; 
             renderCell={renderCell}
             onChipClick={filterOps.addWhere}
             groupBy={state.groupBy}
+            selection={{ selected, toggle: onSelectionToggle }}
           />
         )}
       </div>

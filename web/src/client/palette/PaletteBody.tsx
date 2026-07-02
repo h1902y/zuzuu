@@ -31,11 +31,14 @@ import { emptyStack, push, pop, top, placeholderFor, hintFor, laneBadge, type Om
 import { adapterGroup } from "../omnibar/omni-adapter.js";
 import { greetingModel } from "../omnibar/omni-greeting.js";
 import { brainSummary } from "../shell/overview/overview-model.js";
-import { proposalsGroup, viewsGroup, type StagedRow } from "../omnibar/omni-sources.js";
+import { proposalsGroup, viewsGroup, selectionGroup, type StagedRow } from "../omnibar/omni-sources.js";
 import { OmniDetail } from "../omnibar/OmniDetail.js";
 import { AcpConversation } from "../shell/stage/AcpView.js";
 import { useModuleFilter } from "../state/module-filter.js";
 import { useSettingsDialog } from "../state/settings-dialog.js";
+import { useTableSelection } from "../state/table-selection.js";
+import { selectionToCsv } from "../state/selection-csv.js";
+import { downloadText } from "../lib/download.js";
 
 export default function PaletteBody() {
   const setPalette = useWorld((s) => s.setPalette);
@@ -104,10 +107,15 @@ export default function PaletteBody() {
   // root order: querying → the adapter's resolution first (it consumed the WHOLE
   // input, so when it fires it's the best reading), then content (notes · views),
   // then commands; idle → what needs you first (proposals), then commands.
+  // §H.3.4 — the table SELECTION is context: with rows selected, its verbs rank
+  // FIRST (Linear ⌘K's decision, §E.2) — it's what the user is doing right now.
+  const selectionCount = useTableSelection((s) => s.ids.size);
+  const selection = selectionGroup(selectionCount);
+
   const extras = [views, proposals].filter((g): g is NonNullable<typeof g> => g != null);
   const rootGroups = omni ? [omni]
-    : notes && query.trim() ? [...(doGroup ? [doGroup] : []), notes, ...extras, ...groups]
-      : [...(proposals ? [proposals] : []), ...groups, ...(views ? [views] : []), ...(notes ? [notes] : [])];
+    : notes && query.trim() ? [...(selection ? [selection] : []), ...(doGroup ? [doGroup] : []), notes, ...extras, ...groups]
+      : [...(selection ? [selection] : []), ...(proposals ? [proposals] : []), ...groups, ...(views ? [views] : []), ...(notes ? [notes] : [])];
 
   // §E.4 — the GREETING: the zero-state (no query, root view) is an assist. One
   // calm block from existing reads (needs-me · last session · integrity · the
@@ -256,6 +264,32 @@ export default function PaletteBody() {
         void dataProvider.create(mod, newNoteId(Date.now()), { title: action.query, body: "" })
           .then(() => { toast("New note staged for review"); void qc.invalidateQueries({ queryKey: ["zuzuu"] }); })
           .catch(() => toast("Couldn't stage the note", "error"));
+        break;
+      }
+      case "export-selection": {
+        // §H.3.4 — client-side from the rows already loaded (no round trip); a
+        // pure navigation-free download, so it's genuinely "instant."
+        const { items } = useTableSelection.getState();
+        downloadText(`selection-${Date.now()}.csv`, selectionToCsv([...items.values()]));
+        toast(`Exported ${items.size} row${items.size === 1 ? "" : "s"} as CSV`);
+        break;
+      }
+      case "delete-selection": {
+        // the batch-verb GAP the spec names: no single all-or-nothing generation
+        // exists yet, so this LOOPS the existing per-row delete stage — each row
+        // becomes its own proposal (the gate decides each, same as one-at-a-time).
+        const { ids, items } = useTableSelection.getState();
+        const targets = [...ids].map((addr) => {
+          const [module, id] = addr.split(":");
+          return { module: module ?? items.get(addr)?.module ?? "", id: id ?? items.get(addr)?.id ?? "" };
+        }).filter((t) => t.module && t.id);
+        void Promise.all(targets.map((t) => dataProvider.remove(t.module, t.id)))
+          .then(() => {
+            toast(`Staged ${targets.length} delete${targets.length === 1 ? "" : "s"} for review`);
+            useTableSelection.getState().clear();
+            void qc.invalidateQueries({ queryKey: ["zuzuu"] });
+          })
+          .catch(() => toast("Couldn't stage the deletes", "error"));
         break;
       }
     }

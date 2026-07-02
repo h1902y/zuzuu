@@ -40,6 +40,12 @@ export type PaletteAction =
   // §E.3 — the adapter's create resolution: open the DRAFT form pre-filled (the
   // form stages on save — the gate decides; the adapter never writes directly)
   | { kind: "draft-note"; module: string; title: string }
+  // §H.3.4 — the table SELECTION's verbs: selection is context, the omnibar is
+  // the verb (no bulk action lives as table chrome). Export is a client-side
+  // download (instant, no write); delete loops the existing per-row stage(delete)
+  // — a batch-verb GAP noted in the spec (no single all-or-nothing generation yet).
+  | { kind: "export-selection" }
+  | { kind: "delete-selection" }
   | { kind: "noop" };
 
 export interface PaletteCommand {

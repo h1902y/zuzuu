@@ -1,6 +1,7 @@
 // src/client/omnibar/omni-sources.ts — the shell's extra noun sources (§E.1 stage 2):
-// pending PROPOSALS (the gate as list items — approve/reject inline from the panel)
-// and saved VIEWS (type:view notes — run applies the lens both projections share).
+// pending PROPOSALS (the gate as list items — approve/reject inline from the panel),
+// saved VIEWS (type:view notes — run applies the lens both projections share), and
+// the table SELECTION (§H.3.4 — selection is context, the omnibar is the verb).
 // Pure builders over already-fetched data; PaletteBody feeds + renders them.
 
 import type { ModuleItem, StagedSummary } from "#shared/index.js";
@@ -69,5 +70,37 @@ export function viewsGroup(items: ModuleItem[], query: string): PaletteGroup | n
         action: { kind: "run-view", ...lens },
       };
     }),
+  };
+}
+
+/** The Selection group (§H.3.4): appears the instant a table selection exists —
+ *  the omnibar's context, ranked ahead of the ordinary command groups (it's what
+ *  the user is doing RIGHT NOW). Verbs this pass: export (instant, client-side)
+ *  and delete (a proposal — it loops the existing per-row stage(delete), a
+ *  batch-verb gap the spec names: no single all-or-nothing generation yet).
+ *  set-field-across-selection is skipped (the omnibar's form plumbing would make
+ *  it heavy for this pass) and relate-all-to isn't built either — noted, not built. */
+export function selectionGroup(count: number): PaletteGroup | null {
+  if (count < 1) return null;
+  return {
+    heading: "Selection",
+    commands: [
+      {
+        value: "selection export csv download",
+        label: `Export ${count} as CSV`,
+        meta: "selection",
+        lane: "instant",
+        hint: "↵ download",
+        action: { kind: "export-selection" },
+      },
+      {
+        value: "selection delete remove",
+        label: `Delete ${count} selected`,
+        meta: "selection",
+        lane: "proposal",
+        hint: "↵ stage",
+        action: { kind: "delete-selection" },
+      },
+    ],
   };
 }
