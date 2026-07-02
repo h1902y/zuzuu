@@ -469,3 +469,26 @@ FieldDef one-to-one:
 Footer aggregates confirmed by the reference (Sum under Duration) — §H.4.6.
 CLI prerequisite (small, separate from the grid build): `default: now`
 sentinel + `description` passthrough on add/alter-column.
+
+### §H.6 — The note document: ONE detail rendering, every container (Notion grammar)
+
+The detail view is ONE component — `NoteDocument` — rendered identically in all
+its containers (omnibar detail pane · wing/sidebar · inline row expansion),
+width-adaptive, never re-implemented per surface. Its grammar, from the Notion
+reference:
+
+- **Header**: type glyph + the TITLE large; the id beneath as quiet mono
+  (`knowledge:brahman`); status pill beside. (Module identity = the island dot.)
+- **The lead**: a bold summary line when the note has one (`definition` field,
+  else the body's first paragraph) — the "Summary:" treatment; absent = absent.
+- **Grouped attribute cards** (Notion's rounded row-groups): CORE (created ·
+  tags) · SCHEMA FIELDS (label + typed value rows, select pills, ƒ formulas
+  shown) · RELATIONS (each edge an icon+label tappable row — tap flies the map;
+  edge notes/cites render as quiet sub-text) · "ALSO CARRIES" (the OKF extras).
+- **Body**: GFM below the attribute groups, document-width.
+- **Footer meta, quiet** (Notion's "Updated 3 days ago" texture): born here
+  (provenance/source link) · actor glyph · generation N · updated relative-time.
+- **No inline actions** (doctrine): one "Act ⌘K" hint line; every affordance a
+  pre-filled omnibar invocation.
+Same component, three widths: panel (~420) · wing (~360) · row-expansion (full
+row width, groups collapse to two columns).
