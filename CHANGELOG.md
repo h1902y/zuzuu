@@ -40,6 +40,17 @@ that history).
   FieldType; `title`/`status` always stay strings (`note set m id title 5` no
   longer stores a number).
 - The corpus signature is computed once per index rebuild, not twice.
+- **Composed workflow steps under-budgeted the parent's lock-staleness window**
+  (audit S1, `docs/audits/2026-07-03-composition-review.md`): `workflowStaleAfterMs`
+  budgeted a `note:` step at its own (usually absent, so default 120s) `timeout:`
+  — fine for a leaf action, wrong for a `note:` step whose target is a nested
+  WORKFLOW that can legitimately run far longer (its own steps + its own
+  compensation phase). Under-budgeting let a concurrent re-invocation see the
+  parent's still-live lock as stale and steal it mid-nested-run — the exact
+  double-run the lock exists to prevent. A `note:` step with no explicit
+  `timeout:` of its own is now budgeted at `MAX_TIMEOUT_S` (600s, the cap) — a
+  floor, not a precise estimate; an explicit `timeout:` on a note-ref step is
+  still honored.
 
 ### Added
 - **Settings & observability (web, §G)** — the workbench teaches its own
@@ -247,6 +258,37 @@ that history).
   the workbench daemon, and any bridge share one project now; interleaved
   commits/mints from concurrent processes go from likely to rare. Lock lives in
   the out-of-repo cache dir, steals stale (>15s) locks, never deadlocks.
+- **The runs-miner (CLI, §I rung 2)** — observe's SIBLING, and the designed
+  feedback edge finally wired: `runs.jsonl` has been annotated "observe's
+  feedback edge" since the safety floor landed, but nothing ever walked it —
+  observe mines session transcripts, never runs. `grow/runs-miner.mjs` closes
+  that gap. `mineRuns(home, {module?, sinceTs?})` is a PURE function: it groups
+  `runs.jsonl` events (one module, or every module the Project has) by the note
+  they ran, computing per-note evidence — total runs, failure count/rate, a
+  TRAILING consecutive-failure streak (is it failing *right now*, not "has it
+  ever"), timedOut count, first/last seen (honestly `null` when `ts` was never
+  recorded — every production call site today). A note is flagged at
+  `CONSECUTIVE_FAILURE_THRESHOLD` = 3 (three failures in a row) OR
+  `FAILURE_RATE_THRESHOLD` = 0.5 over `FAILURE_RATE_MIN_RUNS` = 4 (≥50% failure
+  rate, but only once there's enough runs to trust the signal) — both exported,
+  documented constants. `observeRuns(home, opts)` synthesizes and stages ONE
+  proposal per flagged note (never one per failed run — §I.2 B2, review
+  fatigue is the moat's real enemy) through `grow/stage.mjs`, never a direct
+  write. The miner does not diagnose a fix — it isn't an LLM — so the shape it
+  stages is deliberately minimal: an `update` proposal setting a tolerated
+  custom `health: 'needs-attention'` field (never `status`, a separate
+  lifecycle some modules give typed meaning to), carrying the evidence + a
+  human-readable rationale for whoever reviews it. `change` stays a FIXED
+  value regardless of the evolving evidence numbers, so `stage.mjs`'s own
+  content-hash id already collapses a re-run over a still-failing note to the
+  same staged row; an explicit pending-proposal guard (scoped to
+  `source.producer === 'runs-miner'`) belts-and-suspenders the same
+  idempotency without blocking an unrelated proposal on the same note.
+  `zz observe-runs [module] [--since <iso>] [--dry-run]` is the CLI door,
+  mirroring `observe`'s own row exactly in shape (write-permission +
+  agentInvokable, so it stays out of the execution gate's deny set); `--dry-run`
+  computes evidence + the candidate proposals without staging anything. 23 new
+  tests (`tests/unit/runs-miner.test.mjs` + `tests/unit/cli-observe-runs.test.mjs`).
 
 ## [1.8.0] — unpublished
 
