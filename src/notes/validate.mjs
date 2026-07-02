@@ -90,7 +90,18 @@ export function validateNote(note, fields = []) {
   }
   if (note.type === 'workflow') {
     if (!Array.isArray(note.steps) || !note.steps.length) errors.push('a workflow needs a non-empty steps list');
-    else if (note.steps.some((s) => !s || !nonEmptyStr(s.id) || !nonEmptyStr(s.run))) errors.push('every workflow step needs an id and a run');
+    // a step is an id + EXACTLY ONE of run (inline shell) · note (a module:id
+    // composition ref, §I rung 1) · wait (a {on,timeout?} pause, the Tier-2 durable
+    // runner's kind, grow/run.mjs). Kept local/dependency-free (no import from use/
+    // or grow/, preserving notes/'s acyclic position) rather than importing either
+    // layer's own step-shape check — the SAME three-way rule, independently pinned.
+    else if (note.steps.some((s) => {
+      if (!s || !nonEmptyStr(s.id)) return true;
+      const hasRun = nonEmptyStr(s.run);
+      const hasNote = nonEmptyStr(s.note);
+      const hasWait = s.wait != null && typeof s.wait === 'object' && !Array.isArray(s.wait) && nonEmptyStr(s.wait.on);
+      return [hasRun, hasNote, hasWait].filter(Boolean).length !== 1;
+    })) errors.push('every workflow step needs an id and exactly one of run, note, or wait');
   }
 
   // ── axis 2: the module's typed-column schema (only when it declares one) ──

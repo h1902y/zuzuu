@@ -84,8 +84,10 @@ export const MAX_COMPOSITION_DEPTH = 20;
 
 /** Split a `module:id` note-ref address. Null on anything malformed (no colon, or an
  *  empty module/id segment) — `stepShapeError` below turns that into a clean, named
- *  validation error rather than a runtime surprise. */
-function splitAddr(addr) {
+ *  validation error rather than a runtime surprise. Exported: the Tier-2 durable
+ *  runner (`grow/run.mjs`) parses the SAME `module:id` shape for its `note:` steps
+ *  and its own `workflow:` run-note field — one address grammar, not a second copy. */
+export function splitAddr(addr) {
   const s = String(addr ?? '');
   const i = s.indexOf(':');
   if (i <= 0 || i >= s.length - 1) return null;
@@ -104,8 +106,11 @@ function stepShapeError(s) {
   return null;
 }
 
-/** Topologically order steps by `depends-on`; null on a cycle / missing dep. */
-function topoSort(steps) {
+/** Topologically order steps by `depends-on`; null on a cycle / missing dep. Exported:
+ *  the Tier-2 durable runner (`grow/run.mjs`) reuses this SAME validation + ordering
+ *  at `run start` time (it stores the run's `steps` in this order, then ticks the
+ *  first READY one each advance — same dependency doctrine, one implementation). */
+export function topoSort(steps) {
   const byId = new Map(steps.map((s) => [s.id, s]));
   const deps = new Map(steps.map((s) => [s.id, [].concat(s['depends-on'] ?? []).filter(Boolean)]));
   for (const ds of deps.values()) if (ds.some((d) => !byId.has(d))) return null; // dangling dep

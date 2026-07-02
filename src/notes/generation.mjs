@@ -89,6 +89,28 @@ export function notesAsOf(home, module, n) {
 }
 
 /**
+ * Time-travel: ONE note's FULL parsed content as of generation `n` — unlike
+ * `notesAsOf` (the lightweight addr/type/title/status shape for EVERY note in a
+ * module), this reads and parses a SINGLE note's complete frontmatter + body. The
+ * shape the Tier-2 durable runner (`grow/run.mjs`) needs to pin a workflow's `steps`
+ * DAG to the generation a run started under (§I.4 #1 — "pin run→generation"), so a
+ * later edit to the LIVE workflow note never mutates an in-flight run. Read-only
+ * over git — never touches the working tree.
+ * @returns {{ok, note?, generation?, commit?, error?}}
+ */
+export function noteAsOf(home, module, id, n) {
+  const root = rootOf(home);
+  const commit = commitForN(home, module, n);
+  if (!commit) return { ok: false, error: `no generation ${n} for ${module}` };
+  const path = `${homePrefix(home)}${module}/items/${id}.md`;
+  const text = git(root, ['show', `${commit}:${path}`]);
+  if (text == null) return { ok: false, error: `no note '${module}:${id}' at generation ${n}` };
+  const { note } = parse(text, { id });
+  if (!note) return { ok: false, error: `unparseable note '${module}:${id}' at generation ${n}` };
+  return { ok: true, note, generation: n, commit: commit.slice(0, 8) };
+}
+
+/**
  * Diff two of a module's generations: which notes were added/modified/deleted
  * between them (read-only — git holds the bytes). @returns {{ok, changes?, error?}}
  */
