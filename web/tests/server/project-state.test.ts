@@ -79,6 +79,17 @@ describe("gatherProjectState — steady survives a CLI failure (the flap P0)", (
     expect(s.state).toBe("steady");
     expect(s.counts.modules).toBe(1);
   });
+  it("root-mode: the project.md marker + root modules read as a steady Project", async () => {
+    mkdirSync(path.join(root, ".git"));
+    mkdirSync(path.join(root, ".claude"));
+    writeFileSync(path.join(root, ".claude", "settings.json"), JSON.stringify({ hooks: { Stop: [{ hooks: [{ command: "zz hook Stop #zz-hook" }] }] } }));
+    writeFileSync(path.join(root, "project.md"), "---\ntype: project\nformat: zuzuu/v2\n---\n");
+    mkdirSync(path.join(root, "knowledge", "items"), { recursive: true });
+    writeFileSync(path.join(root, "knowledge", "module.md"), "---\ntype: module\nid: knowledge\n---\n");
+    const s = await gatherProjectState(root, "/nonexistent/zz-binary-for-test");
+    expect(s.state).toBe("steady"); // never "no-project", never "Create the brain"
+    expect(s.counts.modules).toBe(1);
+  });
   it("the safety floor alone (instructions) is NOT activity — still no-activity", async () => {
     mkdirSync(path.join(root, ".git"));
     mkdirSync(path.join(root, ".claude"));

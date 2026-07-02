@@ -5,6 +5,7 @@
 // fs reads are best-effort — a missing/unreadable path degrades to zeros, never throws.
 import { existsSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
+import { resolveHomeSync } from "./zuzuu-peek.js";
 
 export interface ProjectHealth {
   modules: number;
@@ -27,15 +28,21 @@ function mtimeMs(p: string): number {
   try { return statSync(p).mtimeMs; } catch { return 0; }
 }
 
-/** Read a Project's health from its .zuzuu home (best-effort; never throws). */
+/** Read a Project's health from its home (best-effort; never throws). Root-mode
+ *  aware: modules live at the repo root when the `project.md` marker is present
+ *  (the flagship vault used to read as 0 modules here — the launcher offered
+ *  "Create the brain" over hundreds of notes). Staged proposals live under
+ *  `.zuzuu/<module>/staged` in BOTH modes (ephemera never move to the root). */
 export function readProjectHealth(root: string): ProjectHealth {
-  const home = path.join(root, ".zuzuu");
+  const home = resolveHomeSync(root);
   if (!existsSync(home)) return EMPTY;
   let entries: string[];
   try { entries = readdirSync(home); } catch { return EMPTY; }
 
+  const ephemera = path.join(root, ".zuzuu");
   let modules = 0, notes = 0, pending = 0, guarded = false, last = mtimeMs(home);
   for (const name of entries) {
+    if (name.startsWith(".")) continue; // root-mode: never walk .git/.zuzuu/.claude as modules
     const dir = path.join(home, name);
     let st; try { st = statSync(dir); } catch { continue; }
     if (!st.isDirectory()) continue;
@@ -43,7 +50,7 @@ export function readProjectHealth(root: string): ProjectHealth {
     modules++;
     if (name === "instructions" || name === "guardrails") guarded = true; // the enforced safety floor (instructions = new default, guardrails = legacy)
     notes += countDir(path.join(dir, "items"), ".md");
-    pending += countDir(path.join(dir, "staged"));
+    pending += countDir(path.join(ephemera, name, "staged"));
     last = Math.max(last, mtimeMs(dir));
   }
   return { modules, notes, pending, guarded, lastActivityMs: last };

@@ -5,19 +5,29 @@
 // is the degraded fallback only — never a re-implementation of the envelope grammar.
 
 import fsp from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { runCommand } from "./zuzuu-catalog.js";
 
-/** Resolve the Project HOME for the peek: root-mode (a root `project.md` carrying
- *  `type: project` + `format: zuzuu/…` — the marker src/notes/store.mjs sniffs)
- *  means modules live at the REPO ROOT; classic mode keeps them under `.zuzuu/`.
- *  The peek was `.zuzuu`-only before, so a root-mode project degraded to empty. */
-export async function resolveHome(root: string): Promise<string> {
+/** Is `root` a ROOT-MODE Project (a root `project.md` carrying `type: project` +
+ *  `format: zuzuu/…` — the marker src/notes/store.mjs sniffs)? Sync so the
+ *  fs-only readers (project-health, cross-project launcher) can use it too. */
+export function isRootMode(root: string): boolean {
   try {
-    const head = (await fsp.readFile(path.join(root, "project.md"), "utf8")).slice(0, 2048);
-    if (/^type:\s*project\s*$/m.test(head) && /^format:\s*zuzuu\//m.test(head)) return root;
-  } catch { /* no root marker → classic */ }
-  return path.join(root, ".zuzuu");
+    const head = readFileSync(path.join(root, "project.md"), "utf8").slice(0, 2048);
+    return /^type:\s*project\s*$/m.test(head) && /^format:\s*zuzuu\//m.test(head);
+  } catch { return false; }
+}
+
+/** Resolve the Project HOME for the peek: root-mode means modules live at the
+ *  REPO ROOT; classic mode keeps them under `.zuzuu/`. The peek was `.zuzuu`-only
+ *  before, so a root-mode project degraded to empty. */
+export function resolveHomeSync(root: string): string {
+  return isRootMode(root) ? root : path.join(root, ".zuzuu");
+}
+
+export async function resolveHome(root: string): Promise<string> {
+  return resolveHomeSync(root);
 }
 
 /** Enumerate the ACTUAL module dirs on disk for the CLI-absent degraded fallback:
