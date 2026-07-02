@@ -74,7 +74,7 @@ import { parse } from '../notes/note.mjs';
 import { itemPath, repoRoot } from '../notes/store.mjs';
 import { readManifest } from '../notes/module.mjs';
 import { logRun } from '../notes/log.mjs';
-import { runGated, resolveTimeoutMs, act } from './act.mjs';
+import { runGated, resolveTimeoutMs, act, MAX_TIMEOUT_S } from './act.mjs';
 import { acquireRunLock, LOCK_GRACE_MS } from './run-lock.mjs';
 
 // Backstop for a long ACYCLIC note-ref chain (the visited-set is the PRIMARY cycle
@@ -134,18 +134,25 @@ function topoSort(steps) {
  * a concurrent invocation steal the lock mid-rollback — the exact double-run the
  * lock exists to prevent, at the most fragile moment.
  *
- * NOTE (composition): a `note:` step is budgeted the SAME as any step — its own
- * declared `timeout:` (default 120s) as a single-attempt estimate. This is a known
- * simplification: a note-ref to a WORKFLOW can itself run far longer than that single
- * estimate (its own steps + its own compensation phase). Composition depth is bounded
- * by `MAX_COMPOSITION_DEPTH` as a correctness backstop, not by precise recursive lock
- * budgeting — the lock stays advisory (like every other lock in this codebase); a
- * pathologically long composed chain can, in the worst case, have its lock stolen
- * mid-run by a concurrent invocation. Revisit if composed workflows grow deep in
- * practice.
+ * NOTE (composition, audit S1 fixed 2026-07-03): a `note:` step's TRUE runtime is
+ * unknown at the parent's lock-acquisition time — the target may be a leaf action (its
+ * own declared `timeout:`, usually the 120s default) or a nested WORKFLOW that can
+ * legitimately run far longer (its own steps + its own compensation phase, recursively).
+ * Budgeting it like an ordinary inline step under-budgets the parent's window, letting a
+ * concurrent re-invocation see a still-live lock as stale and steal it mid-nested-run —
+ * the exact double-run the lock exists to prevent (docs/audits/2026-07-03-composition-
+ * review.md S1). So a `note:` step with NO explicit `timeout:` of its own is budgeted at
+ * `MAX_TIMEOUT_S` (the 600s cap) — a floor, not a precise estimate, but one that can't be
+ * blown by a legitimately long nested run. A `note:` step that DOES carry an explicit
+ * `timeout:` (author-declared intent) is honored as before. Composition depth is still
+ * bounded by `MAX_COMPOSITION_DEPTH` as the correctness backstop; the lock itself stays
+ * advisory (like every other lock in this codebase).
  */
 export function workflowStaleAfterMs(steps) {
-  const runBudget = steps.reduce((sum, s) => sum + resolveTimeoutMs(s.timeout), 0);
+  const runBudget = steps.reduce((sum, s) => {
+    const ms = s.note && s.timeout == null ? MAX_TIMEOUT_S * 1000 : resolveTimeoutMs(s.timeout);
+    return sum + ms;
+  }, 0);
   const compensateBudget = steps.filter((s) => s.compensate).length * resolveTimeoutMs();
   return runBudget + compensateBudget + LOCK_GRACE_MS;
 }

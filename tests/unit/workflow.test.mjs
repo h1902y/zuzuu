@@ -89,3 +89,22 @@ test('workflowStaleAfterMs: a workflow with no compensable steps adds no rollbac
 test('workflowStaleAfterMs: a step with no declared timeout budgets the run-phase default (120s)', () => {
   assert.equal(workflowStaleAfterMs([{ id: 'a', run: 'true' }]), 120_000 + LOCK_GRACE_MS);
 });
+
+// S1 (audit 2026-07-03) — a note-ref step's true runtime is unknown at parent-lock
+// time (the target may be a nested workflow running far longer than any single-step
+// default), so it must be budgeted at the max, not the 120s inline-step default.
+test('workflowStaleAfterMs: a note-ref step with no explicit timeout budgets MAX_TIMEOUT_S (600s), not the 120s default', () => {
+  assert.equal(workflowStaleAfterMs([{ id: 'a', note: 'actions:other' }]), 600_000 + LOCK_GRACE_MS);
+});
+
+test('workflowStaleAfterMs: a note-ref step with an EXPLICIT timeout honors it rather than the max', () => {
+  assert.equal(workflowStaleAfterMs([{ id: 'a', note: 'actions:other', timeout: 30 }]), 30_000 + LOCK_GRACE_MS);
+});
+
+test('workflowStaleAfterMs: mixed inline + note-ref steps budget each by its own rule', () => {
+  const steps = [
+    { id: 'a', run: 'true', timeout: 5 },        // inline, explicit
+    { id: 'b', note: 'actions:other' },          // note-ref, no explicit timeout → max
+  ];
+  assert.equal(workflowStaleAfterMs(steps), 5_000 + 600_000 + LOCK_GRACE_MS);
+});
