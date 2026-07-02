@@ -17,6 +17,14 @@ When an agent stages a `create` proposal, a **dashed, pulsing ghost node** appea
 
 This is live: the daemon watches the brain's surfaces (`/ws/zuzuu`) and pushes changes as they land — an agent staging a proposal mid-conversation appears in the map within a beat, no refresh.
 
+## Two projections, one space
+
+A module is ONE thing seen two ways: the **Map** shows it as an island, the **Table** as rows — the table is what an island crystallizes into when you get close enough.
+
+- The module stage carries a segmented **Table⇄Map** toggle; **`T`** flips it in place. From the palette: `>table` / `>map` (they act on the module in context — a focused note counts).
+- **The filter is the lens, and it rides both projections.** Filter the table, switch to Map, and the same subset stays lit while everything else recedes — a **spotlight**, with a chip row above the map naming it (and clearing it). Switch back: filter and scroll position are exactly where you left them. (The map mirrors title/id text matches and the type axis; a body-only FTS match lights in the table but not the map — the graph doesn't carry bodies.)
+- **The crystallize gesture:** dive deep into a single island (zoom in until it fills the view) and a quiet affordance appears — *open as table — T*. Zooming is never hijacked; the island just offers its other form.
+
 ## The data underneath
 
 The map reads one document: `zz graph --json` — every note as an addr-keyed node (`module:id`), every resolved relation as a link, degrees computed. Ride any frontmatter columns along with `--props`:
@@ -32,4 +40,5 @@ The workbench fetches the same thing through the daemon (`GET /api/zuzuu/graph?p
 
 - `⌘K` — the palette (find anything, jump anywhere)
 - `R` — toggle the review gate overlay
+- `T` — flip the module's Table⇄Map projection (and crystallize a deep-zoomed island)
 - Click node → record · click chip → module · click ghost → review

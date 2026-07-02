@@ -42,6 +42,11 @@ that history).
 - The corpus signature is computed once per index rebuild, not twice.
 
 ### Added
+- **The World (web)**: **Table⇄Map is one segmented toggle** — `T` flips a module
+  between its two projections; `>table`/`>map` from the palette; the grid's filter
+  rides both as a persistent **spotlight** on the island (chip row names + clears
+  it; filter and scroll survive the round trip); diving deep into a single island
+  offers to **crystallize** it into its table (never hijacking the zoom).
 - **The World (web)**: `[[mention]]`s in the agent's streamed conversation glow their
   notes on the map (bare ids resolve to their unique owner; code blocks don't glow).
 - **The World (web)**: the workbench's map surface is now a real two-level force
