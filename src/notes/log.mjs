@@ -37,9 +37,14 @@ export function append(home, module, event) {
   }
 }
 
-/** Convenience: a run event with the normalized result shape. */
-export function logRun(home, module, note, { inputs = {}, exitCode, success, ts, actor = 'agent', session = null } = {}) {
-  return append(home, module, { event: 'run', ts: ts ?? null, note, actor, session, inputs, exitCode, success });
+/** Convenience: a run event with the normalized result shape. `timedOut` (safety
+ *  floor, §I rung 3) rides as an explicit marker on the event when the run hit its
+ *  timeout — omitted (not even `false`) on an ordinary run, so existing readers of
+ *  runs.jsonl see no shape change. */
+export function logRun(home, module, note, { inputs = {}, exitCode, success, ts, actor = 'agent', session = null, timedOut } = {}) {
+  const event = { event: 'run', ts: ts ?? null, note, actor, session, inputs, exitCode, success };
+  if (timedOut) event.timedOut = true;
+  return append(home, module, event);
 }
 
 /** Convenience: a mutation event. */

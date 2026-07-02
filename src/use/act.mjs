@@ -11,6 +11,12 @@
 //       (`./x`, or an absolute path UNDER the repo root) — an absolute path
 //       OUTSIDE the repo is denied. Captures {stdout, stderr, exitCode, success}.
 //       Zero-dep. Runs are gated + allowlisted, not OS-sandboxed.
+//
+// THE SAFETY FLOOR (§I rung 3): every run gets a TIMEOUT — spawnSync has no bound of
+// its own and can hang forever otherwise. (Further floor rungs — the gate's
+// fail-closed posture for an unattended `agent` actor, redacted run-log inputs, and
+// the per-note run lock — land alongside this in guardrails/gate.mjs, notes/log.mjs,
+// and use/run-lock.mjs respectively.)
 
 import { existsSync, readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
@@ -19,6 +25,22 @@ import { parse } from '../notes/note.mjs';
 import { itemPath, repoRoot } from '../notes/store.mjs';
 import { logRun } from '../notes/log.mjs';
 import { gate } from '../guardrails/gate.mjs';
+
+// A run's `timeout:` field (seconds) is clamped into this window — no note, however
+// trusted, can opt OUT of a bound (spawnSync with no timeout can hang forever); the
+// default covers the vast majority of curated actions without the note author having
+// to think about it.
+export const DEFAULT_TIMEOUT_S = 120;
+export const MAX_TIMEOUT_S = 600;
+
+/** Resolve a declared `timeout:` (seconds, possibly absent/garbage) to a clamped
+ *  MILLISECOND value for spawnSync. Non-numeric/non-positive → the default; anything
+ *  over the cap is clamped down, never up. */
+export function resolveTimeoutMs(raw) {
+  const n = Number(raw);
+  const seconds = Number.isFinite(n) && n > 0 ? n : DEFAULT_TIMEOUT_S;
+  return Math.min(seconds, MAX_TIMEOUT_S) * 1000;
+}
 
 /** A repo-local script: a path that resolves to within the repo root. */
 function underRepo(cmd, root) {
@@ -34,11 +56,13 @@ function tokenize(run) {
 
 /**
  * Run ONE command under the execution gate: the guardrails gate (a deny blocks) +
- * the run.allow allowlist (allowlisted command OR a repo-local script). The shared
- * primitive for `act` (one note) and the workflow runner (one step). No logging here.
- * @returns {{ ran, exitCode?, success?, stdout?, stderr?, denied?, error? }}
+ * the run.allow allowlist (allowlisted command OR a repo-local script) + a TIMEOUT
+ * (every run gets one — `opts.timeout`, seconds, clamped by resolveTimeoutMs). The
+ * shared primitive for `act` (one note) and the workflow runner (one step). No
+ * logging here.
+ * @returns {{ ran, exitCode?, success?, stdout?, stderr?, denied?, timedOut?, error? }}
  */
-export function runGated(home, module, command, { allow = null, inputs = {}, cwd } = {}) {
+export function runGated(home, module, command, { allow = null, inputs = {}, cwd, timeout } = {}) {
   // the gate applies to curated runs too — a deny rule blocks them. No explicit
   // module → it enforces both `instructions` (the default) and legacy `guardrails`.
   const verdict = gate({ home }, { tool: 'Bash', input: { command } });
@@ -54,13 +78,22 @@ export function runGated(home, module, command, { allow = null, inputs = {}, cwd
   }
   const env = { ...process.env };
   for (const [k, v] of Object.entries(inputs)) env[`ZZ_${k}`] = String(v);
-  const r = spawnSync(cmd, args, { cwd: root, env, encoding: 'utf8' });
+  const ms = resolveTimeoutMs(timeout);
+  // killSignal: SIGKILL — SIGTERM (spawnSync's default) is catchable/ignorable; a
+  // run that installed a trap (or a hung child of the child) must actually die.
+  const r = spawnSync(cmd, args, { cwd: root, env, encoding: 'utf8', timeout: ms, killSignal: 'SIGKILL' });
+  if (r.error?.code === 'ETIMEDOUT') {
+    return {
+      ran: true, timedOut: true, success: false, exitCode: r.status,
+      error: `run timed out after ${ms}ms (SIGKILL)`, stdout: r.stdout ?? '', stderr: r.stderr ?? '',
+    };
+  }
   return { ran: true, exitCode: r.status, success: r.status === 0, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
 }
 
 /**
  * Run a note. Fail-soft return — never throws.
- * @returns {{ ok, ran, exitCode?, success?, stdout?, stderr?, error?, denied? }}
+ * @returns {{ ok, ran, exitCode?, success?, stdout?, stderr?, timedOut?, error?, denied? }}
  */
 export function act(ctx, id, inputs = {}) {
   const { home, module, manifest } = ctx;
@@ -72,8 +105,8 @@ export function act(ctx, id, inputs = {}) {
 
   // policy: the note's own policy narrows the module default (never widens)
   const policy = { ...(manifest.policy ?? {}), ...(note.policy ?? {}) };
-  const r = runGated(home, module, note.run, { allow: policy.run?.allow ?? null, inputs });
+  const r = runGated(home, module, note.run, { allow: policy.run?.allow ?? null, inputs, timeout: note.timeout });
   if (!r.ran) return { ok: false, ...r };
-  logRun(home, module, id, { inputs, exitCode: r.exitCode, success: r.success });
+  logRun(home, module, id, { inputs, exitCode: r.exitCode, success: r.success, timedOut: r.timedOut });
   return { ok: r.success, ...r };
 }

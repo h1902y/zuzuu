@@ -53,8 +53,11 @@ export function runWorkflow(home, module, id, inputs = {}) {
   const results = [];
   const done = [];
   for (const step of ordered) {
-    const r = runGated(home, module, step.run, { allow, inputs, cwd: root });
-    results.push({ id: step.id, ran: r.ran, success: !!r.success, exitCode: r.exitCode, denied: r.denied });
+    // a step's own `timeout:` overrides the run default (resolveTimeoutMs, act.mjs);
+    // a timed-out step is just another failed step — it falls straight into the same
+    // saga-compensation path below.
+    const r = runGated(home, module, step.run, { allow, inputs, cwd: root, timeout: step.timeout });
+    results.push({ id: step.id, ran: r.ran, success: !!r.success, exitCode: r.exitCode, denied: r.denied, timedOut: !!r.timedOut });
     if (!r.ran || !r.success) {
       // compensate completed steps in reverse (saga rollback for side effects)
       const compensations = [];
@@ -62,7 +65,7 @@ export function runWorkflow(home, module, id, inputs = {}) {
         const c = runGated(home, module, s.compensate, { allow, inputs, cwd: root });
         compensations.push({ id: s.id, success: !!c.success });
       }
-      logRun(home, module, id, { inputs, success: false });
+      logRun(home, module, id, { inputs, success: false, timedOut: !!r.timedOut });
       return { ok: false, failedStep: step.id, error: r.error ?? `step '${step.id}' failed (exit ${r.exitCode})`, steps: results, compensations };
     }
     done.push(step);
