@@ -190,6 +190,15 @@ operator lane), or an agent **proposes** it via `zz stage … --change '{...}'` 
 `zz review approve` (the sanctioned channel — `trigger fire`/`enable`/`disable`
 are denied to an agent actor, same as `run start`).
 
+**The exec-gate that denies it stays current.** The agent-denial above is
+enforced by a seeded rule note (`protect-brain-exec`), not a hardcoded check —
+so `zz init` **reconciles** its pattern to the live write-verb table on every
+run (a project seeded before `trigger fire` existed re-arms automatically; a
+human's own edits to the rule's action/reason survive) and now seeds it in
+**root-mode** too (previously skipped there entirely). `zz doctor` flags a
+missing or stale copy so the gap is never silent
+(`docs/audits/2026-07-03-triggers-review.md`).
+
 **What a trigger's `run:` must point at.** Every fired run passes through the
 durable runner, so `run:` must be a `type: workflow` note — firing at a bare
 action refuses with the same "is not a workflow" error `zz run start` gives a
