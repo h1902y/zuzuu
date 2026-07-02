@@ -302,16 +302,17 @@ test('related: follows a BARE-id relation target (the shape observe/relate write
   });
 });
 
-test('backlinks: inbound edges — who links TO a note (full + same-module bare-id)', () => {
+test('backlinks: inbound edges — who links TO a note (full + bare-id, cross-module resolved)', () => {
   withZuzuu({
     'k:hub': { type: 'knowledge', title: 'hub' },
     'k:a': { type: 'knowledge', relations: { uses: 'k:hub' } },         // full addr
     'k:b': { type: 'knowledge', relations: { 'related-to': 'hub' } },   // bare id, same module → k:hub
-    'actions:c': { type: 'action', relations: { 'related-to': 'hub' } }, // bare from actions → actions:hub, NOT k:hub
+    'actions:c': { type: 'action', relations: { 'related-to': 'hub' } }, // bare from actions → k:hub (its UNIQUE owner)
     'k:lonely': { type: 'knowledge', title: 'lonely' },
   }, (home) => {
     const back = backlinks(home, 'k:hub').map((r) => r.addr).sort();
-    assert.deepEqual(back, ['k:a', 'k:b'], 'full-addr + same-module bare-id referrers; the cross-module bare ref points elsewhere');
+    assert.deepEqual(back, ['actions:c', 'k:a', 'k:b'],
+      'full-addr + same-module + cross-module bare referrers all resolve to the unique owner');
     assert.deepEqual(backlinks(home, 'k:lonely'), [], 'an unreferenced note has no backlinks');
   });
 });

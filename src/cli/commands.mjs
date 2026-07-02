@@ -33,6 +33,7 @@ import { openerText, closerText, steerText, writeHandoff, parkItem, clearParking
 import { renderNoteDiff } from '../use/diff.mjs';
 import { toon } from '../notes/toon.mjs';
 import { searchRows, readEnvelopes } from '../notes/rows.mjs';
+import { moduleCounts } from '../notes/index.mjs';
 
 // The read projection's column SKIP set — mirrors the client grid's `inferKeys`
 // (web/src/client/shell/stage/grid-columns.ts): `module` is implicit, `body` is the
@@ -114,9 +115,9 @@ function integrityWarning(zz) {
 // rollback` key-first forms (daemon-shelled + human muscle-memory) delegate to these
 // as deprecating aliases — one source of truth for the generation reads/writes.
 
-function genLog({ args, cwd, log }) {
+function genLog({ args, cwd, log, json }) {
   const rows = open(cwd).timeline({ module: args._[0] || '', limit: Number(args.limit) || 50 });
-  log(toon('timeline', rows, ['at', 'module', 'gen', 'active', 'from']));
+  emit(log, json, rows, ['timeline', rows, ['at', 'module', 'gen', 'active', 'from']]);
   return 0;
 }
 function genList({ args, cwd, log, json }) {
@@ -195,22 +196,38 @@ export const COMMANDS = [
 
   // ── data: use the Project (read · run) ──
   {
-    path: ['query'], plane: 'data', json: false, permission: 'read', agentInvokable: true,
-    usage: 'query <module> [text]', summary: 'search  (--from walk · --to backlinks · --as-of <n> · --tag t · --full)',
-    handler: ({ args, cwd, log }) => {
+    path: ['query'], plane: 'data', json: true, permission: 'read', agentInvokable: true,
+    usage: 'query <module|--all> [text]', summary: 'search  (--all cross-module · --from walk · --to backlinks · --as-of <n> · --tag t · --full)',
+    handler: ({ args, cwd, log, json }) => {
       const zz = open(cwd);
-      const [module, ...words] = args._;
-      if (!module) return fail(log, 'usage: zz query <module> [text]');
+      // `--all` searches the WHOLE project (module = '' — the index's plan() already
+      // supports it; only the verb's surface forced a per-module loop). The flag
+      // parser eats the next word as the flag's VALUE (`--all vedanta` → all:'vedanta')
+      // — that word is search text, so put it back.
+      const all = !!args.all;
+      const module = all ? '' : args._[0];
+      const words = all
+        ? [...(args.all !== true ? [String(args.all)] : []), ...args._]
+        : args._.slice(1);
+      if (!module && !all) return fail(log, 'usage: zz query <module> [text]  ·  zz query --all [text]', json);
       if (args['as-of'] !== undefined) {
         const r = zz.asOf(module, Number(args['as-of']));
-        if (!r.ok) return fail(log, r.error);
-        log(toon(`notes@gen${r.generation}`, r.notes, ['addr', 'type', 'title', 'status']));
+        if (!r.ok) return fail(log, r.error, json);
+        emit(log, json, { generation: r.generation, notes: r.notes }, [`notes@gen${r.generation}`, r.notes, ['addr', 'type', 'title', 'status']]);
         return 0;
       }
-      const opts = { text: words.join(' '), tag: args.tag || '', full: !!args.full, depth: Number(args.depth) || 0, from: args.from || '', to: args.to || '', limit: Number(args.limit) || 50, dryRun: !!args['dry-run'] };
+      const opts = {
+        text: words.join(' '), tag: args.tag || '', full: !!args.full, depth: Number(args.depth) || 0,
+        from: args.from || '', to: args.to || '',
+        // an EXPLICIT `--limit 0` means 0 — `Number(x) || 50` silently turned it into 50,
+        // re-breaking the fix the index layer already made.
+        limit: args.limit !== undefined ? Number(args.limit) : 50,
+        dryRun: !!args['dry-run'],
+      };
       const r = zz.query(module, opts);
-      if (!r.ok) return fail(log, r.error);
+      if (!r.ok) return fail(log, r.error, json);
       const v = r.value;
+      if (json) { log(JSON.stringify(v)); return 0; }
       if (v.kind === 'count') { log(toon('count', [{ total: v.total }], ['total'])); return 0; }
       const rows = v.rows ?? [];
       if (v.kind === 'backlinks') {
@@ -258,9 +275,13 @@ export const COMMANDS = [
 
       // subcommand-first reads (what the web daemon shells): overview · items <key> · item <key> <id> · schema <key>
       if (a === 'overview') {
+        // counts come from ONE GROUP BY (moduleCounts) — the old per-module
+        // `query limit 10000 → .length` was M index opens + M row materializations
+        // for numbers one query already had (the digest fast path, reused).
+        const counts = moduleCounts(zz.home);
         const rows = zz.modules().map((mod) => ({
           key: mod.id, title: mod.title ?? mod.id, note_type: mod.note_type ?? '',
-          items: (zz.query(mod.id, { text: '', limit: 10000 }).value?.rows ?? []).length,
+          items: counts[mod.id] ?? 0,
           pending: zz.staged(mod.id).length, capabilities: mod.capabilities ?? [],
         }));
         emit(log, json, rows, ['overview', rows, ['key', 'items', 'pending']]);
@@ -399,13 +420,14 @@ export const COMMANDS = [
 
   // ── note: edit notes (gated writes) — the Tier-2 `note …` namespace ──
   {
-    path: ['note', 'view'], plane: 'data', json: false, permission: 'read', agentInvokable: true,
+    path: ['note', 'view'], plane: 'data', json: true, permission: 'read', agentInvokable: true,
     usage: 'note view <m> <id>', summary: 'read a note body windowed (--offset n · --limit n)',
-    handler: ({ args, cwd, log }) => {
+    handler: ({ args, cwd, log, json }) => {
       const [m, id] = args._;
-      if (!m || !id) return fail(log, 'usage: zz note view <module> <id> [--offset n] [--limit n]');
+      if (!m || !id) return fail(log, 'usage: zz note view <module> <id> [--offset n] [--limit n]', json);
       const r = open(cwd).view(m, id, { offset: Number(args.offset) || 0, limit: Number(args.limit) || 0 });
-      if (!r.ok) return fail(log, r.error);
+      if (!r.ok) return fail(log, r.error, json);
+      if (json) { log(JSON.stringify(r)); return 0; }
       log(toon('view', [{ addr: r.addr, title: r.title ?? '', lines: r.total, shown: `${r.offset}–${r.offset + r.shown}${r.partial ? ' (PARTIAL)' : ''}` }], ['addr', 'title', 'lines', 'shown']));
       if (r.body) log(r.body);
       return 0;
@@ -592,7 +614,7 @@ export const COMMANDS = [
 
   // ── gen: the per-module generation lineage — the Tier-2 `gen …` namespace ──
   {
-    path: ['gen', 'log'], plane: 'evolution', json: false, permission: 'read', agentInvokable: true,
+    path: ['gen', 'log'], plane: 'evolution', json: true, permission: 'read', agentInvokable: true,
     usage: 'gen log [module]', summary: 'the generation timeline — how the brain evolved',
     handler: genLog,
   },
@@ -620,9 +642,9 @@ export const COMMANDS = [
 
   // ── inspection: integrity · health · porcelain ──
   {
-    path: ['check'], plane: 'inspection', json: false, permission: 'read', agentInvokable: true,
+    path: ['check'], plane: 'inspection', json: true, permission: 'read', agentInvokable: true,
     usage: 'check [module]', summary: 'integrity — broken links · orphans · stale',
-    handler: ({ args, cwd, log }) => {
+    handler: ({ args, cwd, log, json }) => {
       const zz = open(cwd);
       const mods = args._[0] ? [args._[0]] : zz.modules().map((m) => m.id);
       const rows = [];
@@ -634,15 +656,16 @@ export const COMMANDS = [
         const ungated = (v.ungated ?? []).filter((u) => u.addr.startsWith(`${m}:`)).length;
         rows.push({ module: m, broken: v.broken.length, orphans: v.orphans.length, stale: v.stale.length, ungated });
       }
-      log(toon('integrity', rows, ['module', 'broken', 'orphans', 'stale', 'ungated']));
+      emit(log, json, rows, ['integrity', rows, ['module', 'broken', 'orphans', 'stale', 'ungated']]);
       return 0;
     },
   },
   {
-    path: ['validate'], plane: 'inspection', json: false, permission: 'read', agentInvokable: true,
+    path: ['validate'], plane: 'inspection', json: true, permission: 'read', agentInvokable: true,
     usage: 'validate [module]', summary: 'schema-check every note (type-keyed invariants)',
-    handler: ({ args, cwd, log }) => {
+    handler: ({ args, cwd, log, json }) => {
       const bad = open(cwd).validate(args._[0] || '');
+      if (json) { log(JSON.stringify({ ok: !bad.length, invalid: bad })); return bad.length ? 1 : 0; }
       if (!bad.length) { log('all notes valid'); return 0; }
       log(toon('invalid', bad.map((b) => ({ addr: b.addr, errors: b.errors.join('; ') })), ['addr', 'errors']));
       return 1;

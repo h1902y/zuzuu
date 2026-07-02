@@ -27,8 +27,8 @@ import { readNote, writeNote, removeNote } from '../notes/repo.mjs';
 import { edgeTarget } from '../notes/note.mjs';
 import { logMutation } from '../notes/log.mjs';
 import { mint, expandRollback } from '../notes/generation.mjs';
-import { itemPath, manifestPath } from '../notes/store.mjs';
-import { readText, writeText, remove, mkdirp } from '../metal/fs.mjs';
+import { itemPath, manifestPath, cacheDir } from '../notes/store.mjs';
+import { readText, writeText, remove, mkdirp, withLock } from '../metal/fs.mjs';
 
 const isPlainObject = (x) => x != null && typeof x === 'object' && !Array.isArray(x);
 
@@ -211,24 +211,29 @@ export function commit(home, { actor = 'operator' } = {}, batch = [], { label = 
   if (actor !== 'operator') {
     return { ok: false, error: 'write requires an operator (the agent proposes via stage→review)', refused: true };
   }
-  const results = [];
-  const dirty = []; // modules written this transaction, first-touch order (= the mint set)
-  const captured = []; // pre-images of every file touched, in apply order (the surgical revert)
-  const mark = (m) => { if (!dirty.includes(m)) dirty.push(m); };
-  for (const op of batch) {
-    mark(op.module);
-    captured.push(...snapshot(home, op)); // capture the file's PRE-transaction bytes BEFORE applying
-    const r = applyOp(home, op);
-    if (!r.ok) {
-      restore(captured); // all-or-nothing: undo ONLY the files this transaction wrote (no blanket clean)
-      return { ok: false, error: `commit failed on ${op.id ?? op.op}: ${r.error}`, reverted: true };
+  // Advisory cross-process lock (CLI + daemon + any bridge share one vault): the
+  // in-process all-or-nothing below can't see a CONCURRENT process interleaving
+  // writes/mints. The lock lives in the out-of-repo cache dir, never in the tree.
+  return withLock(cacheDir(home), () => {
+    const results = [];
+    const dirty = []; // modules written this transaction, first-touch order (= the mint set)
+    const captured = []; // pre-images of every file touched, in apply order (the surgical revert)
+    const mark = (m) => { if (!dirty.includes(m)) dirty.push(m); };
+    for (const op of batch) {
+      mark(op.module);
+      captured.push(...snapshot(home, op)); // capture the file's PRE-transaction bytes BEFORE applying
+      const r = applyOp(home, op);
+      if (!r.ok) {
+        restore(captured); // all-or-nothing: undo ONLY the files this transaction wrote (no blanket clean)
+        return { ok: false, error: `commit failed on ${op.id ?? op.op}: ${r.error}`, reverted: true };
+      }
+      results.push(r);
     }
-    results.push(r);
-  }
-  // sole minter: one transaction = one generation per touched module, AFTER all writes.
-  const from = mintedFrom ?? batch.map((o) => o.id).filter(Boolean);
-  const generations = dirty.map((m) => ({ module: m, n: mint(home, m, { mintedFrom: from, label: label ?? `evolve ${m}` }).n }));
-  return { ok: true, results, generations };
+    // sole minter: one transaction = one generation per touched module, AFTER all writes.
+    const from = mintedFrom ?? batch.map((o) => o.id).filter(Boolean);
+    const generations = dirty.map((m) => ({ module: m, n: mint(home, m, { mintedFrom: from, label: label ?? `evolve ${m}` }).n }));
+    return { ok: true, results, generations };
+  });
 }
 
 /**

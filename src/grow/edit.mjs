@@ -10,17 +10,46 @@
 
 import { existsSync } from 'node:fs';
 import { itemPath } from '../notes/store.mjs';
+import { readManifest } from '../notes/module.mjs';
 import { readNote } from '../notes/repo.mjs';
 import { evolve } from './evolve.mjs';
 
 // a CLI value is text; coerce JSON (numbers/booleans/lists) but keep a plain string
 const coerce = (v) => { try { return JSON.parse(v); } catch { return v; } };
 
+// envelope keys that are strings BY CONTRACT — a blind JSON.parse once turned
+// `note set m id title 5` into a NUMBER title.
+const STRING_KEYS = new Set(['title', 'status']);
+
+/** Coerce a CLI text value SCHEMA-AWARE: a column the module declares coerces by its
+ *  declared FieldType; a known string envelope key stays a string; everything else
+ *  keeps the permissive JSON heuristic (numbers/booleans/lists still work). */
+export function coerceForField(home, module, key, value) {
+  const f = (readManifest(home, module).fields ?? []).find((x) => x?.name === key);
+  if (f) {
+    const s = String(value);
+    switch (f.type) {
+      case 'number': { const n = Number(s); return Number.isFinite(n) && s.trim() !== '' ? n : value; }
+      case 'bool': {
+        const low = s.toLowerCase();
+        return ['true', 'yes', '1'].includes(low) ? true : ['false', 'no', '0'].includes(low) ? false : value;
+      }
+      case 'multi': {
+        try { const j = JSON.parse(s); if (Array.isArray(j)) return j; } catch { /* not JSON */ }
+        return s.split(',').map((x) => x.trim()).filter(Boolean);
+      }
+      default: return s; // text · longtext · select · link · date — strings stay strings
+    }
+  }
+  if (STRING_KEYS.has(key)) return String(value);
+  return coerce(value);
+}
+
 /** Set ONE frontmatter field on an existing note → one generation. */
 export function patchNote(home, module, id, key, value, actor = 'operator') {
   if (!existsSync(itemPath(home, module, id))) return { ok: false, error: `no note '${module}:${id}'` };
   if (key === 'id' || key === 'type') return { ok: false, error: `'${key}' is structural — not patchable` };
-  return evolve(home, module, { id: `patch-${id}`, op: 'update', target: id, change: { [key]: coerce(value) } }, actor);
+  return evolve(home, module, { id: `patch-${id}`, op: 'update', target: id, change: { [key]: coerceForField(home, module, key, value) } }, actor);
 }
 
 /** Append text to an existing note's body → one generation. */

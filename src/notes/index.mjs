@@ -78,8 +78,10 @@ function corpusSig(home) {
   return createHash('sha256').update(parts.sort().join('\n')).digest('hex');
 }
 
-/** Build the index from scratch into an in-memory-or-file db. */
-function build(home, db) {
+/** Build the index from scratch into an in-memory-or-file db. `sig` is the
+ *  already-computed corpus signature (open() has it in hand — recomputing here
+ *  was a second full stat-walk per rebuild). */
+function build(home, db, sig = null) {
   db.exec(SCHEMA);
   db.exec('BEGIN'); // one transaction → one fsync, not one per insert (≈100× faster)
   const insZu = db.prepare('INSERT OR REPLACE INTO notes VALUES (?,?,?,?,?,?,?)');
@@ -87,37 +89,56 @@ function build(home, db) {
   const insLink = db.prepare('INSERT INTO link VALUES (?,?,?,?,?)');
   const insFts = db.prepare('INSERT INTO fts VALUES (?,?,?)');
 
+  // pass 1: parse the corpus and map every note id to the module(s) that own it —
+  // the resolver a bare relation target needs (a journal note relating to a
+  // knowledge id used to get mis-qualified to `journal:<id>`, silently losing the
+  // backlink and false-flagging `check`).
+  const parsed = [];
+  const idOwners = new Map();
   for (const module of moduleDirs(home)) {
     const dir = itemsDir(home, module);
     if (!existsSync(dir)) continue;
     for (const f of readdirSync(dir)) {
       if (!f.endsWith('.md')) continue;
       const id = f.slice(0, -3);
-      const addr = `${module}:${id}`;
       const { ok, note } = parse(readText(join(dir, f)), { id });
       if (!ok || !note) continue; // fail-soft: a bad file just isn't indexed
-      insZu.run(addr, module, id, note.type ?? '', note.title ?? '', note.status ?? 'active', note.body ?? '');
-      insFts.run(addr, note.title ?? '', note.body ?? '');
-      for (const [key, val] of Object.entries(note)) {
-        if (key === 'body' || key === 'id') continue;
-        if (key === 'relations' && val && typeof val === 'object' && !Array.isArray(val)) {
-          for (const [rtype, dsts] of Object.entries(val)) {
-            // normalize a bare-id target ('render') to a full addr ('actions:render')
-            // — observe/relate write bare ids, and the graph walk joins on the full
-            // addr, so without this `related()` returns nothing for them. An entry
-            // may be an object `{target, note?, cite?}` — the edge metadata rides
-            // in the link row; the walk/backlink joins stay dst-based.
-            for (const e of edgeEntries(dsts)) {
-              insLink.run(addr, rtype, e.target.includes(':') ? e.target : `${module}:${e.target}`, str(e.note ?? ''), str(e.cite ?? ''));
-            }
-          }
-        }
-        if (key === 'tags') for (const t of [].concat(val)) insProp.run(addr, 'tag', str(t));
-        insProp.run(addr, key, str(val));
-      }
+      parsed.push({ module, id, addr: `${module}:${id}`, note });
+      (idOwners.get(id) ?? idOwners.set(id, []).get(id)).push(module);
     }
   }
-  db.prepare('INSERT INTO meta VALUES (?,?)').run('sig', corpusSig(home));
+  // A bare-id target resolves: same module first; else its UNIQUE owner module;
+  // else (unknown or ambiguous) the source module — which brokenLinks then flags,
+  // honestly, instead of silently pointing at the wrong module.
+  const qualifyTarget = (srcModule, target) => {
+    if (target.includes(':')) return target;
+    const owners = idOwners.get(target);
+    if (owners && !owners.includes(srcModule) && owners.length === 1) return `${owners[0]}:${target}`;
+    return `${srcModule}:${target}`;
+  };
+
+  // pass 2: insert
+  for (const { module, id, addr, note } of parsed) {
+    insZu.run(addr, module, id, note.type ?? '', note.title ?? '', note.status ?? 'active', note.body ?? '');
+    insFts.run(addr, note.title ?? '', note.body ?? '');
+    for (const [key, val] of Object.entries(note)) {
+      if (key === 'body' || key === 'id') continue;
+      if (key === 'relations' && val && typeof val === 'object' && !Array.isArray(val)) {
+        for (const [rtype, dsts] of Object.entries(val)) {
+          // normalize a bare-id target to a full addr via the owner map — observe/
+          // relate write bare ids, and the graph walk joins on the full addr. An
+          // entry may be an object `{target, note?, cite?}` — the edge metadata
+          // rides in the link row; the walk/backlink joins stay dst-based.
+          for (const e of edgeEntries(dsts)) {
+            insLink.run(addr, rtype, qualifyTarget(module, e.target), str(e.note ?? ''), str(e.cite ?? ''));
+          }
+        }
+      }
+      if (key === 'tags') for (const t of [].concat(val)) insProp.run(addr, 'tag', str(t));
+      insProp.run(addr, key, str(val));
+    }
+  }
+  db.prepare('INSERT INTO meta VALUES (?,?)').run('sig', sig ?? corpusSig(home));
   db.prepare('INSERT INTO meta VALUES (?,?)').run('schema', SCHEMA_VERSION);
   db.exec('COMMIT');
   return db;
@@ -140,7 +161,7 @@ export function open(home) {
   // (re)build into the file db — ensure the (out-of-repo) cache dir exists first
   if (existsSync(path)) remove(path);
   else mkdirp(cacheDir(home));
-  return build(home, connect(path));
+  return build(home, connect(path), sig);
 }
 
 // ── query primitives ───────────────────────────────────────────────────────
