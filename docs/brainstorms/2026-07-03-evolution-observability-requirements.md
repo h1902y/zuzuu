@@ -171,6 +171,41 @@ me the project growing."
 - AE4. Entering the lens issues no write and mints no generation; the review
   queue and generation log are unchanged by looking. (R2, R10)
 
+## Design references (Mobbin)
+
+Concrete visual targets per surface, so planning starts from patterns rather
+than prose. The through-line: every reference is a *derived* view — steal the
+ones that summarize the record, not the ones that dump it.
+
+| Surface (→ req) | Stealable pattern | Source |
+|---|---|---|
+| Note lens: field/body diff (→ R6) | Strikethrough-old + highlight-new, "Highlight changes" toggle, version rail + Restore | [Linear version history](https://mobbin.com/screens/6c14e085-9ff5-4e61-9a21-b04f1b0a3433) |
+| Note lens: field change (→ R6) | Attribute · New value · Old value columns per change | [Aboard audit events](https://mobbin.com/screens/8c5f9bca-6ac8-4fab-b216-6b058c3a7d21) |
+| Note lens: rollback (→ R7) | "Show changes" toggle + Restore-with-confirm dialog | [Fibery version history](https://mobbin.com/screens/eb05e8be-4a16-47f0-94fe-08ad3da74171) |
+| Provenance trace (→ R3, R6) | The **"What Changed" derived chip column** — Entity · Event · When · Who · What — the single best pattern; makes an audit table educational at a glance | [Fibery Activity Log](https://mobbin.com/screens/e2d656a6-35ba-4e9a-b5c7-a14e4fa61bb3) · [Audit Log](https://mobbin.com/screens/8ebb779a-53f5-4ba8-b717-ea5b9cda1017) |
+| Birth-lane "who" (→ R6) | "Automated" vs a named person in the actor column → render as agent-proposed vs operator-direct | [15Five activity log](https://mobbin.com/screens/0e4eaeeb-0fc4-419e-9c4b-90b61293b012) |
+| Derived narration (→ R6) | Each event as a templated human sentence ("A group called X was created") | [1Password](https://mobbin.com/screens/d015635b-1d0a-4357-9281-2c863bf010de) |
+| Generation lineage (→ R7, R8) | Vertical commit spine with a **dated left rail** (time axis) | [GitLab Repository graph](https://mobbin.com/screens/52c2a85c-af19-4a9d-b877-5bcf31f8284a) |
+| Generation strip (→ R7) | Date-grouped list: actor · message · short id · status glyph | [GitLab Commits](https://mobbin.com/screens/dac0d824-a5f9-434d-9886-51cf7f78bf4f) |
+| Per-generation actions (→ R7) | Inline "Rollback here · Changes · Preview" row | [Replit checkpoints](https://mobbin.com/screens/f2674f4f-de7a-4202-8972-ea4f8ac13aa4) |
+| Vital-signs velocity (→ R4) | Commits-per-day/weekday charts = generation velocity | [GitLab Repository analytics](https://mobbin.com/screens/7502b390-df85-4d60-b201-aadce0e2034c) |
+| Run trace drill-in (→ R5) | DAG graph + run-detail panel (id · status · duration) + filtered event-log tab | [Databricks pipeline run](https://mobbin.com/screens/2a53f9eb-b8e1-4958-afb7-f441acbdf414) |
+| Single run trace (→ R5) | Gantt of steps with per-node timing | [StackAI run details](https://mobbin.com/screens/bb0174f4-60aa-4e30-ac5f-73679b160f38) |
+| Durable-run trace (→ R5) | State-machine timeline: Timeline · State · Event · Payload | [Zoho execution preview](https://mobbin.com/screens/a9dbcb21-1ffe-4270-9a7a-15948897ebcf) |
+
+**Anti-patterns (the derived-vs-dumped line, KD1):** raw JSON diffs
+([Adaline](https://mobbin.com/screens/c53724d7-9387-4a81-8a96-bc74baddd24c)) and
+firehose event logs
+([Databricks event log](https://mobbin.com/screens/d55b9b90-0c32-4400-86e8-68b000134f5a),
+20 identical lines) dump the record instead of deriving from it — the difference
+between an audit *log* and an audit *layer*. Derive and summarize; never dump.
+
+**No precedent — the one thing we invent:** the project-level scrubbable
+biography (R8, scrub time and watch the archipelago grow) has no Mobbin analog —
+every tool renders history as a list or a static graph, none replays the
+structure growing. Closest anchors for its time axis: the GitLab dated-spine and
+the analytics velocity charts above.
+
 ## Outstanding Questions
 
 - The exact derived thresholds (what counts as "stale," "hub," "growing," and
