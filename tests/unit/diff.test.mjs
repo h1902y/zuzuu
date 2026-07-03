@@ -44,6 +44,41 @@ test('renderNoteDiff: shows the op head + per-field markers', () => {
   assert.match(out, /~ body/);
 });
 
+// B1(b) (audit 2026-07-03-secrets-review.md) — belt-and-suspenders: the CLI diff
+// render masks a secret-SHAPED key's value regardless of the note's `type` (the
+// write door only refuses type:secret; this covers a value riding a non-secret
+// change too).
+
+test('renderNoteDiff: masks `+ value: ‹redacted›` on a CREATE (the exact leak the audit found on the CLI plan/review render)', () => {
+  const out = renderNoteDiff('secrets:leaky', diffNote(null, { type: 'secret', title: 'leaky', name: 'LEAKY_KEY', value: 'sk-live-should-be-masked' }));
+  assert.match(out, /\+ value: ‹redacted›/);
+  assert.doesNotMatch(out, /sk-live-should-be-masked/, 'the real value never appears anywhere in the rendered diff');
+});
+
+test('renderNoteDiff: masks a secret-shaped key on a NON-secret note too (defense-in-depth — the write door only inspects type:secret)', () => {
+  const out = renderNoteDiff('actions:enrich', diffNote(null, { type: 'action', title: 'enrich', api_key: 'sk-live-stray-on-an-action-note' }));
+  assert.match(out, /\+ api_key: ‹redacted›/);
+  assert.doesNotMatch(out, /sk-live-stray-on-an-action-note/);
+});
+
+test('renderNoteDiff: masks BOTH sides of a modify (before → after), and a remove', () => {
+  const before = { type: 'secret', title: 't', token: 'sk-old-value' };
+  const after = { type: 'secret', title: 't', token: 'sk-new-value' };
+  const out = renderNoteDiff('secrets:x', diffNote(before, after));
+  assert.match(out, /~ token: ‹redacted› → ‹redacted›/);
+  assert.doesNotMatch(out, /sk-old-value|sk-new-value/);
+
+  const removeOut = renderNoteDiff('secrets:x', diffNote({ type: 'secret', title: 't', password: 'sk-going-away' }, { type: 'secret', title: 't' }));
+  assert.match(removeOut, /- password: ‹redacted›/);
+  assert.doesNotMatch(removeOut, /sk-going-away/);
+});
+
+test('renderNoteDiff: a non-secret-shaped field renders its real value unchanged (the mask is precise, not a blanket redaction)', () => {
+  const out = renderNoteDiff('knowledge:x', diffNote(null, { type: 'knowledge', title: 'A fact', path: 'src/app.ts' }));
+  assert.match(out, /\+ path: src\/app\.ts/);
+  assert.match(out, /\+ title: A fact/);
+});
+
 // ── diffGenerations (git-backed) ──────────────────────────────────────────────
 
 function repo() {

@@ -8,6 +8,18 @@
 //       (Generation-to-generation diff lives in notes/generation.mjs — it owns the
 //       git/commit machinery; keeping it there keeps use/ off the write path.)
 // how:  structural compare of the two frontmatter maps + a body equality flag.
+//
+// B1(b) (audit 2026-07-03-secrets-review.md) — belt-and-suspenders atop the write
+// door (grow/stage.mjs's secretStageRefusal + notes/validate.mjs's secretValueLeaks,
+// both type:secret-scoped): `renderNoteDiff` masks any secret-SHAPED field's value
+// regardless of the note's `type` — a value could ride a NON-secret change too (a
+// stray `--field api_key=sk-…` on a `type: action` proposal, say), which the write
+// door never inspects (it only refuses type:secret). Pure constant imports only
+// (a regex + a string sentinel) — this file's "no IO, no write-path import" stays
+// true; nothing here reads/writes/spawns.
+
+import { SECRET_KEY_RE } from '../notes/validate.mjs';
+import { REDACTED } from '../notes/log.mjs';
 
 const SKIP = new Set(['id', 'body']); // id is the filename; body diffed separately
 const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
@@ -34,15 +46,19 @@ export function diffNote(before, after) {
 }
 
 const v = (x) => (typeof x === 'object' ? JSON.stringify(x) : String(x));
+// B1(b): a secret-shaped KEY's value is never rendered, add/remove/modify alike —
+// reuses log.mjs's own REDACTED sentinel, so a reviewer sees the SAME masked shape
+// here as in runs.jsonl, not a second one to learn.
+const displayValue = (key, val) => (SECRET_KEY_RE.test(key) ? REDACTED : v(val));
 
 /** Render a diffNote result as terse text lines (for the CLI / review preview). */
 export function renderNoteDiff(addr, d) {
   const head = { create: '+', delete: '-', update: '~', noop: '=' }[d.status];
   const lines = [`${head} ${d.status} ${addr}`];
   for (const f of d.fields) {
-    if (f.change === 'add') lines.push(`    + ${f.key}: ${v(f.after)}`);
-    else if (f.change === 'remove') lines.push(`    - ${f.key}: ${v(f.before)}`);
-    else lines.push(`    ~ ${f.key}: ${v(f.before)} → ${v(f.after)}`);
+    if (f.change === 'add') lines.push(`    + ${f.key}: ${displayValue(f.key, f.after)}`);
+    else if (f.change === 'remove') lines.push(`    - ${f.key}: ${displayValue(f.key, f.before)}`);
+    else lines.push(`    ~ ${f.key}: ${displayValue(f.key, f.before)} → ${displayValue(f.key, f.after)}`);
   }
   if (d.bodyChanged) lines.push('    ~ body');
   return lines.join('\n');
