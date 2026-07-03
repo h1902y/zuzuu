@@ -42,6 +42,7 @@ import { readProjectRefs, readLibraryModules, registryIdentity, mintRegistry, ne
 import { activeRegistryPath, setActiveRegistry } from '../notes/registry-pointer.mjs';
 import { subscribeModule } from '../grow/subscribe.mjs';
 import { generationCommit } from '../notes/generation.mjs';
+import { findDeclaration, SECRETS_MODULE } from '../use/secrets.mjs';
 
 // flow/view/validate ride the one registry now (Rung 8) but expose their RAW verb
 // result, not the {ok,value} dispatch envelope — unwrap on success so the façade's return
@@ -93,7 +94,27 @@ export function open(cwd = process.cwd(), { actor = 'operator' } = {}) {
     // ── the read/run verbs (all dispatched through the one registry; actor in ctx) ──
     query: (module, opts = {}) => invoke(home, module, 'query', { actor }, opts),
     check: (module, opts = {}) => invoke(home, module, 'check', { actor }, opts),
-    act: (module, id, inputs = {}) => invoke(home, module, 'act', { actor }, id, inputs),
+    // act's own `use/act.mjs` never WRITES (architecture rule 6 — use/ reads+runs
+    // only), so the `last_used` audit touch on a resolved secret's declaration lives
+    // HERE instead: this file already imports grow/edit's patchNote for the operator
+    // lane. Best-effort + fail-soft (never lets a bookkeeping hiccup mask the run's
+    // own result) — and naturally a no-op under actor:'agent' (patchNote → commit
+    // refuses a non-operator write, same moat as everywhere else), so only an
+    // OPERATOR-actor run's secret use gets recorded.
+    act: (module, id, inputs = {}) => {
+      const r = invoke(home, module, 'act', { actor }, id, inputs);
+      const names = r.ok ? r.value?.secretsResolved : null;
+      if (Array.isArray(names) && names.length) {
+        const now = new Date().toISOString();
+        for (const name of names) {
+          try {
+            const found = findDeclaration(home, name);
+            if (found) patchNote(home, SECRETS_MODULE, found.id, 'last_used', now, actor);
+          } catch { /* the audit trail is best-effort — the run's own result is what matters */ }
+        }
+      }
+      return r;
+    },
     flow: (module, id, inputs = {}) => unwrap(invoke(home, module, 'flow', { actor }, id, inputs)),
     view: (module, id, opts) => unwrap(invoke(home, module, 'view', { actor }, id, opts)),
     validate: (module = '') => unwrap(invoke(home, module, 'validate', { actor })),

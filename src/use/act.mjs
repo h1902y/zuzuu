@@ -28,6 +28,16 @@
 // returns a structured `{needsHost:true}` requirement rather than silently no-opping
 // OR headless-spawning a host session behind the interactive-first doctrine's back.
 // See docs/guide/Tools.md for the full model + what a hosted daemon does instead.
+//
+// SECRETS (§J.3/§J.5, use/secrets.mjs): a note's `secrets: [name]` list is resolved
+// HERE — before the lock, before spawnSync — each name gated by its OWN `type: secret`
+// declaration's scope allowlist + operator-only/agent-allowed actor. The resolved
+// VALUE goes straight into the child's env (runGated's `secretsEnv`, merged after
+// `inputs`); it never rides `inputs`, never rides a return value, never rides
+// `runs.jsonl` (logRun's `secretNames` extends its own redaction set with whatever
+// those names resolved to). This is the placeholder-injection pattern (browser-use):
+// an agent-run tool's context only ever holds the NAME — the tool layer (this file)
+// is the only reader of the actual value. See docs/guide/Secrets.md.
 
 import { existsSync, readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
@@ -38,6 +48,7 @@ import { logRun } from '../notes/log.mjs';
 import { gate } from '../guardrails/gate.mjs';
 import { acquireRunLock, LOCK_GRACE_MS } from './run-lock.mjs';
 import { bindingOf } from '../notes/validate.mjs';
+import { resolveSecret } from './secrets.mjs';
 
 // A run's `timeout:` field (seconds) is clamped into this window — no note, however
 // trusted, can opt OUT of a bound (spawnSync with no timeout can hang forever); the
@@ -79,7 +90,7 @@ function tokenize(run) {
  * fail-open, ask-passes contract (a human is present to see the run and decide).
  * @returns {{ ran, exitCode?, success?, stdout?, stderr?, denied?, timedOut?, error? }}
  */
-export function runGated(home, module, command, { allow = null, inputs = {}, cwd, timeout, actor = 'operator' } = {}) {
+export function runGated(home, module, command, { allow = null, inputs = {}, cwd, timeout, actor = 'operator', secretsEnv = {} } = {}) {
   // the gate applies to curated runs too — a deny rule blocks them. No explicit
   // module → it enforces both `instructions` (the default) and legacy `guardrails`.
   const verdict = gate({ home, actor }, { tool: 'Bash', input: { command } });
@@ -95,6 +106,13 @@ export function runGated(home, module, command, { allow = null, inputs = {}, cwd
   }
   const env = { ...process.env };
   for (const [k, v] of Object.entries(inputs)) env[`ZZ_${k}`] = String(v);
+  // secrets (§J.3, the placeholder-injection/browser-use pattern): pre-resolved
+  // `{ZZ_<NAME>: value}` pairs, built by act() BEFORE this call — never derived from
+  // `inputs`, so a caller can't smuggle a fake value in under a colliding key. Merged
+  // LAST, so a resolved secret always wins over any same-named input. This is the ONE
+  // place the real value touches an env object; it never rides `inputs` (which
+  // `logRun` below writes to runs.jsonl, redacted or not).
+  for (const [k, v] of Object.entries(secretsEnv)) env[k] = v;
   const ms = resolveTimeoutMs(timeout);
   // killSignal: SIGKILL — SIGTERM (spawnSync's default) is catchable/ignorable; a
   // run that installed a trap (or a hung child of the child) must actually die.
@@ -120,7 +138,18 @@ export function runGated(home, module, command, { allow = null, inputs = {}, cwd
  * `runs.jsonl` entry is unchanged. Dispatches by the note's `binding` (shell/agent/mcp
  * — see this file's header comment); `needsHost:true` marks the agent-binding's
  * structured "run this via a host session" requirement.
- * @returns {{ ok, ran, exitCode?, success?, stdout?, stderr?, timedOut?, error?, denied?, running?, needsHost? }}
+ *
+ * SECRETS (§J.3/§J.5): a shell-binding note's `secrets: [name]` list is resolved HERE,
+ * before the run lock — each name through `use/secrets.mjs`'s `resolveSecret`, gated
+ * by ITS OWN `type: secret` declaration (scope allowlist + operator-only/agent-allowed
+ * actor). ANY resolution failure refuses the WHOLE run before it starts (fail-closed —
+ * never a partially-secreted run). The resolved values are substituted into the
+ * CHILD's env as `ZZ_<NAME>` at the injection site (runGated, above) — this function
+ * (and everything above it: the caller, an agent's context, `secretsResolved` on the
+ * return value) only ever sees the NAME, never the value; `logRun` redacts the names'
+ * env values out of the logged `inputs` too (§J.3: "the agent's context/transcript/
+ * staged notes only ever hold `secret:name`" — the placeholder-injection pattern).
+ * @returns {{ ok, ran, exitCode?, success?, stdout?, stderr?, timedOut?, error?, denied?, running?, needsHost?, secretsResolved? }}
  */
 export function act(ctx, id, inputs = {}) {
   const { home, module, manifest, actor = 'operator', via } = ctx;
@@ -144,6 +173,17 @@ export function act(ctx, id, inputs = {}) {
 
   if (!note.run) return { ok: false, ran: false, error: `note '${id}' is not runnable (no run)` };
 
+  // secrets (§J.3): resolve BEFORE the lock — a denial must never spawn anything, let
+  // alone hold a lock while doing it. `caller` is this tool's own address (the SAME
+  // shape a scope entry's `module:tool` / `tool:x` forms match against).
+  const secretNames = Array.isArray(note.secrets) ? note.secrets : [];
+  const secretsEnv = {};
+  for (const name of secretNames) {
+    const r = resolveSecret(home, name, { caller: `${module}:${id}`, actor });
+    if (!r.ok) return { ok: false, ran: false, error: `secret '${name}': ${r.error}` };
+    secretsEnv[`ZZ_${name}`] = r.value;
+  }
+
   // the run lock's staleness window is THIS run's own resolved timeout + grace — a
   // held lock younger than that is presumed a genuinely running note; older, its
   // holder almost certainly crashed past its own timeout, so it's stolen.
@@ -152,10 +192,13 @@ export function act(ctx, id, inputs = {}) {
   try {
     // policy: the note's own policy narrows the module default (never widens)
     const policy = { ...(manifest.policy ?? {}), ...(note.policy ?? {}) };
-    const r = runGated(home, module, note.run, { allow: policy.run?.allow ?? null, inputs, timeout: note.timeout, actor });
+    const r = runGated(home, module, note.run, { allow: policy.run?.allow ?? null, inputs, timeout: note.timeout, actor, secretsEnv });
     if (!r.ran) return { ok: false, ...r };
-    logRun(home, module, id, { inputs, exitCode: r.exitCode, success: r.success, timedOut: r.timedOut, actor, via });
-    return { ok: r.success, ...r };
+    logRun(home, module, id, { inputs, exitCode: r.exitCode, success: r.success, timedOut: r.timedOut, actor, via, secretNames });
+    // `secretsResolved` is NAMES only (never values) — the audit trail a higher layer
+    // (serve/api.mjs's `act` wrapper, which may write) can use to touch each
+    // declaration's `last_used`; use/ itself never writes (architecture rule 6).
+    return { ok: r.success, ...r, ...(secretNames.length ? { secretsResolved: secretNames } : {}) };
   } finally {
     lock.release();
   }

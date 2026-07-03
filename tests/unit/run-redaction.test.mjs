@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { serialize } from '../../src/notes/note.mjs';
 import { readManifest } from '../../src/notes/module.mjs';
-import { redactInputs, readSecretValues, REDACTED, logRun, read } from '../../src/notes/log.mjs';
+import { redactInputs, readSecretValues, readDeclaredSecretEnvValues, REDACTED, logRun, read } from '../../src/notes/log.mjs';
 import { act } from '../../src/use/act.mjs';
 
 function withHome(setup, fn) {
@@ -143,6 +143,52 @@ test('logRun: root-mode — a secret value under an innocuous key IS redacted (r
     const logged = read(home, 'actions', 'runs')[0];
     assert.equal(logged.inputs.comment, REDACTED, 'root-mode: the secret value leaked under an innocuous key — still caught');
     assert.equal(logged.inputs.other, 'fine');
+  });
+});
+
+// ── §J.3/§J.5: DECLARED secrets extend the redaction set (readDeclaredSecretEnvValues,
+//    logRun's `secretNames` option) — "redact at the injection site": whatever a note's
+//    OWN `secrets: [name]` list just resolved to in process.env is masked in ITS log
+//    entry, even under an unrelated, innocuous input key. ────────────────────────────
+
+test('readDeclaredSecretEnvValues: reads process.env for the given NAMES only — fail-soft on absent/non-string', () => {
+  process.env.ZZ_TEST_DECLARED_KEY = 'declared-value-1';
+  try {
+    assert.deepEqual(readDeclaredSecretEnvValues(['ZZ_TEST_DECLARED_KEY']), ['declared-value-1']);
+    assert.deepEqual(readDeclaredSecretEnvValues(['ZZ_TEST_NOT_SET_ANYWHERE']), [], 'unset name contributes nothing');
+    assert.deepEqual(readDeclaredSecretEnvValues([]), []);
+    assert.deepEqual(readDeclaredSecretEnvValues(), []);
+    assert.deepEqual(readDeclaredSecretEnvValues(null), []);
+    assert.deepEqual(readDeclaredSecretEnvValues([42, null]), [], 'non-string names are skipped, never thrown on');
+  } finally {
+    delete process.env.ZZ_TEST_DECLARED_KEY;
+  }
+});
+
+test('logRun: secretNames extends the redaction set — a declared secret\'s env value is masked even under an innocuous input key', () => {
+  process.env.ZZ_TEST_LOGRUN_SECRET = 'sk-declared-via-secrets-list';
+  try {
+    withHome(() => {}, (home) => {
+      mkdirSync(join(home, 'actions'), { recursive: true });
+      logRun(home, 'actions', 'x', {
+        inputs: { comment: 'sk-declared-via-secrets-list', other: 'fine' },
+        exitCode: 0, success: true, secretNames: ['ZZ_TEST_LOGRUN_SECRET'],
+      });
+      const logged = read(home, 'actions', 'runs')[0];
+      assert.equal(logged.inputs.comment, REDACTED, 'the declared secret\'s value is redacted under an unrelated key');
+      assert.equal(logged.inputs.other, 'fine');
+    });
+  } finally {
+    delete process.env.ZZ_TEST_LOGRUN_SECRET;
+  }
+});
+
+test('logRun: secretNames omitted/empty is a no-op — behavior unchanged from before §J', () => {
+  withHome(() => {}, (home) => {
+    mkdirSync(join(home, 'actions'), { recursive: true });
+    logRun(home, 'actions', 'x', { inputs: { apiKey: 'sk-x' }, exitCode: 0, success: true });
+    const logged = read(home, 'actions', 'runs')[0];
+    assert.equal(logged.inputs.apiKey, REDACTED, 'the pre-existing key-shape redaction still fires with no secretNames supplied');
   });
 });
 
