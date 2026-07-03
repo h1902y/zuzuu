@@ -28,6 +28,7 @@
 import { existsSync, appendFileSync, readFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { ephemeraDirFromHome } from './store.mjs';
+import { SECRET_KEY_RE } from './validate.mjs';
 
 const MUTATIONS = new Set(['create', 'update', 'delete', 'deprecate']);
 const RUNS = new Set(['run', 'query']);
@@ -35,9 +36,12 @@ const RUNS = new Set(['run', 'query']);
 const logPath = (home, module) => join(home, module, 'log.jsonl');
 const runsPath = (home, module) => join(home, module, 'runs.jsonl');
 
-// A key that LOOKS like a secret is redacted regardless of its value — cheap,
-// name-shaped heuristic, matches "apiKey", "AUTH_TOKEN", "db_password", etc.
-const SECRET_KEY_RE = /(key|token|secret|password|passwd|credential|auth)/i;
+// SECRET_KEY_RE — a key that LOOKS like a secret is redacted regardless of its value
+// — cheap, name-shaped heuristic, matches "apiKey", "AUTH_TOKEN", "db_password", etc.
+// S1 (audit 2026-07-03-secrets-review.md): now imported from notes/validate.mjs — the
+// SAME canonical matcher the type:secret write door uses (was independently declared
+// here and there, the exact drift S1 flagged: the write door was NARROWER than this
+// file's own redaction). One shared constant, not two that can drift apart again.
 export const REDACTED = '‹redacted›';
 
 /**
@@ -58,6 +62,25 @@ export function redactInputs(inputs, secretValues = []) {
   const out = {};
   for (const [k, v] of Object.entries(inputs)) {
     out[k] = SECRET_KEY_RE.test(k) || values.has(String(v)) ? REDACTED : v;
+  }
+  return out;
+}
+
+/**
+ * S3 (audit 2026-07-03-secrets-review.md) — redact every occurrence of a known secret
+ * VALUE inside FREE TEXT (a run's stdout/stderr — use/act.mjs's `act()` return, not a
+ * k/v map like `redactInputs` above). Exact-substring replace only: the SAME
+ * documented limitation as `redactInputs`' value-match trigger (N1 — a transformed/
+ * encoded copy of the value defeats this; see docs/guide/Secrets.md). Fail-soft:
+ * non-string text / no values → returned unchanged. Never mutates anything (strings
+ * are immutable in JS regardless, but this is still a pure function: no side effects).
+ */
+export function redactText(text, values = []) {
+  if (typeof text !== 'string' || !text) return text;
+  let out = text;
+  for (const val of values) {
+    if (!val) continue;
+    out = out.split(val).join(REDACTED);
   }
   return out;
 }

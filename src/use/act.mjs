@@ -33,18 +33,22 @@
 // HERE — before the lock, before spawnSync — each name gated by its OWN `type: secret`
 // declaration's scope allowlist + operator-only/agent-allowed actor. The resolved
 // VALUE goes straight into the child's env (runGated's `secretsEnv`, merged after
-// `inputs`); it never rides `inputs`, never rides a return value, never rides
-// `runs.jsonl` (logRun's `secretNames` extends its own redaction set with whatever
-// those names resolved to). This is the placeholder-injection pattern (browser-use):
-// an agent-run tool's context only ever holds the NAME — the tool layer (this file)
-// is the only reader of the actual value. See docs/guide/Secrets.md.
+// `inputs`); it never rides `inputs`, never rides `runs.jsonl` (logRun's `secretNames`
+// extends its own redaction set with whatever those names resolved to). This is the
+// placeholder-injection pattern (browser-use): an agent-run tool's context only ever
+// holds the NAME — the tool layer (this file) is the only reader of the actual value.
+// S3 (audit 2026-07-03-secrets-review.md): the RETURN value's stdout/stderr are the
+// one surface the value CAN legitimately reach (a tool echoing `$ZZ_<NAME>`) — those
+// two fields are redacted (notes/log.mjs's `redactText`) before `act()` returns, using
+// the SAME values just injected into the child's env. Every other field of the return
+// (`secretsResolved`, etc.) only ever held the NAME to begin with. See docs/guide/Secrets.md.
 
 import { existsSync, readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { resolve as resolvePath, sep } from 'node:path';
 import { parse } from '../notes/note.mjs';
 import { itemPath, repoRoot } from '../notes/store.mjs';
-import { logRun } from '../notes/log.mjs';
+import { logRun, redactText } from '../notes/log.mjs';
 import { gate } from '../guardrails/gate.mjs';
 import { acquireRunLock, LOCK_GRACE_MS } from './run-lock.mjs';
 import { bindingOf } from '../notes/validate.mjs';
@@ -194,11 +198,26 @@ export function act(ctx, id, inputs = {}) {
     const policy = { ...(manifest.policy ?? {}), ...(note.policy ?? {}) };
     const r = runGated(home, module, note.run, { allow: policy.run?.allow ?? null, inputs, timeout: note.timeout, actor, secretsEnv });
     if (!r.ran) return { ok: false, ...r };
+    // S3 (audit 2026-07-03-secrets-review.md) — a resolved secret's value must never
+    // survive into the RETURNED stdout/stderr: that return IS the caller's context (an
+    // agent-actor's dispatch reply included — the daemon relays this straight back),
+    // and a tool that echoes `$ZZ_<NAME>` would otherwise leak the plaintext into it.
+    // runs.jsonl was already safe (logRun never records stdout/stderr) — the RETURN
+    // was not. Redact using the SAME resolved values that were just injected into the
+    // child's env (secretsEnv, built above) — not a re-read of process.env by name
+    // (readDeclaredSecretEnvValues), since that only covers resolves_from: env/fly;
+    // this covers every resolves_from kind uniformly. Unconditional (not actor-gated):
+    // an operator's own terminal shouldn't echo the plaintext back through this API
+    // either — "ideally always" per the audit's own fix note.
+    const secretValues = Object.values(secretsEnv);
+    const safeR = secretValues.length
+      ? { ...r, stdout: redactText(r.stdout, secretValues), stderr: redactText(r.stderr, secretValues) }
+      : r;
     logRun(home, module, id, { inputs, exitCode: r.exitCode, success: r.success, timedOut: r.timedOut, actor, via, secretNames });
     // `secretsResolved` is NAMES only (never values) — the audit trail a higher layer
     // (serve/api.mjs's `act` wrapper, which may write) can use to touch each
     // declaration's `last_used`; use/ itself never writes (architecture rule 6).
-    return { ok: r.success, ...r, ...(secretNames.length ? { secretsResolved: secretNames } : {}) };
+    return { ok: r.success, ...safeR, ...(secretNames.length ? { secretsResolved: secretNames } : {}) };
   } finally {
     lock.release();
   }

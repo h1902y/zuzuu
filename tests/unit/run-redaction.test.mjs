@@ -6,8 +6,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { serialize } from '../../src/notes/note.mjs';
 import { readManifest } from '../../src/notes/module.mjs';
-import { redactInputs, readSecretValues, readDeclaredSecretEnvValues, REDACTED, logRun, read } from '../../src/notes/log.mjs';
+import { redactInputs, readSecretValues, readDeclaredSecretEnvValues, REDACTED, logRun, read, redactText } from '../../src/notes/log.mjs';
 import { act } from '../../src/use/act.mjs';
+import { SECRETS_MODULE } from '../../src/use/secrets.mjs';
 
 function withHome(setup, fn) {
   const root = mkdtempSync(join(tmpdir(), 'zz-redact-'));
@@ -65,6 +66,30 @@ test('redactInputs: never mutates the original object; empty/non-object inputs p
   assert.equal(original.apiKey, 'x', 'the source object is untouched');
   assert.deepEqual(redactInputs({}), {});
   assert.equal(redactInputs(null), null);
+});
+
+// ── redactText (pure) — S3's free-text redactor (stdout/stderr, not a k/v map) ──
+
+test('redactText: masks every occurrence of a known secret value inside free text', () => {
+  const out = redactText('the key is sk-live-x and again sk-live-x at the end', ['sk-live-x']);
+  assert.equal(out, `the key is ${REDACTED} and again ${REDACTED} at the end`);
+});
+
+test('redactText: masks MULTIPLE distinct values in one pass', () => {
+  const out = redactText('first=aaa second=bbb', ['aaa', 'bbb']);
+  assert.equal(out, `first=${REDACTED} second=${REDACTED}`);
+});
+
+test('redactText: fail-soft — non-string text, empty text, or no values pass through unchanged', () => {
+  assert.equal(redactText(null, ['x']), null);
+  assert.equal(redactText(undefined, ['x']), undefined);
+  assert.equal(redactText('', ['x']), '');
+  assert.equal(redactText('hello', []), 'hello');
+  assert.equal(redactText('hello', ['']), 'hello', 'an empty-string value is never a mask target (would redact everything)');
+});
+
+test('redactText: a value that never appears leaves the text untouched', () => {
+  assert.equal(redactText('nothing secret here', ['sk-not-present']), 'nothing secret here');
 });
 
 // ── readSecretValues ──────────────────────────────────────────────────────────
@@ -192,9 +217,10 @@ test('logRun: secretNames omitted/empty is a no-op — behavior unchanged from b
   });
 });
 
-// ── act(): end to end — the env passed to the CHILD stays real; only the log redacts ──
+// ── act(): end to end — the env passed to the CHILD stays real; the log AND (S3) the
+//    RETURN both redact a DECLARED secret's resolved value ──────────────────────────
 
-test('act: the child process sees the REAL secret value; only runs.jsonl is redacted', () => {
+test('act: a RAW (undeclared) input still flows to the child + back through stdout unredacted — S3 only touches DECLARED `secrets:` resolutions, not arbitrary inputs', () => {
   withHome((home) => {
     writeManifest(home, 'actions', { note_type: 'action' });
     // the child echoes its own env var back on stdout — proves the real value reached it
@@ -203,9 +229,38 @@ test('act: the child process sees the REAL secret value; only runs.jsonl is reda
     const ctx = { home, module: 'actions', manifest: readManifest(home, 'actions') };
     const r = act(ctx, 'echo-secret', { apiKey: 'sk-live-realvalue' });
     assert.equal(r.ok, true);
-    assert.match(r.stdout, /sk-live-realvalue/, 'the CHILD got the real, unredacted value');
+    assert.match(r.stdout, /sk-live-realvalue/, 'a plain input is not a DECLARED secret — S3 does not touch it (documented boundary, not a gap: nothing was ever declared secret here)');
     const logged = read(home, 'actions', 'runs')[0];
-    assert.equal(logged.inputs.apiKey, REDACTED, 'the LOGGED copy is redacted');
+    assert.equal(logged.inputs.apiKey, REDACTED, 'the LOGGED copy is still redacted by the pre-existing key-shape heuristic');
+  });
+});
+
+// S3 (audit 2026-07-03-secrets-review.md): the test this REPLACES used to assert the
+// real value survives into `act()`'s RETURN (r.stdout) for a run that resolved a
+// DECLARED secret — i.e. it codified the leak as expected behavior. Inverted: the
+// return must now be masked; only the child's own env gets the real value.
+test('act: S3 — a DECLARED secret\'s value is redacted in the RETURNED stdout, not only runs.jsonl; the return is the caller\'s (agent) context', () => {
+  withHome((home) => {
+    writeManifest(home, 'actions', { note_type: 'action' });
+    writeZu(home, SECRETS_MODULE, 'run-redact-key', { type: 'secret', title: 'run redact key', name: 'RUN_REDACT_KEY', scope: ['module:actions'] });
+    // the child echoes its own env var back on stdout — the same shape a leaky tool takes
+    writeZu(home, 'actions', 'echo-secret', { type: 'action', title: 'echo', run: 'printenv ZZ_RUN_REDACT_KEY', secrets: ['RUN_REDACT_KEY'] });
+  }, (home) => {
+    process.env.RUN_REDACT_KEY = 'sk-live-realvalue';
+    try {
+      const ctx = { home, module: 'actions', manifest: readManifest(home, 'actions') };
+      const r = act(ctx, 'echo-secret', {});
+      assert.equal(r.ok, true, JSON.stringify(r));
+      // the masked marker appearing in stdout is itself the proof the substitution
+      // fired (redactText only replaces a substring it actually found) — a run whose
+      // child never saw the real value would leave stdout empty, not carrying the mark.
+      assert.doesNotMatch(r.stdout, /sk-live-realvalue/, 'S3: the RETURN must not carry the real value');
+      assert.match(r.stdout, /‹redacted›/, 'the masked marker takes its place');
+      const logged = read(home, 'actions', 'runs')[0];
+      assert.doesNotMatch(JSON.stringify(logged), /sk-live-realvalue/, 'runs.jsonl stays clean too (unchanged, pre-existing behavior)');
+    } finally {
+      delete process.env.RUN_REDACT_KEY;
+    }
   });
 });
 

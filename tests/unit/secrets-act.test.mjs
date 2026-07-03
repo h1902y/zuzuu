@@ -2,6 +2,12 @@
 // list resolves into the CHILD's env, gated by scope+actor, and NEVER lands in
 // runs.jsonl or the run's own inputs/return value. Adversarial-review focus: prove
 // the DENY paths refuse the whole run (fail-closed), not a partial/degraded one.
+//
+// S3 (audit 2026-07-03-secrets-review.md): "never lands in … the return value" used
+// to be false for stdout/stderr — a tool that echoed `$ZZ_<NAME>` put the real value
+// straight into `act()`'s return, i.e. the caller's (agent) context. act() now
+// redacts stdout/stderr for any run that resolved a declared secret (notes/log.mjs's
+// `redactText`, reusing the resolved values already injected into the child's env).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
@@ -34,7 +40,7 @@ const writeManifest = (home, module, note) => {
 };
 const writeDecl = (home, id, note) => writeZu(home, SECRETS_MODULE, id, { type: 'secret', ...note });
 
-test('act: a shell tool with secrets: [name] gets the REAL value injected into ZZ_<NAME> — never via inputs', () => {
+test('act: a shell tool with secrets: [name] gets the REAL value injected into the CHILD\'s env — but S3 masks it in the RETURNED stdout, since the return is the agent\'s context', () => {
   withHome((home) => {
     writeManifest(home, 'actions', { note_type: 'action' });
     writeDecl(home, 'clearbit', { name: 'CLEARBIT_KEY', scope: ['module:actions'], actor: 'agent-allowed' });
@@ -44,11 +50,15 @@ test('act: a shell tool with secrets: [name] gets the REAL value injected into Z
     const ctx = { home, module: 'actions', manifest: readManifest(home, 'actions'), actor: 'agent' };
     const r = act(ctx, 'enrich', { unrelated: 'x' });
     assert.equal(r.ok, true, JSON.stringify(r));
-    assert.match(r.stdout, /sk-real-clearbit-value/, 'the child got the real secret value');
+    // S3: the RETURNED stdout must NOT carry the real value. The masked marker
+    // appearing in its place is itself the proof the child DID receive + echo the
+    // real value (redactText only replaces a substring it actually found) — a
+    // failed/empty printenv would leave stdout empty, not carrying the marker.
+    assert.doesNotMatch(r.stdout, /sk-real-clearbit-value/, 'S3: the RETURN must not carry the real value');
+    assert.match(r.stdout, /‹redacted›/, 'the masked marker takes its place — proof the substitution actually fired');
     assert.deepEqual(r.secretsResolved, ['CLEARBIT_KEY'], 'the return value carries the NAME, never the value');
-    // the return value as a whole never carries the secret value outside stdout
-    const { stdout, ...rest } = r;
-    assert.doesNotMatch(JSON.stringify(rest), /sk-real-clearbit-value/, 'no field OTHER than the child\'s own stdout carries the value');
+    // the value never survives ANYWHERE in the return, stdout included now
+    assert.doesNotMatch(JSON.stringify(r), /sk-real-clearbit-value/, 'no field of the return carries the value');
     delete process.env.CLEARBIT_KEY;
   });
 });
