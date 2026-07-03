@@ -12,9 +12,13 @@ are in the greenfield-rebuild entry of [`docs/LOG.md`](../LOG.md).
 ## What it is
 
 A daemon runs on `127.0.0.1`; your browser connects and gets a **real PTY shell**
-(your actual `$SHELL` or a host agent CLI), a file tree, a Monaco editor, git, and
-the modules dashboard. `zz web` launches it. It is, deliberately, **not** a custom
-chat loop — it's a real terminal with the Project alongside.
+(your actual `$SHELL` or a host agent CLI) alongside the Project. `zz web` launches
+it. It is, deliberately, **not** a custom chat loop — it's a real terminal with the
+Project alongside. (This page is about the daemon/terminal architecture below, which
+is unchanged; the *shell* around it — file tree, editor, a modules dashboard as
+separate nav-tree destinations — was consolidated into one screen, the World +
+omnibar, during the 02–03/07-2026 redesign. See `docs/guide/Omnibar.md` and
+`docs/guide/The-World.md` for the shipped UI; this lesson doesn't re-teach it.)
 
 That one requirement — a *real* shell over the network — is the whole architecture.
 A real PTY is a long-lived OS process with stdin/stdout; you cannot serve it from a

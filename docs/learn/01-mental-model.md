@@ -29,7 +29,7 @@ A note carries lifecycle state only (active / archived). It never mutates from b
 
 A module is a folder of notes plus one manifest (identity + schema + policy + a human explainer) and an event log.
 
-A module is **goal-shaped**: one module = **one objective it's getting better at**, statable in a single sentence with no "and also." An ecommerce project grows modules for *catalog*, *campaigns*, *fulfillment* — each a bundle of facts + runnable procedures aimed at one outcome. Modules are **not** shaped by capability (there is no "knowledge module" and "actions module" — a note fuses both, so splitting them would split by layer, the thing to avoid).
+A module is **goal-shaped**: one module = **one objective it's getting better at**, statable in a single sentence with no "and also." An ecommerce project grows modules for *catalog*, *campaigns*, *fulfillment* — each a bundle of facts + runnable procedures aimed at one outcome. Modules are an **open set** — there's no per-module code, no closed taxonomy, and any goal can be one. zuzuu also ships five **standard, capability-shaped kinds** — Knowledge (what's true) · Memory (what happened) · Actions (what runs) · Instructions (how to steer) · Guardrails (what's enforced) — as sensible defaults for a fresh project, not a rule that forecloses a custom goal-shaped one like *catalog* or *fulfillment*. (An earlier version of this page said modules are *never* capability-shaped, which contradicted the shipped standard kinds — corrected; see `docs/learn/glossary.md`'s own `module` entry.)
 
 That gives the three levels their boundary:
 

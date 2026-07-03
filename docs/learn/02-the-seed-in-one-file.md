@@ -45,7 +45,7 @@ status: active
 inputs:
   - { name: client, required: true }
 run: ./build.sh
-policy: {"tier":"contained","filesystem":{"allowWrite":["./reports/"]},"run":{"allow":["pandoc"]}}
+policy: {"run":{"allow":["pandoc"]}}
 ---
 ## What it does
 Generates `reports/<client>.pdf` from the metrics CSV, in the client's deck style.
@@ -55,7 +55,7 @@ The body is still a human-readable runbook. The three new fields are the act:
 
 - **`run`** — what to execute (a script path here; could be an inline one-liner).
 - **`inputs`** — its parameters.
-- **`policy`** — what it's allowed to touch. This is the containment contract: `filesystem`/`network` are enforced by the sandbox; `run.allow` is the command allowlist. (Lesson `04` is all about this.)
+- **`policy`** — what it's allowed to touch. Today that means `run.allow`, a command allowlist checked before the run executes (a repo-local script is always allowed; an absolute path outside the repo isn't). This is **not** OS-level containment — an earlier design reserved tiered sandboxing (`filesystem`/`network` isolation), but it was never wired and was removed rather than ship a flag that doesn't isolate. Lesson `04` is the full, honest story of what actually guards a run.
 
 That's the entire difference between a fact and a tool: **three fields.** A knowledge note and an action note are the *same envelope* — one just gained the ability to run itself. That fusion is the thing lesson `01` promised, now concrete.
 
@@ -73,7 +73,7 @@ You'll see two styles for collections, and both parse:
   ```
 - **Inline JSON** — for anything deeper than one level (like `policy`):
   ```
-  policy: {"tier":"contained","filesystem":{"allowWrite":["./"]}}
+  policy: {"run":{"allow":["pandoc","git"]}}
   ```
 
 Inline JSON *is* valid YAML (flow style), so the files stay standard — but the parser only needs to understand the JSON-compatible subset, which is why it needs no YAML library. Scalars with special characters (a guardrail's regex, say) are JSON-quoted so they round-trip exactly: `pattern: "rm\\s+-rf\\s+/"` comes back byte-for-byte.
