@@ -17,9 +17,12 @@ Reads:
 |---|---|
 | `GET /overview` | every module: counts, pending proposals, top titles, enabled |
 | `GET /module/:key` | the table read — `?text= &type= &status= &tag= &where=k<op>v &sort= &limit= &offset=` (repeat `where`) |
+| `GET /items` | the **Everything** view — every module's rows through the same filter/sort/paginate contract (`zz module items --all`), each row carrying its module; no peek fallback, degrades to empty without the CLI |
 | `GET /module/:key/item/:id` | one full row (lossless envelope) |
+| `GET /module/:key/item/:id/history` | one note's `log.jsonl` entries, newest first, capped 50, plus its `bornAt` create entry — the [Observability](Observability) History group's data (peek-only; no CLI verb) |
 | `GET /module/:key/schema` | the declared columns |
 | `GET /module/:key/generations` | the lineage + active generation |
+| `GET /module/:key/generation/:from/diff/:to` | which notes were added/modified/deleted between two generations (`zz gen diff`) — the generation strip's "what changed" panel |
 | `GET /graph?props=a,b` | the whole project as addr-keyed nodes + links (the World's document) |
 | `GET /flow` | every `type: workflow` note + its run-count/latest-status summary (the [Flow view](Flow-View)'s picker) |
 | `GET /readiness` | `zz doctor` + `zz digest` as text (the session kickoff brief) |
@@ -35,6 +38,7 @@ Writes (each shells the CLI; CLI absent → 503):
 | `POST /module/:key/stage` | stage a proposal (the agent-shaped write) |
 | `POST /staged/:id/approve` · `/staged/:id/reject` | the review gate |
 | `POST /module/new` · `POST /module/:key/enabled` | module lifecycle |
+| `POST /module/:key/column` · `PATCH /module/:key/column/:name` | the field-config panel — add / edit a schema column (`module add-column`/`alter-column`, operator-gated, mints a generation) |
 | `POST /module/:key/generation/mint` · `…/generation/:id/rollback` | versions |
 | `POST /session-label/:id` | name a session |
 
