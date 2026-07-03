@@ -142,3 +142,73 @@ test('act: a non-runnable note (no run) is refused, not crashed', () => {
     assert.match(r.error, /not runnable/);
   });
 });
+
+// ── binding dispatch (§I.1/§I.6) ────────────────────────────────────────────
+
+test('act: binding: mcp is a clean, explicit stub — no fake success, nothing logged', () => {
+  withHome((home) => {
+    writeManifest(home, 'actions', { note_type: 'action' });
+    writeZu(home, 'actions', 'send-email', { type: 'action', title: 'send email', binding: 'mcp', mcp: { server: 'gmail', tool: 'send' } });
+  }, (home) => {
+    const ctx = { home, module: 'actions', manifest: readManifest(home, 'actions') };
+    const r = act(ctx, 'send-email');
+    assert.equal(r.ok, false);
+    assert.equal(r.ran, false);
+    assert.match(r.error, /mcp binding.*not yet implemented/);
+    assert.equal(read(home, 'actions', 'runs').length, 0, 'a stub never logs a run');
+  });
+});
+
+test('act: binding: agent returns a structured needsHost requirement (ACP is daemon-only) — never silently no-ops or spawns a host', () => {
+  withHome((home) => {
+    writeManifest(home, 'actions', { note_type: 'action' });
+    writeZu(home, 'actions', 'enrich', { type: 'action', title: 'enrich lead', binding: 'agent', prompt: 'use your browser tool to enrich the lead' });
+  }, (home) => {
+    const ctx = { home, module: 'actions', manifest: readManifest(home, 'actions') };
+    const r = act(ctx, 'enrich');
+    assert.equal(r.ok, false);
+    assert.equal(r.ran, false);
+    assert.equal(r.needsHost, true);
+    assert.match(r.error, /host session/);
+    assert.equal(read(home, 'actions', 'runs').length, 0, 'no run happened, nothing to log');
+  });
+});
+
+test('act: binding: agent — a run: reused as the prompt still dispatches the SAME agent stub (no run: means no shell fallback)', () => {
+  withHome((home) => {
+    writeManifest(home, 'actions', { note_type: 'action' });
+    writeZu(home, 'actions', 'enrich', { type: 'action', title: 'enrich lead', binding: 'agent', run: 'use your browser tool to enrich the lead' });
+  }, (home) => {
+    const ctx = { home, module: 'actions', manifest: readManifest(home, 'actions') };
+    const r = act(ctx, 'enrich');
+    assert.equal(r.ok, false);
+    assert.equal(r.needsHost, true);
+  });
+});
+
+test('act: absent binding is unchanged shell back-compat — the exact bytes act() already produced', () => {
+  withHome((home) => {
+    writeManifest(home, 'actions', { note_type: 'action', policy: { tier: 'advisory' } });
+    writeZu(home, 'actions', 'hello', { type: 'action', title: 'say hi', run: 'echo hello-world' });
+  }, (home) => {
+    const ctx = { home, module: 'actions', manifest: readManifest(home, 'actions') };
+    const r = act(ctx, 'hello');
+    assert.equal(r.ok, true);
+    assert.equal(r.success, true);
+    assert.equal(r.exitCode, 0);
+    assert.match(r.stdout, /hello-world/);
+    assert.equal(read(home, 'actions', 'runs')[0].note, 'hello');
+  });
+});
+
+test('act: binding: shell explicit is identical to the implicit default', () => {
+  withHome((home) => {
+    writeManifest(home, 'actions', { note_type: 'action' });
+    writeZu(home, 'actions', 'hello', { type: 'action', title: 'say hi', binding: 'shell', run: 'echo hello-world' });
+  }, (home) => {
+    const ctx = { home, module: 'actions', manifest: readManifest(home, 'actions') };
+    const r = act(ctx, 'hello');
+    assert.equal(r.ok, true);
+    assert.equal(r.success, true);
+  });
+});

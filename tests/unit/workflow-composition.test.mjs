@@ -392,3 +392,48 @@ test('workflow-compose: a note-ref to a MISSING note fails cleanly (still trigge
     assert.equal(existsSync(comp), true);
   });
 });
+
+// ── a note-ref target with a NON-shell binding (§I.1/§I.6): composition dispatches
+// through act(), never bypassing binding dispatch ───────────────────────────────
+
+test('workflow-compose: a note-ref to an mcp-binding tool with NO run: dispatches the clean mcp stub, not "not runnable"', () => {
+  withHome((home) => {
+    put(home, 'actions', 'send', { type: 'action', title: 'send email', binding: 'mcp', mcp: { server: 'gmail', tool: 'send' } });
+    put(home, 'actions', 'flow', { type: 'workflow', title: 'w', steps: [{ id: 's', note: 'actions:send' }] });
+    const r = runWorkflow(home, 'actions', 'flow');
+    assert.equal(r.ok, false);
+    assert.equal(r.failedStep, 's');
+    assert.match(r.error, /mcp binding.*not yet implemented/);
+    assert.doesNotMatch(r.error, /not runnable/);
+  });
+});
+
+test('workflow-compose: a note-ref to an agent-binding tool with NO run: dispatches the needsHost requirement, not "not runnable"', () => {
+  withHome((home) => {
+    put(home, 'actions', 'enrich', { type: 'action', title: 'enrich lead', binding: 'agent', prompt: 'use your browser tool to …' });
+    put(home, 'actions', 'flow', { type: 'workflow', title: 'w', steps: [{ id: 's', note: 'actions:enrich' }] });
+    const r = runWorkflow(home, 'actions', 'flow');
+    assert.equal(r.ok, false);
+    assert.equal(r.failedStep, 's');
+    assert.match(r.error, /host session/);
+    assert.doesNotMatch(r.error, /not runnable/);
+  });
+});
+
+test('workflow-compose: a note-ref to a plain shell-binding tool with NO run: is STILL refused as not-runnable (composition adds no new leniency)', () => {
+  withHome((home, root) => {
+    const comp = join(root, 'comp-marker-3');
+    put(home, 'actions', 'empty', { type: 'action', title: 'no run', binding: 'shell' });
+    put(home, 'actions', 'flow', {
+      type: 'workflow', title: 'w',
+      steps: [
+        { id: 'setup', run: 'true', compensate: `touch ${comp}` },
+        { id: 'bad', note: 'actions:empty', 'depends-on': 'setup' },
+      ],
+    });
+    const r = runWorkflow(home, 'actions', 'flow');
+    assert.equal(r.ok, false);
+    assert.match(r.error, /not runnable.*not a workflow/);
+    assert.equal(existsSync(comp), true);
+  });
+});

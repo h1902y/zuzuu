@@ -17,6 +17,17 @@
 // gate.mjs); run-log inputs are redacted (notes/log.mjs); and act() refuses a SECOND
 // concurrent run of the same note (use/run-lock.mjs) rather than letting two
 // invocations' children interleave.
+//
+// BINDING DISPATCH (§I.1/§I.6, notes/validate.mjs's `bindingOf`): a note's `binding`
+// picks HOW it runs — absent/`shell` is everything above, unchanged. `mcp` and `agent`
+// dispatch BEFORE the run lock/gate/timeout machinery (nothing actually runs, so
+// nothing to lock or log): `mcp` is a clean, explicit stub (the MCP client is a
+// follow-on build — no fake success); `agent` would delegate the note's PROMPT
+// (`promptOf`) to the host over the ACP lane, but ACP is daemon-only today
+// (`web/src/server/acp.ts` — not reachable from this CLI process), so the CLI binding
+// returns a structured `{needsHost:true}` requirement rather than silently no-opping
+// OR headless-spawning a host session behind the interactive-first doctrine's back.
+// See docs/guide/Tools.md for the full model + what a hosted daemon does instead.
 
 import { existsSync, readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
@@ -26,6 +37,7 @@ import { itemPath, repoRoot } from '../notes/store.mjs';
 import { logRun } from '../notes/log.mjs';
 import { gate } from '../guardrails/gate.mjs';
 import { acquireRunLock, LOCK_GRACE_MS } from './run-lock.mjs';
+import { bindingOf } from '../notes/validate.mjs';
 
 // A run's `timeout:` field (seconds) is clamped into this window — no note, however
 // trusted, can opt OUT of a bound (spawnSync with no timeout can hang forever); the
@@ -105,8 +117,10 @@ export function runGated(home, module, command, { allow = null, inputs = {}, cwd
  * the composing workflow's `module:id` — set only by `use/workflow.mjs`'s note-ref
  * composition (§I rung 1); it rides straight into `logRun`'s `via` marker and is
  * absent (undefined) for every normal, non-composed call, so a standalone `zz act`'s
- * `runs.jsonl` entry is unchanged.
- * @returns {{ ok, ran, exitCode?, success?, stdout?, stderr?, timedOut?, error?, denied?, running? }}
+ * `runs.jsonl` entry is unchanged. Dispatches by the note's `binding` (shell/agent/mcp
+ * — see this file's header comment); `needsHost:true` marks the agent-binding's
+ * structured "run this via a host session" requirement.
+ * @returns {{ ok, ran, exitCode?, success?, stdout?, stderr?, timedOut?, error?, denied?, running?, needsHost? }}
  */
 export function act(ctx, id, inputs = {}) {
   const { home, module, manifest, actor = 'operator', via } = ctx;
@@ -114,6 +128,20 @@ export function act(ctx, id, inputs = {}) {
   if (!existsSync(path)) return { ok: false, ran: false, error: `no note '${module}:${id}'` };
   const { ok, note } = parse(readFileSync(path, 'utf8'), { id });
   if (!ok || !note) return { ok: false, ran: false, error: `unparseable note '${id}'` };
+
+  // binding dispatch (see header comment) — mcp/agent never reach the run lock or
+  // runGated: nothing actually ran, so there is nothing to lock, time out, or log.
+  const binding = bindingOf(note);
+  if (binding === 'mcp') {
+    return { ok: false, ran: false, error: 'mcp binding: client not yet implemented (follow-on build)' };
+  }
+  if (binding === 'agent') {
+    return {
+      ok: false, ran: false, needsHost: true,
+      error: 'agent binding requires a host session — run via the workbench / zz host (ACP is daemon-only today; a hosted daemon dispatches this over ACP — see docs/guide/Tools.md)',
+    };
+  }
+
   if (!note.run) return { ok: false, ran: false, error: `note '${id}' is not runnable (no run)` };
 
   // the run lock's staleness window is THIS run's own resolved timeout + grace — a

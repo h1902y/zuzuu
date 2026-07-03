@@ -68,6 +68,15 @@
 //
 // Deferred (Temporal-grade): per-step idempotency `key` + persisted resume — a step
 // re-runs each invocation today; add a key/cursor when long workflows need resume.
+//
+// BINDING DISPATCH THROUGH COMPOSITION (§I.1/§I.6): a `note:` step's leaf target may
+// itself be an agent- or mcp-binding tool, not just a shell action — `runNoteRefStep`
+// invokes it through the SAME `act()` every top-level `zz act` uses, so it dispatches
+// (or cleanly stubs/requires-a-host) exactly the same way; composition never re-derives
+// or bypasses binding dispatch. The pre-act() "is this even invokable" shape check is
+// binding-aware too (a target with no `run:` but an agent/mcp binding is NOT rejected
+// here — act() itself dispatches it), so an agent/mcp-binding leaf with no `run:` at
+// all doesn't fall into the wrong, misleading "not runnable (no run)" error.
 
 import { existsSync, readFileSync } from 'node:fs';
 import { parse } from '../notes/note.mjs';
@@ -76,6 +85,7 @@ import { readManifest } from '../notes/module.mjs';
 import { logRun } from '../notes/log.mjs';
 import { runGated, resolveTimeoutMs, act, MAX_TIMEOUT_S } from './act.mjs';
 import { acquireRunLock, LOCK_GRACE_MS } from './run-lock.mjs';
+import { bindingOf } from '../notes/validate.mjs';
 
 // Backstop for a long ACYCLIC note-ref chain (the visited-set is the PRIMARY cycle
 // defense — this only fires when no address repeats, so the set never flags a cycle).
@@ -195,13 +205,20 @@ function runNoteRefStep(home, module, id, step, { inputs, actor, visited, depth 
       return { ran: attempted, success: !!nested.ok, exitCode: nested.ok ? 0 : 1, error: nested.error, running: nested.running, nested };
     }
 
-    if (!target.run) {
+    // A target is invokable when it has a shell `run:` OR an agent/mcp binding —
+    // either way `act()` below dispatches it correctly (binding dispatch, §I.1/§I.6:
+    // composition must never bypass it). Only a target with NEITHER (no `run:` and an
+    // implicit/explicit shell binding) is refused here — the exact case act() itself
+    // would refuse, named for the step so the saga's error reads clearly.
+    const targetBinding = bindingOf(target);
+    if (!target.run && targetBinding !== 'agent' && targetBinding !== 'mcp') {
       return { ran: false, success: false, error: `step '${step.id}' targets '${step.note}' which is not runnable (no run) and not a workflow` };
     }
-    // the SAME path `act()` gives any top-level caller: its own run-lock (refuses a
-    // note that's independently running elsewhere), its own module's/note's policy,
-    // gated + timed + logged — with `via` riding the ctx so its `logRun` attributes
-    // this run back to the composing workflow.
+    // the SAME path `act()` gives any top-level caller: binding dispatch (shell/agent/
+    // mcp — a composed step can't bypass it), its own run-lock (refuses a note that's
+    // independently running elsewhere), its own module's/note's policy, gated + timed
+    // + logged — with `via` riding the ctx so its `logRun` attributes this run back to
+    // the composing workflow.
     const manifest = readManifest(home, addr.module);
     const ctx = { home, module: addr.module, manifest, actor, via };
     const r = act(ctx, addr.id, stepInputs);

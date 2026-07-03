@@ -18,6 +18,39 @@
 const RULE_ACTIONS = new Set(['deny', 'ask', 'allow']);
 const nonEmptyStr = (v) => typeof v === 'string' && v.trim() !== '';
 
+// ── binding (§I.1 / §I.6 MCP-native model, docs/specs/2026-07-02-polish-showcase-
+// experience.md) — HOW a tool note (`type: action`) runs. "No new entity": a tool IS
+// an action note; a toolkit IS the module it lives in (see notes/module.mjs's
+// `readManifest` — its `fields` double as the tool's `inputSchema`). Absent `binding`
+// = 'shell' = today's `run:` — full back-compat, an existing action note is unchanged.
+// Exported so `use/act.mjs` (the shell/agent/mcp dispatch), `use/workflow.mjs` (a
+// `note:` composition step must dispatch the SAME way, never bypass it), and
+// `cli/verbs/tool.mjs` (the read-only toolkit/tool VIEW) all read the ONE closed set
+// + the ONE prompt-resolution rule — notes/ stays the schema source of truth
+// (zero-dep, importable downward by use/ and cli/, per this file's own header).
+export const ACTION_BINDINGS = new Set(['shell', 'agent', 'mcp']);
+
+/** A note's EFFECTIVE binding — absent/unrecognized → 'shell' (fail-soft: a garbage
+ *  `binding:` value on a hand-edited note falls through to the well-tested shell path
+ *  rather than silently no-opping; `validateNote` below is where a bad value is an
+ *  actual, surfaced error at the write door). */
+export function bindingOf(note) {
+  const b = note?.binding;
+  return typeof b === 'string' && ACTION_BINDINGS.has(b) ? b : 'shell';
+}
+
+/** The effective PROMPT for an `agent`-binding tool. DECISION (documented in
+ *  docs/guide/Tools.md): an explicit `prompt:` wins; absent, `run:` is reused
+ *  VERBATIM as the prompt string — one primary instruction field per action note
+ *  regardless of binding, rather than forcing a second required key for a binding
+ *  that's structurally "one string, delegated to the host". Null when neither is
+ *  a non-empty string. */
+export function promptOf(note) {
+  if (nonEmptyStr(note?.prompt)) return note.prompt;
+  if (nonEmptyStr(note?.run)) return note.run;
+  return null;
+}
+
 // ── trigger (§I rung 4) — `on.kind` + the note-change filter grammar ──────────────
 // Exported so `grow/trigger.mjs` (the fire/blast-radius engine) reuses the SAME closed
 // kind set rather than re-declaring it — notes/ stays the schema source of truth,
@@ -150,7 +183,34 @@ export function validateNote(note, fields = []) {
     if (!RULE_ACTIONS.has(note.action)) errors.push(`a rule needs action ∈ deny|ask|allow (got ${JSON.stringify(note.action ?? null)})`);
     if (!nonEmptyStr(note.pattern)) errors.push('a rule needs a non-empty pattern');
   }
-  if (note.type === 'action' && !nonEmptyStr(note.run)) errors.push('an action needs a run command');
+  // a tool note's binding-appropriate invariant (§I.1/§I.6): shell needs `run:`
+  // (unchanged — the ONLY case that fired before `binding` existed); agent needs a
+  // resolvable prompt (`prompt:`, or `run:` reused as one — see promptOf above); mcp
+  // needs a full `{server, tool}` target. An explicit-but-invalid `binding:` value is
+  // its OWN error (never silently treated as shell) — that tolerance lives only in
+  // the runtime dispatch helper `bindingOf`, not at the write door.
+  if (note.type === 'action') {
+    if (note.binding != null && !ACTION_BINDINGS.has(note.binding)) {
+      errors.push(`an action's binding must be one of shell|agent|mcp (got ${JSON.stringify(note.binding)})`);
+    } else {
+      const binding = bindingOf(note);
+      if (binding === 'shell' && !nonEmptyStr(note.run)) errors.push('an action needs a run command');
+      else if (binding === 'agent' && !promptOf(note)) errors.push("an agent-binding action needs a prompt (a 'prompt' field, or 'run' reused as the prompt string)");
+      else if (binding === 'mcp') {
+        const mcp = note.mcp;
+        const ok = mcp && typeof mcp === 'object' && !Array.isArray(mcp) && nonEmptyStr(mcp.server) && nonEmptyStr(mcp.tool);
+        if (!ok) errors.push('an mcp-binding action needs mcp: {server, tool} (both non-empty)');
+      }
+    }
+  }
+  // secrets: DECLARED metadata only (§I.1.3/§J.3 — names never values; RESOLUTION into
+  // a run's env is a follow-on build, not this one) — a tool may name which secret
+  // NAMES it will need. Type-agnostic (like `relations`, below) — harmless on a
+  // non-action note, meaningful once a tool references it.
+  if (note.secrets != null) {
+    const ok = Array.isArray(note.secrets) && note.secrets.every((s) => typeof s === 'string' && s.trim() !== '');
+    if (!ok) errors.push("secrets must be a list of secret name strings (e.g. ['CLEARBIT_KEY'])");
+  }
   // relations: a map rtype → entry|entries; an OBJECT entry must carry a target
   if (note.relations != null) {
     if (typeof note.relations !== 'object' || Array.isArray(note.relations)) {
