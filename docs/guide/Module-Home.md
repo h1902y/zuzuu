@@ -12,7 +12,7 @@
 | `instructions/` | directive — who to BE | project steering |
 | `guardrails/` | protective — what NOT to do | **enforced** tool-call rules — see [[Guardrails]] |
 
-Each module is just a `module.md` manifest + `items/` + `proposals/`. They're generic — the difference between them is the manifest (its `note_type`, `enhance.goal`, the capabilities it exposes, and an optional typed-column **schema** that validates the module's notes — see [[Module Standard|Module-Standard]]). `init` seeds the guardrails module with the hard-won rules (no-root-wipe, no-secret-reads, confirm-force-push).
+Each module is just a `module.md` manifest + `items/` + `proposals/` — see [[Module Standard|Module-Standard]] for what "a module is generic" means and the schema grammar; this page is about what `init` actually **scaffolds** and why. `init` seeds the guardrails module with the hard-won rules (no-root-wipe, no-secret-reads, confirm-force-push) — the other four materialize on demand as the loop grows the Project, not pre-created empty.
 
 ## See it explained, any time
 ```bash

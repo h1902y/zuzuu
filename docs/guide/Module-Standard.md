@@ -1,6 +1,6 @@
 # The Module Standard — one envelope
 
-Everything in zuzuu is an **envelope**: a markdown body + YAML frontmatter, distinguished by `type`. A **note** is an envelope; a **module**'s manifest is the same envelope. There is no second format.
+Everything in zuzuu is an **envelope**: a markdown body + YAML frontmatter, distinguished by `type`. A **note** is an envelope; a **module**'s manifest is the same envelope. There is no second format. *(This page is the concept + the schema grammar. For what `zz init` actually scaffolds on disk — which modules exist from byte one vs. materialize on demand — see [[Module Home|Module-Home]].)*
 
 ```markdown
 ---
