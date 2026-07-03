@@ -767,3 +767,60 @@ Apollo 1ee9cb3d, Retool da762b17, Intercom cb6e5ce9.)
 50K-event cap → run-notes must stay compact/compactable); non-observable wait
 state (n8n HITL silent-fail reports → waits must be visible + alertable);
 over-wrapping primitives.
+
+## §I.6 — MCP-native: the project as a governed capability server (03-07)
+
+The runnability tension dissolves by adopting MCP's hierarchy instead of inventing
+one. The mapping is exact:
+
+- **Module = an MCP toolkit (server/toolset).** module.md = the toolkit manifest:
+  toolkit-level config, orchestration, triggers, global bindings. Multiple
+  toolkits = multiple tool-modules. (The user's "tool collection" module.)
+- **Tool note = an MCP tool.** Its FieldDefs ARE the tool's `inputSchema` (JSON
+  Schema). Its binding (§I.1: shell/mcp/agent) is how it runs. `type` decides the
+  exposure kind — this is the runnability answer: an ACTION/TOOL type exposes as a
+  TOOL (act); a KNOWLEDGE type exposes as a RESOURCE (read). No fusing run into
+  knowledge — knowledge exposes read-only, tools expose act. The `type` field is
+  the tool-vs-resource line, already present.
+- **Knowledge/library notes = MCP resources** (read). A saved view = a resource.
+- **Steering/digest notes = MCP prompts.**
+- **The daemon = the MCP server** (already exists: Hono, token-auth, WEBCODE_HOSTED
+  for remote). stdio local · HTTP/SSE remote.
+- **The "module collection" meta-module = tool discovery** (`tools/list`) — the
+  project's own manifest of what it exposes. (The user's "module collection" — make
+  the project's capability surface a first-class, queryable thing, not implicit.)
+
+**Bidirectional — the whole tool-boundary (§I.1) collapses into MCP:**
+- zuzuu as MCP CLIENT: a tool note binds an external MCP tool (consume the ecosystem).
+- zuzuu as MCP SERVER: the project EXPOSES its capabilities to other agentic systems.
+  On a server (fly), remote agents can operate it. THE PROJECT BECOMES A TOOL
+  PROVIDER TO THE WORLD.
+
+**The profound part — the gate becomes the multi-agent authorization boundary.**
+A remote agent is an `actor` like the local one: it may call read-tools and gated
+action-tools, but its brain-MUTATIONS can only PROPOSE (stage→review) — they queue
+for the human owner's approval. No MCP server anywhere has this: a capability
+surface other agents operate, where every durable change to the substrate is
+human-gated. The moat, which protected one project from one agent, generalizes to
+protect one project from MANY remote agents. This is the tiers doctrine's endgame:
+OSS = MCP/stdio local · Pro (fly) = MCP/HTTP remotely-operable · Enterprise = the
+control plane over many such servers + per-client identity/authz.
+
+**Challenges (honest):**
+- **Remote identity + per-client authz** — today actor is binary (operator/agent);
+  server-mode needs which-remote-client + what-it-may-call + audit + rate limit.
+  This is real new surface — and it IS the Enterprise control-plane seed.
+- **Async human-in-loop** — a remote agent's staged proposal is reviewed by the
+  owner; coherent, but a UX problem (who/when).
+- **Security surface explodes** — a remotely-operable server is a far bigger target
+  than a local CLI. This RETROACTIVELY VALIDATES the §I safety floor (timeouts,
+  fail-closed, redaction, exec-gate) — over-built for a laptop, exactly-right for
+  an exposed server.
+- **MCP churn** — young, evolving standard; binding tracks its changes. Reasonable
+  bet (emerging standard, Anthropic-native).
+
+Scope: post-merge, its own arc (the Pro/hosted + ecosystem chapter). But it is the
+NORTH STAR that makes sense of the daemon, the gate, the actor model, the tiers,
+and §I.1 all at once. Sequencing after merge: MCP client binding (§I.1 b) → MCP
+server (expose read tools + resources) → gated action-tools remotely → per-client
+authz (Enterprise). Every step keeps the gate as the boundary.
