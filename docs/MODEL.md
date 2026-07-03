@@ -120,8 +120,10 @@ prompt to the host over the ACP lane, but **ACP is daemon-only today**
 returns a structured `{ok:false, needsHost:true}` requirement rather than silently
 no-opping or headless-spawning a host session behind the interactive-first doctrine's
 back — a hosted daemon is the documented follow-on that actually dispatches it.
-**Composition** (`use/workflow.mjs`'s `note:` steps) resolves a target through the
-SAME `act()`, so a workflow can't bypass a tool's binding either. Full narrative:
+**Composition** (`use/workflow.mjs`'s Tier-0/1 `note:` steps AND `grow/run.mjs`'s
+Tier-2 durable-runner `note:` steps — two independent note-ref resolvers) both
+resolve a target through the SAME `act()`, so neither the synchronous nor the
+durable runner can bypass a tool's binding. Full narrative:
 [`docs/guide/Tools.md`](guide/Tools.md).
 
 ### The `.zuzuu/` directory — birth and evolution

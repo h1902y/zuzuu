@@ -78,6 +78,7 @@ import { evolve } from './evolve.mjs';
 import { runGated, act, MAX_TIMEOUT_S } from '../use/act.mjs';
 import { acquireRunLock, LOCK_GRACE_MS } from '../use/run-lock.mjs';
 import { runWorkflow, topoSort, splitAddr, workflowStaleAfterMs } from '../use/workflow.mjs';
+import { bindingOf } from '../notes/validate.mjs';
 
 export const RUNS_MODULE = 'runs';
 // no `retry:` declared on a step ⇒ this many total attempts (1 = no retry — the first
@@ -260,7 +261,14 @@ function runNoteRefStep(home, def, inputs, actor, runId, idempotencyKey) {
     const nested = runWorkflow(home, addr.module, addr.id, stepInputs, actor, { visited: new Set(), depth: 0, via });
     return { ran: Array.isArray(nested.steps), success: !!nested.ok, exitCode: nested.ok ? 0 : 1, error: nested.error };
   }
-  if (!target.run) return { ran: false, success: false, error: `note ref '${def.note}' is not runnable and not a workflow` };
+  // binding-aware, mirroring use/workflow.mjs's runNoteRefStep exactly (§I.1/§I.6): a
+  // target with no `run:` but an agent/mcp binding is NOT refused here — act() below
+  // dispatches it (or cleanly stubs/requires-a-host) through the real binding logic;
+  // only a target with neither `run:` nor a non-shell binding is truly not runnable.
+  const targetBinding = bindingOf(target);
+  if (!target.run && targetBinding !== 'agent' && targetBinding !== 'mcp') {
+    return { ran: false, success: false, error: `note ref '${def.note}' is not runnable and not a workflow` };
+  }
   const manifest = readManifest(home, addr.module);
   const r = act({ home, module: addr.module, manifest, actor, via }, addr.id, stepInputs);
   return { ran: r.ran, success: !!r.ok, exitCode: r.exitCode, denied: r.denied, timedOut: r.timedOut, error: r.error };

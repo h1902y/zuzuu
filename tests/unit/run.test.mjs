@@ -577,6 +577,34 @@ test('note-ref: a missing or non-runnable target fails the step cleanly (still t
   });
 });
 
+// ── note-ref: a target with a NON-shell binding (§I.1/§I.6) — the durable runner
+// dispatches through act(), never bypassing binding dispatch (the same fix as
+// use/workflow.mjs's Tier-0 runNoteRefStep, mirrored here for the Tier-2 runner) ──
+
+test('note-ref: a target that is an mcp-binding tool with NO run: dispatches the clean mcp stub, not "not runnable"', () => {
+  withRepo((home) => {
+    createNote(home, 'actions', 'send', { type: 'action', title: 'send email', binding: 'mcp', mcp: { server: 'gmail', tool: 'send' } });
+    putWorkflow(home, 'actions', 'flow', [{ id: 'call', note: 'actions:send' }]);
+    const { runId } = startRun(home, 'actions', 'flow');
+    const r = advanceRun(home, runId);
+    assert.equal(r.status, 'failed');
+    assert.match(r.error, /mcp binding.*not yet implemented/);
+    assert.doesNotMatch(r.error, /not runnable/);
+  });
+});
+
+test('note-ref: a target that is an agent-binding tool with NO run: dispatches the needsHost requirement, not "not runnable"', () => {
+  withRepo((home) => {
+    createNote(home, 'actions', 'enrich', { type: 'action', title: 'enrich lead', binding: 'agent', prompt: 'use your browser tool to …' });
+    putWorkflow(home, 'actions', 'flow', [{ id: 'call', note: 'actions:enrich' }]);
+    const { runId } = startRun(home, 'actions', 'flow');
+    const r = advanceRun(home, runId);
+    assert.equal(r.status, 'failed');
+    assert.match(r.error, /host session/);
+    assert.doesNotMatch(r.error, /not runnable/);
+  });
+});
+
 // ── durations ──────────────────────────────────────────────────────────────────────
 
 test('parseDurationMs: parses s/m/h/d suffixes and bare numbers; rejects garbage', () => {

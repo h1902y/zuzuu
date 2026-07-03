@@ -93,8 +93,10 @@ either way; the allowlist is an additional, OPTIONAL layer on top of it.
 
 ## Dispatch — what actually happens when you run one
 
-`zz act <module> <id>` (and a workflow's `note:` composition step, which resolves
-through the exact same path) dispatches by binding:
+`zz act <module> <id>` — and a `note:` composition step, whether in a synchronous
+Tier-0/1 workflow (`use/workflow.mjs`) or a Tier-2 durable run (`grow/run.mjs`,
+[Workflows](Workflows.md)'s third tier) — all resolve through the exact same
+`act()`, so no composition path can bypass binding dispatch:
 
 - **`shell`** (default) — the path that already existed: the guardrails gate, then
   the `run.allow` command-axis, then a clamped timeout, then the run is logged. See
