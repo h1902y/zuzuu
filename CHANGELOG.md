@@ -8,6 +8,49 @@ that history).
 ## [Unreleased]
 
 ### Added
+- **The SECRETS-DECLARATION model** (§J.3/§J.5, `docs/specs/2026-07-02-polish-
+  showcase-experience.md`): a `type: secret` note is a DECLARATION ONLY — `name` (the
+  env var) · `scope` (an allowlist of `module:x`/`tool:x`/`module:tool` callers) ·
+  `actor` (`operator-only` default, fail-closed | `agent-allowed`) · `resolves_from`
+  (`env` default | `secrets-file` | `fly` | `oidc`) · `rotation_note`/`sensitive`
+  (default `true`)/`last_used`. **THE enforced invariant**: `notes/validate.mjs`'s
+  write door REFUSES a `type: secret` note carrying ANY value-bearing field
+  (`value`/`secret`/`key`/`token`/`password`/`credential`, case-insensitive,
+  unconditionally) — the value can never be written to a note, through any write
+  path (`note create` · `note set` · `review approve` all funnel through
+  `notes/repo.mjs`'s one `writeNote`). Declarations live in a dedicated `secrets`
+  module (documented convention — §J.3's own framing; the refusal itself is
+  per-TYPE, so it holds regardless of placement). `use/secrets.mjs`'s
+  `resolveSecret(home, name, {caller, actor})` is the ONE reader of the host
+  store — pure, fs-only (no sqlite index dependency): find the declaration → SCOPE
+  check (an unlisted caller, including an absent/empty scope, is a resolution ERROR,
+  never a value) → ACTOR gate (`operator-only` refuses under an agent actor,
+  mirroring the guardrails gate's fail-closed posture) → the host VALUE
+  (`resolves_from: env`/`fly` read `process.env`; `secrets-file` reads the
+  `.zuzuu/secrets.env` DEV FALLBACK only — §J.5 retires it as the primary mechanism;
+  `oidc` honestly refuses to resolve locally — a per-run, host-side lane). `use/
+  act.mjs` wires this into a `secrets: [name]` tool's env-building — resolved BEFORE
+  the run starts (any failure refuses the WHOLE run, never a partial one) — and
+  substitutes the value into the child's env as `ZZ_<NAME>` (the browser-use
+  placeholder-injection pattern: an agent-run tool's context/inputs/return value
+  only ever see the NAME). `notes/log.mjs`'s `logRun` grows a `secretNames` option
+  that extends its redaction set with whatever those names resolved to in
+  `process.env`, so a declared secret's value is masked in `runs.jsonl` even under
+  an unrelated input key ("redact at the injection site"). A resolved secret's
+  `last_used` is touched by `serve/api.mjs`'s `act` wrapper (an operator-lane write
+  — `use/` itself never writes the Project, architecture rule 6) — best-effort, and
+  naturally a no-op for an agent-actor run (the write moat refuses a non-operator
+  commit). New read-only view: `zz secret list [--json]` (name · scope · actor ·
+  sensitive · resolves_from · last_used · a ✓/✗/n-a HOST AVAILABILITY probe — never
+  the value) · `zz secret show <name>` (metas only, never the value even for a
+  non-sensitive declaration) · `zz secret check` (a doctor for secrets — which
+  declared secrets are missing from the host, naming the exact set-command to fix
+  each). There is no `secret set`/`secret create` verb — creating a declaration
+  rides the ordinary `note create`/stage→review lanes (the value-refusal invariant
+  means neither can carry a value either), and setting the VALUE is always a
+  terminal call (`export`/`fly secrets set`/…), never a zuzuu-owned file. 707 → 763
+  tests. See `docs/guide/Secrets.md` for the full model + the host set-commands per
+  `resolves_from`.
 - **The TOOL + TOOLKIT model** (§I.6 MCP-native reading, `docs/specs/2026-07-02-
   polish-showcase-experience.md`): no new entity — a `type: action` note IS a tool,
   the module it lives in IS the toolkit, and a module's typed-column `fields` ARE

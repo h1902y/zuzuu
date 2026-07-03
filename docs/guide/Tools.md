@@ -52,13 +52,12 @@ telling the host what to do. Rather than force every agent-binding tool to carry
 second required field, it reuses `run:` as the prompt string when `prompt:` is
 absent. One primary instruction field, regardless of which binding reads it.
 
-**`secrets: [name]`** is DECLARED metadata only — a list of secret *names* a tool
-says it will need. **Nothing resolves them yet.** No value is read from anywhere,
-injected into a run, or checked against an allowlist; that's a follow-on build (see
-`docs/specs/2026-07-02-polish-showcase-experience.md` §J.3/§J.5 for the design —
-value never in the note, never in `runs.jsonl`, never in agent context). Today
-`secrets:` only round-trips and validates (a list of non-empty strings) so tool
-authors can start declaring what they'll need before resolution lands.
+**`secrets: [name]`** is a list of secret *names* a tool needs — RESOLVED (not just
+declared) as of §J.3/§J.5: at run time, `use/act.mjs` resolves each name through
+`use/secrets.mjs` against that name's own `type: secret` declaration (scope allowlist
++ operator-only/agent-allowed actor gate), then injects the real value into the
+child's env as `ZZ_<NAME>` — never into the note, `runs.jsonl`, or the tool's own
+`inputs`/return value. See [Secrets](Secrets.md) for the full model.
 
 ## `zz tool list` / `zz tool show` — the read-only view
 
@@ -125,11 +124,12 @@ Tier-0/1 workflow (`use/workflow.mjs`) or a Tier-2 durable run (`grow/run.mjs`,
 | Piece | Status |
 |---|---|
 | `binding` field + per-binding write-door validation | **built** |
-| `secrets: [name]` declaration + shape validation | **built** (declaration only) |
+| `secrets: [name]` declaration + shape validation | **built** |
 | `zz tool list` / `zz tool show` (the read-only view) | **built** |
 | shell binding dispatch | **built** (pre-existing, unchanged) |
 | mcp binding dispatch | **stubbed** — clean `{ok:false}`, no client |
 | agent binding dispatch (CLI) | **scoped honestly** — `{needsHost:true}`, no ACP client in-process |
 | agent binding dispatch (hosted daemon) | **not yet built** — the ACP lane exists daemon-side; wiring it to the tool-binding dispatch is a follow-on |
-| secrets RESOLUTION (env / secrets-file / fly / oidc) | **not built** — declared metadata only today |
+| secrets RESOLUTION (env / fly + a secrets-file dev fallback) | **built** — see [Secrets](Secrets.md) |
+| secrets RESOLUTION (oidc) | **not built** — a per-run, host-side lane; local CLI honestly refuses it |
 | a real MCP server (`tools/list`/`tools/call` served over HTTP/SSE) | **not built** — `zz tool list`/`show` is the CLI-side preview of that future shape |

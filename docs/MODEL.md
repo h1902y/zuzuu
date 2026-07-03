@@ -126,6 +126,41 @@ resolve a target through the SAME `act()`, so neither the synchronous nor the
 durable runner can bypass a tool's binding. Full narrative:
 [`docs/guide/Tools.md`](guide/Tools.md).
 
+### Secrets — declarations only; the value never in zuzuu's world (§J.3/§J.5)
+
+A `type: secret` note is a **DECLARATION**, never the credential — `name` (the env
+var), `scope` (an allowlist of `module:x`/`tool:x`/`module:tool` callers), `actor`
+(`operator-only` default | `agent-allowed`), `resolves_from` (`env` default |
+`secrets-file` | `fly` | `oidc`), plus `rotation_note`/`sensitive`/`last_used`. **The
+value can never be written to a note** — `notes/validate.mjs`'s write door refuses
+ANY `value`/`secret`/`key`/`token`/`password`/`credential` field on a `type: secret`
+note, case-insensitively, unconditionally — so the invariant holds through EVERY
+write path (`note create`, `note set`, `review approve`) since they all funnel
+through `notes/repo.mjs`'s one `writeNote`. By convention (§J.3's own framing)
+declarations live in a dedicated `secrets` module; `use/secrets.mjs`'s resolver only
+looks there, though the write-door refusal applies to a `type: secret` note
+regardless of placement (a per-**type** invariant, like every other one in that
+file). **§J.5's refinement**: zuzuu never invents a secret STORE — the value is
+TERMINAL-managed per environment (`export` locally, `fly secrets set` remotely, a
+dev-only `.zuzuu/secrets.env` fallback) and read straight from `process.env` at
+resolve time; zuzuu holds only the metas. `use/secrets.mjs`'s `resolveSecret(home,
+name, {caller, actor})` is the ONE reader of the host store — pure, fs-only (no
+sqlite dependency): find the declaration → **scope** check (an unlisted caller is a
+resolution ERROR, never a value — fail-closed on an absent/empty scope too) →
+**actor** gate (`operator-only` refuses under an agent actor, mirroring the
+guardrails gate's fail-closed posture) → the host value. **Placeholder injection**
+(the browser-use pattern): a tool's `secrets: [name]` list resolves in
+`use/act.mjs` BEFORE the run starts (any failure refuses the WHOLE run, never a
+partial one) and lands in the child's env as `ZZ_<NAME>` — never in `inputs`, the
+return value, or an agent's context; `notes/log.mjs`'s `logRun` additionally masks
+those names' resolved values out of `runs.jsonl` even under an unrelated input key
+("redact at the injection site" — transformation defeats post-hoc masking). `zz
+secret list` / `show` / `check` are the read-only view (metas + a ✓/✗ host
+availability probe — NEVER the value, not even for a non-sensitive declaration);
+there is no `secret set` — setting a value is always a terminal call, documented per
+`resolves_from`, not a zuzuu-owned file. Full narrative:
+[`docs/guide/Secrets.md`](guide/Secrets.md).
+
 ### The `.zuzuu/` directory — birth and evolution
 
 A Project is a *directory*, and a **git-citizen**: zuzuu plants `.zuzuu/` at the repo's git
