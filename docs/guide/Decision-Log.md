@@ -165,3 +165,120 @@ agent-shellable read and a write behind its flag would hole the generated
 execution gate); registry content digests are floor-normalized so a landed
 subscription never reads as false local-edit drift; a schema declaring `title`
 as required is satisfiable by construction now.
+
+## 03-07-2026 — Tool-as-type, MCP-native: no new entity
+
+A `type: action` note **is** a tool; the module it lives in **is** the toolkit;
+a module's typed-column `fields` **are** the tool's `inputSchema`. No new
+entity was minted to get there — the MCP hierarchy (toolkit/tool/inputSchema)
+maps exactly onto the existing note/module/schema one. A tool declares **how**
+it runs with a `binding: shell | agent | mcp` field (absent = `shell`, full
+back-compat with every existing `run:` action note).
+
+Rationale: adopting MCP's vocabulary instead of inventing a parallel one keeps
+the moat's shape — the write boundary and the review gate don't change to
+accommodate "tools," because a tool was never a different kind of thing. It
+also sets up the north-star direction (§I.6): the daemon already *is* an
+MCP-shaped server (Hono, token-auth); a real `tools/list`/`tools/call` surface
+is a follow-on, not a redesign.
+
+Status: **shipped** — `binding` + `zz tool list`/`show` (`shell` dispatch
+built; `mcp` a clean stub; `agent` honestly returns `needsHost:true`, no
+CLI-side ACP client). See `docs/specs/2026-07-02-polish-showcase-experience.md`
+§I.6 and [[Tools]].
+
+## 03-07-2026 — Secrets: a declaration, never a value, enforced at the write door
+
+A `type: secret` note names an env var, who may resolve it (`scope`), how
+strictly (`actor: operator-only | agent-allowed`), and where its value lives
+(`resolves_from: env | secrets-file | fly | oidc`) — never the value itself.
+The invariant is enforced, not just documented: the write door (`notes/
+validate.mjs`) REFUSES any secret-shaped field on a `type: secret` note,
+unconditionally, at every write path (`note create`, `stage`, `review
+approve` all funnel through the one `writeNote`).
+
+Rationale: three external systems (GitHub Copilot's branch-gate, GitHub
+Environment Protection Rules, MCP's own OAuth-≠-authorization stance)
+independently validate the same shape zuzuu already had — a declaration is
+data, resolution is a runtime concern, and the dangerous thing (the
+credential) is gated at the resource, not the caller. Delegating value
+storage to the host (env / `fly secrets` / a keychain export) rather than
+inventing a zuzuu-owned vault keeps the surface "borrowed, not invented" and
+means there is no encrypted store to build or leak.
+
+Status: **shipped** — declarations, the write-door refusal, scope+actor
+gating, and placeholder injection (`ZZ_<NAME>`, the browser-use pattern) are
+built; `oidc` resolution is accepted at the write door but honestly refused
+locally (a host-side, per-run lane); cross-project secret sharing is
+unbuilt. See `docs/specs/2026-07-02-polish-showcase-experience.md` §J.3/§J.5
+and [[Secrets]].
+
+## 03-07-2026 — The durable runner: the run is a note, at-least-once, never "exactly-once"
+
+A `type: run` note is the whole state machine — which step is next, attempts,
+what it's waiting on. `zz run advance` does ONE thing per call: read the
+note, execute exactly one ready step through the same gated `act()` every
+other run uses, write the note back. No daemon, no timer, no long-lived
+process; a multi-day human wait is just a note sitting at `status: waiting`.
+
+Rationale: an earlier framing considered building a workflow *execution
+engine* (durable, concurrent, exactly-once) — that's Temporal's decade-hard
+problem, and every adversarial scenario in the break book (a 3-day human
+step, a crash mid-run, a retried side effect) attacked exactly that claim.
+The inversion that survived: zuzuu is a **control plane** — it owns the
+definition, the governance (gate, generations, provenance), and the state
+(runs-as-notes); execution stays a short-lived, stateless worker advancing
+durable state that already exists (notes + git). Durability comes from the
+substrate, not from process supervision — honestly **at-least-once**, never
+"exactly-once," with `idempotency_key`s so a downstream system can dedupe if
+it wants to.
+
+Status: **shipped** — `zz run start/advance/signal/complete`, generation
+pinning (an in-flight run never floats to an edited workflow definition),
+retry + saga compensation (stopping honestly at an `irreversible: true`
+step). See `docs/specs/2026-07-02-polish-showcase-experience.md`
+§I.3/§I.4 and [[Workflows]].
+
+## 03-07-2026 — Triggers as notes: naming an automation adds no new authority
+
+A `type: trigger` note NAMES an automation — `on: {kind, …}` + `run:
+<workflow>` + `enabled: bool` — and firing one is exactly `zz run start`
+under a name. It is explicitly **not** a scheduler: no unattended cron
+auto-fire, no ingress webhooks, no note-change auto-firing locally. A
+trigger can be reviewed-in (staged, approved) and still stay inert until a
+human runs `zz trigger enable` — the second gate.
+
+Rationale: the safety-floor-first sequencing (§I's gap ladder) put triggers
+behind the run safety floor deliberately — an unattended automation with no
+timeout, no fail-closed gate, and no blast-radius preview would be an
+incident waiting to happen, not a feature. `trigger show`/`fire --dry-run`
+compute the CURRENT matches of a `note-change` filter before anything fires
+(Apollo's "current matches: N" pattern) — the safety affordance that makes
+"automation as data" trustworthy rather than just convenient. A laptop must
+not fire triggers unattended; that boundary is honest, not a stopgap.
+
+Status: **shipped, manual-fire only** — `zz trigger list/show/fire/enable/
+disable`, the blast-radius preview, the exec-gate that denies an agent
+actor. Cron auto-fire and ingress webhooks are hosted-tier, deferred. See
+`docs/specs/2026-07-02-polish-showcase-experience.md` §I rung 4 and
+[[Workflows]].
+
+## 03-07-2026 — Flow: the third projection, read-only on purpose
+
+`[Table · Map · Flow]` — a `type: workflow` note's `steps:` render as a
+topological left→right DAG (dependency order is meaning; never force
+physics), with its runs (`type: run` notes) overlaid live via the same
+brain-state push the map's ghost nodes already use.
+
+Rationale: "a process is a note" only pays off if the DAG is visible — this
+is the moat rendered for process the way the World renders it for data. Read-
+only this pass was a deliberate scope cut: no run-control buttons (advance/
+signal/complete stay `zz run …`), no canvas editing (a workflow's steps
+change through the omnibar/gate, never by dragging a node) — the same
+doctrine that keeps the note detail view read-only (§H.1) applied to process.
+
+Status: **shipped, read-only** — the DAG, the run overlay, live updates.
+Trigger blast-radius preview inside Flow, ghost edges for a staged workflow
+edit, and a Gantt latency timeline are deferred. See
+`docs/specs/2026-07-02-polish-showcase-experience.md` §I rung 5 and
+[[Flow View|Flow-View]].
