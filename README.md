@@ -32,7 +32,7 @@ zz observe                 # mine your real sessions → evidence-backed proposa
 zz review                  # see what it learned, ranked
 zz review approve knowledge <id>   # the human gate — the note lands, a generation mints
 
-zz host web                # the workbench: your project as a living map (the World)
+zz host web                # the workbench — one screen, World · Table · Flow, reached through ⌘K
 ```
 
 Your own rows never wait for a gate:
@@ -50,7 +50,10 @@ zz module import crm --csv leads.csv                                 # one gener
 | **Modules as tables** | a module is a table, a note is a row; typed columns with `required`/`options`/`default`/`label`, **computed columns** (`dateAdd`) derived at index time — [guide](docs/guide/Modules-as-Tables.md) |
 | **Query v2** | FTS + graph walks + `--where k>=v` ranges + `--group-by --agg` rollups + saved **views as notes** (`zz query --view m:id`) — all in SQL, zero-dep `node:sqlite` |
 | **Two write lanes** | you: instant `note create/delete/set`, CSV/JSON import. The agent: `stage → review` only, enforced in-process AND at the shell — [why](docs/guide/Two-Lanes.md) |
-| **The World** | `zz host web` — your whole project as a force-directed map: module islands, semantic zoom, and **pending proposals as ghost nodes** that solidify when you approve — [guide](docs/guide/The-World.md) |
+| **The workbench: World · Table · Flow** | `zz host web` — one screen, no dashboard of pages: the **World** (a force-directed map, module islands, **pending proposals as ghost nodes** that solidify when you approve), the **Table** (a schema-aware grid), and **Flow** (a workflow's DAG + its runs, live) — three projections of the same data, reached through the omnibar (`⌘K`) — [World](docs/guide/The-World.md) · [omnibar](docs/guide/Omnibar.md) · [Flow](docs/guide/Flow-View.md) |
+| **Tools + toolkits** | no new entity: a module **is** a toolkit, an action note **is** a tool, MCP-native by design (`zz tool list/show`). A tool declares how it runs — `binding: shell` is the original, still-default path; `agent` cleanly reports it needs a host session (no fake success); `mcp` is an honest stub, not wired yet — [guide](docs/guide/Tools.md) |
+| **The execution substrate** | three honestly-tiered ways to run a procedure: `zz act`/`zz note flow` (synchronous, seconds), `zz run start`/`zz run advance` (a **durable runner** — the run *is* a note, so a multi-day human wait is just a row), and `zz trigger` (names an automation as a gated, versioned note — fired explicitly today, no unattended scheduler yet) — [guide](docs/guide/Workflows.md) |
+| **Secrets** | a `type: secret` note is a **declaration only** — name, who may resolve it, how strictly. The value lives on your host (env var, `fly secrets`, a keychain export) and is never written into a note, a log, or an agent's context — [guide](docs/guide/Secrets.md) |
 | **Git-native versions** | every approve/create mints a **generation = a git commit**; `zz gen rollback` is forward motion; sync is `git push` |
 | **Observe, don't drive** | zuzuu re-parses the transcript your host already wrote — it never wraps or steers the agent; adding a host is one adapter file |
 
@@ -59,7 +62,7 @@ zz module import crm --csv leads.csv                                 # one gener
 | concern | borrowed thesis |
 |---|---|
 | the file format | **OKF** — `type` the only required field; tolerate + preserve unknown keys |
-| running an action safely | **Anthropic's sandbox-runtime** — advisory · contained · sandboxed tiers + a `run.allow` command-axis |
+| running an action safely | **Anthropic's sandbox-runtime** — the tiering *idea*; shipped today is a policy gate + a `run.allow` command-axis, not OS-level sandboxing (that tier was reserved, never wired, and was removed rather than ship a flag that doesn't isolate) — see [Guardrails](docs/guide/Guardrails.md) |
 | sessions & versions | **git's object model** — session = branch, generation = commit, rollback = `git restore` (no parallel blob store) |
 | the query store | **`node:sqlite`** — FTS5 + recursive-CTE graph walks over your markdown, rebuilt on demand, zero-dep |
 
@@ -87,6 +90,7 @@ Five hosts ship, each built against that host's real on-disk format: **Claude Co
 | [**docs/README.md**](docs/README.md) | the doc index — start here |
 | [**docs/MODEL.md**](docs/MODEL.md) | the canonical model: the four planes, every load-bearing term |
 | [**docs/guide/**](docs/guide/) | the user wiki — getting started, tables, lanes, the World, recipes |
+| [`docs/guide/Recipe-Personal-Vault.md`](docs/guide/Recipe-Personal-Vault.md) | the flagship recipe — a real 277-note personal vault, non-coding, driven by conversation |
 | [`docs/LOG.md`](docs/LOG.md) | the build journal (append-only; every capability verified on real sessions) |
 | [`docs/DESIGN.md`](docs/DESIGN.md) | strategy & rationale |
 | [`CHANGELOG.md`](CHANGELOG.md) | releases |
