@@ -12,12 +12,18 @@
 //       event is one validated JSON line. Fail-soft: a logging failure never
 //       breaks the operation it records.
 //
-// SECRETS REDACTION (safety floor, §I rung 3): runs.jsonl is local telemetry, not a
-// vault — but a run's `inputs` (ZZ_* env values, see use/act.mjs) can carry a key or
-// token, and this log is exactly the sort of file that gets pasted into a bug report
-// or grepped by a future agent. `logRun` redacts a COPY of inputs before writing —
-// the child process still gets the real, unredacted values (use/act.mjs's env build
-// is untouched); only the logged text changes.
+// SECRETS REDACTION (safety floor, §I rung 3, extended for §J.3/§J.5 declared secrets):
+// runs.jsonl is local telemetry, not a vault — but a run's `inputs` (ZZ_* env values,
+// see use/act.mjs) can carry a key or token, and this log is exactly the sort of file
+// that gets pasted into a bug report or grepped by a future agent. `logRun` redacts a
+// COPY of inputs before writing — the child process still gets the real, unredacted
+// values (use/act.mjs's env build is untouched); only the logged text changes. The
+// redaction VALUE set is TWO sources: the dev-fallback `secrets.env` file
+// (`readSecretValues`) and, since §J's declared-secret resolution, whatever a tool's
+// OWN `secrets: [name]` declaration just resolved to in `process.env`
+// (`readDeclaredSecretEnvValues`, threaded in as `logRun`'s `secretNames` option) — a
+// declared secret's real value is masked here even if it rides in under an unrelated
+// input key, never only by the key-shape heuristic.
 
 import { existsSync, appendFileSync, readFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -57,18 +63,16 @@ export function redactInputs(inputs, secretValues = []) {
 }
 
 /**
- * Read secret VALUES (never names) from `<ephemera>/secrets.env` (KEY=value lines,
- * one per line, gitignored — §I.1.3's secrets doctrine: notes reference names,
- * values resolve at run time). `<ephemera>` is `ephemeraDirFromHome(home)` — in
- * classic mode `home` already IS `.zuzuu`, so this coincides with the old
- * `<home>/secrets.env`; in root-mode `home` is the repo root, so this resolves to
- * `<root>/.zuzuu/secrets.env` (gitignored) instead of the un-gitignored
- * `<root>/secrets.env` a bare `join(home, ...)` would have produced. Fail-soft → []
- * when the file is missing, empty, or unreadable — a run must never fail because its
- * secrets file couldn't be read for redaction purposes (the child's own env read, in
- * use/act.mjs, is separate and untouched by this).
+ * Parse `<ephemera>/secrets.env` (KEY=value lines, one per line, gitignored) into
+ * `[key, value]` pairs — the ONE parser both `readSecretValues` (redaction, values
+ * only) and `readSecretsFileValue` (§J.5's dev-fallback `resolves_from:
+ * secrets-file` reader, one named key) read. `<ephemera>` is `ephemeraDirFromHome(home)`
+ * — in classic mode `home` already IS `.zuzuu`; in root-mode `home` is the repo root,
+ * so this resolves to `<root>/.zuzuu/secrets.env` (gitignored), never the
+ * un-gitignored `<root>/secrets.env` a bare `join(home, ...)` would produce.
+ * Fail-soft → [] when the file is missing, empty, or unreadable.
  */
-export function readSecretValues(home) {
+function parseSecretsFile(home) {
   const path = join(ephemeraDirFromHome(home), 'secrets.env');
   if (!existsSync(path)) return [];
   try {
@@ -76,11 +80,42 @@ export function readSecretValues(home) {
       .split('\n')
       .map((line) => line.trim())
       .filter((line) => line && !line.startsWith('#'))
-      .map((line) => { const i = line.indexOf('='); return i === -1 ? null : line.slice(i + 1).trim(); })
-      .filter((v) => v);
+      .map((line) => { const i = line.indexOf('='); return i === -1 ? null : [line.slice(0, i).trim(), line.slice(i + 1).trim()]; })
+      .filter(Boolean);
   } catch {
     return [];
   }
+}
+
+/**
+ * Read secret VALUES (never names) from `<ephemera>/secrets.env` — §I.1.3's secrets
+ * doctrine: notes reference names, values resolve at run time. A run must never fail
+ * because its secrets file couldn't be read for redaction purposes (the child's own
+ * env read, in use/act.mjs, is separate and untouched by this).
+ */
+export function readSecretValues(home) {
+  return parseSecretsFile(home).map(([, v]) => v).filter((v) => v);
+}
+
+/** Read ONE named value from the `.zuzuu/secrets.env` dev-fallback file (§J.5:
+ *  `resolves_from: secrets-file` — kept ONLY as a local-dev convenience, never the
+ *  primary host mechanism; see docs/guide/Secrets.md). `undefined` when the file is
+ *  absent or the key isn't in it — never throws. */
+export function readSecretsFileValue(home, name) {
+  const hit = parseSecretsFile(home).find(([k]) => k === name);
+  return hit ? hit[1] : undefined;
+}
+
+/** Read secret VALUES the host already materialized into `process.env` for a list of
+ *  DECLARED secret NAMES (§J.5: `resolves_from: env`/`fly` both bottom out in reading
+ *  `process.env[name]` — fly injects at boot, so there's no separate "get" call).
+ *  Used ONLY for redaction (the injection site's own record of what it just put into a
+ *  run's env — see act.mjs) — never a general env scan. Fail-soft, never throws. */
+export function readDeclaredSecretEnvValues(names = []) {
+  if (!Array.isArray(names)) return [];
+  return names
+    .map((n) => (typeof n === 'string' ? process.env[n] : undefined))
+    .filter((v) => v !== '' && v != null);
 }
 
 /** Append one event to the right file by kind. Fail-soft — returns ok/false. */
@@ -110,9 +145,15 @@ export function append(home, module, event) {
  *  workflow that triggered it without every existing reader having to learn a new
  *  always-present field. `inputs` is redacted (see `redactInputs` above) before it is
  *  written — the LOGGED copy only; the run itself already happened with the real
- *  values. */
-export function logRun(home, module, note, { inputs = {}, exitCode, success, ts, actor = 'agent', session = null, timedOut, via } = {}) {
-  const safeInputs = redactInputs(inputs, readSecretValues(home));
+ *  values. `secretNames` (§J.3/§J.5, optional — a tool note's OWN `secrets: [name]`
+ *  declaration list, threaded by act.mjs) extends the value-redaction set with
+ *  whatever those names currently resolve to in `process.env` — "redact at the
+ *  INJECTION site" (transformation defeats post-hoc masking): the values that just
+ *  entered THIS run's env are exactly what must never survive into its log entry,
+ *  even under an unrelated, innocuous input key. Omitted/empty ⇒ no change from before. */
+export function logRun(home, module, note, { inputs = {}, exitCode, success, ts, actor = 'agent', session = null, timedOut, via, secretNames = [] } = {}) {
+  const secretValues = [...readSecretValues(home), ...readDeclaredSecretEnvValues(secretNames)];
+  const safeInputs = redactInputs(inputs, secretValues);
   const event = { event: 'run', ts: ts ?? null, note, actor, session, inputs: safeInputs, exitCode, success };
   if (timedOut) event.timedOut = true;
   if (via) event.via = via;
