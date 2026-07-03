@@ -57,7 +57,7 @@ declared) as of §J.3/§J.5: at run time, `use/act.mjs` resolves each name throu
 `use/secrets.mjs` against that name's own `type: secret` declaration (scope allowlist
 + operator-only/agent-allowed actor gate), then injects the real value into the
 child's env as `ZZ_<NAME>` — never into the note, `runs.jsonl`, or the tool's own
-`inputs`/return value. See [Secrets](Secrets.md) for the full model.
+`inputs`/return value. See [[Secrets]] for the full model.
 
 ## `zz tool list` / `zz tool show` — the read-only view
 
@@ -94,12 +94,12 @@ either way; the allowlist is an additional, OPTIONAL layer on top of it.
 
 `zz act <module> <id>` — and a `note:` composition step, whether in a synchronous
 Tier-0/1 workflow (`use/workflow.mjs`) or a Tier-2 durable run (`grow/run.mjs`,
-[Workflows](Workflows.md)'s third tier) — all resolve through the exact same
+[[Workflows]]'s third tier) — all resolve through the exact same
 `act()`, so no composition path can bypass binding dispatch:
 
 - **`shell`** (default) — the path that already existed: the guardrails gate, then
   the `run.allow` command-axis, then a clamped timeout, then the run is logged. See
-  [Workflows](Workflows.md) and [Two Lanes](Two-Lanes.md) for the full safety floor.
+  [[Workflows]] and [[Two Lanes|Two-Lanes]] for the full safety floor.
 - **`mcp`** — **STUBBED.** Returns `{ok:false, error:'mcp binding: client not yet
   implemented (follow-on build)'}`. No fake success, no silent no-op. The MCP client
   (dialing an actual server, mapping inputs to its tool args) is a separate,
@@ -130,6 +130,6 @@ Tier-0/1 workflow (`use/workflow.mjs`) or a Tier-2 durable run (`grow/run.mjs`,
 | mcp binding dispatch | **stubbed** — clean `{ok:false}`, no client |
 | agent binding dispatch (CLI) | **scoped honestly** — `{needsHost:true}`, no ACP client in-process |
 | agent binding dispatch (hosted daemon) | **not yet built** — the ACP lane exists daemon-side; wiring it to the tool-binding dispatch is a follow-on |
-| secrets RESOLUTION (env / fly + a secrets-file dev fallback) | **built** — see [Secrets](Secrets.md) |
+| secrets RESOLUTION (env / fly + a secrets-file dev fallback) | **built** — see [[Secrets]] |
 | secrets RESOLUTION (oidc) | **not built** — a per-run, host-side lane; local CLI honestly refuses it |
 | a real MCP server (`tools/list`/`tools/call` served over HTTP/SSE) | **not built** — `zz tool list`/`show` is the CLI-side preview of that future shape |

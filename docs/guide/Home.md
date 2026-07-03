@@ -1,6 +1,6 @@
 # zuzuu
 
-**Your project directory becomes the coding agent's memory and toolkit — plain markdown notes it queries, runs, and grows from how you actually work, every change human-gated.** Zero dependencies.
+**Your project directory becomes the coding agent's memory and toolkit — plain markdown notes it queries, runs, and grows from how you actually work, every agent change human-gated.** Zero dependencies.
 
 ```bash
 npm install -g @zuzuucodes/cli
@@ -13,7 +13,7 @@ zz host code                     # (alias: zz code)
 
 One file format underlies the whole system: a **markdown body + YAML frontmatter**, distinguished by `type`. A **note** is one such file — one fact, optionally runnable. A **module** is a goal-shaped folder of notes; a **project** is the `.zuzuu/` home. The hierarchy is **note › module › project**.
 
-You **query** what's true, **act** on what runs, **check** integrity; zuzuu **observes** your sessions and proposes; you **review** every write. Four verbs over plain files.
+You **query** what's true, **act** on what runs, **check** integrity; zuzuu **observes** your sessions and proposes; you **review** what it proposes — and create/edit/delete your own rows directly, instantly, no review needed ([[Two Lanes|Two-Lanes]]). Four verbs over plain files, two write lanes.
 
 ## This wiki
 
@@ -33,13 +33,43 @@ The **extended user guide** — how-tos, per-host detail, troubleshooting. The r
 
 ## Pages
 
+<!-- page list — keep in sync with docs/guide/README.md's canonical list and _Sidebar.md -->
+
+**Start here**
 - [[Getting Started]] — install → init → your first proposals
-- [[Workbench]] — the visual way to run zuzuu (`zz host web`)
 - [[Module Standard]] — one envelope, every note and module
 - [[Module Home]] — what `zz init` scaffolds and why
-- [[Knowledge]] — notes, query-on-demand, the review gate
+
+**Your data**
+- [[Modules as Tables|Modules-as-Tables]] — schema, computed columns, views, import/export
+- [[Two Lanes|Two-Lanes]] — instant for you, gated for the agent
+- [[Knowledge]] — notes, query-on-demand, the two write lanes
 - [[Guardrails]] — enforced rules on tool calls
-- Host guides: [[Claude Code]] · [[Codex]] · [[Gemini CLI]] · [[OpenCode]] · [[pi]]
-- [[Troubleshooting]] — `zz doctor` and the usual suspects
+
+**Automation & execution**
+- [[Tools]] — the toolkit/tool model (MCP-native)
+- [[Secrets]] — secret declarations, resolution, redaction
+- [[Workflows]] — three execution tiers + the durable runner + triggers
+
+**The visual surface**
+- [[The World|The-World]] — your project as a living map
+- [[Flow View|Flow-View]] — a workflow's DAG + its runs, live
+- [[The Omnibar|Omnibar]] — the one input that runs the workbench
+- [[Observability]] — log.jsonl/generations/module.md, explained
+- [[Workbench]] — the visual way to run zuzuu (`zz host web`)
+- [[Daemon & API|Daemon-API]] — the HTTP/WS surface
+
+**Hosts**
+- [[Claude Code]] · [[Codex]] · [[Gemini CLI]] · [[OpenCode]] · [[pi]]
+
+**Recipes**
+- [[Personal Vault|Recipe-Personal-Vault]] — a real 277-note non-coding vault
+
+**Reference**
 - [[Glossary]] — the words zuzuu uses, in plain terms
+- [[Troubleshooting]] — `zz doctor` and the usual suspects
 - [[Roadmap]] — where this is going
+
+**Project**
+- [[Decision Log]] — the committed-decisions list
+- [[Inspiration Log]] — prior art, honestly scoped

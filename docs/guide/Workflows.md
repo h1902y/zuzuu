@@ -9,7 +9,7 @@ which of three tiers you invoke — pick the cheapest one that fits the job.
 | **0/1 · flow** | `zz note flow` | a WHOLE DAG, synchronous, one process | a multi-step procedure that finishes in seconds |
 | **2 · durable run** | `zz run start` / `zz run advance` | a DAG that PAUSES — hours or days — as a note | a procedure with a human step, an external wait, or anything that must survive a crash between steps |
 
-Tiers 0/1 are covered in [Two Lanes](Two-Lanes.md) and the `act`/`flow` verbs. This
+Tiers 0/1 are covered in [[Two Lanes|Two-Lanes]] and the `act`/`flow` verbs. This
 page is Tier 2 — **the durable runner**.
 
 ## The core idea: the run is a note
