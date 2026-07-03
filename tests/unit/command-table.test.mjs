@@ -52,9 +52,10 @@ const SWITCH_VERBS = [
 // the newest addition — list/show/fire/enable/disable, a cold/niche noun exactly like
 // `run`/`gen`, never a hot-loop flat verb. `tool` (§I.6, the toolkit/tool VIEW) is the
 // same shape: `tool list`/`tool show`, read-only, a cold noun beside `module`/`note`.
-// `secret` (§J.3/§J.5) is the same shape again: `secret list`/`show`/`check`,
+// `secret` (§J.3/§J.5) is a similar shape: `secret list`/`show`/`check` are
 // read-only — there is no `secret set`, since the VALUE is terminal-managed, never a
-// zuzuu-stored thing (creating a declaration rides the ordinary `note create` lane).
+// zuzuu-stored thing. `secret declare` is its one write leaf — operator-lane
+// AUTHORING sugar over `note create`, typed for a declaration's metas, no value flag.
 const NAMESPACES = ['gen', 'host', 'module', 'note', 'registry', 'run', 'secret', 'session', 'tool', 'trigger'];
 
 /** Resolve a row to the handler it ultimately runs (following an `alias` pointer). */

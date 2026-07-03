@@ -51,6 +51,25 @@ that history).
   terminal call (`export`/`fly secrets set`/…), never a zuzuu-owned file. 707 → 763
   tests. See `docs/guide/Secrets.md` for the full model + the host set-commands per
   `resolves_from`.
+- **`zz secret declare <name>` — an authoring-ergonomics fix for a SCOPED
+  declaration.** `zz note create secrets <id> --type secret --field 'scope=[tool:x]'`
+  landed `scope` as the raw STRING `"[tool:x]"`, not a list — the (correct) write-door
+  scope validation then refused it — because `--field`'s schema-aware coercion
+  (`grow/edit.mjs`'s `coerceForField`) only turns a comma/bracket string into a list
+  for a column the module's manifest already declares `multi` (`zz module add-column
+  secrets scope multi`), so a scoped secret couldn't be authored from the CLI without
+  minting that column first. `secret declare` is operator-lane sugar over the SAME
+  `note create` write door (validated · logged · minted; the value-refusal invariant
+  is untouched) — `--scope tool:x,module:y` (comma AND/OR repeatable) builds a real
+  list itself, sidestepping `--field` entirely, so no module/column ceremony is
+  required first. `--actor` (default `operator-only`), `--resolves-from` (default
+  `env`), `--rotation`, `--sensitive` (default `true`), `--id` (defaults to a
+  slugified `name`), `--force` round out the surface. It has **no value flag at
+  all** — the invariant isn't just enforced here, it's structurally unreachable
+  from this verb's argument surface. Same relationship `zz module new` has to a
+  raw manifest create: authoring sugar over an existing write path, not a new one.
+  782 → 786 tests. `docs/guide/Secrets.md`'s authoring section shows the working
+  command.
 - **The TOOL + TOOLKIT model** (§I.6 MCP-native reading, `docs/specs/2026-07-02-
   polish-showcase-experience.md`): no new entity — a `type: action` note IS a tool,
   the module it lives in IS the toolkit, and a module's typed-column `fields` ARE

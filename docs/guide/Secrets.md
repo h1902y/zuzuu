@@ -60,21 +60,47 @@ ever looks there; a `type: secret` note minted elsewhere is still write-door-saf
 every other type-keyed invariant in `notes/validate.mjs` uses) but the resolver
 won't find it.
 
-Mint the module once for the nicer typed-column CLI sugar (`--field scope=a,b`
-coerces to a list instead of landing as one string):
+Minting the module manifest first is optional — no longer required to author a
+*scoped* declaration ergonomically (see `zz secret declare` below).
+
+### The operator lane: `zz secret declare` — the AUTHORING helper
 
 ```bash
-zz module new secrets --title Secrets --tagline "Declared secrets — the value lives on the host, never here"
-zz module add-column secrets scope multi
+zz secret declare OPENAI_API_KEY \
+  --scope module:library,tool:digest-fetch --actor operator-only --rotation "rotate quarterly · owner: hkc"
 ```
 
-Then declare one — through the SAME two paths every other note uses, no special
-verb:
+`zz secret declare <name> [--id id] [--scope tool:x,module:y] [--actor
+operator-only|agent-allowed] [--resolves-from env|secrets-file|fly|oidc] [--rotation
+text] [--sensitive true|false] [--force]` builds the `type: secret` DECLARATION note
+for you, correctly typed — `--scope` (comma-separated AND/OR repeatable: `--scope a,b
+--scope c` all land in one list) is the fix for the gap `--field` has: `zz note create
+secrets <id> --type secret --field 'scope=[tool:x]'` lands `scope` as the raw STRING
+`"[tool:x]"`, not a list, because `--field`'s schema-aware coercion (a comma/bracket
+string → an array) only fires for a column the module's manifest ALREADY declares as
+`multi` (`zz module add-column secrets scope multi`, above) — so a *scoped* secret
+couldn't be authored from the CLI without minting that column first. `secret declare`
+never goes through `--field` at all, so there's no column to mint first. `id` defaults
+to a slugified `name` (`OPENAI_API_KEY` → `openai-api-key`); `--id` overrides it.
+`actor` defaults `operator-only`, `resolves_from` defaults `env`, `sensitive` defaults
+`true` — all written explicitly onto the note, so `zz secret show` displays the
+effective values even when you didn't spell them out.
+
+**This is authoring sugar, not a second write-authority path** — same relationship
+`zz module new` has to a raw manifest create. It rides the identical operator-lane
+write door (`note create`'s: validated, logged, minted) `zz note create` does, and it
+has **no value flag, ever** — there is nothing in its argument surface that could even
+accidentally carry a credential, so the invariant below isn't just enforced, it's
+structurally unreachable from this verb.
+
+### Either lane — the operator's `note create` / `secret declare`, or the agent's stage→review
 
 ```bash
-# the operator lane — instant, still validated + logged + minted
+# the operator lane, the general form (no schema-coercion gotcha if you stick to
+# --change JSON; --field needs a `multi` column minted first for a scoped list — see
+# `zz secret declare` above for the ergonomic fix)
 zz note create secrets openai-key --type secret \
-  --field name=OPENAI_API_KEY --field scope=module:library,tool:digest-fetch --field actor=operator-only
+  --change '{"name":"OPENAI_API_KEY","scope":["module:library","tool:digest-fetch"],"actor":"operator-only"}'
 
 # or the agent lane — a proposal a human approves. NOTE: zz stage's --field sugar
 # does NOT schema-coerce (unlike note create's) — scope needs --change JSON so it
@@ -84,7 +110,7 @@ zz stage secrets --op create --target openai-key \
 zz review approve secrets openai-key
 ```
 
-Either path runs through the write door — a `value:` (or otherwise secret-shaped)
+Every path runs through the write door — a `value:` (or otherwise secret-shaped)
 field on the `--change`/`--field` payload is refused before it ever becomes a note.
 On the agent lane specifically, it's refused even before that: `zz stage` itself
 runs the same check, so a poisoned proposal never even reaches
@@ -148,7 +174,8 @@ this run never held that string.
 ## How the invariant is enforced — at EACH layer, not just documented
 
 1. **The write door** (`notes/validate.mjs`'s `validateNote`, reached by every path —
-   `note create`, `note set`, `review approve`, `module import` — because they all
+   `note create` (and `secret declare`, its authoring sugar — same call underneath),
+   `note set`, `review approve`, `module import` — because they all
    route through `notes/repo.mjs`'s `writeNote`, the ONE place a note becomes bytes):
    a `type: secret` note carrying a secret-shaped field (substring match, see above —
    not just the exact six names), a nested-map leak, or a non-empty body fails

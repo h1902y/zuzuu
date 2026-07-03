@@ -156,10 +156,12 @@ return value, or an agent's context; `notes/log.mjs`'s `logRun` additionally mas
 those names' resolved values out of `runs.jsonl` even under an unrelated input key
 ("redact at the injection site" — transformation defeats post-hoc masking). `zz
 secret list` / `show` / `check` are the read-only view (metas + a ✓/✗ host
-availability probe — NEVER the value, not even for a non-sensitive declaration);
-there is no `secret set` — setting a value is always a terminal call, documented per
-`resolves_from`, not a zuzuu-owned file. Full narrative:
-[`docs/guide/Secrets.md`](guide/Secrets.md).
+availability probe — NEVER the value, not even for a non-sensitive declaration); `zz
+secret declare <name> [--scope …] […]` is the one write leaf — operator-lane
+AUTHORING sugar over the same `note create` write door, typed for a declaration's
+metas, with no value flag at all; there is still no `secret set` — setting a value
+is always a terminal call, documented per `resolves_from`, not a zuzuu-owned file.
+Full narrative: [`docs/guide/Secrets.md`](guide/Secrets.md).
 
 ### The `.zuzuu/` directory — birth and evolution
 

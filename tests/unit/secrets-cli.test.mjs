@@ -1,6 +1,7 @@
 // §J.3/§J.5 — the `zz secret …` namespace end to end through the real CLI router:
-// list/show/check never emit a value, `secret list` is agentInvokable read-only, and
-// `note create` is the ONLY creation path (no `secret create`/`secret set` verb exists).
+// list/show/check never emit a value and stay agentInvokable read-only; `declare` is
+// the ONE write leaf — authoring sugar over `note create` (still no `secret set`/
+// `secret create-with-a-value` verb: `declare` has no value flag at all, ever).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -25,14 +26,19 @@ async function withRepo(fn) {
   }
 }
 
-test('the secret namespace is closed: list · show · check, all read + agentInvokable — no create/set/write verb', () => {
+test('the secret namespace is closed: list · show · check stay read + agentInvokable; declare is the one write leaf, operator-only', () => {
   const rows = COMMANDS.filter((c) => !c.alias && c.path[0] === 'secret');
   const subs = rows.map((c) => c.path[1]).sort();
-  assert.deepEqual(subs, ['check', 'list', 'show']);
-  for (const c of rows) {
+  assert.deepEqual(subs, ['check', 'declare', 'list', 'show']);
+  const readOnly = rows.filter((c) => c.path[1] !== 'declare');
+  assert.deepEqual(readOnly.map((c) => c.path[1]).sort(), ['check', 'list', 'show']);
+  for (const c of readOnly) {
     assert.equal(c.permission, 'read', `'secret ${c.path[1]}' is read-only`);
     assert.equal(c.agentInvokable, true, `'secret ${c.path[1]}' is agent-invokable (a value-safe view)`);
   }
+  const declare = rows.find((c) => c.path[1] === 'declare');
+  assert.equal(declare.permission, 'write', "'secret declare' mints a note — it's a write");
+  assert.equal(declare.agentInvokable, false, "'secret declare' stays on the operator lane, like note create — the agent's channel is still stage→review");
 });
 
 test('zz secret list on an empty project: 0 declarations, a helpful next step, never crashes', async () => {
@@ -116,5 +122,101 @@ test('zz note create secrets <id> --type secret --field value=… is refused by 
     ], io);
     assert.equal(code, 1);
     assert.match(out.join('\n'), /value-bearing field/);
+  });
+});
+
+// ── zz secret declare — the AUTHORING-ergonomics fix ─────────────────────────────
+// THE GAP: `zz note create secrets <id> --type secret --field 'scope=[tool:x]'` lands
+// `scope` as the raw STRING "[tool:x]" (not a list) unless the module already has a
+// `multi`-typed `scope` column (`zz module add-column secrets scope multi`) — so a
+// scoped secret couldn't be authored ergonomically without that extra ceremony.
+// `secret declare` closes it: no `--field`, no module/column minting required first.
+
+test('zz secret declare: scope lands as a real LIST — no module/column ceremony first — and passes validation', async () => {
+  await withRepo(async ({ cwd, io, out }) => {
+    initHome(cwd);
+    // deliberately NOT running `module new secrets` / `module add-column … scope multi`
+    // first — that's exactly the ceremony this verb makes unnecessary.
+    let code = await run([
+      'secret', 'declare', 'OPENAI_API_KEY',
+      '--scope', 'tool:enrich,module:library', '--scope', 'library:digest-fetch',
+      '--actor', 'agent-allowed', '--resolves-from', 'fly', '--rotation', 'rotate quarterly',
+    ], io);
+    assert.equal(code, 0, out.join('\n'));
+
+    // the note ON DISK: scope is an ARRAY (module item surfaces the raw envelope)
+    out.length = 0;
+    code = await run(['module', 'item', 'secrets', 'openai-api-key', '--json'], io);
+    assert.equal(code, 0, out.join('\n'));
+    const item = JSON.parse(out[0]);
+    assert.deepEqual(item.scope, ['tool:enrich', 'module:library', 'library:digest-fetch'], 'comma AND repeated --scope both accumulate into one list');
+    assert.equal(item.actor, 'agent-allowed');
+    assert.equal(item.resolves_from, 'fly');
+    assert.equal(item.rotation_note, 'rotate quarterly');
+    assert.equal(item.sensitive, true, 'sensitive defaults true');
+
+    // schema validation actually passes (the whole point — a string scope would fail it)
+    out.length = 0;
+    code = await run(['validate', 'secrets'], io);
+    assert.equal(code, 0, out.join('\n'));
+    assert.match(out.join('\n'), /all notes valid/);
+
+    // round-trips through the existing read surface
+    out.length = 0;
+    code = await run(['secret', 'show', 'OPENAI_API_KEY', '--json'], io);
+    assert.equal(code, 0);
+    const shown = JSON.parse(out[0]);
+    assert.equal(shown.scope, 'tool:enrich|module:library|library:digest-fetch');
+    assert.equal('value' in shown, false);
+  });
+});
+
+test('zz secret declare: defaults (id ← slugified name, actor operator-only, resolves-from env, sensitive true), --id/--force overrides', async () => {
+  await withRepo(async ({ cwd, io, out }) => {
+    initHome(cwd);
+    let code = await run(['secret', 'declare', 'CLEARBIT_KEY'], io);
+    assert.equal(code, 0, out.join('\n'));
+
+    out.length = 0;
+    code = await run(['module', 'item', 'secrets', 'clearbit-key', '--json'], io);
+    assert.equal(code, 0, out.join('\n'));
+    let item = JSON.parse(out[0]);
+    assert.equal(item.actor, 'operator-only');
+    assert.equal(item.resolves_from, 'env');
+    assert.equal(item.sensitive, true);
+    assert.equal(item.scope, undefined, 'no --scope given → absent, not an empty list (fail-closed by omission)');
+
+    // --id overrides the derived slug; --sensitive false; --force upserts
+    out.length = 0;
+    code = await run(['secret', 'declare', 'CLEARBIT_KEY', '--id', 'clearbit', '--sensitive', 'false', '--force'], io);
+    assert.equal(code, 0, out.join('\n'));
+    out.length = 0;
+    code = await run(['module', 'item', 'secrets', 'clearbit', '--json'], io);
+    assert.equal(code, 0, out.join('\n'));
+    item = JSON.parse(out[0]);
+    assert.equal(item.sensitive, false);
+  });
+});
+
+test('zz secret declare has no value-bearing flag at all — a stray --value is silently ignored, never lands on the note', async () => {
+  await withRepo(async ({ cwd, io, out }) => {
+    initHome(cwd);
+    const code = await run(['secret', 'declare', 'LEAKY_KEY', '--scope', 'module:x', '--value', 'sk-should-never-land'], io);
+    assert.equal(code, 0, out.join('\n'));
+    out.length = 0;
+    const code2 = await run(['module', 'item', 'secrets', 'leaky-key', '--json'], io);
+    assert.equal(code2, 0);
+    const item = JSON.parse(out[0]);
+    assert.equal('value' in item, false, 'no value key ever reached the note — the verb has no code path that reads --value');
+    assert.doesNotMatch(JSON.stringify(item), /sk-should-never-land/);
+  });
+});
+
+test('zz secret declare refuses a malformed --actor/--resolves-from the same as note create (passed through, not silently coerced)', async () => {
+  await withRepo(async ({ cwd, io, out }) => {
+    initHome(cwd);
+    const code = await run(['secret', 'declare', 'BAD_ACTOR_KEY', '--scope', 'module:x', '--actor', 'bogus'], io);
+    assert.equal(code, 1);
+    assert.match(out.join('\n'), /actor must be one of operator-only\|agent-allowed/);
   });
 });
