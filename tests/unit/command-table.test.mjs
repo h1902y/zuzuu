@@ -50,8 +50,9 @@ const SWITCH_VERBS = [
 // is intact. `module` is both a flat read verb AND a namespace (its Rung-6 schema
 // alter-table ops — add/alter/drop-column — live under it). `trigger` (§I rung 4) is
 // the newest addition — list/show/fire/enable/disable, a cold/niche noun exactly like
-// `run`/`gen`, never a hot-loop flat verb.
-const NAMESPACES = ['gen', 'host', 'module', 'note', 'registry', 'run', 'session', 'trigger'];
+// `run`/`gen`, never a hot-loop flat verb. `tool` (§I.6, the toolkit/tool VIEW) is the
+// same shape: `tool list`/`tool show`, read-only, a cold noun beside `module`/`note`.
+const NAMESPACES = ['gen', 'host', 'module', 'note', 'registry', 'run', 'session', 'tool', 'trigger'];
 
 /** Resolve a row to the handler it ultimately runs (following an `alias` pointer). */
 const canonicalOf = (row) => row.alias

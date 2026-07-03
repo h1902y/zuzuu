@@ -26,6 +26,7 @@ import { dataRows } from './verbs/data.mjs';
 import { runRows } from './verbs/run.mjs';
 import { evolutionRows } from './verbs/evolution.mjs';
 import { inspectionRows } from './verbs/inspection.mjs';
+import { toolRows } from './verbs/tool.mjs';
 import { sessionRows } from './verbs/session.mjs';
 import { registryRows } from './verbs/registry.mjs';
 import { steerRows } from './verbs/steer.mjs';
@@ -89,6 +90,7 @@ export const COMMANDS = [
   ...runRows,
   ...evolutionRows,
   ...inspectionRows,
+  ...toolRows,
   commandsRow,
   ...sessionRows,
   ...registryRows,
@@ -209,10 +211,11 @@ const PLANE_LABEL = {
   inspection: 'inspect', session: 'sessions', registry: 'registry',
   steer: 'session briefs', host: 'hosts',
 };
-const NS_ORDER = ['module', 'note', 'run', 'gen', 'session', 'host', 'registry'];
+const NS_ORDER = ['module', 'note', 'tool', 'run', 'gen', 'session', 'host', 'registry'];
 const NS_LABEL = {
   module: 'module — alter a typed-column schema (operator-gated)',
   note: 'note — edit notes (gated writes)',
+  tool: 'tool — the toolkit/tool view (§I.6 MCP-native: module=toolkit, action=tool)',
   run: 'run — the Tier-2 durable runner (the run is a note)',
   gen: 'gen — generations (the lineage)',
   session: 'session — the per-session git surface',
