@@ -7,6 +7,8 @@ that history).
 
 ## [Unreleased]
 
+## [2.0.0] — 2026-07-03
+
 ### Added
 - **The SECRETS-DECLARATION model** (§J.3/§J.5, `docs/specs/2026-07-02-polish-
   showcase-experience.md`): a `type: secret` note is a DECLARATION ONLY — `name` (the
