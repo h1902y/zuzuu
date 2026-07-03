@@ -32,18 +32,20 @@ export function StageHeader({ crumb, tabs, activeTab, onTab, primary }: StageHea
       </Inline>
 
       {tabs && tabs.length > 0 && (
-        <Inline gap="xs" align="center">
-          {tabs.map((t) => (
+        // ONE segmented control, not loose tabs — the strip reads as a single
+        // switch between projections of the same thing (Table⇄Map, Terminal·Changes)
+        <div className="flex items-center overflow-hidden rounded-ui border border-border">
+          {tabs.map((t, i) => (
             <button
               key={t.key}
               type="button"
               onClick={() => onTab?.(t.key)}
-              className={`rounded-ui px-3 py-1 text-meta transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-focus ${t.key === activeTab ? "bg-selected text-ink-100" : "text-subtle hover:bg-hover hover:text-ink-100"}`}
+              className={`px-3 py-1 text-meta transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-focus ${i > 0 ? "border-l border-border" : ""} ${t.key === activeTab ? "bg-selected text-ink-100" : "text-subtle hover:bg-hover hover:text-ink-100"}`}
             >
               {t.label}
             </button>
           ))}
-        </Inline>
+        </div>
       )}
 
       <div className="ml-auto" />

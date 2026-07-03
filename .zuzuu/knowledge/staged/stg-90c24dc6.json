@@ -1,0 +1,23 @@
+{
+  "id": "stg-90c24dc6",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-settings-settings-tsx",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: settings/Settings.tsx",
+    "path": "/Users/hkc/Documents/zuzuu/web/src/client/shell/settings/Settings.tsx",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/client/shell/settings/Settings.tsx` (touched 10× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/client/shell/settings/Settings.tsx` (touched 10× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 10,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 10,
+  "status": "pending"
+}

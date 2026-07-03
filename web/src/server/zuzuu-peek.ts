@@ -5,8 +5,30 @@
 // is the degraded fallback only — never a re-implementation of the envelope grammar.
 
 import fsp from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { runCommand } from "./zuzuu-catalog.js";
+
+/** Is `root` a ROOT-MODE Project (a root `project.md` carrying `type: project` +
+ *  `format: zuzuu/…` — the marker src/notes/store.mjs sniffs)? Sync so the
+ *  fs-only readers (project-health, cross-project launcher) can use it too. */
+export function isRootMode(root: string): boolean {
+  try {
+    const head = readFileSync(path.join(root, "project.md"), "utf8").slice(0, 2048);
+    return /^type:\s*project\s*$/m.test(head) && /^format:\s*zuzuu\//m.test(head);
+  } catch { return false; }
+}
+
+/** Resolve the Project HOME for the peek: root-mode means modules live at the
+ *  REPO ROOT; classic mode keeps them under `.zuzuu/`. The peek was `.zuzuu`-only
+ *  before, so a root-mode project degraded to empty. */
+export function resolveHomeSync(root: string): string {
+  return isRootMode(root) ? root : path.join(root, ".zuzuu");
+}
+
+export async function resolveHome(root: string): Promise<string> {
+  return resolveHomeSync(root);
+}
 
 /** Enumerate the ACTUAL module dirs on disk for the CLI-absent degraded fallback:
  *  non-dot subdirs of `.zuzuu` that hold a `module.md` (mirrors src/notes/module.mjs
@@ -61,6 +83,22 @@ export interface ModuleQueryParams {
   sort?: string; where?: string[]; limit?: string; offset?: string;
 }
 
+/** The `--where key<op>value` op grammar, op-aware and longest-first — MIRRORS the
+ *  CLI's own `parseWhere` (src/cli/args.mjs) exactly (same op set, same first-match
+ *  scan) so a clause that parses here parses identically once it reaches the index.
+ *  B1: this used to split on the first `=` and rebuild `key=value`, so `tier>=2`
+ *  became key `tier>` (fails SAFE_SLUG, dropped) and `tier>2` had no `=` at all
+ *  (dropped) — comparison/inequality filters silently never reached the CLI. */
+const WHERE_OPS = [">=", "<=", "!=", "=", ">", "<"] as const;
+
+function parseWhereClause(raw: string): { key: string; op: string; value: string } | null {
+  for (const op of WHERE_OPS) {
+    const at = raw.indexOf(op);
+    if (at > 0) return { key: raw.slice(0, at), op, value: raw.slice(at + op.length) };
+  }
+  return null;
+}
+
 /** Map validated query params → the `module items` CLI flags (no leading `module items
  *  <key>` — the caller prepends those). Each axis is independently guarded; an invalid
  *  value is simply dropped (degrade, never 400 on a stray filter). */
@@ -73,11 +111,13 @@ export function buildModuleQueryFlags(p: ModuleQueryParams): string[] {
   if (p.tag && SAFE_ID.test(p.tag)) flags.push("--tag", p.tag);
   if (p.sort && SAFE_SORT.test(p.sort)) flags.push("--sort", p.sort);
   for (const w of p.where ?? []) {
-    const eq = w.indexOf("=");
-    if (eq <= 0) continue;
-    const key = w.slice(0, eq);
-    const value = clampText(w.slice(eq + 1));
-    if (SAFE_SLUG.test(key) && value) flags.push("--where", `${key}=${value}`);
+    // op parsed FIRST (longest-first), THEN the key is validated — parsing on `=`
+    // before the op is chosen is exactly the B1 bug (a `>=`/`<=`/`!=` clause's key
+    // would carry the trailing comparison char and fail SAFE_SLUG).
+    const parsed = parseWhereClause(w);
+    if (!parsed) continue;
+    const value = clampText(parsed.value);
+    if (SAFE_SLUG.test(parsed.key) && value) flags.push("--where", `${parsed.key}${parsed.op}${value}`);
   }
   const limit = intParam(p.limit);
   if (limit != null) flags.push("--limit", String(limit));
@@ -184,6 +224,25 @@ export async function moduleEnvelopeItems(root: string, home: string, key: strin
   return { items, total: items.length, errors: [], degraded: true };
 }
 
+/** Read a module's mutation log (§G.1) — `<home>/<module>/log.jsonl`, the durable
+ *  provenance trail `src/notes/log.mjs`'s `append`/`logMutation` writes. A peek,
+ *  not a CLI call: there is no `zz log …` verb (nothing to shell), so this is the
+ *  ONLY read path — mirrors log.mjs's own `read()` line-by-line without importing
+ *  src/ (the daemon stays out-of-process). Fail-soft: missing file → [], a
+ *  malformed line is skipped and the rest still reads (append-only files can end
+ *  mid-write on a crash). Lines are already in chronological (append) order — the
+ *  route reverses for "newest first"; no `ts` field is needed to order them. */
+export async function readMutationLog(home: string, module: string): Promise<Record<string, unknown>[]> {
+  let text: string;
+  try { text = await fsp.readFile(path.join(home, module, "log.jsonl"), "utf8"); } catch { return []; }
+  const out: Record<string, unknown>[] = [];
+  for (const line of text.split("\n")) {
+    if (!line.trim()) continue;
+    try { out.push(JSON.parse(line)); } catch { /* skip a bad line, keep the rest */ }
+  }
+  return out;
+}
+
 /** Read every *.json in a dir into objects; missing dir → [], corrupt file → skipped. */
 export async function readJsonDir(dir: string): Promise<Record<string, unknown>[]> {
   let names: string[] = [];
@@ -196,6 +255,42 @@ export async function readJsonDir(dir: string): Promise<Record<string, unknown>[
 }
 
 // ── proposal shaping (the read side's StagedSummary) ──────────────────
+
+// B1(b) (audit 2026-07-03-secrets-review.md) — belt-and-suspenders atop the CLI-side
+// write door (src/grow/stage.mjs's secretStageRefusal + src/notes/validate.mjs's
+// secretValueLeaks/SECRET_KEY_RE, both type:secret-scoped): this daemon must degrade
+// safely even against (1) a value riding a NON-secret change (the write door only
+// inspects type:secret) and (2) a `staged/*.json` file written by an older CLI build,
+// before that refusal existed. Mask any secret-SHAPED key's value before this DTO
+// leaves the process. Independently PINNED, not imported — @zuzuucodes/web never
+// imports the CLI's src/ across the package boundary (it shells the `zz` binary
+// instead, see this file's header); same "same shape, independently pinned" pattern
+// this codebase already uses (notes/validate.mjs's own isModuleIdAddr comment).
+// Keep in sync with src/notes/validate.mjs's SECRET_KEY_RE / src/notes/log.mjs's
+// REDACTED if either changes.
+const SECRET_KEY_RE = /(value|key|token|secret|password|passwd|credential|auth|bearer|passphrase|(?<![a-z0-9])pat(?![a-z0-9])|(?<![a-z0-9])pw(?![a-z0-9]))/i;
+const REDACTED = "‹redacted›";
+const STRUCTURAL_MAP_FIELDS = new Set(["relations"]); // relation TYPE names, not values — see the .mjs twin
+
+/** Mask secret-shaped values in a staged change body before it leaves this process:
+ *  top-level keys + one level of nested maps (mirrors notes/validate.mjs's
+ *  secretValueLeaks scan depth). `body` is left as-is here — the CLI-side write door
+ *  (S2) already refuses a non-empty body on a type:secret note before it can ever be
+ *  staged; a non-secret note's body is ordinary prose, not a key/value pair to mask. */
+function redactSecretShapedValues(change: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(change)) {
+    if (SECRET_KEY_RE.test(k)) { out[k] = REDACTED; continue; }
+    if (v && typeof v === "object" && !Array.isArray(v) && !STRUCTURAL_MAP_FIELDS.has(k)) {
+      const nested: Record<string, unknown> = { ...(v as Record<string, unknown>) };
+      for (const nk of Object.keys(nested)) if (SECRET_KEY_RE.test(nk)) nested[nk] = REDACTED;
+      out[k] = nested;
+    } else {
+      out[k] = v;
+    }
+  }
+  return out;
+}
 
 const firstLine = (s: unknown, n = 80) => (String(s ?? "").split("\n")[0] ?? "").slice(0, n);
 
@@ -248,7 +343,11 @@ function stagedPreview(p: Record<string, unknown>): string {
  *  which is a number). */
 export function stagedSummary(p: Record<string, unknown>, key: string): import("#shared/index.js").StagedSummary {
   const preview = stagedPreview(p);
-  const change = changeBody(p);
+  const rawChange = changeBody(p);
+  // B1(b): the DTO that leaves this process carries the masked copy, never the raw
+  // change — `rawChange` above is used only for the (non-value-bearing) preview/title
+  // derivation above/below, never returned itself.
+  const change = rawChange ? redactSecretShapedValues(rawChange) : undefined;
   const evidence = Array.isArray(p.evidence) ? (p.evidence as import("#shared/index.js").StagedEvidence[]) : undefined;
   const confidence = typeof p.confidence === "string" ? p.confidence : null;
   // Provenance (U6 / R6): observe persists `source` on the staged record (U4); carry

@@ -1,6 +1,6 @@
 // P3.3 — the per-project Settings derivations.
 import { describe, it, expect } from "vitest";
-import { hostStatusLabel, canEnable, projectStateLabel } from "../../src/client/shell/settings/settings-model.js";
+import { hostStatusLabel, canEnable, projectStateLabel, rootModeLabel, daemonPortLabel } from "../../src/client/shell/settings/settings-model.js";
 
 describe("hostStatusLabel", () => {
   it("no host", () => expect(hostStatusLabel({ kind: null, enabled: false })).toBe("No host detected"));
@@ -24,4 +24,16 @@ describe("projectStateLabel", () => {
     expect(projectStateLabel("no-activity")).toBe("Enabled · no activity yet");
     expect(projectStateLabel("steady")).toBe("Active");
   });
+});
+
+describe("rootModeLabel — §G.4 the 'under the hood' section", () => {
+  it("names the distinction resolveHome makes on every read", () => {
+    expect(rootModeLabel(true)).toBe("yes — modules live at the repo root, no .zuzuu/");
+    expect(rootModeLabel(false)).toBe("no — modules live under .zuzuu/");
+  });
+});
+
+describe("daemonPortLabel", () => {
+  it("prefixes a real port with a colon", () => expect(daemonPortLabel("8795")).toBe(":8795"));
+  it("a blank port (e.g. default 80/443) reads as '(default)'", () => expect(daemonPortLabel("")).toBe("(default)"));
 });

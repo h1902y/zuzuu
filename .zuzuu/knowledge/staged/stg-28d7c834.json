@@ -1,0 +1,23 @@
+{
+  "id": "stg-28d7c834",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-server-registry-read-ts",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: server/registry-read.ts",
+    "path": "/Users/hkc/Documents/zuzuu/web/src/server/registry-read.ts",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/server/registry-read.ts` (touched 6× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/server/registry-read.ts` (touched 6× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 6,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 6,
+  "status": "pending"
+}

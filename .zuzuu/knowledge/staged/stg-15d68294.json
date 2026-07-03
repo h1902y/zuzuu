@@ -1,0 +1,23 @@
+{
+  "id": "stg-15d68294",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-lib-api-ts",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: lib/api.ts",
+    "path": "/Users/hkc/Documents/zuzuu/web/src/client/lib/api.ts",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/client/lib/api.ts` (touched 18× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/client/lib/api.ts` (touched 18× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 18,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 18,
+  "status": "pending"
+}

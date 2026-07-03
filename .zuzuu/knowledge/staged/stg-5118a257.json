@@ -1,0 +1,23 @@
+{
+  "id": "stg-5118a257",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-composer-composer-tsx",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: composer/Composer.tsx",
+    "path": "/Users/hkc/Documents/zuzuu/web/src/client/composer/Composer.tsx",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/client/composer/Composer.tsx` (touched 20× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/client/composer/Composer.tsx` (touched 20× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 20,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 20,
+  "status": "pending"
+}

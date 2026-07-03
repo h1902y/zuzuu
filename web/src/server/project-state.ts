@@ -11,6 +11,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import type { ProjectState, ProjectStateKind, HostInfo } from "#shared/index.js";
 import { runZuzuu } from "./zuzuu-cli.js";
+import { listModuleDirs, resolveHomeSync } from "./zuzuu-peek.js";
 
 /** The stable tag `zz enable` writes into every hook command (src/cli/enable.mjs). */
 const HOOK_SIGNATURE = "#zz-hook";
@@ -52,7 +53,11 @@ interface OverviewEntry { key: string; pending?: number }
  *  not a JSON index, so there is no on-disk session count to read here). */
 export async function gatherProjectState(root: string, binary?: string, liveSessions = 0): Promise<ProjectState> {
   const git = existsSync(path.join(root, ".git"));
-  const zuzuu = existsSync(path.join(root, ".zuzuu"));
+  // a Project is EITHER classic (.zuzuu/ home) or root-mode (modules at the repo
+  // root, `project.md` marker) — the flagship root-mode vault used to read as
+  // `no-project` and be offered "Create the brain" over 200+ notes (audit P0).
+  const home = resolveHomeSync(root);
+  const zuzuu = home === root || existsSync(home);
   const host = detectHost(root);
 
   let modules = 0;
@@ -64,13 +69,28 @@ export async function gatherProjectState(root: string, binary?: string, liveSess
       modules = ov.length;
       pending = ov.reduce((n, e) => n + (e.pending ?? 0), 0);
       contentful = ov.some((e) => e.key !== "instructions" && e.key !== "guardrails"); // a content module materialized beyond the safety floor
+    } else {
+      // CLI absent OR a transient spawn failure. Without this fallback, one bad
+      // spawn read modules=0 → hasActivity=false → the state FLAPPED back to the
+      // session rung and the map-first home vanished (the live-audit P0). The
+      // durable on-disk facts decide instead: module dirs (at the RESOLVED home,
+      // so root-mode counts too) are the truth.
+      const dirs = await listModuleDirs(home);
+      modules = dirs.length;
+      contentful = dirs.some((d) => d !== "instructions" && d !== "guardrails");
     }
   }
 
+  // steady is derived from DURABLE facts (content modules / pending proposals) —
+  // a live PTY session is a bonus signal, never a requirement: a project you
+  // built yesterday must not regress to onboarding because nothing is running.
   const hasActivity = pending > 0 || liveSessions > 0 || contentful;
   return {
     state: deriveState({ git, zuzuu, hooksEnabled: host.enabled, hasActivity }),
     host,
     counts: { modules, pending, sessions: liveSessions },
+    // root-mode = the home IS the repo root (no `.zuzuu/` prefix) — the same test
+    // `resolveHomeSync` makes; surfaced for Settings' "under the hood" section (§G.4).
+    rootMode: home === root,
   };
 }

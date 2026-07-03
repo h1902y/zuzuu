@@ -15,7 +15,7 @@
 //       Zero-dep, never `git init`s.
 
 import { existsSync } from 'node:fs';
-import { parse, serialize } from './note.mjs';
+import { parse, serialize, fillFloor } from './note.mjs';
 import { itemPath, itemsDir } from './store.mjs';
 import { validateNote } from './validate.mjs';
 import { readManifest } from './module.mjs';
@@ -49,6 +49,11 @@ export function readNote(home, module, id) {
  */
 export function writeNote(home, module, id, note, { validate = true } = {}) {
   if (validate) {
+    // THE ENVELOPE FLOOR: fill title/status (never overwriting a present value)
+    // BEFORE validation, here in the ring — so every validated write carries the
+    // floor, whatever path it arrived by. `{validate:false}` (a verbatim move)
+    // preserves bytes exactly; `zz module backfill` heals legacy notes instead.
+    note = fillFloor(note, id);
     const v = validateNote(note, readManifest(home, module).fields);
     if (!v.ok) return { ok: false, error: `invalid note '${module}:${id}': ${v.errors.join('; ')}` };
   }

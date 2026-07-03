@@ -27,4 +27,9 @@ describe("searchNotes", () => {
   it("a no-match query → empty", () => {
     expect(searchNotes(items, "zzz-nothing")).toEqual([]);
   });
+  it("a non-array `items` (a degraded/undefined fetch that slipped past an upstream guard) degrades to no hits, never throws", () => {
+    expect(() => searchNotes(undefined as unknown as typeof items, "token")).not.toThrow();
+    expect(searchNotes(undefined as unknown as typeof items, "token")).toEqual([]);
+    expect(searchNotes(null as unknown as typeof items, "token")).toEqual([]);
+  });
 });

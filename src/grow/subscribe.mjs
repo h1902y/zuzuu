@@ -54,7 +54,9 @@ export function subscribeModule(currentHome, { registryHome, registryIdentity, m
       op: 'create', target: it.id, change: { ...it.note },
       rationale: `subscribed from registry ${registryIdentity}/${module}`,
     });
-    if (rec) staged++;
+    // B1(a): `{error}` (no `.id`) is a refusal (a poisoned type:secret value), not a
+    // staged record — never counted as staged.
+    if (rec && rec.id) staged++;
   }
   return { ok: true, module, staged, pin };
 }

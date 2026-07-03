@@ -13,8 +13,10 @@
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { parse } from './note.mjs';
+import { parse, edgeEntries } from './note.mjs';
 import { itemsDir, cacheDir } from './store.mjs';
+import { readManifest } from './module.mjs';
+import { WHERE_OPS } from './validate.mjs';
 import { sqlite } from '../metal/sqlite.mjs';
 import { readText, mkdirp, remove } from '../metal/fs.mjs';
 
@@ -23,10 +25,12 @@ import { readText, mkdirp, remove } from '../metal/fs.mjs';
 const dbPath = (home) => join(cacheDir(home), 'index.db');
 const str = (v) => (v == null ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v));
 
+// bump when the table shapes change — open() rebuilds a cache whose schema lags
+const SCHEMA_VERSION = '2';
 const SCHEMA = `
 CREATE TABLE notes (addr TEXT PRIMARY KEY, module TEXT, id TEXT, type TEXT, title TEXT, status TEXT, body TEXT);
 CREATE TABLE prop (addr TEXT, key TEXT, value TEXT);
-CREATE TABLE link (src TEXT, type TEXT, dst TEXT);
+CREATE TABLE link (src TEXT, type TEXT, dst TEXT, note TEXT, cite TEXT);
 CREATE VIRTUAL TABLE fts USING fts5(addr UNINDEXED, title, body);
 CREATE TABLE meta (k TEXT PRIMARY KEY, v TEXT);
 CREATE INDEX prop_kv ON prop(key, value);
@@ -46,18 +50,29 @@ function connect(path) {
   return db;
 }
 
-/** List module dirs in the home (skip dot-dirs + non-dirs). */
+/** List module dirs in the home: a dir IS a module when it carries a `module.md`
+ *  manifest OR an `items/` subdir (manifests mint on first proposal, so a young
+ *  module may be items-only). The shape check matters in root-mode, where the
+ *  home is the repo root and `src/`-like dirs must never be scanned. */
 function moduleDirs(home) {
   if (!existsSync(home)) return [];
   return readdirSync(home, { withFileTypes: true })
-    .filter((e) => e.isDirectory() && !e.name.startsWith('.'))
+    .filter((e) => e.isDirectory() && !e.name.startsWith('.')
+      && (existsSync(join(home, e.name, 'module.md')) || existsSync(join(home, e.name, 'items'))))
     .map((e) => e.name);
 }
 
-/** A signature of the corpus (sorted addr:mtime) — drives staleness. */
+/** A signature of the corpus (sorted addr:mtime) — drives staleness. Includes each
+ *  module's MANIFEST too: a schema change (a new computed column) changes what the
+ *  index derives, so it must rebuild even though no item file moved. */
 function corpusSig(home) {
   const parts = [];
   for (const module of moduleDirs(home)) {
+    const manifest = join(home, module, 'module.md');
+    if (existsSync(manifest)) {
+      const ms = statSync(manifest);
+      parts.push(`${module}/module.md:${ms.mtimeMs}:${ms.size}`);
+    }
     const dir = itemsDir(home, module);
     if (!existsSync(dir)) continue;
     for (const f of readdirSync(dir)) {
@@ -72,42 +87,89 @@ function corpusSig(home) {
   return createHash('sha256').update(parts.sort().join('\n')).digest('hex');
 }
 
-/** Build the index from scratch into an in-memory-or-file db. */
-function build(home, db) {
+/** Build the index from scratch into an in-memory-or-file db. `sig` is the
+ *  already-computed corpus signature (open() has it in hand — recomputing here
+ *  was a second full stat-walk per rebuild). */
+function build(home, db, sig = null) {
   db.exec(SCHEMA);
   db.exec('BEGIN'); // one transaction → one fsync, not one per insert (≈100× faster)
   const insZu = db.prepare('INSERT OR REPLACE INTO notes VALUES (?,?,?,?,?,?,?)');
   const insProp = db.prepare('INSERT INTO prop VALUES (?,?,?)');
-  const insLink = db.prepare('INSERT INTO link VALUES (?,?,?)');
+  const insLink = db.prepare('INSERT INTO link VALUES (?,?,?,?,?)');
   const insFts = db.prepare('INSERT INTO fts VALUES (?,?,?)');
 
+  // pass 1: parse the corpus and map every note id to the module(s) that own it —
+  // the resolver a bare relation target needs (a journal note relating to a
+  // knowledge id used to get mis-qualified to `journal:<id>`, silently losing the
+  // backlink and false-flagging `check`).
+  const parsed = [];
+  const idOwners = new Map();
   for (const module of moduleDirs(home)) {
     const dir = itemsDir(home, module);
     if (!existsSync(dir)) continue;
     for (const f of readdirSync(dir)) {
       if (!f.endsWith('.md')) continue;
       const id = f.slice(0, -3);
-      const addr = `${module}:${id}`;
       const { ok, note } = parse(readText(join(dir, f)), { id });
       if (!ok || !note) continue; // fail-soft: a bad file just isn't indexed
-      insZu.run(addr, module, id, note.type ?? '', note.title ?? '', note.status ?? 'active', note.body ?? '');
-      insFts.run(addr, note.title ?? '', note.body ?? '');
-      for (const [key, val] of Object.entries(note)) {
-        if (key === 'body' || key === 'id') continue;
-        if (key === 'relations' && val && typeof val === 'object' && !Array.isArray(val)) {
-          for (const [rtype, dsts] of Object.entries(val)) {
-            // normalize a bare-id target ('render') to a full addr ('actions:render')
-            // — observe/relate write bare ids, and the graph walk joins on the full
-            // addr, so without this `related()` returns nothing for them.
-            for (const d of [].concat(dsts)) { const dv = str(d); insLink.run(addr, rtype, dv.includes(':') ? dv : `${module}:${dv}`); }
+      parsed.push({ module, id, addr: `${module}:${id}`, note });
+      (idOwners.get(id) ?? idOwners.set(id, []).get(id)).push(module);
+    }
+  }
+  // COMPUTED columns (schema v2): a FieldDef may declare `computed: dateAdd(a,b)` —
+  // evaluated here at index time into a prop row, so a derived date ("end = start +
+  // duration") is range-filterable in SQL like any stored column. The note file
+  // never carries the derived value (it's cache, rebuilt with the index).
+  const computedOf = new Map();
+  for (const module of new Set(parsed.map((p) => p.module))) {
+    const defs = [];
+    for (const f of readManifest(home, module).fields ?? []) {
+      const m = typeof f?.computed === 'string' && /^dateAdd\((\w+)\s*,\s*(\w+)\)$/.exec(f.computed);
+      if (m && f.name) defs.push({ name: f.name, base: m[1], add: m[2] });
+    }
+    if (defs.length) computedOf.set(module, defs);
+  }
+
+  // A bare-id target resolves: same module first; else its UNIQUE owner module;
+  // else (unknown or ambiguous) the source module — which brokenLinks then flags,
+  // honestly, instead of silently pointing at the wrong module.
+  const qualifyTarget = (srcModule, target) => {
+    if (target.includes(':')) return target;
+    const owners = idOwners.get(target);
+    if (owners && !owners.includes(srcModule) && owners.length === 1) return `${owners[0]}:${target}`;
+    return `${srcModule}:${target}`;
+  };
+
+  // pass 2: insert
+  for (const { module, id, addr, note } of parsed) {
+    insZu.run(addr, module, id, note.type ?? '', note.title ?? '', note.status ?? 'active', note.body ?? '');
+    insFts.run(addr, note.title ?? '', note.body ?? '');
+    for (const [key, val] of Object.entries(note)) {
+      if (key === 'body' || key === 'id') continue;
+      if (key === 'relations' && val && typeof val === 'object' && !Array.isArray(val)) {
+        for (const [rtype, dsts] of Object.entries(val)) {
+          // normalize a bare-id target to a full addr via the owner map — observe/
+          // relate write bare ids, and the graph walk joins on the full addr. An
+          // entry may be an object `{target, note?, cite?}` — the edge metadata
+          // rides in the link row; the walk/backlink joins stay dst-based.
+          for (const e of edgeEntries(dsts)) {
+            insLink.run(addr, rtype, qualifyTarget(module, e.target), str(e.note ?? ''), str(e.cite ?? ''));
           }
         }
-        if (key === 'tags') for (const t of [].concat(val)) insProp.run(addr, 'tag', str(t));
-        insProp.run(addr, key, str(val));
+      }
+      if (key === 'tags') for (const t of [].concat(val)) insProp.run(addr, 'tag', str(t));
+      insProp.run(addr, key, str(val));
+    }
+    for (const def of computedOf.get(module) ?? []) {
+      const t = Date.parse(note[def.base]);
+      const days = Number(note[def.add]);
+      if (!Number.isNaN(t) && Number.isFinite(days)) {
+        insProp.run(addr, def.name, new Date(t + days * 86400000).toISOString().slice(0, 10));
       }
     }
   }
-  db.prepare('INSERT INTO meta VALUES (?,?)').run('sig', corpusSig(home));
+  db.prepare('INSERT INTO meta VALUES (?,?)').run('sig', sig ?? corpusSig(home));
+  db.prepare('INSERT INTO meta VALUES (?,?)').run('schema', SCHEMA_VERSION);
   db.exec('COMMIT');
   return db;
 }
@@ -121,14 +183,15 @@ export function open(home) {
     try {
       db = connect(path); // connect() runs PRAGMAs — on a corrupt file this throws → caught → rebuild
       const cur = db.prepare('SELECT v FROM meta WHERE k=?').get('sig');
-      if (cur && cur.v === sig) return db; // fresh: caller owns + closes it
+      const ver = db.prepare('SELECT v FROM meta WHERE k=?').get('schema');
+      if (cur && cur.v === sig && ver?.v === SCHEMA_VERSION) return db; // fresh: caller owns + closes it
     } catch { /* corrupt / unopenable → fall through to rebuild */ }
     if (db) db.close(); // stale or corrupt → drop it
   }
   // (re)build into the file db — ensure the (out-of-repo) cache dir exists first
   if (existsSync(path)) remove(path);
   else mkdirp(cacheDir(home));
-  return build(home, connect(path));
+  return build(home, connect(path), sig);
 }
 
 // ── query primitives ───────────────────────────────────────────────────────
@@ -158,10 +221,30 @@ function ftsQuery(text) {
 // so the read projection shares ONE source of truth for "is this sort SQL-native?".
 export const SORTABLE_COLUMNS = new Set(['title', 'status', 'type', 'id', 'addr']);
 
+// The EAV comparison operators a `--where` filter may carry — the canonical list lives
+// in notes/validate.mjs's WHERE_OPS (audit 2026-07-03-triggers-review.md NIT 1; this
+// used to be an independent copy). `=` is index-served (prop_kv); the ranges scan the
+// key's rows. Values are TEXT in the EAV — a purely numeric operand compares
+// numerically (CAST), everything else lexicographically, which is exactly right for
+// ISO dates ('2026-07-02' >= '2026-01-01').
+const EAV_OPS = new Set(WHERE_OPS);
+const isNumeric = (v) => typeof v === 'number' || (typeof v === 'string' && v.trim() !== '' && !Number.isNaN(Number(v)));
+
+function eavCondition({ key, value, op = '=' }, args) {
+  if (!EAV_OPS.has(op)) op = '=';
+  if (op === '=') { args.push(key, value); return 'notes.addr IN (SELECT addr FROM prop WHERE key=? AND value=?)'; }
+  if (op === '!=') { args.push(key, value); return 'notes.addr NOT IN (SELECT addr FROM prop WHERE key=? AND value=?)'; }
+  const cmp = isNumeric(value)
+    ? `CAST(value AS REAL) ${op} CAST(? AS REAL)`
+    : `value ${op} ?`;
+  args.push(key, value);
+  return `notes.addr IN (SELECT addr FROM prop WHERE key=? AND ${cmp})`;
+}
+
 /** Build the shared FROM + WHERE + args for a filter set (search and count reuse it).
- *  `where` is the EAV column filter: an array of `{key,value}` pairs (repeatable,
- *  AND-ed) tested against the `prop` side-table — the `prop_kv (key,value)` index
- *  serves it, so a custom column filters server-side without joining it into `notes`. */
+ *  `where` is the EAV column filter: an array of `{key,value,op?}` triples
+ *  (repeatable, AND-ed; op ∈ = != > < >= <=) tested against the `prop` side-table —
+ *  equality rides the `prop_kv (key,value)` index; ranges scan the key's rows. */
 function plan({ text = '', module = '', type = '', tag = '', status = '', where: eav = [] }) {
   const where = [];
   const args = [];           // the WHERE args (the FROM's fts arg is prepended by the caller)
@@ -186,7 +269,7 @@ function plan({ text = '', module = '', type = '', tag = '', status = '', where:
   if (type) { where.push('notes.type = ?'); args.push(type); }
   if (status) { where.push('notes.status = ?'); args.push(status); }
   if (tag) { where.push('notes.addr IN (SELECT addr FROM prop WHERE key=? AND value=?)'); args.push('tag', tag); }
-  for (const { key, value } of eav) { where.push('notes.addr IN (SELECT addr FROM prop WHERE key=? AND value=?)'); args.push(key, value); }
+  for (const f of eav) where.push(eavCondition(f, args));
   return { from, whereSql: where.length ? ` WHERE ${where.join(' AND ')}` : '', args, fts };
 }
 
@@ -255,6 +338,36 @@ export function count(home, opts = {}) {
   } finally { db.close(); }
 }
 
+/**
+ * GROUP BY an EAV column with an optional aggregate over another — the rollup
+ * primitive ("rows per activity_type", "sum of duration_days by status"). Composes
+ * with every plan() filter. `agg` = {fn: count|sum|avg|min|max, field?} (count
+ * needs no field; the others aggregate CAST(field AS REAL)).
+ * @returns {Array<{value, n, agg?}>} one row per distinct groupBy value ('' = absent)
+ */
+export function aggregate(home, { groupBy, agg = { fn: 'count' }, ...filters }) {
+  if (!groupBy) return [];
+  const FN = new Set(['count', 'sum', 'avg', 'min', 'max']);
+  const fn = FN.has(agg.fn) ? agg.fn : 'count';
+  const db = open(home);
+  try {
+    const { from, whereSql, args, fts } = plan(filters);
+    const aggSel = fn === 'count'
+      ? ''
+      : `, ${fn}(CAST(ag.value AS REAL)) AS agg`;
+    const aggJoin = fn === 'count'
+      ? ''
+      : ' LEFT JOIN prop ag ON ag.addr = notes.addr AND ag.key = ?';
+    const sql = `SELECT COALESCE(g.value, '') AS value, COUNT(*) AS n${aggSel}
+      FROM ${from}
+      LEFT JOIN prop g ON g.addr = notes.addr AND g.key = ?${aggJoin}
+      ${whereSql} GROUP BY g.value ORDER BY n DESC, g.value`;
+    const head = fts ? [fts] : [];
+    const joinArgs = fn === 'count' ? [groupBy] : [groupBy, agg.field ?? ''];
+    return db.prepare(sql).all(...head, ...joinArgs, ...args);
+  } finally { db.close(); }
+}
+
 /** Per-module note counts in ONE query — the digest fast path (was M opens). */
 export function moduleCounts(home) {
   const db = open(home);
@@ -270,7 +383,7 @@ export function backlinks(home, addr) {
   try {
     // dst is stored either as a full addr or a bare id — match both forms
     const id = String(addr).includes(':') ? String(addr).split(':')[1] : String(addr);
-    return db.prepare('SELECT l.src AS addr, l.type FROM link l WHERE l.dst = ? OR l.dst = ? ORDER BY l.src').all(addr, id);
+    return db.prepare('SELECT l.src AS addr, l.type, l.note, l.cite FROM link l WHERE l.dst = ? OR l.dst = ? ORDER BY l.src').all(addr, id);
   } finally { db.close(); }
 }
 

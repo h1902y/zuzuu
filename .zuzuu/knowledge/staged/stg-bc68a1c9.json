@@ -1,0 +1,23 @@
+{
+  "id": "stg-bc68a1c9",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-src-readme-md",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: src/README.md",
+    "path": "/Users/hkc/Documents/zuzuu/src/README.md",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/src/README.md` (touched 22× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/src/README.md` (touched 22× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 22,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 22,
+  "status": "pending"
+}

@@ -1,12 +1,22 @@
-// src/serve/api.mjs — the one programmatic surface over a Project.
+// src/serve/api.mjs — the one programmatic surface over a Project (the de-facto
+// public API: the CLI veneer thins down to it, the web daemon shells verbs that
+// call it, a future embedder imports it).
 //
-// what: a single import that composes the notes substrate + the verbs & loop into the clean
-//       façade every host (CLI veneer, web daemon, plugin) consumes. `open(cwd)`
-//       resolves the home once; the returned handle exposes the five verbs plus
-//       the gate, snapshots, and proposals — all bound to that home.
-// why:  hosts should depend on ONE stable surface, not reach into notes/ and
-//       the verbs/loop internals. This is the seam the CLI thins down to and the
-//       daemon calls — so the verb set stays legible and swappable underneath.
+// what: `open(cwd, {actor}) → handle`, every method bound to that home. The surface,
+//       grouped as the handle lays it out:
+//         inspection   modules
+//         schema DDL   addColumn · alterColumn · dropColumn        (operator-gated)
+//         lifecycle    moduleNew · moduleSetEnabled · mintGeneration
+//         reads/run    query · check · act · flow · view · validate
+//         agent lane   stage · staged · approve · reject · plan · apply   (THE gate)
+//         refactors    rename · merge · refactor                   (link-repointing)
+//         operator lane patch · append · create · createMany · remove · backfillFloor (instant, validated)
+//         generations  generations · rollback · diff · asOf · timeline
+//         registry     the active role:registry repo (nested handle)
+// why:  hosts should depend on ONE stable surface, not reach into notes/ and the
+//       verbs/loop internals. The two write lanes are the design: the AGENT reaches
+//       writes only through stage→review (commit refuses actor:'agent'); the
+//       OPERATOR's own edits land directly — validated, logged, minted, instant.
 // how:  thin binding over the registry + the human-gate (review) + snapshot
 //       primitives. registerAll() is idempotent, so opening is cheap and safe to
 //       repeat. Zero-dep.
@@ -19,7 +29,8 @@ import { stageChange, listStaged } from '../grow/stage.mjs';
 import { approve, reject } from '../grow/review.mjs';
 import { planFor, applyPlan } from '../grow/plan.mjs';
 import { renameNote, mergeNotes, refactorField } from '../grow/refactor.mjs';
-import { patchNote, appendNote } from '../grow/edit.mjs';
+import { patchNote, appendNote, createNote, deleteNote, createNotes } from '../grow/edit.mjs';
+import { backfillFloor } from '../grow/backfill.mjs';
 import { generations, diffGenerations, notesAsOf } from '../notes/generation.mjs';
 import { rollback } from '../grow/commit.mjs';
 import { addColumn, alterColumn, dropColumn } from '../grow/schema.mjs';
@@ -31,6 +42,7 @@ import { readProjectRefs, readLibraryModules, registryIdentity, mintRegistry, ne
 import { activeRegistryPath, setActiveRegistry } from '../notes/registry-pointer.mjs';
 import { subscribeModule } from '../grow/subscribe.mjs';
 import { generationCommit } from '../notes/generation.mjs';
+import { findDeclaration, SECRETS_MODULE } from '../use/secrets.mjs';
 
 // flow/view/validate ride the one registry now (Rung 8) but expose their RAW verb
 // result, not the {ok,value} dispatch envelope — unwrap on success so the façade's return
@@ -82,12 +94,32 @@ export function open(cwd = process.cwd(), { actor = 'operator' } = {}) {
     // ── the read/run verbs (all dispatched through the one registry; actor in ctx) ──
     query: (module, opts = {}) => invoke(home, module, 'query', { actor }, opts),
     check: (module, opts = {}) => invoke(home, module, 'check', { actor }, opts),
-    act: (module, id, inputs = {}) => invoke(home, module, 'act', { actor }, id, inputs),
+    // act's own `use/act.mjs` never WRITES (architecture rule 6 — use/ reads+runs
+    // only), so the `last_used` audit touch on a resolved secret's declaration lives
+    // HERE instead: this file already imports grow/edit's patchNote for the operator
+    // lane. Best-effort + fail-soft (never lets a bookkeeping hiccup mask the run's
+    // own result) — and naturally a no-op under actor:'agent' (patchNote → commit
+    // refuses a non-operator write, same moat as everywhere else), so only an
+    // OPERATOR-actor run's secret use gets recorded.
+    act: (module, id, inputs = {}) => {
+      const r = invoke(home, module, 'act', { actor }, id, inputs);
+      const names = r.ok ? r.value?.secretsResolved : null;
+      if (Array.isArray(names) && names.length) {
+        const now = new Date().toISOString();
+        for (const name of names) {
+          try {
+            const found = findDeclaration(home, name);
+            if (found) patchNote(home, SECRETS_MODULE, found.id, 'last_used', now, actor);
+          } catch { /* the audit trail is best-effort — the run's own result is what matters */ }
+        }
+      }
+      return r;
+    },
     flow: (module, id, inputs = {}) => unwrap(invoke(home, module, 'flow', { actor }, id, inputs)),
     view: (module, id, opts) => unwrap(invoke(home, module, 'view', { actor }, id, opts)),
     validate: (module = '') => unwrap(invoke(home, module, 'validate', { actor })),
 
-    // ── the human gate (review is interactive — not a registry verb) ────────
+    // ── the AGENT lane: propose → the human gate (review) ───────────────────
     // The WRITE methods thread `actor` into `commit`, which refuses a non-operator.
     stage: (module, p) => stageChange(home, module, p),  // stage writes staged JSON, not notes — the agent's sanctioned channel, never gated
     staged: (module) => listStaged(home, module),
@@ -101,9 +133,15 @@ export function open(cwd = process.cwd(), { actor = 'operator' } = {}) {
     merge: (module, src, dst) => mergeNotes(home, module, src, dst, actor),
     refactor: (module, key, from, to) => refactorField(home, module, key, from, to, actor),
 
-    // ── scoped edits ────────────────────────────────────────────────────────
+    // ── the OPERATOR lane: direct writes (instant; still validated + logged +
+    //    minted through commit(); the agent never reaches these — its channel
+    //    stays stage→review, and the CLI rows are agentInvokable:false) ───────
     patch: (module, id, key, value) => patchNote(home, module, id, key, value, actor),
     append: (module, id, text) => appendNote(home, module, id, text, actor),
+    create: (module, id, change, opts = {}) => createNote(home, module, id, change, { actor, ...opts }),
+    createMany: (module, rows, opts = {}) => createNotes(home, module, rows, { actor, ...opts }),
+    remove: (module, id) => deleteNote(home, module, id, actor),
+    backfillFloor: (opts = {}) => backfillFloor(home, { actor, ...opts }),
 
     // ── snapshots (per-module generations) ─────────────────────────────────
     generations: (module) => generations(home, module),

@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search as SearchIcon, X } from "lucide-react";
 import { api } from "../../lib/api.js";
+import { mergeModuleDetails } from "../../lib/module-details.js";
 import { searchNotes } from "./search-notes.js";
 import { useWorld } from "../world-state.js";
 import { Stack, Inline, Text, Icon, Loading } from "../../ds/index.js";
@@ -26,7 +27,10 @@ export function Search() {
   const details = useQuery({
     queryKey: ["zuzuu", "all-notes", ids],
     enabled: ids.length > 0,
-    queryFn: async () => (await Promise.all(ids.map((id) => api.zuzuu.module(id)))).flatMap((d) => d.items),
+    // mergeModuleDetails guards each response independently — a module-detail
+    // arriving without a real `items` array (degraded/peek/CLI-error edge)
+    // contributes nothing instead of blanking this whole view (the U4 crash).
+    queryFn: async () => mergeModuleDetails(await Promise.all(ids.map((id) => api.zuzuu.module(id)))).items,
   });
 
   const items = details.data ?? [];

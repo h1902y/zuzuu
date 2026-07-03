@@ -5,8 +5,14 @@
 // read these. The 3-part split (cell · field-config · input) lands its cell+input here.
 export type FieldType = "text" | "longtext" | "select" | "multi" | "link" | "date" | "number" | "bool";
 
-/** One field's declaration on a module.md `fields` block. */
-export interface FieldDef { name: string; type: FieldType; required?: boolean; label?: string }
+/** One field's declaration on a module.md `fields` block. `computed` is the
+ *  derive formula (e.g. `dateAdd(start_date,duration_days)`) — the value never
+ *  lands in the file; the index materializes it (shown as ƒ in headers).
+ *  `default` fills the column on `note create` when absent — the string `now`
+ *  is a SENTINEL on `type: date` columns only (resolved at write time; the
+ *  manifest keeps it symbolic, §H.5's CLI prerequisite). `description` is a
+ *  free-form tooltip/help string (header tooltip + schema card). */
+export interface FieldDef { name: string; type: FieldType; required?: boolean; label?: string; options?: string[]; computed?: string; default?: string; description?: string }
 
 export interface FieldConfig {
   type: FieldType;

@@ -24,3 +24,15 @@ export function projectStateLabel(state: ProjectStateKind): string {
     default: return state;
   }
 }
+
+/** §G.4 — the "under the hood" section's root-mode line: `ProjectState.rootMode`
+ *  named in plain English (the same distinction `resolveHome` makes on every read). */
+export function rootModeLabel(rootMode: boolean): string {
+  return rootMode ? "yes — modules live at the repo root, no .zuzuu/" : "no — modules live under .zuzuu/";
+}
+
+/** §G.4 — the daemon-port line: `window.location.port` named for display (injected
+ *  as a string so this stays pure/testable — `window` never enters the model). */
+export function daemonPortLabel(port: string): string {
+  return port ? `:${port}` : "(default)";
+}

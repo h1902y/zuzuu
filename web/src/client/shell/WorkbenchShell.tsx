@@ -10,6 +10,10 @@ import type { ProjectStateKind } from "#shared/index.js";
 import { TermView } from "../term/TermView.js";
 import { Composer } from "../composer/Composer.js";
 import { api, ApiError } from "../lib/api.js";
+import { brainEvents } from "../lib/brain-events.js";
+import { useModuleView, viewOf, type ModuleView } from "../state/module-view.js";
+import { useWorldCommand } from "../state/world-command.js";
+import { FilterChips } from "./stage/FilterChips.js";
 import { useWorkbench } from "../state/store.js";
 import { useWorld } from "./world-state.js";
 import { selectActors } from "./shell-state.js";
@@ -21,26 +25,34 @@ import { Checklist } from "./onboarding/Checklist.js";
 import { companionView } from "./onboarding/companion-state.js";
 import { onboardingStep, recordConsent, reopen, RUNG_ROUTE, describeSetupFailure, type ConsentRecord, type PrepRungId, type SetupFailure } from "./onboarding/onboarding-state.js";
 import { loadConsent, saveConsent } from "./onboarding/onboarding-consent.js";
-import { Overview } from "./overview/Overview.js";
+import { hudModel } from "./overview/overview-model.js";
+import { HudPill } from "./HudPill.js";
+import { projectionSwitch, type ProjTarget } from "./projection-switch.js";
+import { ProjectionToggle } from "./ProjectionToggle.js";
+import { Flow } from "./stage/Flow.js";
+import { flowTarget, isWorkflowAddr } from "./stage/flow-switch.js";
+import { useAppSurface } from "../state/app-surface.js";
+import { useSettingsDialog } from "../state/settings-dialog.js";
 import { Grid } from "./stage/Grid.js";
+import { Everything } from "./stage/Everything.js";
 import { Record } from "./stage/Record.js";
 import { AcpView } from "./stage/AcpView.js";
-import { ModuleGraph } from "./stage/ModuleGraph.js";
+import { World } from "./stage/World.js";
 import { Search } from "./search/Search.js";
 import { Settings } from "./settings/Settings.js";
 import { StageHeader } from "./stage/StageHeader.js";
 import { stageHeaderModel, newNoteId, resolveTab, type StageTab } from "./stage/stage-header.js";
 import { ReviewQueue } from "./review/ReviewQueue.js";
 import { Form } from "./wing/Form.js";
+import { NewNoteForm } from "./wing/NewNoteForm.js";
 import { Schema } from "./wing/Schema.js";
 import { dataProvider } from "../data/provider.js";
-import { Plus, Power } from "lucide-react";
+import { Plus, Power, Orbit } from "lucide-react";
 import { Palette } from "../palette/Palette.js";
 import { useEndSession } from "../state/end-session.js";
 import { EndSessionDialog } from "./session/EndSessionDialog.js";
-import { Loading, ThemeToggle, AppHeader, Text } from "../ds/index.js";
+import { Loading, ThemeToggle, AppHeader, Text, Inline, Icon } from "../ds/index.js";
 import { useReview } from "../state/review.js";
-import { NavTree } from "./NavTree.js";
 import { Switcher } from "./switcher/Switcher.js";
 import { Ribbon } from "./Ribbon.js";
 
@@ -66,25 +78,71 @@ export function WorkbenchShell() {
   const workspace = useQuery({ queryKey: ["workspace"], queryFn: api.workspace });
   const overview = useQuery({ queryKey: ["zuzuu", "overview"], queryFn: api.zuzuu.overview });
   const projectState = useQuery({ queryKey: ["zuzuu", "project-state"], queryFn: api.zuzuu.projectState });
+  // §I rung 5 — the Flow toggle's availability + in-context target. Same queryKey
+  // Flow.tsx itself reads (["zuzuu","flow"]) — react-query shares the cache, so
+  // this costs no extra fetch once the Flow stage is open, and vice versa.
+  const flowList = useQuery({ queryKey: ["zuzuu", "flow"], queryFn: api.zuzuu.flow });
+  const workflowAddrs = new Set((flowList.data?.workflows ?? []).map((w) => w.addr));
   const qc = useQueryClient();
   const [busy, setBusy] = useState<RungId | null>(null);
-  const [moduleView, setModuleView] = useState<string>("table"); // the module stage's Table·Graph tab (P2.7)
+  // the module stage's Table⇄Map projection lives in a per-module store so the
+  // T shortcut and the palette (>table / >map) reach it from anywhere
+  const viewByModule = useModuleView((s) => s.byModule);
+  const setModuleView = useModuleView((s) => s.set);
   const [sessionView, setSessionView] = useState<string>("terminal"); // the session stage's Terminal·Changes tab (P2.8)
   const reviewOpen = useReview((s) => s.open);
   const setReview = useReview((s) => s.setOpen);
   const setPalette = useWorld((s) => s.setPalette);
+  const requestWorld = useWorldCommand((s) => s.request);
+  const goGlobal = useAppSurface((s) => s.home);
+  const settingsOpen = useSettingsDialog((s) => s.open);
+  const setSettingsOpen = useSettingsDialog((s) => s.setOpen);
   const requestEnd = useEndSession((s) => s.request);
+
+  // the footer projection switcher applies a target: World home · Everything · a module
+  const applyProjection = (t: ProjTarget) => {
+    if (t.scope === null) { select(null); requestWorld({ kind: "fit" }); }
+    else if (t.scope === "") { setModuleView("", t.view); select({ kind: "everything" }); }
+    else { setModuleView(t.scope, t.view); select({ kind: "module", id: t.scope }); }
+  };
+  // the Flow toggle: the in-context workflow (already focused, or the current
+  // selection IS one), else Flow HOME (the picker) — >flow does the same lookup.
+  const goFlow = () => {
+    const t = flowTarget(selected, workflowAddrs);
+    select(t ? { kind: "flow", module: t.module, id: t.id } : { kind: "flow" });
+  };
 
   useEffect(() => { void refresh(); }, [refresh]); // load sessions; home is the database (no auto-open)
 
-  // Reset each stage's tab when the SELECTION changes, so a tab choice (Graph /
-  // Changes) never leaks to the next module/session (it's a per-node view, not global).
-  const moduleId = selected?.kind === "module" ? selected.id : null;
+  // The brain-state push (/ws/zuzuu): a staged proposal, a landed row, or a schema
+  // change invalidates ["zuzuu"] the moment its file lands — an agent turn visibly
+  // grows the project without waiting for a refetch cycle ("watch it build").
+  useEffect(() => {
+    brainEvents.start(() => void qc.invalidateQueries({ queryKey: ["zuzuu"] }));
+  }, [qc]);
+
+  // §E.4 — the workbench-launch greeting: the FIRST open of the day (per project)
+  // presents the omnibar's assist zero-state once. Non-blocking — Esc lands on the
+  // World; typing collapses it; nothing auto-fires. localStorage marks the day.
+  const greetRoot = workspace.data?.root ?? "";
+  const greetReady = projectState.data !== undefined && !projectState.isLoading;
+  useEffect(() => {
+    if (!greetRoot || !greetReady) return;
+    const key = `zz:greeted:${greetRoot}`;
+    const today = new Date().toDateString();
+    if (localStorage.getItem(key) === today) return;
+    localStorage.setItem(key, today);
+    setPalette(true);
+  }, [greetRoot, greetReady, setPalette]);
+
+  // The session tab resets on selection change (a per-node view). The MODULE view
+  // does not: it lives per-module in the module-view store — a choice never leaks
+  // to the NEXT module (the C1 rule holds), and a return visit keeps its projection.
   const sessionId = selected?.kind === "session" ? selected.id : null;
-  useEffect(() => { setModuleView("table"); }, [moduleId]);
   useEffect(() => { setSessionView("terminal"); }, [sessionId]);
 
-  // Global shortcuts: ⌘K opens the omnibar; R toggles the review gate (unless typing / in a terminal).
+  // Global shortcuts: ⌘K opens the omnibar; R toggles the review gate; T flips the
+  // module stage's Table⇄Map projection (unless typing / in a terminal).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setPalette(true); return; }
@@ -92,11 +150,40 @@ export function WorkbenchShell() {
       const el = e.target as HTMLElement;
       if (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable) return;
       if (e.key === "r" || e.key === "R") { e.preventDefault(); setReview(!useReview.getState().open); }
-      else if (e.key === "Escape") setReview(false);
+      else if (e.key === "t" || e.key === "T") {
+        // ONE continuous space, two projections — T toggles them in a module context;
+        // on the unified Everything it flips table ⇄ the FULL World (the '' scope);
+        // deep inside an island on the World home, T crystallizes it into its table;
+        // on the plain World home, T opens Everything (the table of what you see).
+        const sel = useWorld.getState().selected;
+        if (sel?.kind === "module") { e.preventDefault(); useModuleView.getState().toggle(sel.id); }
+        else if (sel?.kind === "everything") { e.preventDefault(); useModuleView.getState().toggle(""); }
+        else if (sel === null) {
+          const deep = useWorldCommand.getState().deep;
+          e.preventDefault();
+          if (deep) {
+            useModuleView.getState().set(deep, "table");
+            select({ kind: "module", id: deep });
+          } else {
+            useModuleView.getState().set("", "table");
+            select({ kind: "everything" });
+          }
+        }
+      }
+      else if (e.key === "Escape") {
+        // Esc cascade: an open overlay closes first (review · settings); otherwise,
+        // from any table/record stage, Esc returns to the World home (the map is the
+        // resting place). The palette owns its own Esc (it stops propagation); the
+        // onboarding dialog is non-dismissible (consent is the way through). A focused
+        // terminal/input is already guarded out above, so vim's Esc is preserved.
+        if (useReview.getState().open) setReview(false);
+        else if (useSettingsDialog.getState().open) setSettingsOpen(false);
+        else if (useWorld.getState().selected !== null) { e.preventDefault(); select(null); }
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [setReview, setPalette]);
+  }, [setReview, setPalette, select, setSettingsOpen]);
 
   // The setup→work stitch: onboarding picks a HOST (an agent session — zuzuu only
   // observes agents), then drops into the terminal AND teaches the loop just entered.
@@ -109,14 +196,11 @@ export function WorkbenchShell() {
     finally { setBusy(null); void qc.invalidateQueries({ queryKey: ["zuzuu"] }); }
   }
 
-  // "New note" (the module stage's primary): a create → a PENDING proposal (the gate),
-  // never a landed row — it surfaces in the review queue.
-  async function onNewNote(module: string) {
-    try {
-      await dataProvider.create(module, newNoteId(Date.now()), { title: "Untitled note", body: "" });
-      toast("New note staged for review");
-      void qc.invalidateQueries({ queryKey: ["zuzuu"] });
-    } catch { toast("Couldn't stage the note", "error"); }
+  // "New note" (the module stage's primary): FORM-FIRST (audit item 3) — open the
+  // draft wing (typed fields, required markers) and stage on save. The old blind
+  // `{title: "Untitled note"}` stage could never be approved on a schema'd module.
+  function onNewNote(module: string) {
+    select({ kind: "draft", module });
   }
 
   const sel = selectActors(selected);
@@ -126,9 +210,24 @@ export function WorkbenchShell() {
   const pendingByModule = Object.fromEntries(modules.map((m) => [m.id, m.counts?.pending ?? 0]));
   const sessionsLite = sessions.map((s) => ({ id: s.id, live: s.alive, lastActiveAt: s.createdAt }));
   const pState: ProjectStateKind | undefined = projectState.data?.state;
-  const onboarding = pState !== undefined && homeMode(pState) === "onboarding";
-  // ribbon setup nudge (R8) — only when home (the checklist) isn't the current view, so the same prompt never double-surfaces
-  const setupHint = pState !== undefined && pState !== "steady" && selected !== null ? RUNG_HINT[currentRung(pState)] : undefined;
+  // content modules (beyond the safety floor) flip the home to the map even when a
+  // later rung is open — the open rung stays reachable via the ribbon hint
+  const contentModules = modules.filter((m) => m.id !== "instructions" && m.id !== "guardrails").length;
+  const onboarding = pState !== undefined && homeMode(pState, contentModules) === "onboarding";
+  // ribbon setup nudge (R8) — visible whenever a rung is open and the checklist
+  // dialog isn't (the dialog only shows during full onboarding)
+  const setupHint = pState !== undefined && pState !== "steady" && !onboarding ? RUNG_HINT[currentRung(pState)] : undefined;
+  // §D — the needs-me HUD pill: the Overview's composite signal, ON the map
+  const heldQ = useQuery({ queryKey: ["zuzuu", "held"], queryFn: api.zuzuu.held });
+  const integrity = modules.reduce((n, m) => n + (m.counts?.errors ?? 0), 0);
+  const hud = hudModel(
+    Object.values(pendingByModule).reduce((n, v) => n + v, 0),
+    heldQ.data?.held?.length ?? 0,
+    integrity,
+  );
+  // the footer's always-there projection switcher (derived from the selection +
+  // each scope's resolved view) — the visible twin of the T shortcut / >map/>table
+  const projection = projectionSwitch(selected, (scope) => (viewOf(viewByModule, scope) === "graph" ? "graph" : "table"));
 
   // The per-step CONSENT GATE (U3): setup no longer auto-fires. A durable consent record
   // (localStorage, per-workspace) + the mechanical state derive the onboarding step; the
@@ -177,32 +276,72 @@ export function WorkbenchShell() {
   const header = stageHeaderModel(selected);
   const moduleTitle = (id: string) => modules.find((m) => m.id === id)?.title ?? id;
   const stageCrumb =
-    selected?.kind === "module" ? [moduleTitle(selected.id)]
-    : selected?.kind === "row" ? [moduleTitle(selected.module), selected.id]
+    selected?.kind === "everything" ? ["Everything"]
+    : selected?.kind === "module" ? [moduleTitle(selected.id)]
+    : selected?.kind === "row" || selected?.kind === "note" ? [moduleTitle(selected.module), selected.id]
+    : selected?.kind === "draft" ? [moduleTitle(selected.module), "new note"]
     : selected?.kind === "session" ? [activeSession?.title || "session"]
+    : selected?.kind === "flow" ? (selected.module && selected.id ? ["Flow", selected.module, selected.id] : ["Flow"])
     : [];
   const stagePrimary =
     header.primary?.key === "new-note" && selected?.kind === "module"
-      ? { label: "New note", icon: Plus, onClick: () => void onNewNote(selected.id) }
+      ? { label: "New note", icon: Plus, onClick: () => onNewNote(selected.id) }
       : header.primary?.key === "end-session" && activeSession
         ? { label: "End session", icon: Power, variant: "outline" as const, onClick: () => requestEnd(activeSession) }
         : null;
-  // the stage tab strips: a module's Table·Graph (P2.7), a session's Terminal·Changes (P2.8).
-  const MODULE_TABS: StageTab[] = [{ key: "table", label: "Table" }, { key: "graph", label: "Graph" }];
+  // the stage tab strips: a module's Table⇄Map segmented toggle (one control, two
+  // projections of one space — `T` flips it), a session's Terminal·Changes (P2.8).
+  const MODULE_TABS: StageTab[] = [{ key: "table", label: "Table" }, { key: "graph", label: "Map" }];
   const totalPending = Object.values(pendingByModule).reduce((n, v) => n + v, 0);
   const SESSION_TABS = sessionTabs(totalPending);
-  const activeModuleTab = resolveTab(MODULE_TABS, moduleView);
+  // the unified Everything scope keys the module-view/filter stores at '' — the
+  // same Table⇄Map grammar, project-wide
+  // MODULE_TABS still resolves the CURRENT projection of a module/'' scope (drives the
+  // stage render below); the Table⇄Map CONTROL itself moved to the top header. The
+  // stage-header strip now carries only the SESSION Terminal·Changes tabs.
+  const everythingTab = selected?.kind === "everything" ? resolveTab(MODULE_TABS, viewOf(viewByModule, "")) : undefined;
+  const activeModuleTab = selected?.kind === "module" ? resolveTab(MODULE_TABS, viewOf(viewByModule, selected.id)) : undefined;
   const activeSessionTab = resolveTab(SESSION_TABS, sessionView);
-  const stageTabs = selected?.kind === "module" ? MODULE_TABS : selected?.kind === "session" ? SESSION_TABS : undefined;
-  const activeTab = selected?.kind === "module" ? activeModuleTab : selected?.kind === "session" ? activeSessionTab : undefined;
-  const onTab = selected?.kind === "module" ? setModuleView : selected?.kind === "session" ? setSessionView : undefined;
 
   return (
     <div className="flex h-full flex-col">
       <AppHeader
-        leading={<Switcher />}
+        leading={
+          <Inline gap="md" align="center">
+            <Switcher />
+            {/* the Globe — beside the project switcher, back to the global page (§F) */}
+            <Text as="button" interactive tone="muted" onClick={goGlobal} aria-label="all projects" title="All projects — the globe">
+              <Icon icon={Orbit} size={16} />
+            </Text>
+            {/* the context breadcrumb (project › stage) — moved out of the per-stage
+                header strip; the one home for "where am I" */}
+            {stageCrumb.length > 0 && (
+              <Inline gap="xs" align="center">
+                <Text size="meta" tone="subtle">›</Text>
+                {stageCrumb.map((seg, i) => (
+                  <Inline key={`${seg}-${i}`} gap="xs" align="center">
+                    {i > 0 && <Text size="meta" tone="subtle">›</Text>}
+                    <Text size="meta" tone={i === stageCrumb.length - 1 ? "default" : "muted"}>{seg}</Text>
+                  </Inline>
+                ))}
+              </Inline>
+            )}
+            {/* the ONE always-visible projection toggle (was the per-stage strip) —
+                now three-way: Table · Map · Flow (§I rung 5) */}
+            <ProjectionToggle
+              projection={projection}
+              onProject={applyProjection}
+              flow={{ available: workflowAddrs.size > 0, active: selected?.kind === "flow", onClick: goFlow }}
+            />
+          </Inline>
+        }
         actions={
           <>
+            {selected?.kind === "module" && (
+              <Text as="button" interactive size="meta" tone="muted" onClick={() => onNewNote(selected.id)} title="New note" aria-label="new note">
+                <Icon icon={Plus} size={15} />
+              </Text>
+            )}
             <Text as="button" interactive size="meta" tone="muted" onClick={() => setPalette(true)}>⌘K</Text>
             <ThemeToggle />
           </>
@@ -210,11 +349,15 @@ export function WorkbenchShell() {
       />
 
       <div className="flex min-h-0 flex-1">
-        <NavTree />
-
-        <main className="flex min-w-0 flex-1 flex-col bg-app">
-          {header.show && (
-            <StageHeader crumb={stageCrumb} primary={stagePrimary} tabs={stageTabs} activeTab={activeTab} onTab={onTab} />
+        {/* §D: the nav tree is retired — the palette (⌘K), the map, the HUD pill,
+            and the footer ARE the navigation; sessions live in the omnibar source. */}
+        <main className="relative flex min-w-0 flex-1 flex-col bg-app">
+          <HudPill hud={hud} onClick={() => setReview(true)} />
+          {/* the per-stage header strip is retired (§ header consolidation): the
+              breadcrumb + Table⇄Map toggle live in the TOP app header now. Only a
+              SESSION keeps a stage strip — its Terminal·Changes tabs + End-session. */}
+          {selected?.kind === "session" && (
+            <StageHeader crumb={[]} primary={stagePrimary} tabs={SESSION_TABS} activeTab={activeSessionTab} onTab={setSessionView} />
           )}
           <div className="flex min-h-0 flex-1 flex-col">
             {sel.stage === "terminal" && sessionNode ? (
@@ -242,35 +385,53 @@ export function WorkbenchShell() {
                 </>
               )
             ) : sel.stage === "grid" && selected?.kind === "module" ? (
-              activeModuleTab === "graph" ? <ModuleGraph module={selected.id} /> : <Grid module={selected.id} />
+              // the Map projection mounts the WHOLE world, focused on this module —
+              // physics is project-level (two coupled sims); focus is a camera move.
+              // The shared filter rides both projections: chips above the map name
+              // the spotlight; the same lens filters the table.
+              // the projection swap CRYSTALLIZES (keyed fade — the island resolving
+              // into rows and back; a full FLIP node→row correspondence is future polish)
+              activeModuleTab === "graph" ? (
+                <div key="map" className="animate-fade flex min-h-0 flex-1 flex-col">
+                  <FilterChips module={selected.id} />
+                  <div className="min-h-0 flex-1"><World focus={selected.id} /></div>
+                </div>
+              ) : (
+                <div key="table" className="animate-fade flex min-h-0 flex-1 flex-col">
+                  <Grid module={selected.id} />
+                </div>
+              )
+            ) : sel.stage === "everything" ? (
+              // one table over everything (module = a column/facet) — same two
+              // projections: T flips to the FULL World, the '' lens spotlighted
+              everythingTab === "graph" ? (
+                <div key="emap" className="animate-fade flex min-h-0 flex-1 flex-col">
+                  <FilterChips module="" />
+                  <div className="min-h-0 flex-1"><World lens="" /></div>
+                </div>
+              ) : (
+                <div key="etable" className="animate-fade flex min-h-0 flex-1 flex-col">
+                  <Everything />
+                </div>
+              )
+            ) : sel.stage === "grid" && selected?.kind === "draft" ? (
+              // the New-note draft: the module's table stays visible; the form is the wing
+              <Grid module={selected.module} />
             ) : sel.stage === "record" && selected?.kind === "row" ? (
               <Record module={selected.module} id={selected.id} />
             ) : sel.stage === "search" ? (
               <Search />
-            ) : sel.stage === "settings" ? (
-              <Settings />
             ) : sel.stage === "acp" && selected?.kind === "acp" ? (
               <AcpView id={selected.id} />
+            ) : sel.stage === "flow" && selected?.kind === "flow" ? (
+              <Flow module={selected.module} id={selected.id} />
             ) : projectState.isLoading || overview.isLoading ? (
               <Loading />
             ) : (
-              // U5: no hard-swap — the home always renders; onboarding composes IN as a
-              // receding companion block (no full-stage takeover), so completing the last
-              // rung recedes in place instead of snapping to the dashboard.
-              <Overview
-                name={workspace.data?.name ?? "this project"}
-                emoji={workspace.data?.emoji}
-                path={workspace.data?.root ?? ""}
-                enabled={projectState.data?.host.enabled ?? false}
-                modules={modules}
-                sessions={sessions}
-                onStartSession={() => void startSession()}
-                onReview={() => setReview(true)}
-                companion={onboarding && pState ? (
-                  <Checklist projectName={workspace.data?.name ?? "this project"} companion step={onboardStep} failure={setupError} onAffirm={affirmRung} onDecline={declineRung} onReopen={reopenRung} onRetry={retrySetup} onStartSession={onStartSession} starting={busy === "session"} />
-                ) : undefined}
-                segue={pState !== undefined && companionView(pState, sessions.length).segue}
-              />
+              // MAP-FIRST, single-screen (§D): the home IS the World, always — an
+              // onboarding project shows its (empty) world too, with the checklist
+              // riding above as a dialog. There is no other home screen.
+              <World />
             )}
           </div>
         </main>
@@ -279,7 +440,9 @@ export function WorkbenchShell() {
           <aside className="hidden w-96 shrink-0 flex-col border-l border-border bg-surface xl:flex">
             {sel.wing === "review" ? (
               <ReviewQueue />
-            ) : sel.wing === "form" && selected?.kind === "row" ? (
+            ) : sel.wing === "form" && selected?.kind === "draft" ? (
+              <NewNoteForm key={selected.module} module={selected.module} seed={selected.seed} />
+            ) : sel.wing === "form" && (selected?.kind === "row" || selected?.kind === "note") ? (
               <Form module={selected.module} id={selected.id} />
             ) : sel.wing === "schema" && selected?.kind === "module" ? (
               <Schema module={selected.id} />
@@ -290,7 +453,32 @@ export function WorkbenchShell() {
         )}
       </div>
 
-      <Ribbon sessions={sessionsLite} pendingByModule={pendingByModule} setupHint={setupHint} onReview={() => setReview(true)} />
+      <Ribbon sessions={sessionsLite} pendingByModule={pendingByModule} setupHint={setupHint} onReview={() => setReview(true)} onSettings={() => setSettingsOpen(true)} />
+
+      {/* §D — onboarding is a DIALOG SEQUENCE over the dimmed World: the recorded
+          consent gates (per-rung affirm/decline/reopen, resumable, failures inline
+          with retry) relocate verbatim; only the container changed. Not dismissible
+          — consent is the way through, exactly as the checklist page was. */}
+      {onboarding && pState && (
+        <div className="animate-fade fixed inset-0 z-40 flex items-center justify-center bg-scrim p-10">
+          <div className="animate-pop max-h-full w-full max-w-xl overflow-y-auto rounded-lg border border-border bg-elevated p-8 shadow-overlay">
+            {companionView(pState, sessions.length).label && (
+              <div className="mb-4 text-meta text-muted">{companionView(pState, sessions.length).label}</div>
+            )}
+            <Checklist projectName={workspace.data?.name ?? "this project"} companion step={onboardStep} failure={setupError} onAffirm={affirmRung} onDecline={declineRung} onReopen={reopenRung} onRetry={retrySetup} onStartSession={onStartSession} starting={busy === "session"} />
+          </div>
+        </div>
+      )}
+
+      {/* §D — Settings: a dialog from the footer's right edge; the canvas undisturbed */}
+      {settingsOpen && (
+        <>
+          <button type="button" aria-label="close settings" onClick={() => setSettingsOpen(false)} className="animate-fade fixed inset-0 z-40 bg-scrim" />
+          <div className="animate-pop fixed inset-x-0 top-16 z-50 mx-auto flex max-h-96 w-full max-w-2xl flex-col overflow-y-auto rounded-lg border border-border bg-elevated shadow-overlay">
+            <Settings />
+          </div>
+        </>
+      )}
 
       {reviewOpen && (
         <>

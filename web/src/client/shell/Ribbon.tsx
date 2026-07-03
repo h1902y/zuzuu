@@ -1,14 +1,18 @@
 // shell/Ribbon.tsx — the project page's footer: the always-on ambient gate (R5).
-// Live-session count + total pending + R-to-review; a calm "all caught up" state. It
-// composes the SAME standardised AppFooter as the Projects Home, so the footer bar is
-// consistent across both surfaces — only the slot content differs.
-import { Circle, Clock, Check } from "lucide-react";
+// Live-session count + total pending + R-to-review; a calm "all caught up" state.
+// RIGHT edge: review nudge + the settings gear (a dialog). The projection toggle +
+// globe moved UP to the top app header (one always-visible instance). Composes the
+// SAME standardised AppFooter as the global page.
+import { Circle, Clock, Check, Settings as SettingsIcon } from "lucide-react";
 import { ribbonState, type SessionLite } from "./shell-state.js";
 import { Inline, Text, Icon, AppFooter } from "../ds/index.js";
 
 export function Ribbon({
-  sessions, pendingByModule, onReview, setupHint,
-}: { sessions: SessionLite[]; pendingByModule: Record<string, number>; onReview?: () => void; setupHint?: string }) {
+  sessions, pendingByModule, onReview, setupHint, onSettings,
+}: {
+  sessions: SessionLite[]; pendingByModule: Record<string, number>; onReview?: () => void;
+  setupHint?: string; onSettings?: () => void;
+}) {
   const r = ribbonState(sessions, pendingByModule);
   const liveTone = setupHint ? "subtle" : r.liveness ? "accent" : "muted";
   const pendTone = r.pending ? "default" : "muted";
@@ -28,9 +32,18 @@ export function Ribbon({
         </Inline>
       }
       right={
-        !r.allCaughtUp && onReview
-          ? <Text as="button" interactive size="meta" tone="accent" onClick={onReview}>press R to review</Text>
-          : undefined
+        <Inline gap="sm" align="center">
+          {!r.allCaughtUp && onReview && (
+            <Text as="button" interactive size="meta" tone="accent" onClick={onReview}>press R to review</Text>
+          )}
+          {/* §D — the quiet settings affordance at the footer's RIGHT edge (a dialog;
+              the canvas never disturbed) */}
+          {onSettings && (
+            <Text as="button" interactive size="meta" tone="muted" onClick={onSettings} aria-label="settings">
+              <Icon icon={SettingsIcon} size={13} />
+            </Text>
+          )}
+        </Inline>
       }
     />
   );

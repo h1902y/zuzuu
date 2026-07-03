@@ -117,3 +117,51 @@ Status: **partially shipped** (onboarding + the workbench are built; the later w
 ---
 
 > Shipped vs designed is marked per entry above. For the implementation map see the repo's [CLAUDE.md](https://github.com/h1902y/zuzuu/blob/main/CLAUDE.md); for the prior art that shaped these calls see the [[Inspiration-Log|Inspiration Log]].
+
+## 02-07-2026 — Two write lanes: the moat is agent-shaped, not human-shaped
+
+Earlier entries phrase the gate as "every write to the Project passes through
+review." Phase 1 of the personal-app roadmap made the doctrine precise: the
+moat defends against **agent** writes (the knowledge-poisoning threat model) —
+it was never meant to make the *human operator* propose to themselves. Now:
+
+- **The agent lane is unchanged and untouchable**: observe → stage → review.
+  `commit` refuses `actor:'agent'` in-process; the table-generated execution
+  gate denies write verbs at the shell. Forever.
+- **The operator lane is direct**: `note create/delete`, `--batch`, `module
+  import` land instantly — but still through the ONE writer (`grow/commit.mjs`):
+  validated, provenance-logged, minted. Direct ≠ ungoverned.
+
+Rationale: a personal application needs instant human CRUD; the prior blanket
+wording over-applied the moat to its own owner. The deeper creed — one writer,
+one door, nothing lands unvalidated or unversioned — is unchanged. See
+`docs/guide/Two-Lanes.md` and `docs/specs/2026-07-02-personal-app-roadmap.md`.
+
+## 02-07-2026 — The World is a view, not the canvas, not the Project
+
+The note-graph map ("the World") shipped as the workbench's map surface. Two
+boundaries recorded so it never drifts: (1) the World is an ADDITION — it does
+not replace or claim the unbuilt DESIGN §8 agent-org canvas (hexagons, 1:N
+sessions), which remains its own future artifact; (2) the workbench — World
+included — stays "a view onto a Project, not the Project." Map-first means the
+map is the primary VIEW; the files remain the truth. The raw terminal stays
+reachable per the conversational-composer spec ("never hide the terminal so
+completely the user can't answer a y/n").
+
+## 02-07-2026 — The envelope floor: write-boundary guarantee, read tolerance unchanged
+
+`title · module · type · status` are never null on a landed note. The guarantee
+lives at the ONE write boundary, not at parse: `repo.writeNote` FILLS the floor
+(status → `active`; title → the body's first line, else the humanized id — date
+ids stay verbatim) before validation, never overwriting a present value. Reads
+stay tolerant — legacy/foreign files still parse; `type` remains the only
+parse-level requirement. A verbatim `move` preserves bytes exactly.
+
+Consequences, recorded: `zz validate` now SURFACES pre-floor notes (instead of
+hiding them); `zz module backfill [--dry-run]` heals history through the same
+door (one generation per module, provenance `{backfill: envelope-floor}`,
+idempotent — deliberately not a `doctor --fix` flag, since doctor is an
+agent-shellable read and a write behind its flag would hole the generated
+execution gate); registry content digests are floor-normalized so a landed
+subscription never reads as false local-edit drift; a schema declaring `title`
+as required is satisfiable by construction now.

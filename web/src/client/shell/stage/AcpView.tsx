@@ -1,19 +1,31 @@
-// shell/stage/AcpView.tsx — the ACP drive-lane stage (Spike #2). Connects to
-// /ws/acp/:id, folds the structured stream through acp-model (pure), and renders it as
-// a custom conversation surface OFF the host TUI: agent text, thoughts, tool-call cards
-// with a status lifecycle + inline diffs, plans, turn dividers — plus a composer.
-// The in-memory view-model IS the recordable trace. Thin: derivation lives in acp-model.
+// shell/stage/AcpView.tsx — the ACP drive lane. Connects to /ws/acp/:id, folds the
+// structured stream through acp-model (pure), and renders it as a custom conversation
+// surface OFF the host TUI: agent text, thoughts, tool-call cards with a status
+// lifecycle + inline diffs, plans, turn dividers — plus a composer.
+// TWO surfaces mount the SAME machinery (§E.1 stage 3 — enhance, never reinvent):
+// the full stage (AcpView) and the omnibar's chat panel (AcpConversation compact).
+// They share the session — the daemon replays its trace to a (re)joining socket, so
+// closing the panel loses nothing; the conversation continues in the background.
 import { useEffect, useReducer, useRef, useState } from "react";
 import { Send, Square, Wrench, Brain, ListChecks, TriangleAlert, CircleDot, ShieldQuestion, ShieldX, ShieldCheck } from "lucide-react";
 import { AcpConnection } from "../../lib/acp-client.js";
-import { applyAcpMessage, initialAcpView, type AcpView as AcpVM, type Block } from "./acp-model.js";
+import { useAcpIntent } from "../../state/acp-intent.js";
+import { useWorldCommand } from "../../state/world-command.js";
+import { applyAcpMessage, extractMentions, initialAcpView, type AcpView as AcpVM, type Block } from "./acp-model.js";
 import { Stack, Inline, Text, Button, Icon } from "../../ds/index.js";
 
 const TOOL_STATUS_TONE: Record<string, string> = {
   completed: "text-success", failed: "text-danger", in_progress: "text-warning", pending: "text-muted",
 };
 
+/** The stage wrapper: header + the shared conversation surface. */
 export function AcpView({ id }: { id: string }) {
+  return <AcpConversation id={id} />;
+}
+
+/** The conversation surface both the stage and the omnibar chat panel mount.
+ *  `compact` tightens paddings for the panel. */
+export function AcpConversation({ id, compact = false }: { id: string; compact?: boolean }) {
   const [vm, dispatch] = useReducer(applyAcpMessage, initialAcpView);
   const [draft, setDraft] = useState("");
   const [decided, setDecided] = useState<Record<string, "allow" | "deny">>({});
@@ -36,6 +48,30 @@ export function AcpView({ id }: { id: string }) {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [vm.blocks.length]);
 
+  // the omnibar's `/prompt` hand-off (C3): one-shot — take() empties the queue,
+  // so a re-render can never double-send.
+  const takeIntent = useAcpIntent((s) => s.take);
+  useEffect(() => {
+    if (!vm.ready) return;
+    const queued = takeIntent();
+    if (queued) connRef.current?.send({ type: "prompt", text: queued });
+  }, [vm.ready, takeIntent]);
+
+  // [[mention]]s in the agent's streamed prose light the map (C3 follow-up):
+  // scan the coalesced agent blocks (chunks can split a mention mid-`[[…]]`, so
+  // per-chunk scanning would miss them), dispatch only the not-yet-seen ones.
+  // The world-command glow slot no-ops safely when the World is off-stage.
+  const requestGlow = useWorldCommand((s) => s.requestGlow);
+  const glowSeen = useRef(new Set<string>());
+  useEffect(() => { glowSeen.current = new Set(); }, [id]); // fresh session, fresh slate
+  useEffect(() => {
+    const prose = vm.blocks.filter((b) => b.kind === "agent").map((b) => b.text).join("\n");
+    const fresh = extractMentions(prose).filter((m) => !glowSeen.current.has(m));
+    if (!fresh.length) return;
+    for (const m of fresh) glowSeen.current.add(m);
+    requestGlow(fresh);
+  }, [vm.blocks, requestGlow]);
+
   const send = () => {
     const text = draft.trim();
     if (!text || vm.status === "working") return;
@@ -43,9 +79,10 @@ export function AcpView({ id }: { id: string }) {
     setDraft("");
   };
 
+  const pad = compact ? "px-3" : "px-6";
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex shrink-0 items-center gap-2 border-b border-border px-6 py-3">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className={`flex shrink-0 items-center gap-2 border-b border-border ${pad} ${compact ? "py-2" : "py-3"}`}>
         <Icon icon={CircleDot} size={14} />
         <Text size="meta" weight="semibold">Agent (ACP)</Text>
         <Text size="meta" tone="muted">· {vm.status}</Text>
@@ -54,7 +91,7 @@ export function AcpView({ id }: { id: string }) {
         )}
       </div>
 
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+      <div ref={scrollRef} className={`min-h-0 flex-1 overflow-y-auto ${pad} py-4`}>
         {!vm.blocks.length ? (
           <Text tone="muted" size="ui">{vm.ready ? "Ready — send a prompt below." : "Connecting to the agent…"}</Text>
         ) : (
@@ -64,7 +101,7 @@ export function AcpView({ id }: { id: string }) {
         )}
       </div>
 
-      <div className="flex shrink-0 items-end gap-2 border-t border-border px-6 py-3">
+      <div className={`flex shrink-0 items-end gap-2 border-t border-border ${pad} ${compact ? "py-2" : "py-3"}`}>
         <textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}

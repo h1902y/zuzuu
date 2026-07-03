@@ -1,0 +1,23 @@
+{
+  "id": "stg-8b8b46c0",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-hosts-hook-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: hosts/hook.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/src/hosts/hook.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/src/hosts/hook.mjs` (touched 13× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/src/hosts/hook.mjs` (touched 13× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 13,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 13,
+  "status": "pending"
+}

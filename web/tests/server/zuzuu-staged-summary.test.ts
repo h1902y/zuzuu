@@ -121,3 +121,51 @@ describe("stagedSummary — a real observe-written record (body under `change`)"
     expect(s.preview).toBe("rm -rf dist → ask");
   });
 });
+
+// B1(b) (audit 2026-07-03-secrets-review.md) — belt-and-suspenders: this daemon must
+// degrade safely against a value-bearing staged/*.json on disk (a pre-refusal-era file,
+// or a value riding a NON-secret change the CLI write door never inspects) — the
+// returned `change` body must mask any secret-shaped key's value before it leaves
+// this process, into the review-panel HTTP response.
+describe("stagedSummary — B1(b): secret-shaped values are masked in the returned `change`", () => {
+  const POISONED_SECRET = {
+    id: "stg-poisoned1",
+    op: "create",
+    module: "secrets",
+    target: "leaky",
+    change: { type: "secret", title: "leaky", name: "LEAKY_KEY", value: "sk-live-should-be-masked" },
+    status: "pending",
+  };
+
+  it("masks change.value for a type:secret proposal (the exact leak the audit found on the daemon HTTP body)", () => {
+    const s = stagedSummary(POISONED_SECRET, "secrets");
+    expect(s.change?.value).toBe("‹redacted›");
+    expect(JSON.stringify(s)).not.toContain("sk-live-should-be-masked");
+  });
+
+  it("masks a secret-shaped key on a NON-secret change too (defense-in-depth)", () => {
+    const s = stagedSummary({
+      id: "stg-poisoned2", op: "create", module: "actions", target: "enrich",
+      change: { type: "action", title: "enrich", run: "curl", api_key: "sk-live-stray-key" },
+      status: "pending",
+    }, "actions");
+    expect(s.change?.api_key).toBe("‹redacted›");
+    expect(s.change?.run).toBe("curl"); // non-secret-shaped fields render unchanged
+    expect(JSON.stringify(s)).not.toContain("sk-live-stray-key");
+  });
+
+  it("masks a secret-shaped key ONE LEVEL DEEP in a nested map (e.g. meta: {token: …})", () => {
+    const s = stagedSummary({
+      id: "stg-poisoned3", op: "create", module: "actions", target: "call",
+      change: { type: "action", title: "call", run: "curl", meta: { token: "sk-live-nested" } },
+      status: "pending",
+    }, "actions");
+    expect((s.change?.meta as Record<string, unknown> | undefined)?.token).toBe("‹redacted›");
+    expect(JSON.stringify(s)).not.toContain("sk-live-nested");
+  });
+
+  it("a clean, non-secret-shaped change is untouched (deep-equal, not just unmasked) — the mask is precise", () => {
+    const s = stagedSummary(MINED_ACTION, "actions");
+    expect(s.change).toEqual(MINED_ACTION.change);
+  });
+});

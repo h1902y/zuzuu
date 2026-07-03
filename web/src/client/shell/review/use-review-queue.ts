@@ -26,14 +26,18 @@ export function useReviewQueue() {
   const grouped = groupBy(queue, "module");
   const invalidate = () => void qc.invalidateQueries({ queryKey: ["zuzuu"] }); // queue + overview + project-state
 
+  // Surface the gate's PRECISE refusal (audit item 4): the CLI says exactly what's
+  // wrong ("field 'company' is required") and the ApiError now carries it — the
+  // generic "Couldn't approve" left users stuck with a poison proposal.
+  const why = (e: unknown) => (e instanceof Error && e.message ? ` — ${e.message}` : "");
   const approve = async (id: string, module: string) => {
     try { await dataProvider.approve(id, module); }
-    catch { toast("Couldn’t approve", "error"); }
+    catch (e) { toast(`Couldn’t approve${why(e)}`, "error"); }
     finally { invalidate(); }
   };
   const reject = async (id: string, module: string, reason: string) => {
     try { await dataProvider.reject(id, module, reason); }
-    catch { toast("Couldn’t reject", "error"); }
+    catch (e) { toast(`Couldn’t reject${why(e)}`, "error"); }
     finally { invalidate(); }
   };
 

@@ -15,9 +15,9 @@ import { search, related, backlinks, count } from '../notes/index.mjs';
  * Pure: the query result data.
  * @returns {{ kind:'count'|'related'|'backlinks'|'search', rows?, total?, addr? }}
  */
-export function queryData(home, { text = '', module = '', type = '', tag = '', depth = 0, full = false, dryRun = false, from = '', to = '', limit = 50 } = {}) {
-  if (dryRun) return { kind: 'count', total: count(home, { text, module, type, tag }) };
+export function queryData(home, { text = '', module = '', type = '', tag = '', status = '', where = [], depth = 0, full = false, dryRun = false, from = '', to = '', limit = 50 } = {}) {
+  if (dryRun) return { kind: 'count', total: count(home, { text, module, type, tag, status, where }) };
   if (to) return { kind: 'backlinks', addr: to, rows: backlinks(home, to) };          // who links TO this note
   if (from) return { kind: 'related', addr: from, rows: related(home, from, { depth: depth || 1, type }) }; // what this note links to
-  return { kind: 'search', rows: search(home, { text, module, type, tag, full, limit }) };
+  return { kind: 'search', rows: search(home, { text, module, type, tag, status, where, full, limit }) };
 }

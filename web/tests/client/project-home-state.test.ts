@@ -9,8 +9,8 @@ import type { ProjectStateKind } from "#shared/index.js";
 const ALL: ProjectStateKind[] = ["not-a-repo", "no-project", "hooks-off", "no-activity", "steady"];
 
 describe("homeMode", () => {
-  it("onboarding for every non-steady state, steady otherwise", () => {
-    expect(ALL.map(homeMode)).toEqual(["onboarding", "onboarding", "onboarding", "onboarding", "steady"]);
+  it("with no content: onboarding for every non-steady state, steady otherwise", () => {
+    expect(ALL.map((s) => homeMode(s, 0))).toEqual(["onboarding", "onboarding", "onboarding", "onboarding", "steady"]);
   });
 });
 
@@ -48,5 +48,17 @@ describe("rungStatus", () => {
 describe("shouldShowSetupNode", () => {
   it("hidden only at steady", () => {
     expect(ALL.map(shouldShowSetupNode)).toEqual([true, true, true, true, false]);
+  });
+});
+
+describe("homeMode — contentful projects get the map home (audit items 1+2)", () => {
+  it("content modules flip hooks-off / no-activity to the steady (map) home", () => {
+    expect(homeMode("hooks-off", 5)).toBe("steady");   // the root-mode vault: driven by /hi, hooks never enabled
+    expect(homeMode("no-activity", 2)).toBe("steady"); // built yesterday, nothing running now
+  });
+  it("a truly young project still onboards", () => {
+    expect(homeMode("hooks-off", 0)).toBe("onboarding");
+    expect(homeMode("no-project", 5)).toBe("onboarding"); // no Project home at all — content count is noise
+    expect(homeMode("not-a-repo", 5)).toBe("onboarding");
   });
 });

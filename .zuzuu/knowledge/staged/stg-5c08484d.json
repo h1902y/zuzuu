@@ -1,0 +1,23 @@
+{
+  "id": "stg-5c08484d",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-specs-2026-06-24-ontology-aligned-reshap",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: specs/2026-06-24-ontology-aligned-reshape.md",
+    "path": "/Users/hkc/Documents/zuzuu/docs/specs/2026-06-24-ontology-aligned-reshape.md",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/docs/specs/2026-06-24-ontology-aligned-reshape.md` (touched 5× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/docs/specs/2026-06-24-ontology-aligned-reshape.md` (touched 5× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 5,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 5,
+  "status": "pending"
+}

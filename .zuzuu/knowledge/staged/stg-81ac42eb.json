@@ -1,0 +1,37 @@
+{
+  "id": "stg-81ac42eb",
+  "op": "create",
+  "module": "knowledge",
+  "target": "failing-tool-write",
+  "change": {
+    "type": "knowledge",
+    "title": "Write fails frequently",
+    "body": "Tool `Write` fails frequently in this project (17 failures observed) — worth investigating why."
+  },
+  "rationale": "Tool `Write` fails frequently in this project (17 failures observed) — worth investigating why.",
+  "evidence": [
+    {
+      "kind": "fact",
+      "occurrences": 17,
+      "sessionIds": [
+        "claude-code:d8a6774f-25fa-490f-934f-ce2c0b9e1832"
+      ]
+    }
+  ],
+  "confidence": null,
+  "score": 17,
+  "source": {
+    "producer": "observe",
+    "kind": "fact",
+    "sessions": [
+      "claude-code:d8a6774f-25fa-490f-934f-ce2c0b9e1832"
+    ],
+    "locator": {
+      "kind": "session-ids",
+      "sessions": [
+        "claude-code:d8a6774f-25fa-490f-934f-ce2c0b9e1832"
+      ]
+    }
+  },
+  "status": "pending"
+}

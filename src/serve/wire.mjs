@@ -34,7 +34,7 @@ export function registerAll() {
   register('check', (ctx, opts = {}) => check(ctx, opts), { permission: 'read' });
   register('act', (ctx, id, inputs = {}) => act(ctx, id, inputs), { permission: 'run' });
   register('view', (ctx, id, opts = {}) => viewNote(ctx.home, ctx.module, id, opts), { permission: 'read' });
-  register('flow', (ctx, id, inputs = {}) => runWorkflow(ctx.home, ctx.module, id, inputs), { permission: 'run' });
+  register('flow', (ctx, id, inputs = {}) => runWorkflow(ctx.home, ctx.module, id, inputs, ctx.actor), { permission: 'run' });
   // validate is project-wide when module is '' (readManifest('') falls back to the
   // universal set, so 'validate' passes the exposure gate either way).
   register('validate', (ctx) => validateProject(ctx.home, ctx.module), { permission: 'read' });

@@ -1,0 +1,39 @@
+{
+  "id": "stg-158f110f",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-term-termview-tsx",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: term/TermView.tsx",
+    "path": "/Users/hkc/Documents/zuzuu/web/src/client/term/TermView.tsx",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/client/term/TermView.tsx` (touched 12× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/client/term/TermView.tsx` (touched 12× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 12,
+      "sessions": 1,
+      "sessionIds": [
+        "claude-code:d8a6774f-25fa-490f-934f-ce2c0b9e1832"
+      ]
+    }
+  ],
+  "confidence": null,
+  "score": 12,
+  "source": {
+    "producer": "observe",
+    "kind": "entity",
+    "sessions": [
+      "claude-code:d8a6774f-25fa-490f-934f-ce2c0b9e1832"
+    ],
+    "locator": {
+      "kind": "session-ids",
+      "sessions": [
+        "claude-code:d8a6774f-25fa-490f-934f-ce2c0b9e1832"
+      ]
+    }
+  },
+  "status": "pending"
+}

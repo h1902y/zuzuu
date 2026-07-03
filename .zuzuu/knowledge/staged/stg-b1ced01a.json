@@ -1,0 +1,23 @@
+{
+  "id": "stg-b1ced01a",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-shell-workbenchshell-tsx",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: shell/WorkbenchShell.tsx",
+    "path": "/Users/hkc/Documents/zuzuu/web/src/client/shell/WorkbenchShell.tsx",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/client/shell/WorkbenchShell.tsx` (touched 76× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/client/shell/WorkbenchShell.tsx` (touched 76× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 76,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 76,
+  "status": "pending"
+}

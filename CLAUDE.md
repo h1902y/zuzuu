@@ -110,3 +110,33 @@ This project owns its **work** activities in [`.personal/tasks/`](.personal/task
 - Activity templates live at `~/Documents/personal/tasks/.schema/templates/` (canonical) — mirror that shape when creating a new task here.
 - When task state changes materially, reflect the headline in [`.personal/STATUS.md`](.personal/STATUS.md) (slim, work-only: Focus now / Shipped recently / Blockers / Next up) so the personal vault's dashboard stays current — that's the only cross-repo obligation.
 - Some tasks carry `[[wikilinks]]` to notes that live in the personal vault; those are cross-repo and won't resolve in Obsidian — leave them as references.
+
+## Model policy for agentic work (added 02-07-2026, token discipline)
+
+Fable is the scarce resource — spend it on judgment, never on labor:
+
+- **Fable (the main loop only)**: design thinking, spec/canon writing, fidelity
+  judgment, user conversation, genuinely novel creative work. NEVER fork for
+  implementation — **a fork inherits the parent model regardless of the `model`
+  param** (harness rule), so fork-delegation silently runs at Fable prices.
+  Keep Fable turns few: pin every decision into `docs/specs/` or the
+  Decision-Log immediately, then delegate the labor.
+- **Sonnet (the army)**: ALL surgical implementation — `Agent` with
+  `subagent_type: general-purpose`, `model: "sonnet"`, briefed from PINNED SPEC
+  FILES (docs/specs/*, docs/audits/*), never from conversation memory. Briefs
+  carry: the spec §, exact file paths, the gates (CLI suite · web typecheck ·
+  vitest · build · live verify), and "report deviations, don't improvise."
+  Parallelize only on disjoint trees.
+- **Opus (`model: "opus"`)**: moderation — reviewing/verifying Sonnet output,
+  adversarial checks before merge, gnarly debugging that resists one Sonnet pass.
+- **Haiku (`model: "haiku"`)**: trivial scans, lookups, inventories (Explore).
+- Escalate only on failure: Sonnet → Opus review → Fable judgment; never start
+  at the top. The spec-first discipline is what MAKES cheap models effective —
+  a well-pinned § needs no inherited context.
+- **One writer per branch region at a time.** Parallel agents are fine ONLY on
+  disjoint trees (e.g. src/ vs web/ vs docs/) — but even then, two agents
+  committing to the same branch can sweep each other's staged files into the
+  wrong commit (observed 03-07: a src/ fix landed inside a web/ commit). Rule:
+  give each concurrent agent a non-overlapping path scope AND tell it to use
+  pathspec-limited commits (`git commit -- <its files>`), never `git add -A`.
+  For same-region work, serialize. When in doubt, one agent at a time.

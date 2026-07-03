@@ -89,6 +89,18 @@ export type FsServerMessage = {
   path: string;
 };
 
+// ── Brain-state push WS (/ws/zuzuu) — JSON text frames ────────────────────────
+// The daemon watches the brain surfaces (module items · staged proposals · module
+// manifests) and pushes a coarse change signal; the client invalidates its ["zuzuu"]
+// queries on it. "Watch it build": an agent staging a proposal mid-turn appears in
+// the review queue and the map WITHOUT waiting for a refetch cycle.
+export type BrainServerMessage = {
+  type: "brain";
+  /** the module whose surface changed ('' when indeterminate) */
+  module: string;
+  kind: "items" | "staged" | "schema";
+};
+
 // ── ACP bridge WS (/ws/acp/:id) — JSON text frames ────────────────────────────
 // The daemon is the ACP *client*: it spawns the `claude-agent-acp` adapter, runs the
 // protocol over its stdio, and relays the structured `session/update` stream here.

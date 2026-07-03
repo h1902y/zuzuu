@@ -94,6 +94,25 @@ function applyUpdate(v: AcpView, u: AcpSessionUpdate): AcpView {
   }
 }
 
+// [[mention]] extraction from agent prose (C3 follow-up: the conversation lights
+// the map). A mention is `[[module:id]]` or `[[bare-id]]` in slug characters.
+// Fenced code blocks and inline code spans are stripped FIRST — code that talks
+// about the wikilink syntax must not glow the map. Deduped, order kept.
+const MENTION = /\[\[([a-z0-9][a-z0-9._-]*(?::[a-z0-9][a-z0-9._-]*)?)\]\]/gi;
+
+export function extractMentions(text: string): string[] {
+  const prose = text
+    .replace(/```[\s\S]*?(```|$)/g, " ") // fenced blocks (incl. an unclosed trailing fence mid-stream)
+    .replace(/`[^`\n]*`/g, " ");         // inline code spans
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const m of prose.matchAll(MENTION)) {
+    const raw = m[1] ?? "";
+    if (raw && !seen.has(raw)) { seen.add(raw); out.push(raw); }
+  }
+  return out;
+}
+
 /** Fold one server message into the view-model. */
 export function applyAcpMessage(v: AcpView, msg: AcpServerMessage): AcpView {
   switch (msg.type) {

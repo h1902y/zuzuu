@@ -22,7 +22,7 @@ function mockZuzuu(detail: Partial<ModuleDetail> = {}) {
   return { zuzuu: zuzuu as unknown as Parameters<typeof makeDataProvider>[0], stage, calls };
 }
 
-const ALL: import("../../src/client/data/list-state.js").ListQuery = { text: "", kind: "", sort: null, page: 0, pageSize: 50 };
+const ALL: import("../../src/client/data/list-state.js").ListQuery = { text: "", kind: "", status: "", where: [], sort: null, page: 0, pageSize: 50 };
 
 describe("DataProvider — server-side list + writes as pending proposals", () => {
   it("getList pushes filter·sort·page to the SERVER (the index SELECT) and paginates off total", async () => {
@@ -30,7 +30,7 @@ describe("DataProvider — server-side list + writes as pending proposals", () =
     const { zuzuu, calls } = mockZuzuu({ items: page, total: 7, staged: [{ id: "p1", module: "knowledge", title: "P1" }] });
     const dp = makeDataProvider(zuzuu);
 
-    const res = await dp.getList("knowledge", { text: "blue", kind: "fact", sort: { key: "title", dir: "desc" }, page: 2, pageSize: 25 });
+    const res = await dp.getList("knowledge", { text: "blue", kind: "fact", status: "", where: [], sort: { key: "title", dir: "desc" }, page: 2, pageSize: 25 });
     // the items ARE the server page — no client-side matches() over a limit:10000 fetch
     expect(res.items.map((i) => i.id)).toEqual(["a", "b"]);
     expect(res.total).toBe(7);          // the pre-paginate total the grid paginates off
@@ -42,6 +42,10 @@ describe("DataProvider — server-side list + writes as pending proposals", () =
     // an empty filter sends only the page window (no stray filter axes)
     await dp.getList("knowledge", ALL);
     expect(calls[1]).toEqual({ limit: 50, offset: 0 });
+
+    // status is its own facet axis (like kind), and where rides as a repeated flag
+    await dp.getList("knowledge", { ...ALL, status: "active", where: ["tier>=2"] });
+    expect(calls[2]).toEqual({ status: "active", where: ["tier>=2"], limit: 50, offset: 0 });
   });
 
   it("create/update resolve to a PENDING StagedChange (never a landed row)", async () => {

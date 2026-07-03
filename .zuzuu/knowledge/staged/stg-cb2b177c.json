@@ -1,0 +1,39 @@
+{
+  "id": "stg-cb2b177c",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-plans-refactored-imagining-umbrella-md",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: plans/refactored-imagining-umbrella.md",
+    "path": "/Users/hkc/.claude/plans/refactored-imagining-umbrella.md",
+    "body": "Hot file in this project: `/Users/hkc/.claude/plans/refactored-imagining-umbrella.md` (touched 7× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/.claude/plans/refactored-imagining-umbrella.md` (touched 7× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 7,
+      "sessions": 1,
+      "sessionIds": [
+        "claude-code:d8a6774f-25fa-490f-934f-ce2c0b9e1832"
+      ]
+    }
+  ],
+  "confidence": null,
+  "score": 7,
+  "source": {
+    "producer": "observe",
+    "kind": "entity",
+    "sessions": [
+      "claude-code:d8a6774f-25fa-490f-934f-ce2c0b9e1832"
+    ],
+    "locator": {
+      "kind": "session-ids",
+      "sessions": [
+        "claude-code:d8a6774f-25fa-490f-934f-ce2c0b9e1832"
+      ]
+    }
+  },
+  "status": "pending"
+}

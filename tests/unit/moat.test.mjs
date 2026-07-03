@@ -24,8 +24,8 @@ function withHome(fn) {
   const note = (m, id, n) => writeFileSync(join(home, m, 'items', `${id}.md`), serialize({ id, ...n }));
   manifest('knowledge', ['query', 'check'], { note_type: 'knowledge' });
   manifest('actions', ['query', 'check', 'act'], { note_type: 'action' });
-  note('knowledge', 'big', { type: 'knowledge', title: 'Big', body: 'l1\nl2\nl3' });
-  note('actions', 'flow1', { type: 'workflow', title: 'a flow', steps: [{ id: 's1', run: 'true' }] });
+  note('knowledge', 'big', { type: 'knowledge', title: 'Big', status: 'active', body: 'l1\nl2\nl3' });
+  note('actions', 'flow1', { type: 'workflow', title: 'a flow', status: 'active', steps: [{ id: 's1', run: 'true' }] });
   resetCapabilities();
   registerAll();
   try { return fn({ root, home }); } finally { rmSync(root, { recursive: true, force: true }); resetCapabilities(); }

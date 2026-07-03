@@ -1,50 +1,192 @@
-// shell/wing/Schema.tsx — the module wing: its per-module generations (the content-
-// addressed lineage) + rollback (R15). Active generation is marked; any prior one can
-// be restored (a pointer-flip + content restore). Built on api.zuzuu.generations /
-// rollback. Static utilities only. (Declared-field schema editing → a later rung.)
+// shell/wing/Schema.tsx — the module wing: its declared COLUMNS (§H.5's schema
+// card — the contract, visible: name · type · required · default · description ·
+// ƒ formula) + its per-module generation LINEAGE STRIP (§G.2 — teach the
+// substrate): a compact horizontal strip (n · relative mintedAt · from-count),
+// current highlighted. Clicking a chip opens its detail: "what changed" (the
+// real gen.diff route) + "rollback to here" — routes through the EXISTING
+// `POST .../generation/:id/rollback` (already wired + tested; the omnibar has no
+// rollback verb yet, so a hint pointing at ⌘K would promise a feature that isn't
+// there) with the honest consequence printed beside it: rollback is FORWARD
+// motion, a new generation, never a destructive rewrite. Columns are READ-ONLY
+// (§H.6 doctrine): edit via the grid's header caret or "+ column" toolbar
+// (FieldConfigPanel), never a second write surface.
+import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { GitCompare } from "lucide-react";
+import type { GenerationSummary } from "#shared/index.js";
 import { api } from "../../lib/api.js";
 import { toast } from "../../state/toast.js";
-import { Stack, Inline, Text, Button } from "../../ds/index.js";
+import { relativeTimeFromIso } from "../../lib/time.js";
+import { modulePath } from "../../lib/plain-file.js";
+import { PlainFilePath } from "../../lib/PlainFilePath.js";
+import { useRootMode } from "../../state/root-mode.js";
+import { fieldsFromSchema } from "../stage/schema-fields.js";
+import { TypeGlyph } from "../stage/TypeGlyph.js";
+import { Stack, Inline, Text, Icon, Box, Button } from "../../ds/index.js";
+
+const STATUS_TONE: Record<string, "accent" | "danger" | "subtle"> = { A: "accent", D: "danger", M: "subtle" };
+
+/** §G.2's "what changed" panel: which notes were added/modified/deleted between
+ *  the previous generation and this one — the real `gen diff` route, fetched
+ *  only once its chip is opened. */
+function GenerationDiff({ module, from, to }: { module: string; from: string; to: string }) {
+  const q = useQuery({ queryKey: ["zuzuu", "gen-diff", module, from, to], queryFn: () => api.zuzuu.generationDiff(module, from, to) });
+  if (q.isLoading) return <Text size="meta" tone="muted">diffing gen {from} → {to}…</Text>;
+  const d = q.data;
+  if (!d || d.degraded) return <Text size="meta" tone="muted">nothing to compare (gen {from} has no backing commit)</Text>;
+  if (!d.changes.length) return <Text size="meta" tone="muted">no note changed between gen {from} and {to}</Text>;
+  return (
+    <Stack gap="none">
+      {d.changes.slice(0, 20).map((c, i) => (
+        <Inline key={`${c.id}-${i}`} gap="sm">
+          <Text size="meta" mono tone={STATUS_TONE[c.status] ?? "muted"}>{c.status}</Text>
+          <Text size="meta" tone="muted">{c.id}</Text>
+        </Inline>
+      ))}
+      {d.changes.length > 20 && <Text size="meta" tone="muted">+{d.changes.length - 20} more</Text>}
+    </Stack>
+  );
+}
+
+/** One strip chip: `gen N`, active highlighted, relative mint time, a from-count
+ *  when the generation carries `mintedFrom` (the closest thing to a "label" the
+ *  ledger entry carries — see src/notes/generation.mjs, no separate label field). */
+function GenerationChip({ g, active, open, onToggle, nowMs }: {
+  g: GenerationSummary; active: boolean; open: boolean; onToggle: () => void; nowMs: number;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      title={g.mintedAt ?? "mint time not recorded"}
+      className={`inline-flex shrink-0 items-center gap-1.5 rounded-ui border px-2 py-1 text-meta transition-colors ${
+        active ? "border-accent-dim bg-selected text-ink-100" : "border-border text-subtle hover:bg-hover"
+      } ${open ? "ring-1 ring-accent-dim" : ""}`}
+    >
+      <span className="font-mono">gen {g.id}</span>
+      {active && <span>· active</span>}
+      <span className="text-muted">{relativeTimeFromIso(g.mintedAt, nowMs, "time not recorded")}</span>
+      {g.mintedFrom.length > 0 && <span className="text-muted">· from {g.mintedFrom.length}</span>}
+    </button>
+  );
+}
 
 export function Schema({ module }: { module: string }) {
   const qc = useQueryClient();
+  const schema = useQuery({ queryKey: ["zuzuu", "schema", module], queryFn: () => api.zuzuu.schema(module) });
   const q = useQuery({ queryKey: ["zuzuu", "generations", module], queryFn: () => api.zuzuu.generations(module) });
-
-  async function rollback(id: string) {
-    try {
-      await api.zuzuu.rollback(module, id);
-      toast(`Rolled ${module} back to ${id}`);
-      void qc.invalidateQueries({ queryKey: ["zuzuu"] });
-    } catch { toast("Couldn’t roll back", "error"); }
-  }
+  const fields = fieldsFromSchema(schema.data?.schema);
+  const rootMode = useRootMode();
+  const [openGen, setOpenGen] = useState<string | null>(null);
+  const [rollingBack, setRollingBack] = useState(false);
 
   if (q.isLoading) return <div className="grid h-full place-items-center"><Text tone="muted">loading…</Text></div>;
   const data = q.data;
+  const nowMs = Date.now();
+  const openIdx = data ? data.generations.findIndex((g) => g.id === openGen) : -1;
+  const openG = openIdx >= 0 ? data!.generations[openIdx] : null;
+  const prevG = openIdx > 0 ? data!.generations[openIdx - 1] : null;
+
+  async function rollback(id: string) {
+    setRollingBack(true);
+    try {
+      await api.zuzuu.rollback(module, id);
+      toast(`Rolled ${module} back to gen ${id} — landed as a new generation`);
+      void qc.invalidateQueries({ queryKey: ["zuzuu"] });
+      setOpenGen(null);
+    } catch { toast("Couldn’t roll back", "error"); }
+    finally { setRollingBack(false); }
+  }
 
   return (
     <div className="h-full overflow-y-auto p-6">
-      <Stack gap="md">
-        <Text size="meta" tone="subtle" weight="semibold">GENERATIONS</Text>
-        {!data || !data.generations.length ? (
-          <Text size="meta" tone="muted">no generations yet</Text>
-        ) : (
-          <Stack gap="sm">
-            {data.generations.map((g) => (
-              <Inline key={g.id} gap="sm" justify="between" align="start">
-                <Stack gap="none">
-                  <Text size="ui" tone={g.id === data.active ? "accent" : "default"}>
-                    {g.id}{g.id === data.active ? " · active" : ""}
-                  </Text>
-                  {g.mintedAt && <Text size="meta" tone="muted">{g.mintedAt}</Text>}
-                </Stack>
-                {g.id !== data.active && (
-                  <Button variant="outline" size="sm" onClick={() => rollback(g.id)}>rollback</Button>
-                )}
+      <Stack gap="lg">
+        <Stack gap="md">
+          <Text size="meta" tone="subtle" weight="semibold">COLUMNS</Text>
+          {!fields.length ? (
+            <Text size="meta" tone="muted">schemaless — no declared columns yet (any frontmatter goes)</Text>
+          ) : (
+            <div className="overflow-hidden rounded-ui border border-border">
+              {fields.map((f) => (
+                <div key={f.name} className="flex items-start gap-3 border-b border-border px-3 py-2 last:border-b-0">
+                  <span className="mt-0.5 shrink-0"><TypeGlyph type={f.type} computed={Boolean(f.computed)} /></span>
+                  <Stack gap="none">
+                    <Inline gap="xs" wrap>
+                      <Text size="ui" tone="default">{f.label ?? f.name}</Text>
+                      <Text size="meta" mono tone="muted">{f.name}</Text>
+                      {f.required && <Text size="meta" tone="danger">required</Text>}
+                      {f.default != null && <Text size="meta" tone="muted">default: {f.default}</Text>}
+                    </Inline>
+                    {f.computed && <Text size="meta" tone="muted">ƒ {f.computed}</Text>}
+                    {/* the description reads as a quiet subtext line here (the schema
+                        card's fuller surface); the grid header carries it as a tooltip */}
+                    {f.description && <Text size="meta" tone="muted">{f.description}</Text>}
+                  </Stack>
+                </div>
+              ))}
+            </div>
+          )}
+          {/* §G.3 — the contract, visible: the schema card names its own file
+              (root-mode aware — undefined while loading holds the generic path). */}
+          <Inline gap="xs" align="baseline">
+            <Text size="meta" tone="muted">this is a plain file —</Text>
+            <PlainFilePath path={rootMode === undefined ? `${module}/module.md` : modulePath(module, rootMode)} />
+          </Inline>
+        </Stack>
+
+        <Stack gap="md">
+          <Text size="meta" tone="subtle" weight="semibold">GENERATIONS</Text>
+          {!data || !data.generations.length ? (
+            <Text size="meta" tone="muted">no generations yet</Text>
+          ) : (
+            <Stack gap="sm">
+              <Inline gap="xs" wrap>
+                {data.generations.map((g) => (
+                  <GenerationChip
+                    key={g.id}
+                    g={g}
+                    active={g.id === data.active}
+                    open={g.id === openGen}
+                    onToggle={() => setOpenGen(openGen === g.id ? null : g.id)}
+                    nowMs={nowMs}
+                  />
+                ))}
               </Inline>
-            ))}
-          </Stack>
-        )}
+
+              {openG && (
+                <Box pad="sm" bg="surface" border="hairline" radius="ui">
+                  <Stack gap="sm">
+                    {/* rollback: routes through the EXISTING, already-wired gen
+                        rollback path (§G.2's explicit instruction) — the consequence
+                        printed beside it, since Airtable can't say this: rollback is
+                        FORWARD motion, a new generation, never a rewrite in place. */}
+                    {openG.id !== data.active && (
+                      <Inline gap="sm" align="center" wrap>
+                        <Button variant="outline" size="sm" disabled={rollingBack} onClick={() => void rollback(openG.id)}>
+                          {rollingBack ? "Rolling back…" : `Roll back to gen ${openG.id}`}
+                        </Button>
+                        <Text size="meta" tone="muted">
+                          → lands as gen {data.active ? Number(data.active) + 1 : "N+1"} — a new forward generation, rollback-able itself
+                        </Text>
+                      </Inline>
+                    )}
+                    <Stack gap="xs">
+                      <Inline gap="xs" align="center">
+                        <Icon icon={GitCompare} size={11} />
+                        <Text size="meta" tone="subtle" weight="semibold">WHAT CHANGED</Text>
+                      </Inline>
+                      {prevG ? (
+                        <GenerationDiff module={module} from={prevG.id} to={openG.id} />
+                      ) : (
+                        <Text size="meta" tone="muted">the first generation — nothing minted before it to compare</Text>
+                      )}
+                    </Stack>
+                  </Stack>
+                </Box>
+              )}
+            </Stack>
+          )}
+        </Stack>
       </Stack>
     </div>
   );

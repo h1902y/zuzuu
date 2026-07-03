@@ -1,0 +1,23 @@
+{
+  "id": "stg-57c71b0b",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-server-sessions-ts",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: server/sessions.ts",
+    "path": "/Users/hkc/Documents/zuzuu/web/src/server/sessions.ts",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/server/sessions.ts` (touched 26× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/server/sessions.ts` (touched 26× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 26,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 26,
+  "status": "pending"
+}

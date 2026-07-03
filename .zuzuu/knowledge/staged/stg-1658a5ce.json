@@ -1,0 +1,39 @@
+{
+  "id": "stg-1658a5ce",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-guardrails-gate-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: guardrails/gate.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/src/guardrails/gate.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/src/guardrails/gate.mjs` (touched 17× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/src/guardrails/gate.mjs` (touched 17× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 17,
+      "sessions": 1,
+      "sessionIds": [
+        "claude-code:d8a6774f-25fa-490f-934f-ce2c0b9e1832"
+      ]
+    }
+  ],
+  "confidence": null,
+  "score": 17,
+  "source": {
+    "producer": "observe",
+    "kind": "entity",
+    "sessions": [
+      "claude-code:d8a6774f-25fa-490f-934f-ce2c0b9e1832"
+    ],
+    "locator": {
+      "kind": "session-ids",
+      "sessions": [
+        "claude-code:d8a6774f-25fa-490f-934f-ce2c0b9e1832"
+      ]
+    }
+  },
+  "status": "pending"
+}

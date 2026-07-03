@@ -1,0 +1,23 @@
+{
+  "id": "stg-39857ee2",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-primitives-recipes-ts",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: primitives/recipes.ts",
+    "path": "/Users/hkc/Documents/zuzuu/web/src/client/ds/primitives/recipes.ts",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/client/ds/primitives/recipes.ts` (touched 8× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/client/ds/primitives/recipes.ts` (touched 8× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 8,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 8,
+  "status": "pending"
+}

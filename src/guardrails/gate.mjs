@@ -5,8 +5,13 @@
 // why:  the protective layer — enforced on every tool call by the host's
 //       PreToolUse hook. A refusal here is policy, not preference.
 // how:  rules are notes (`type: rule`, frontmatter action/tool/pattern/reason).
-//       severity wins (deny > ask > allow). FAIL-OPEN: a malformed rule is
-//       skipped, an engine error emits no decision — never a wrong block.
+//       severity wins (deny > ask > allow). FAIL-OPEN for an `operator` actor
+//       (the default): a malformed rule is skipped, an engine error emits no
+//       decision, an `ask` verdict passes through unblocked — never a wrong
+//       block, because an interactive human is present to see the run and
+//       decide (§I rung 3, the safety floor's fail-CLOSED half — see `gate()`
+//       below — is the other half: an unattended `agent` actor gets the
+//       opposite defaults, because nobody is watching to catch a silent gap).
 //       (evaluate logic harvested from guardrails/engine.mjs, incl. the
 //       no-root-wipe JSON-anchor fix — rules match over JSON.stringify(input).)
 
@@ -105,25 +110,38 @@ function pathsFor(input) {
 // back-compat so EXISTING projects (seeded before the rename) stay protected.
 export const RULE_MODULES = ['instructions', 'guardrails'];
 
-/** Load + compile a module's rule notes, cached on the dir signature. */
-export function loadRules(home, module = 'instructions') {
+/** Load + compile a module's rule notes, cached on the dir signature. Returns
+ *  `{ rules, malformed }` — `malformed` is true when at least one rule note in the
+ *  module failed to compile (bad action/pattern/regex) and was silently skipped.
+ *  Internal: `loadRules` (below) is the public, rules-array-only surface that
+ *  existing callers (and the `ask`/malformed-rule-blind operator path) expect;
+ *  `gate()` uses this detailed form to know WHY a rule went missing, for the
+ *  agent actor's fail-closed posture. */
+function loadRulesDetailed(home, module = 'instructions') {
   const dir = itemsDir(home, module);
-  if (!existsSync(dir)) return [];
+  if (!existsSync(dir)) return { rules: [], malformed: false };
   const files = list(dir).filter((f) => f.endsWith('.md'));
   const sig = files.map((f) => { const s = statSync(`${dir}/${f}`); return `${f}:${s.mtimeMs}:${s.size}`; }).sort().join('|');
   const hit = cache.get(dir);
-  if (hit && hit.sig === sig) return hit.rules;
+  if (hit && hit.sig === sig) return hit;
   const rules = [];
+  let malformed = false;
   for (const f of files) {
     // read by filename-stem id (NOT repo.readNote: the gate derives ids from real
     // filenames and must never let an oddly-named file throw through itemPath's
     // segment guard — it stays fail-open). Bytes go through metal/fs.
     const { note } = parse(readText(`${dir}/${f}`), { id: f.slice(0, -3) });
     const r = compile(note);
-    if (r) rules.push(r);
+    if (r) rules.push(r); else malformed = true;
   }
-  cache.set(dir, { sig, rules });
-  return rules;
+  const entry = { sig, rules, malformed };
+  cache.set(dir, entry);
+  return entry;
+}
+
+/** Load + compile a module's rule notes, cached on the dir signature. */
+export function loadRules(home, module = 'instructions') {
+  return loadRulesDetailed(home, module).rules;
 }
 
 /**
@@ -148,14 +166,42 @@ export function evaluate(rules, { tool, input }) {
 
 /** The `gate` capability handler: evaluate a call against the home's rules. An explicit
  *  `ctx.module` scopes to one module (tests); otherwise rules from BOTH the new
- *  `instructions` default AND the legacy `guardrails` module are enforced (migration). */
+ *  `instructions` default AND the legacy `guardrails` module are enforced (migration).
+ *
+ *  `ctx.actor` sets the failure posture (§I rung 3, the safety floor):
+ *  - **operator** (default, unchanged): FAIL-OPEN. A malformed rule is skipped, an
+ *    engine error returns null (defer/allow), an `ask` verdict is returned AS `ask`
+ *    (the caller doesn't block on it — see act.mjs's runGated) — because an
+ *    interactive human is present, can see the run's output, and can decide. A wrong
+ *    block is worse than a rare unenforced rule.
+ *  - **agent**: FAIL-CLOSED. The same three uncertain outcomes — a malformed rule, an
+ *    engine error, or an `ask` verdict — all resolve to `deny` instead. An unattended
+ *    agent has nobody watching to notice a rule silently failing to compile or an
+ *    `ask` silently passing through; "we don't know" must mean "don't run", not
+ *    "run anyway".
+ */
 export function gate(ctx, call) {
+  const strict = ctx.actor === 'agent';
   try {
     const modules = ctx.module ? [ctx.module] : RULE_MODULES;
-    const rules = modules.flatMap((m) => loadRules(ctx.home, m));
-    return evaluate(rules, call);
+    let malformed = false;
+    const rules = modules.flatMap((m) => {
+      const loaded = loadRulesDetailed(ctx.home, m);
+      if (loaded.malformed) malformed = true;
+      return loaded.rules;
+    });
+    if (strict && malformed) {
+      return { action: 'deny', rule: null, reason: 'a guardrail rule failed to compile — denied for an unattended agent actor' };
+    }
+    const verdict = evaluate(rules, call);
+    if (strict && verdict?.action === 'ask') {
+      return { action: 'deny', rule: verdict.rule, reason: `${verdict.reason} (ask verdict denied — an unattended agent actor cannot answer 'ask')` };
+    }
+    return verdict;
   } catch {
-    return null; // fail-open: an engine error never blocks
+    // fail-open for an operator (see above); fail-CLOSED for an agent actor — an
+    // engine error under nobody's supervision must never silently allow.
+    return strict ? { action: 'deny', rule: null, reason: 'guardrail engine error — denied for an unattended agent actor' } : null;
   }
 }
 

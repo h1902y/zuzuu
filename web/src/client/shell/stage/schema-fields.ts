@@ -12,6 +12,10 @@ interface RawField {
   type?: unknown;
   label?: unknown;
   required?: unknown;
+  options?: unknown;
+  computed?: unknown;
+  default?: unknown;
+  description?: unknown;
 }
 
 /** Map a JSON-Schema `type` (the home schema.json) to a workbench FieldType. */
@@ -39,6 +43,12 @@ export function fieldsFromSchema(schema: unknown): FieldDef[] {
         type,
         ...(typeof f.label === "string" ? { label: f.label } : {}),
         ...(f.required ? { required: true } : {}),
+        ...(Array.isArray(f.options) && f.options.length && f.options.every((o) => typeof o === "string")
+          ? { options: f.options as string[] }
+          : {}),
+        ...(typeof f.computed === "string" && f.computed ? { computed: f.computed } : {}),
+        ...(typeof f.description === "string" && f.description ? { description: f.description } : {}),
+        ...(f.default !== undefined && f.default !== null ? { default: String(f.default) } : {}),
       });
     }
     return out;

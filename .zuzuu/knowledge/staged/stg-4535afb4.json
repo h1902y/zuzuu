@@ -1,0 +1,23 @@
+{
+  "id": "stg-4535afb4",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-serve-steering-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: serve/steering.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/src/serve/steering.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/src/serve/steering.mjs` (touched 7× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/src/serve/steering.mjs` (touched 7× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 7,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 7,
+  "status": "pending"
+}

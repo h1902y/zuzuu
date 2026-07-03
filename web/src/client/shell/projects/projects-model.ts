@@ -1,7 +1,11 @@
 // shell/projects/projects-model.ts — the pure model behind the Projects Home (P1.3).
-// The table-with-facets logic: search-filter, sort, group-by, and the relative-time
-// label — all pure so the .tsx only renders. Tested as functions (no render needed).
+// The table-with-facets logic: search-filter, sort, and group-by — all pure so the
+// .tsx only renders. Tested as functions (no render needed). The relative-time
+// label moved to lib/time.ts (§G: the module lineage strip + note history need the
+// same ladder) — re-exported here so existing imports (`from "./projects-model.js"`)
+// keep working.
 import type { ProjectSummary } from "#shared/index.js";
+export { relativeTime } from "../../lib/time.js";
 
 /** Sort orders the Projects Home offers (the facet bar). */
 export type ProjectSort = "recent" | "name" | "pending";
@@ -53,22 +57,6 @@ export function projectsView(
   opts: { search: string; sort: ProjectSort; group: ProjectGroup },
 ): ProjectGroupView[] {
   return groupProjects(sortProjects(filterProjects(projects, opts.search), opts.sort), opts.group);
-}
-
-/** A compact relative-activity label ("just now", "5m ago", "3h ago", "2d ago"). 0
- *  (unknown mtime) → "—". `nowMs` is injected so the label is pure + testable. */
-export function relativeTime(ms: number, nowMs: number): string {
-  if (!ms) return "—";
-  const delta = Math.max(0, nowMs - ms);
-  const mins = Math.floor(delta / 60_000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d ago`;
-  const months = Math.floor(days / 30);
-  return `${months}mo ago`;
 }
 
 /** The footer count label: "1 project" / "12 projects", or "3 of 12 projects" when a

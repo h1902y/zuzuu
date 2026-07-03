@@ -1,0 +1,23 @@
+{
+  "id": "stg-349dee31",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-zuzuu-claude-md",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: zuzuu/CLAUDE.md",
+    "path": "/Users/hkc/Documents/zuzuu/CLAUDE.md",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/CLAUDE.md` (touched 36× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/CLAUDE.md` (touched 36× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 36,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 36,
+  "status": "pending"
+}

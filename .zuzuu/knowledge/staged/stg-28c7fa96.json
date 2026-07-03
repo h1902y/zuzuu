@@ -1,0 +1,39 @@
+{
+  "id": "stg-28c7fa96",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-notes-log-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: notes/log.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/src/notes/log.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/src/notes/log.mjs` (touched 6× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/src/notes/log.mjs` (touched 6× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 6,
+      "sessions": 1,
+      "sessionIds": [
+        "claude-code:d8a6774f-25fa-490f-934f-ce2c0b9e1832"
+      ]
+    }
+  ],
+  "confidence": null,
+  "score": 6,
+  "source": {
+    "producer": "observe",
+    "kind": "entity",
+    "sessions": [
+      "claude-code:d8a6774f-25fa-490f-934f-ce2c0b9e1832"
+    ],
+    "locator": {
+      "kind": "session-ids",
+      "sessions": [
+        "claude-code:d8a6774f-25fa-490f-934f-ce2c0b9e1832"
+      ]
+    }
+  },
+  "status": "pending"
+}

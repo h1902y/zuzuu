@@ -1,0 +1,39 @@
+{
+  "id": "stg-111078c6",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-workbench-10-experience-rethink-md",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: workbench/10-experience-rethink.md",
+    "path": "/Users/hkc/Documents/zuzuu/docs/design-research/workbench/10-experience-rethink.md",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/docs/design-research/workbench/10-experience-rethink.md` (touched 12× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/docs/design-research/workbench/10-experience-rethink.md` (touched 12× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 12,
+      "sessions": 1,
+      "sessionIds": [
+        "claude-code:c7e0a32f-79a3-4d16-8545-a34e5f5f12f6"
+      ]
+    }
+  ],
+  "confidence": null,
+  "score": 12,
+  "source": {
+    "producer": "observe",
+    "kind": "entity",
+    "sessions": [
+      "claude-code:c7e0a32f-79a3-4d16-8545-a34e5f5f12f6"
+    ],
+    "locator": {
+      "kind": "session-ids",
+      "sessions": [
+        "claude-code:c7e0a32f-79a3-4d16-8545-a34e5f5f12f6"
+      ]
+    }
+  },
+  "status": "pending"
+}

@@ -1,0 +1,39 @@
+{
+  "id": "stg-076a8e1d",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-server-server-ts",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: server/server.ts",
+    "path": "/Users/hkc/Documents/zuzuu/web/src/server/server.ts",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/server/server.ts` (touched 19× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/server/server.ts` (touched 19× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 19,
+      "sessions": 1,
+      "sessionIds": [
+        "claude-code:c7e0a32f-79a3-4d16-8545-a34e5f5f12f6"
+      ]
+    }
+  ],
+  "confidence": null,
+  "score": 19,
+  "source": {
+    "producer": "observe",
+    "kind": "entity",
+    "sessions": [
+      "claude-code:c7e0a32f-79a3-4d16-8545-a34e5f5f12f6"
+    ],
+    "locator": {
+      "kind": "session-ids",
+      "sessions": [
+        "claude-code:c7e0a32f-79a3-4d16-8545-a34e5f5f12f6"
+      ]
+    }
+  },
+  "status": "pending"
+}

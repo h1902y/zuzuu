@@ -23,6 +23,7 @@ import * as config from "./config.js";
 import { attachTerm } from "./term-protocol.js";
 import { WsTermTransport } from "./transport.js";
 import { handleFsSocket } from "./ws-fs.js";
+import { handleZuzuuSocket } from "./ws-zuzuu.js";
 import { AcpManager, handleAcpSocket } from "./acp.js";
 import { createAcpApi } from "./acp-routes.js";
 import { PathError, resolveSafe } from "./safe-path.js";
@@ -224,6 +225,12 @@ export class WebcodeServer {
       if (url.pathname === "/ws/fs") {
         wss.handleUpgrade(req, socket, head, (ws) => handleFsSocket(ws, this.root));
         // ^ this.root read at upgrade time → new connections (post-switch) use the new root
+        return;
+      }
+      if (url.pathname === "/ws/zuzuu") {
+        // the brain-state push: staged proposals / landed rows / schema changes
+        // surface live — "conversing keeps building" needs push, not refetch
+        wss.handleUpgrade(req, socket, head, (ws) => handleZuzuuSocket(ws, this.root));
         return;
       }
       const acpMatch = /^\/ws\/acp\/([0-9a-f]+)$/.exec(url.pathname);

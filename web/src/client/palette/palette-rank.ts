@@ -39,6 +39,12 @@ export function notesGroup(query: string, notes: ModuleItem[], loading: boolean)
     value: val(q, `${h.module}:${h.id}`),
     label: `${h.title} — ${h.module}`,
     action: { kind: "open-note", module: h.module, id: h.id },
+    detail: { kind: "note", module: h.module, id: h.id },
+    actions: [
+      { value: "open-map", label: "Open in map", hint: "↵", action: { kind: "open-note", module: h.module, id: h.id } },
+      { value: "open-record", label: "Open record", action: { kind: "open-row", module: h.module, id: h.id } },
+      { value: "discuss", label: "Discuss with the agent", action: { kind: "converse", prompt: `let's discuss [[${h.module}:${h.id}]]` } },
+    ],
   }));
   if (hits.length > NOTES_CAP) {
     commands.push({ value: val(q, "see-all"), label: `See all results for “${q}”`, action: { kind: "see-all-search", query: q } });

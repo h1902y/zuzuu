@@ -2,6 +2,15 @@
 
 **Use it**
 - [[Getting Started]]
+- [[Modules as Tables|Modules-as-Tables]]
+- [[Workflows]]
+- [[Tools]]
+- [[Flow View|Flow-View]]
+- [[Two Lanes|Two-Lanes]]
+- [[The World|The-World]]
+- [[The Omnibar|Omnibar]]
+- [[Observability]]
+- [[Daemon & API|Daemon-API]]
 - [[Workbench]]
 - [[Module Standard]]
 - [[Module Home]]
@@ -16,6 +25,9 @@
 - [[Gemini CLI]]
 - [[OpenCode]]
 - [[pi]]
+
+**Recipes**
+- [[Personal Vault|Recipe-Personal-Vault]]
 
 **Project**
 - [[Roadmap]]

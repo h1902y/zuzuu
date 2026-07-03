@@ -20,11 +20,13 @@ interface ListContextValue {
 
 const Ctx = createContext<ListContextValue | null>(null);
 
-export function NotesListProvider({ module, children }: { module: string; children: ReactNode }) {
-  const [state, dispatch] = useReducer(listReducer, initialListState);
+export function NotesListProvider({ module, initial, children }: { module: string; initial?: Partial<ListState>; children: ReactNode }) {
+  // `initial` seeds the reducer (the shared module filter surviving a Table⇄Map
+  // round trip); the reducer stays the owner from there.
+  const [state, dispatch] = useReducer(listReducer, { ...initialListState, ...initial });
   const q = useQuery({
     // the full query (filter·sort·page) keys the cache — any change refetches the page.
-    queryKey: ["zuzuu", "list", module, state.text, state.kind, state.sort?.key, state.sort?.dir, state.page, state.pageSize],
+    queryKey: ["zuzuu", "list", module, state.text, state.kind, state.status, state.where, state.sort?.key, state.sort?.dir, state.page, state.pageSize],
     queryFn: () => dataProvider.getList(module, queryOf(state)),
   });
   // the server already filtered·sorted·sliced; rows ARE the page, total is pre-paginate.

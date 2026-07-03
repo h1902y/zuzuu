@@ -1,0 +1,23 @@
+{
+  "id": "stg-a8bef974",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-projects-projectshome-tsx",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: projects/ProjectsHome.tsx",
+    "path": "/Users/hkc/Documents/zuzuu/web/src/client/shell/projects/ProjectsHome.tsx",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/client/shell/projects/ProjectsHome.tsx` (touched 35× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/client/shell/projects/ProjectsHome.tsx` (touched 35× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 35,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 35,
+  "status": "pending"
+}

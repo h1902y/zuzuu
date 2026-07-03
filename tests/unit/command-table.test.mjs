@@ -41,13 +41,22 @@ const SWITCH_VERBS = [
   'session', 'registry', 'subscribe', 'doctor', 'status', 'explain', 'code', 'web',
   'enable', 'disable', 'hook', 'digest', 'start', 'wrap', 'steer',
   'commands', // Rung 9b: the generated catalog verb (the daemon reads this)
+  'graph', // personal-app roadmap P2: the project-as-graph document (the map surface reads this)
+  'observe-runs', // §I rung 2: the runs-miner — observe's sibling, mining runs.jsonl instead of transcripts
 ];
 
 // The Tier-2 noun namespaces (Rung 4): every old flat verb still resolves at the top
 // level — as a canonical row (Tier-1) OR a deprecating alias — so the switch's surface
 // is intact. `module` is both a flat read verb AND a namespace (its Rung-6 schema
-// alter-table ops — add/alter/drop-column — live under it).
-const NAMESPACES = ['gen', 'host', 'module', 'note', 'registry', 'session'];
+// alter-table ops — add/alter/drop-column — live under it). `trigger` (§I rung 4) is
+// the newest addition — list/show/fire/enable/disable, a cold/niche noun exactly like
+// `run`/`gen`, never a hot-loop flat verb. `tool` (§I.6, the toolkit/tool VIEW) is the
+// same shape: `tool list`/`tool show`, read-only, a cold noun beside `module`/`note`.
+// `secret` (§J.3/§J.5) is a similar shape: `secret list`/`show`/`check` are
+// read-only — there is no `secret set`, since the VALUE is terminal-managed, never a
+// zuzuu-stored thing. `secret declare` is its one write leaf — operator-lane
+// AUTHORING sugar over `note create`, typed for a declaration's metas, no value flag.
+const NAMESPACES = ['gen', 'host', 'module', 'note', 'registry', 'run', 'secret', 'session', 'tool', 'trigger'];
 
 /** Resolve a row to the handler it ultimately runs (following an `alias` pointer). */
 const canonicalOf = (row) => row.alias

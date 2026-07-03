@@ -2,7 +2,7 @@
 // fallbacks, CLI-only mutations (503/502 mapping), and argv-injection gates —
 // all through stub binaries (see zuzuu-fixtures.ts).
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync, realpathSync, existsSync } from "node:fs";
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, realpathSync, existsSync, chmodSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createZuzuuApi } from "../../src/server/zuzuu-routes.js";
@@ -57,6 +57,33 @@ describe("createZuzuuApi file routes", () => {
     expect(body.items[0]).toEqual(item); // THE ENVELOPE, untouched
     expect(body.errors).toEqual([]);
   });
+  it("GET /module/:key ALWAYS answers with real items/staged arrays, even when the CLI succeeds with a shape missing them — the U4 white-screen contract (a client `.flatMap(d => d.items)`/`d.staged.map(...)` over an omitted array threw and blanked the omnibar's 'see all results' view)", async () => {
+    fixtureHome(root);
+    // The CLI exits 0 (`code === 0`) but its stdout parses to an object that
+    // simply has no `items`/`staged` keys — the exact class of drift that has
+    // hit this daemon before (the /overview route's "CLI emits a bare rows
+    // array" bug, and /module/:key/generations's raw `{n, active:number}` vs
+    // the wire's `{id, active:string}`, both fixed by normalizing at the route).
+    const bareStub = jsonStub(root, JSON.stringify({}));
+    const bare = createZuzuuApi(() => root, { binary: bareStub });
+    const bareBody = await (await bare.request("/module/knowledge")).json();
+    expect(Array.isArray(bareBody.items)).toBe(true);
+    expect(Array.isArray(bareBody.staged)).toBe(true);
+
+    // The CLI succeeds and explicitly nulls the field rather than omitting it.
+    const nullStub = jsonStub(root, JSON.stringify({ items: null, staged: null, total: null, errors: null }));
+    const nulled = createZuzuuApi(() => root, { binary: nullStub });
+    const nulledBody = await (await nulled.request("/module/knowledge")).json();
+    expect(Array.isArray(nulledBody.items)).toBe(true);
+    expect(Array.isArray(nulledBody.staged)).toBe(true);
+
+    // CLI entirely absent (the degraded peek path) — the other historical source
+    // of a shape-drifted response.
+    const absent = createZuzuuApi(() => root, { binary: "definitely-not-a-real-binary-zzz" });
+    const absentBody = await (await absent.request("/module/unknown-but-safe-slug")).json();
+    expect(Array.isArray(absentBody.items)).toBe(true);
+    expect(Array.isArray(absentBody.staged)).toBe(true);
+  });
   it("GET /module/:key forwards filter·sort·paginate query params to `module items` flags + returns total (Rung 7)", async () => {
     fixtureHome(root);
     const app = createZuzuuApi(() => root, { binary: argvItemsStub(root, 42) });
@@ -75,6 +102,29 @@ describe("createZuzuuApi file routes", () => {
     expect(argv).toContain("--sort title:desc");
     expect(argv).toContain("--limit 2");
     expect(argv).toContain("--offset 4");
+  });
+  it("GET /module/:key forwards a `>=` comparison clause verbatim (B1: used to be split on the first `=` and dropped)", async () => {
+    fixtureHome(root);
+    const app = createZuzuuApi(() => root, { binary: argvItemsStub(root, 7) });
+    // tier>=2 as typed by the client (table-model.ts OPS / TableBuilders.tsx) — the
+    // op-aware parse must beat a naive split-on-`=` (which would see key `tier>`,
+    // fail SAFE_SLUG, and drop the clause silently).
+    const res = await app.request("/module/knowledge?where=tier%3E%3D2");
+    const body = await res.json();
+    expect(body.total).toBe(7);
+    const argv: string = body.items[0].argv;
+    expect(argv).toContain("--where tier>=2");
+    expect(argv).not.toContain("--where tier=2");
+  });
+  it("GET /items (the unified table) also forwards comparison/inequality clauses verbatim (both list routes share buildModuleQueryFlags)", async () => {
+    fixtureHome(root);
+    const app = createZuzuuApi(() => root, { binary: argvItemsStub(root, 3) });
+    const res = await app.request("/items?where=start_date%3C%3D2026-07-02&where=k%21%3Dv");
+    const body = await res.json();
+    expect(body.total).toBe(3);
+    const argv: string = body.items[0].argv;
+    expect(argv).toContain("--where start_date<=2026-07-02");
+    expect(argv).toContain("--where k!=v");
   });
   it("GET /module/:key/item/:id surfaces the current note body (the update diff's 'before' source)", async () => {
     fixtureHome(root);
@@ -122,10 +172,118 @@ describe("createZuzuuApi file routes", () => {
     expect(body.generations[0].id).toBe("1");
     expect(body.generations[0].mintedFrom).toEqual(["p1"]);
   });
+  it("GET /module/:key/generations normalizes the CLI's raw {n, active:number} shape to {id, active:string} (§G.2 regression)", async () => {
+    // the LIVE `zz gen list`/`module <m> generations --json` shape: NUMBER `n` and
+    // NUMBER `active`, no `module`/`id` keys — the fast path used to pass this
+    // straight through, so the generation strip's `id` read `undefined` on every
+    // project with a working CLI (the common case, unlike the peek-only tests above).
+    fixtureHome(root);
+    const raw = JSON.stringify({
+      active: 11,
+      generations: [
+        { n: 2, mintedAt: "2026-07-02T11:00:00Z", mintedFrom: ["b"] },
+        { n: 1, mintedAt: "2026-07-02T06:00:00Z", mintedFrom: ["a"] },
+      ],
+    });
+    const app = createZuzuuApi(() => root, { binary: jsonStub(root, raw) });
+    const body = await (await app.request("/module/knowledge/generations")).json();
+    expect(body).toEqual({
+      module: "knowledge",
+      active: "11",
+      generations: [
+        { id: "1", mintedAt: "2026-07-02T06:00:00Z", mintedFrom: ["a"] },
+        { id: "2", mintedAt: "2026-07-02T11:00:00Z", mintedFrom: ["b"] },
+      ],
+    });
+  });
   it("path escape is rejected (no traversal)", async () => {
     fixtureHome(root);
     const app = createZuzuuApi(() => root, { binary: "x" });
     expect((await app.request("/module/..%2f..%2fetc")).status).toBe(404);
+  });
+
+  it("GET /module/:key/item/:id/history reads log.jsonl, filters to the note, newest first, capped 50 (§G.1)", async () => {
+    const agent = fixtureHome(root);
+    const lines = [
+      { event: "create", ts: null, note: "k1", actor: "human", proposal: "p1" },
+      { event: "update", ts: null, note: "other", actor: "human" }, // a different note — must be filtered out
+      { event: "update", ts: "2026-06-20T10:00:00Z", note: "k1", actor: "human" },
+      "not json at all", // a corrupt line — skipped, doesn't break the rest
+      { event: "update", ts: null, note: "k1", actor: "init", backfill: "envelope-floor" },
+    ];
+    const text = lines.map((l) => (typeof l === "string" ? l : JSON.stringify(l))).join("\n") + "\n";
+    writeFileSync(path.join(agent, "knowledge", "log.jsonl"), text);
+    const app = createZuzuuApi(() => root, { binary: "x" });
+    const body = await (await app.request("/module/knowledge/item/k1/history")).json();
+    expect(body.key).toBe("knowledge");
+    expect(body.id).toBe("k1");
+    // newest first: the last-written k1 line (the backfill update) comes first
+    expect(body.entries).toHaveLength(3);
+    expect(body.entries[0]).toMatchObject({ event: "update", actor: "init", backfill: "envelope-floor" });
+    expect(body.entries[2]).toMatchObject({ event: "create", proposal: "p1" });
+    // bornAt is the earliest create entry
+    expect(body.bornAt).toMatchObject({ event: "create", note: "k1", proposal: "p1" });
+  });
+  it("GET /module/:key/item/:id/history: no log.jsonl → empty entries, null bornAt (never a 500)", async () => {
+    fixtureHome(root);
+    const app = createZuzuuApi(() => root, { binary: "x" });
+    const body = await (await app.request("/module/knowledge/item/nope/history")).json();
+    expect(body).toEqual({ key: "knowledge", id: "nope", entries: [], bornAt: null });
+  });
+  it("GET /module/:key/item/:id/history is root-mode aware (log.jsonl at <module>/log.jsonl, no .zuzuu/)", async () => {
+    writeFileSync(path.join(root, "project.md"), "---\ntype: project\nformat: zuzuu/v2\n---\n");
+    mkdirSync(path.join(root, "crm", "items"), { recursive: true });
+    writeFileSync(path.join(root, "crm", "module.md"), "---\ntype: module\nid: crm\n---\n");
+    writeFileSync(path.join(root, "crm", "log.jsonl"), `${JSON.stringify({ event: "create", ts: null, note: "acme", actor: "human" })}\n`);
+    const app = createZuzuuApi(() => root, { binary: "x" });
+    const body = await (await app.request("/module/crm/item/acme/history")).json();
+    expect(body.entries).toHaveLength(1);
+    expect(body.bornAt).toMatchObject({ event: "create", note: "acme" });
+  });
+  it("GET /module/:key/item/:id/history rejects unsafe slugs/ids", async () => {
+    fixtureHome(root);
+    const app = createZuzuuApi(() => root, { binary: "x" });
+    expect((await app.request("/module/..%2f..%2fetc/item/k1/history")).status).toBe(404);
+    expect((await app.request("/module/knowledge/item/..%2f..%2fetc/history")).status).toBe(400);
+  });
+
+  it("GET /module/:key/generation/:from/diff/:to shells `gen diff <m> <a> <b>` (§G.2)", async () => {
+    fixtureHome(root);
+    // an argv-echo stub — proves the module/from/to positionals reached the CLI
+    // (gen.diff's catalog entry carries no declared params; from/to ride as `extra`).
+    // The REAL CLI's `--json` output is a BARE array (genDiff's handler emits
+    // `r.changes` whole, not a `{changes}` wrapper — confirmed against a live
+    // `zz gen diff` run) — the stub matches that shape, not a wrapped object.
+    const stub = path.join(root, "zuzuu-gendiff.sh");
+    writeFileSync(stub, `#!/bin/sh\nprintf '[{"status":"argv","id":"'\nprintf '%s ' "$@"\nprintf '"}]'\n`);
+    chmodSync(stub, 0o755);
+    const app = createZuzuuApi(() => root, { binary: stub });
+    const body = await (await app.request("/module/knowledge/generation/1/diff/2")).json();
+    expect(body.module).toBe("knowledge");
+    expect(body.from).toBe("1");
+    expect(body.to).toBe("2");
+    expect(body.changes[0].id).toContain("gen diff knowledge 1 2");
+  });
+  it("GET /module/:key/generation/:from/diff/:to passes real changes through (the CLI's bare-array --json shape)", async () => {
+    fixtureHome(root);
+    const changes = [{ status: "M", id: "k1" }, { status: "A", id: "k2" }, { status: "D", id: "k3" }];
+    const app = createZuzuuApi(() => root, { binary: jsonStub(root, JSON.stringify(changes)) });
+    const body = await (await app.request("/module/knowledge/generation/1/diff/2")).json();
+    expect(body).toEqual({ module: "knowledge", from: "1", to: "2", changes });
+  });
+  it("GET /module/:key/generation/:from/diff/:to degrades (never errors) when the CLI has nothing to diff", async () => {
+    fixtureHome(root);
+    // the module's very first generation has no "before" — `gen diff` exits non-zero
+    const app = createZuzuuApi(() => root, { binary: failStub(root) });
+    const body = await (await app.request("/module/knowledge/generation/0/diff/1")).json();
+    expect(body).toEqual({ module: "knowledge", from: "0", to: "1", changes: [], degraded: true });
+  });
+  it("GET /module/:key/generation/:from/diff/:to rejects unsafe slugs/non-numeric generations", async () => {
+    fixtureHome(root);
+    const app = createZuzuuApi(() => root, { binary: "x" });
+    expect((await app.request("/module/..%2f..%2fetc/generation/1/diff/2")).status).toBe(404);
+    expect((await app.request("/module/knowledge/generation/one/diff/2")).status).toBe(400);
+    expect((await app.request("/module/knowledge/generation/1/diff/two")).status).toBe(400);
   });
 
   it("GET /held shells `zz session status --json` → the id-enriched held[] (U6)", async () => {
@@ -196,6 +354,63 @@ describe("createZuzuuApi overview", () => {
     const body = await (await app.request("/overview")).json();
     expect(body.modules.map((m: { id: string }) => m.id)).not.toContain("scratch");
     expect(body.modules).toHaveLength(5);
+  });
+});
+
+/** GET /flow makes TWO CLI calls (`module items --all --type workflow`, then
+ *  `module items runs`) — distinguish them by `--all` in argv, same discipline
+ *  as the other route stubs (argvStub/argvItemsStub), but branching. */
+function flowStub(root: string, workflows: unknown[], runs: unknown[]): string {
+  const stub = path.join(root, "zuzuu-flow.sh");
+  const wf = JSON.stringify({ items: workflows });
+  const rn = JSON.stringify({ items: runs });
+  writeFileSync(stub, `#!/bin/sh\ncase "$*" in\n  *"--all"*) echo '${wf}' ;;\n  *) echo '${rn}' ;;\nesac\n`);
+  chmodSync(stub, 0o755);
+  return stub;
+}
+
+describe("createZuzuuApi GET /flow (§I rung 5 — the Flow projection's summary read)", () => {
+  it("joins workflow notes with their runs — counts + latest by created_at", async () => {
+    const workflows = [{ id: "onboard-lead", module: "actions", title: "Onboard a lead", steps: [{ id: "a" }, { id: "b" }] }];
+    const runs = [
+      { id: "onboard-lead-abc", status: "done", workflow: "actions:onboard-lead", created_at: "2026-07-01T00:00:00Z", started_at: "2026-07-01T00:00:01Z" },
+      { id: "onboard-lead-def", status: "failed", workflow: "actions:onboard-lead", created_at: "2026-07-02T00:00:00Z", started_at: "2026-07-02T00:00:01Z" },
+      { id: "other-run", status: "running", workflow: "actions:some-other-flow", created_at: "2026-07-03T00:00:00Z" },
+    ];
+    const app = createZuzuuApi(() => root, { binary: flowStub(root, workflows, runs) });
+    const body = await (await app.request("/flow")).json();
+    expect(body.degraded).toBeUndefined();
+    expect(body.workflows).toHaveLength(1);
+    expect(body.workflows[0]).toEqual({
+      addr: "actions:onboard-lead", module: "actions", id: "onboard-lead", title: "Onboard a lead",
+      stepCount: 2,
+      runs: { total: 2, running: 0, waiting: 0, done: 1, failed: 1 },
+      latestRun: { id: "onboard-lead-def", status: "failed", startedAt: "2026-07-02T00:00:01Z" },
+    });
+  });
+  it("no workflow notes at all → an empty list, no runs spawn needed", async () => {
+    // a marker ONLY on the runs-branch call (no --all in argv) — proves the route's
+    // early return skips the second spawn entirely when there are no workflows.
+    const marker = path.join(root, "runs-spawned.marker");
+    const stub = path.join(root, "zuzuu-flow-marker.sh");
+    writeFileSync(stub, `#!/bin/sh\ncase "$*" in\n  *"--all"*) echo '{"items":[]}' ;;\n  *) touch '${marker}'; echo '{"items":[]}' ;;\nesac\n`);
+    chmodSync(stub, 0o755);
+    const app = createZuzuuApi(() => root, { binary: stub });
+    const body = await (await app.request("/flow")).json();
+    expect(body).toEqual({ workflows: [] });
+    expect(existsSync(marker)).toBe(false);
+  });
+  it("a workflow with no runs yet — zero counts, latestRun null (never a crash on an absent/empty `runs` module)", async () => {
+    const workflows = [{ id: "fresh-flow", module: "actions", title: "Fresh flow", steps: [{ id: "a" }] }];
+    const app = createZuzuuApi(() => root, { binary: flowStub(root, workflows, []) });
+    const body = await (await app.request("/flow")).json();
+    expect(body.workflows[0].runs).toEqual({ total: 0, running: 0, waiting: 0, done: 0, failed: 0 });
+    expect(body.workflows[0].latestRun).toBeNull();
+  });
+  it("CLI absent → degraded: true, never a crash", async () => {
+    const app = createZuzuuApi(() => root, { binary: "definitely-not-a-real-binary-zzz" });
+    const body = await (await app.request("/flow")).json();
+    expect(body).toEqual({ workflows: [], degraded: true });
   });
 });
 
@@ -358,6 +573,98 @@ describe("createZuzuuApi POST /module/new (WS-D guided creation)", () => {
 });
 
 
+const patch = (app: ReturnType<typeof createZuzuuApi>, p: string, body?: unknown) =>
+  app.request(p, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
+
+describe("createZuzuuApi POST /module/:key/column + PATCH .../column/:name (§H.5 field-config panel)", () => {
+  it("POST add-column → 200 with the CLI's JSON; builds the right argv", async () => {
+    fixtureHome(root);
+    const app = createZuzuuApi(() => root, { binary: argvStub(root, "zuzuu-addcol.sh") });
+    const res = await post(app, "/module/crm/column", {
+      name: "tier", type: "number", required: true, default: "3", label: "Tier", description: "priority tier",
+    });
+    expect(res.status).toBe(200);
+    expect((await res.json()).argv).toBe(
+      "module|add-column|crm|tier|number|--required|true|--default|3|--label|Tier|--description|priority tier|--json|",
+    );
+  });
+  it("POST add-column with select options → comma-joined --options", async () => {
+    fixtureHome(root);
+    const app = createZuzuuApi(() => root, { binary: argvStub(root, "zuzuu-addcol2.sh") });
+    const res = await post(app, "/module/crm/column", { name: "stage", type: "select", options: ["lead", "won", "lost"] });
+    expect(res.status).toBe(200);
+    expect((await res.json()).argv).toBe("module|add-column|crm|stage|select|--options|lead,won,lost|--json|");
+  });
+  it("PATCH alter-column → 200 with the CLI's JSON; builds the right argv (name rides the URL, never the body)", async () => {
+    fixtureHome(root);
+    const app = createZuzuuApi(() => root, { binary: argvStub(root, "zuzuu-altercol.sh") });
+    const res = await patch(app, "/module/actions/column/end_date", {
+      type: "date", computed: "dateAdd(start_date,duration_days)", label: "Window end",
+    });
+    expect(res.status).toBe(200);
+    expect((await res.json()).argv).toBe(
+      "module|alter-column|actions|end_date|--type|date|--label|Window end|--computed|dateAdd(start_date,duration_days)|--json|",
+    );
+  });
+  it("PATCH alter-column required:false rides as an explicit string (the flag() fix)", async () => {
+    fixtureHome(root);
+    const app = createZuzuuApi(() => root, { binary: argvStub(root, "zuzuu-altercol2.sh") });
+    const res = await patch(app, "/module/crm/column/owner", { required: false });
+    expect(res.status).toBe(200);
+    expect((await res.json()).argv).toBe("module|alter-column|crm|owner|--required|false|--json|");
+  });
+  it("PATCH alter-column with no type omits --type (type stays untouched)", async () => {
+    fixtureHome(root);
+    const app = createZuzuuApi(() => root, { binary: argvStub(root, "zuzuu-altercol3.sh") });
+    const res = await patch(app, "/module/crm/column/owner", { description: "who owns this" });
+    expect(res.status).toBe(200);
+    expect((await res.json()).argv).toBe("module|alter-column|crm|owner|--description|who owns this|--json|");
+  });
+  it("POST add-column → 502 + stderr tail when the CLI fails; 503 when absent", async () => {
+    fixtureHome(root);
+    const failed = createZuzuuApi(() => root, { binary: failStub(root, "column 'tier' already exists") });
+    const res = await post(failed, "/module/crm/column", { name: "tier", type: "number" });
+    expect(res.status).toBe(502);
+    expect((await res.json()).stderr).toMatch(/already exists/);
+    const absent = createZuzuuApi(() => root, { binary: "definitely-not-a-real-binary-zzz" });
+    expect((await post(absent, "/module/crm/column", { name: "tier", type: "number" })).status).toBe(503);
+  });
+  it("PATCH alter-column → 502/503 same as every other mutation", async () => {
+    fixtureHome(root);
+    const failed = createZuzuuApi(() => root, { binary: failStub(root, "no column 'ghost'") });
+    expect((await patch(failed, "/module/crm/column/ghost", { label: "x" })).status).toBe(502);
+    const absent = createZuzuuApi(() => root, { binary: "definitely-not-a-real-binary-zzz" });
+    expect((await patch(absent, "/module/crm/column/ghost", { label: "x" })).status).toBe(503);
+  });
+  it("bad module / bad column name / bad type / bad options / non-boolean required → 400 without spawn", async () => {
+    fixtureHome(root);
+    const { stub, marker } = markerStub(root);
+    const app = createZuzuuApi(() => root, { binary: stub });
+    expect((await post(app, "/module/Bad/column", { name: "x", type: "text" })).status).toBe(400); // uppercase fails SAFE_SLUG
+    expect((await post(app, "/module/crm/column", { name: "Bad Name", type: "text" })).status).toBe(400);
+    expect((await post(app, "/module/crm/column", { name: "ok", type: "notatype" })).status).toBe(400);
+    expect((await post(app, "/module/crm/column", { name: "ok" })).status).toBe(400); // type required on add
+    expect((await post(app, "/module/crm/column", { name: "ok", type: "select", options: ["a,b"] })).status).toBe(400); // comma in an option
+    expect((await post(app, "/module/crm/column", { name: "ok", type: "text", required: "true" })).status).toBe(400); // required must be a real boolean
+    expect((await patch(app, "/module/crm/column/Bad%20Name", { label: "x" })).status).toBe(400);
+    expect((await patch(app, "/module/crm/column/ok", { type: "notatype" })).status).toBe(400);
+    expect(existsSync(marker)).toBe(false);
+  });
+  it("over-long description / too many options → 400 without spawn", async () => {
+    fixtureHome(root);
+    const { stub, marker } = markerStub(root);
+    const app = createZuzuuApi(() => root, { binary: stub });
+    expect((await post(app, "/module/crm/column", { name: "ok", type: "text", description: "x".repeat(1001) })).status).toBe(400);
+    const many = Array.from({ length: 51 }, (_, i) => `o${i}`);
+    expect((await post(app, "/module/crm/column", { name: "ok", type: "select", options: many })).status).toBe(400);
+    expect(existsSync(marker)).toBe(false);
+  });
+});
+
 // The pure param → flags mapping (buildModuleQueryFlags): each axis guarded
 // independently; an invalid value is dropped, never a hard error (degrade).
 describe("buildModuleQueryFlags — query params → `module items` flags", () => {
@@ -376,5 +683,15 @@ describe("buildModuleQueryFlags — query params → `module items` flags", () =
     expect(buildModuleQueryFlags({ type: "../evil", status: "a b", sort: "title;drop", where: ["noeq", "=v"], limit: "-1", offset: "x" })).toEqual([]);
     // a control char in free text is stripped to a space (spawn is argv-array, but clamp anyway)
     expect(buildModuleQueryFlags({ text: "a\nb" })).toEqual(["--text", "a b"]);
+  });
+  it("B1: the full op grammar (>=,<=,!=,=,>,<) is parsed op-first and reconstructed verbatim — not split on the first `=`", () => {
+    expect(buildModuleQueryFlags({ where: ["tier>=2", "start_date<=2026-07-02", "k!=v", "n>3", "m<9", "priority=high"] }))
+      .toEqual([
+        "--where", "tier>=2", "--where", "start_date<=2026-07-02", "--where", "k!=v",
+        "--where", "n>3", "--where", "m<9", "--where", "priority=high",
+      ]);
+    // the key is validated AFTER the op is stripped — a naive split-on-`=` would see
+    // key `tier>` here (fails SAFE_SLUG) and drop the clause; that was the bug.
+    expect(buildModuleQueryFlags({ where: ["tier>=2"] })).not.toEqual([]);
   });
 });

@@ -6,6 +6,7 @@
 import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/api.js";
+import { brainEvents } from "../../lib/brain-events.js";
 import { useWorkbench } from "../../state/store.js";
 import { useWorld } from "../world-state.js";
 import { useAppSurface } from "../../state/app-surface.js";
@@ -20,7 +21,11 @@ export function useEnterProject() {
     async (path: string) => {
       try {
         await api.switchWorkspace(path);
-        select(null); // land on the Overview (home base)
+        // re-bind the brain push to the NEW root (audit item 5): the daemon resolves
+        // the watched root at socket-upgrade time — without this, live updates keep
+        // watching the previous project and silently die after a switch.
+        brainEvents.restart();
+        select(null); // land on the map (home base)
         // CRITICAL — discard the PREVIOUS project's cached brain + identity before the
         // new project renders. The brain query keys (["zuzuu", …], ["workspace"]) are NOT
         // root-scoped — same key, new root — so invalidate alone would flash the old

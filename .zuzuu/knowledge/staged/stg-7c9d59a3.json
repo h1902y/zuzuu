@@ -1,0 +1,23 @@
+{
+  "id": "stg-7c9d59a3",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-learn-glossary-md",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: learn/glossary.md",
+    "path": "/Users/hkc/Documents/zuzuu/docs/learn/glossary.md",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/docs/learn/glossary.md` (touched 24× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/docs/learn/glossary.md` (touched 24× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 24,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 24,
+  "status": "pending"
+}

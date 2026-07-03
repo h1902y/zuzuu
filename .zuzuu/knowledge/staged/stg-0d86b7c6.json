@@ -1,0 +1,37 @@
+{
+  "id": "stg-0d86b7c6",
+  "op": "create",
+  "module": "knowledge",
+  "target": "failing-tool-bash",
+  "change": {
+    "type": "knowledge",
+    "title": "Bash fails frequently",
+    "body": "Tool `Bash` fails frequently in this project (15 failures observed) — worth investigating why."
+  },
+  "rationale": "Tool `Bash` fails frequently in this project (15 failures observed) — worth investigating why.",
+  "evidence": [
+    {
+      "kind": "fact",
+      "occurrences": 15,
+      "sessionIds": [
+        "claude-code:d8a6774f-25fa-490f-934f-ce2c0b9e1832"
+      ]
+    }
+  ],
+  "confidence": null,
+  "score": 15,
+  "source": {
+    "producer": "observe",
+    "kind": "fact",
+    "sessions": [
+      "claude-code:d8a6774f-25fa-490f-934f-ce2c0b9e1832"
+    ],
+    "locator": {
+      "kind": "session-ids",
+      "sessions": [
+        "claude-code:d8a6774f-25fa-490f-934f-ce2c0b9e1832"
+      ]
+    }
+  },
+  "status": "pending"
+}

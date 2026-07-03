@@ -1,0 +1,23 @@
+{
+  "id": "stg-e164b697",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-client-index-html",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: client/index.html",
+    "path": "/Users/hkc/Documents/zuzuu/web/src/client/index.html",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/client/index.html` (touched 5× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/client/index.html` (touched 5× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 5,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 5,
+  "status": "pending"
+}

@@ -1,0 +1,23 @@
+{
+  "id": "stg-3c29e8de",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-cli-registry-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: cli/registry.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/src/cli/registry.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/src/cli/registry.mjs` (touched 8× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/src/cli/registry.mjs` (touched 8× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 8,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 8,
+  "status": "pending"
+}

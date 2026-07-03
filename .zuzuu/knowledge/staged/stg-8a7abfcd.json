@@ -1,0 +1,23 @@
+{
+  "id": "stg-8a7abfcd",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-client-projects-model-test-ts",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: client/projects-model.test.ts",
+    "path": "/Users/hkc/Documents/zuzuu/web/tests/client/projects-model.test.ts",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/tests/client/projects-model.test.ts` (touched 6× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/tests/client/projects-model.test.ts` (touched 6× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 6,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 6,
+  "status": "pending"
+}

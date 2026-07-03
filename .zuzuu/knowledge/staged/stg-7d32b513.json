@@ -1,0 +1,23 @@
+{
+  "id": "stg-7d32b513",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-web-claude-md",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: web/CLAUDE.md",
+    "path": "/Users/hkc/Documents/zuzuu/web/CLAUDE.md",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/CLAUDE.md` (touched 13× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/CLAUDE.md` (touched 13× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 13,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 13,
+  "status": "pending"
+}

@@ -1,0 +1,21 @@
+{
+  "id": "stg-89e0ae19",
+  "op": "create",
+  "module": "knowledge",
+  "target": "failing-tool-bash",
+  "change": {
+    "type": "knowledge",
+    "title": "Bash fails frequently",
+    "body": "Tool `Bash` fails frequently in this project (14 failures observed) — worth investigating why."
+  },
+  "rationale": "Tool `Bash` fails frequently in this project (14 failures observed) — worth investigating why.",
+  "evidence": [
+    {
+      "kind": "fact",
+      "occurrences": 14
+    }
+  ],
+  "confidence": null,
+  "score": 14,
+  "status": "pending"
+}

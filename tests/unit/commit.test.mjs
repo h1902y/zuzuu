@@ -96,7 +96,7 @@ test('commit: the relate op logs as kind `update` and the body bytes are exact (
     assert.equal(last.note, 'f');
     assert.equal(last.relation, 'related-to');
     assert.equal(readFileSync(itemPath(home, 'knowledge', 'f'), 'utf8'),
-      '---\ntype: knowledge\ntitle: F\nrelations:\n  related-to: o\n---\n');
+      '---\ntype: knowledge\ntitle: F\nstatus: active\nrelations:\n  related-to: o\n---\n');
   });
 });
 
@@ -112,7 +112,7 @@ test('commit: relate → unrelate round-trips the relations cleanly (the edge is
     // …and unrelate prunes it, dropping the now-empty relations block — back to the original bytes
     const res = commit(home, { actor: 'operator' }, [{ module: 'knowledge', op: 'unrelate', change: { from: 'f', type: 'related-to', to: 'o' }, id: 'op-unrel' }]);
     assert.equal(res.ok, true);
-    assert.equal(readFileSync(itemPath(home, 'knowledge', 'f'), 'utf8'), '---\ntype: knowledge\ntitle: F\n---\n', 'a clean round-trip — no orphaned relations block');
+    assert.equal(readFileSync(itemPath(home, 'knowledge', 'f'), 'utf8'), '---\ntype: knowledge\ntitle: F\nstatus: active\n---\n', 'a clean round-trip — no orphaned relations block');
     const last = readLog(home, 'knowledge', 'mutations').at(-1);
     assert.equal(last.event, 'update', 'unrelate logs as an update (the `from` note, like relate)');
     assert.equal(last.note, 'f');

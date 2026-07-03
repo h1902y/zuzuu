@@ -1,0 +1,23 @@
+{
+  "id": "stg-2cb24cfc",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-learn-09-the-workbench-md",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: learn/09-the-workbench.md",
+    "path": "/Users/hkc/Documents/zuzuu/docs/learn/09-the-workbench.md",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/docs/learn/09-the-workbench.md` (touched 7× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/docs/learn/09-the-workbench.md` (touched 7× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 7,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 7,
+  "status": "pending"
+}

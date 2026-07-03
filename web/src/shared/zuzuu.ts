@@ -126,6 +126,58 @@ export interface ModuleSchema {
   source?: string;
 }
 
+/** One note-level change between two of a module's generations — git's own
+ *  `--name-status` letter (A add · M modify · D delete · R… rename) + the note id
+ *  (the `.md` suffix stripped). */
+export interface GenerationChange {
+  status: string;
+  id: string;
+}
+
+/** GET /module/:key/generation/:from/diff/:to — the §G.2 generation strip's
+ *  "what changed" panel: `zz gen diff <m> <a> <b>` (git holds the bytes; this
+ *  never re-derives them). `degraded` = the CLI produced nothing (absent, or
+ *  `from` has no backing commit — the module's very first generation has no
+ *  "before" to diff against). */
+export interface GenerationDiffResult {
+  module: string;
+  from: string;
+  to: string;
+  changes: GenerationChange[];
+  degraded?: boolean;
+}
+
+// ── A note's history (§G.1) — the module's mutation log, filtered to one note ──
+
+/** One line of a module's log.jsonl (src/notes/log.mjs's `append`/`logMutation`).
+ *  `event` is the mutation kind (create|update|delete|deprecate); `ts` is ISO or
+ *  null (most mutation-log entries are honestly null today — nothing in the write
+ *  path stamps one yet, see log.mjs); `actor` names who did it (human|agent|
+ *  migration|ingestion are the substrate's named buckets — `agent` never lands in
+ *  practice since the moat refuses a non-operator commit, and migration/ingestion
+ *  are designed-not-yet-wired per §I.2 — anything else, e.g. `init`'s seed writes,
+ *  rides through as its raw string, never relabeled). Everything past the four
+ *  known keys is a per-op breadcrumb (`proposal`, `backfill`, `rename`, `merge`,
+ *  `refactor`, `rollback`, `relation`, …) — read tolerantly, never enumerated. */
+export interface HistoryEntry {
+  event: string;
+  ts: string | null;
+  note: string;
+  actor?: string;
+  [k: string]: unknown;
+}
+
+/** GET /module/:key/item/:id/history — one note's mutation trail: the module's
+ *  log.jsonl filtered to `note === id`, newest first, capped 50. `bornAt` is the
+ *  earliest `create` entry (the footer's "born here" line links to it); null when
+ *  the note predates the log (a legacy note, or the log itself is absent). */
+export interface NoteHistoryResponse {
+  key: string;
+  id: string;
+  entries: HistoryEntry[];
+  bornAt: HistoryEntry | null;
+}
+
 // ── Module overview (ONE call for the whole panel root) ───────────────────────
 
 /** One module in GET /overview. The peek fallback (CLI absent) omits
@@ -153,6 +205,14 @@ export interface ModuleOverviewResponse {
 
 // ── Write side (mutations are CLI-only; the daemon shells out to `zz`) ─────────
 
+/** DELETE /module/:key/row/:id — the OPERATOR lane's instant row delete (P1:
+ *  `zz note delete`, lands NOW, no gate; distinct from POST .../stage's
+ *  op:"delete", which is the agent-lane proposal twin). */
+export interface DeleteRowResult {
+  ok: boolean;
+  deleted?: string;
+}
+
 /** POST /staged/:id/approve and /actions/:slug/approve */
 export interface ApproveResult {
   ok: boolean;
@@ -173,6 +233,18 @@ export interface RollbackResult {
   module?: string;
   restored: number;
   active: string;
+}
+
+/** POST /module/:key/column and PATCH /module/:key/column/:name (§H.5, the
+ *  field-config panel) — the CLI's `module add-column`/`alter-column` JSON, passed
+ *  through whole: the module's fields AFTER the change + the generation it minted
+ *  (rollback-able). `fields` rides untyped here (raw FieldDef-shaped objects) —
+ *  the client re-derives typed FieldDef[] via schema-fields.ts, same as the
+ *  GET .../schema route's `fields` block. */
+export interface ModuleColumnResult {
+  key: string;
+  fields: Record<string, unknown>[];
+  generation: number;
 }
 
 /** POST /module/:key/stage — the write entry-door. A create/update resolves to a
@@ -273,3 +345,85 @@ export type SessionCloseResult =
       mergeability?: "ready" | "conflict" | "unknown";
     }
   | { ok: false; stderr?: string; refusal?: Record<string, unknown> };
+
+// ── The world map (/api/zuzuu/graph → `zz graph --json`) ──────────────────────
+// The whole project as one nodes+links document. ADDR-keyed (`module:id`) — bare
+// ids collide across modules. Rendered by the client world engine (client/world).
+
+export interface WorldGraphNode {
+  addr: string;
+  id: string;
+  module: string;
+  type: string;
+  title: string;
+  status: string | null;
+  degree: number;
+  ageDays: number | null;
+  bytes: number;
+  hasBody: boolean;
+  /** the `--props` allowlist columns, when requested (peek values, truncated) */
+  props?: Record<string, string>;
+}
+
+export interface WorldGraphLink {
+  source: string;
+  target: string;
+  type: string;
+  note?: string;
+}
+
+export interface WorldGraph {
+  nodes: WorldGraphNode[];
+  links: WorldGraphLink[];
+  /** true = zuzuu CLI absent; the map degrades to empty */
+  degraded?: boolean;
+}
+
+/** A pending create proposal rendered IN the map (the moat made visible): a dashed
+ *  translucent node near its module until the human approves and it solidifies. */
+export interface WorldGhost {
+  addr: string;
+  module: string;
+  stagedId: string;
+  title: string;
+}
+
+// ── The Flow projection (/api/zuzuu/flow) — §I rung 5: the third view of a
+// Project. Every `type: workflow` note project-wide, joined with its runs (the
+// `runs` module) for a run-count/latest-status summary — the data the header
+// toggle's availability check and the workflow picker both need in one read. ──
+
+/** One workflow note's run tally, by the `runs` module's `status` field. */
+export interface FlowRunCounts {
+  total: number;
+  running: number;
+  waiting: number;
+  done: number;
+  failed: number;
+}
+
+export interface FlowLatestRun {
+  id: string;
+  status: string;
+  startedAt: string | null;
+}
+
+/** One `type: workflow` note, summarized for the Flow picker + the toggle's
+ *  availability check. `addr` is `module:id` (the Flow NavNode's target). */
+export interface FlowWorkflowSummary {
+  addr: string;
+  module: string;
+  id: string;
+  title: string;
+  stepCount: number;
+  runs: FlowRunCounts;
+  latestRun: FlowLatestRun | null;
+}
+
+/** GET /api/zuzuu/flow — every workflow note project-wide + its run summary.
+ *  `degraded: true` = the CLI is absent (the workflow list read failed); the
+ *  toggle then reads "unavailable" rather than falsely "no workflows yet." */
+export interface FlowListResponse {
+  workflows: FlowWorkflowSummary[];
+  degraded?: boolean;
+}

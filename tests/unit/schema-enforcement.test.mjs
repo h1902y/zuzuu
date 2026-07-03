@@ -32,8 +32,12 @@ const itemPath = (home, m, id) => join(home, m, 'items', `${id}.md`);
 // the `fields` block the standard template would mint for a module id ([] when schemaless)
 const parseFields = (id) => parse(manifestFor(id)).note.fields ?? [];
 
+// NOTE (envelope floor, 02-07-2026): `title` can no longer serve as the
+// reject-fixture — the write boundary FILLS it before validation, so a
+// required-title schema is satisfiable by construction. `owner` plays the
+// missing-required role instead.
 const TASK_FIELDS = [
-  { name: 'title', type: 'text', required: true },
+  { name: 'owner', type: 'text', required: true },
   { name: 'priority', type: 'select', options: ['low', 'high'] },
   { name: 'effort', type: 'number' },
 ];
@@ -46,7 +50,7 @@ test('commit REJECTS a write that violates the schema — missing a required col
     ]);
     assert.equal(r.ok, false, 'the batch is refused');
     assert.equal(r.reverted, true, 'the transaction reverted');
-    assert.match(r.error, /field 'title' is required/);
+    assert.match(r.error, /field 'owner' is required/);
     assert.equal(existsSync(itemPath(home, 'tasks', 't1')), false, 'nothing landed');
     assert.equal(generations(home, 'tasks').active, null, 'no generation minted');
   });
@@ -56,7 +60,7 @@ test('commit REJECTS a select value outside the declared options', () => {
   withRepo((home) => {
     schemaModule(home, 'tasks', TASK_FIELDS);
     const r = commit(home, { actor: 'operator' }, [
-      { module: 'tasks', op: 'create', target: 't1', change: { type: 'task', title: 'A', priority: 'urgent' }, id: 'op-1' },
+      { module: 'tasks', op: 'create', target: 't1', change: { type: 'task', owner: 'a', title: 'A', priority: 'urgent' }, id: 'op-1' },
     ]);
     assert.equal(r.ok, false);
     assert.match(r.error, /field 'priority' must be one of: low, high/);
@@ -151,6 +155,40 @@ test('alter-column tightens the type; drop-column removes the constraint', () =>
     assert.equal(commit(home, { actor: 'operator' }, [
       { module: 'tasks', op: 'create', target: 't2', change: { type: 'task', title: 'A', effort: 'lots' }, id: 'op-2' },
     ]).ok, true, 'after drop, anything goes for that column');
+  });
+});
+
+test('add-column: `description` passthrough — a tolerated FieldDef key, surfaced by `module schema`', () => {
+  withRepo((home, root) => {
+    const zz = open(root);
+    schemaModule(home, 'tasks', [{ name: 'title', type: 'text' }]);
+    const r = zz.addColumn('tasks', 'priority', 'select', { options: ['low', 'high'], description: 'How urgent the task is' });
+    assert.equal(r.ok, true, r.error);
+    const field = readManifest(home, 'tasks').fields.find((f) => f.name === 'priority');
+    assert.equal(field.description, 'How urgent the task is');
+  });
+});
+
+test('alter-column: `description` survives an unrelated alter; an explicit --description replaces it', () => {
+  withRepo((home, root) => {
+    const zz = open(root);
+    schemaModule(home, 'tasks', [{ name: 'effort', type: 'text', description: 'rough estimate' }]);
+    // an alter that only touches `type` leaves description untouched
+    assert.equal(zz.alterColumn('tasks', 'effort', { type: 'number' }).ok, true);
+    assert.equal(readManifest(home, 'tasks').fields.find((f) => f.name === 'effort').description, 'rough estimate', 'description survives an unrelated alter');
+    // an explicit description updates it
+    assert.equal(zz.alterColumn('tasks', 'effort', { description: 'in days' }).ok, true);
+    assert.equal(readManifest(home, 'tasks').fields.find((f) => f.name === 'effort').description, 'in days');
+  });
+});
+
+test('add-column: `default: now` stays SYMBOLIC in the manifest — the sentinel resolves at row-fill time (grow/edit.mjs), never at schema-mutation time', () => {
+  withRepo((home, root) => {
+    const zz = open(root);
+    schemaModule(home, 'events', [{ name: 'title', type: 'text' }]);
+    assert.equal(zz.addColumn('events', 'occurred_on', 'date', { def: 'now' }).ok, true);
+    const field = readManifest(home, 'events').fields.find((f) => f.name === 'occurred_on');
+    assert.equal(field.default, 'now', 'the manifest keeps the literal sentinel, never rewritten to a date');
   });
 });
 

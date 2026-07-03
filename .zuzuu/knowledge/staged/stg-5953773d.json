@@ -1,0 +1,39 @@
+{
+  "id": "stg-5953773d",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-memory-memory-md",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: memory/MEMORY.md",
+    "path": "/Users/hkc/.claude/projects/-Users-hkc-Documents-zuzuu/memory/MEMORY.md",
+    "body": "Hot file in this project: `/Users/hkc/.claude/projects/-Users-hkc-Documents-zuzuu/memory/MEMORY.md` (touched 5× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/.claude/projects/-Users-hkc-Documents-zuzuu/memory/MEMORY.md` (touched 5× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 5,
+      "sessions": 1,
+      "sessionIds": [
+        "claude-code:d8a6774f-25fa-490f-934f-ce2c0b9e1832"
+      ]
+    }
+  ],
+  "confidence": null,
+  "score": 5,
+  "source": {
+    "producer": "observe",
+    "kind": "entity",
+    "sessions": [
+      "claude-code:d8a6774f-25fa-490f-934f-ce2c0b9e1832"
+    ],
+    "locator": {
+      "kind": "session-ids",
+      "sessions": [
+        "claude-code:d8a6774f-25fa-490f-934f-ce2c0b9e1832"
+      ]
+    }
+  },
+  "status": "pending"
+}

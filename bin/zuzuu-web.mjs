@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 // Direct entry to the bundled workbench daemon (the `zuzuu web` command is the
 // porcelain; this bin exists for people who want the daemon itself).
+//
+// NOTE (repo checkouts): this entry ALWAYS runs the staged `web-app/dist` —
+// which goes stale the moment you edit `web/src` without re-running
+// `npm run build:web`. Prefer `zz web`: its resolution tries the live
+// `web/dist` checkout build FIRST, so dev changes are what you launch.
 import { existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';

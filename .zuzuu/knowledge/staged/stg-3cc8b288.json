@@ -1,0 +1,23 @@
+{
+  "id": "stg-3cc8b288",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-composer-promptinput-tsx",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: composer/PromptInput.tsx",
+    "path": "/Users/hkc/Documents/zuzuu/web/src/client/composer/PromptInput.tsx",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/client/composer/PromptInput.tsx` (touched 5× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/client/composer/PromptInput.tsx` (touched 5× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 5,
+      "sessions": 1
+    }
+  ],
+  "confidence": null,
+  "score": 5,
+  "status": "pending"
+}

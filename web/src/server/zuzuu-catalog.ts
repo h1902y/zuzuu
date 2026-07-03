@@ -37,6 +37,8 @@ export const COMMAND_CATALOG = {
   // ── module reads (the dashboard CRUD surface) ──
   "module.overview": { id: "module.overview", path: ["module", "overview"], params: [], flags: {} },
   "module.items": { id: "module.items", path: ["module", "items"], params: ["key"], flags: {} },
+  // the UNIFIED table (one table over everything): every module's rows, same contract
+  "module.items.all": { id: "module.items.all", path: ["module", "items"], params: [{ const: "--all" }], flags: {} },
   "module.item": { id: "module.item", path: ["module", "item"], params: ["key", "id"], flags: {} },
   "module.schema": { id: "module.schema", path: ["module", "schema"], params: ["key"], flags: {} },
   // deprecated key-first lineage read (the daemon still shells this shape; argv-faithful)
@@ -45,6 +47,12 @@ export const COMMAND_CATALOG = {
   "module.new": { id: "module.new", path: ["module", "new"], params: ["id"], flags: { title: "--title", tagline: "--tagline", capabilities: "--capabilities", kinds: "--kinds", required: "--required" } },
   "module.enable": { id: "module.enable", path: ["module", "enable"], params: ["key"], flags: {} },
   "module.disable": { id: "module.disable", path: ["module", "disable"], params: ["key"], flags: {} },
+  // ── module schema writes (§H.5, the field-config panel): ALTER TABLE on a
+  //    module's typed-column schema. `required` rides as an explicit 'true'/'false'
+  //    string (never bare) — a bare truthiness check on the CLI side can't express
+  //    "turn it off" (see src/cli/args.mjs `flag()`).
+  "module.add-column": { id: "module.add-column", path: ["module", "add-column"], params: ["module", "name", "type"], flags: { required: "--required", options: "--options", default: "--default", label: "--label", description: "--description", computed: "--computed" } },
+  "module.alter-column": { id: "module.alter-column", path: ["module", "alter-column"], params: ["module", "name"], flags: { type: "--type", required: "--required", options: "--options", default: "--default", label: "--label", description: "--description", computed: "--computed" } },
   // deprecated key-first rollback (no `generation` subword — Rung 9's reconciled shape)
   "module.rollback": { id: "module.rollback", path: ["module"], params: ["key", { const: "rollback" }, "id"], flags: {} },
   // ── the review gate + the write entry-door ──
@@ -52,7 +60,20 @@ export const COMMAND_CATALOG = {
   "review.reject": { id: "review.reject", path: ["review", "reject"], params: ["module", "id"], flags: { reason: "--reason" } },
   "stage": { id: "stage", path: ["stage"], params: ["module"], flags: { op: "--op", target: "--target", change: "--change" } },
   "act": { id: "act", path: ["act"], params: ["module", "id"], flags: {} },
+  // ── the operator lane (P1): direct row CRUD — the human's instant path; the agent
+  //    stays on stage→review (these verbs are agent-denied at the execution gate) ──
+  "note.create": { id: "note.create", path: ["note", "create"], params: ["module", "id"], flags: { type: "--type", change: "--change", force: "--force" } },
+  "note.delete": { id: "note.delete", path: ["note", "delete"], params: ["module", "id"], flags: {} },
+  // ── the map surface (P2): the whole project as nodes + links ──
+  "graph": { id: "graph", path: ["graph"], params: [], flags: { props: "--props" } },
   "gen.mint": { id: "gen.mint", path: ["gen", "mint"], params: ["module"], flags: { from: "--from" } },
+  // §G.2 the generation strip's diff panel: `gen diff`/`gen rollback` carry no `io`
+  // descriptor on the CLI side yet (cold verbs — widening one is a src/ change, out
+  // of scope this pass), so `zz commands --json` reports them with EMPTY params/
+  // flags today; this entry matches that byte-for-byte. The real `<module> <a> <b>`
+  // positionals ride as pre-validated `extra` (mirrors `module.items`'s query-flag
+  // extra) — the route builds+validates them before the spawn, same discipline.
+  "gen.diff": { id: "gen.diff", path: ["gen", "diff"], params: [], flags: {} },
   "session.label": { id: "session.label", path: ["session", "label"], params: ["id"], flags: { text: "--text" } },
   // ── readiness text reads (no --json mode) ──
   "doctor": { id: "doctor", path: ["doctor"], params: [], flags: {} },

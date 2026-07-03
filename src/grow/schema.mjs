@@ -43,10 +43,21 @@ function writeSchema(home, module, path, note, fields, label) {
 }
 
 // Build a clean FieldDef from CLI inputs — only the keys that carry meaning.
-function fieldDef(name, type, { required = false, options = null } = {}) {
+// `default` fills the column on `note create` when absent (the string `now` is a
+// SENTINEL for date columns, resolved at fill time — see grow/edit.mjs withDefaults;
+// the manifest itself always keeps the symbolic `now`); `label` is the human/UI
+// display name (a form can render real fields instead of inferring from keys);
+// `description` is a free-form tooltip/help string (header tooltip + schema card —
+// §H.5); `computed` derives the column at INDEX time (first builtin: `dateAdd(a,b)` —
+// the value never lands in the note file, but filters/sorts like any column).
+function fieldDef(name, type, { required = false, options = null, def = undefined, label = null, description = null, computed = null } = {}) {
   const f = { name, type };
   if (required) f.required = true;
   if (Array.isArray(options) && options.length) f.options = options;
+  if (def !== undefined) f.default = def;
+  if (label) f.label = label;
+  if (description) f.description = description;
+  if (computed) f.computed = computed;
   return f;
 }
 
@@ -73,8 +84,16 @@ export function alterColumn(home, module, name, opts = {}) {
   if (opts.type && !FIELD_TYPES.has(opts.type)) return { ok: false, error: `unknown type '${opts.type}' — one of ${[...FIELD_TYPES].join('|')}` };
   const required = opts.required !== undefined ? opts.required : cur.required;
   const options = opts.options !== undefined ? opts.options : cur.options;
+  const def = opts.def !== undefined ? opts.def : cur.default;
+  const label = opts.label !== undefined ? opts.label : cur.label;
+  const description = opts.description !== undefined ? opts.description : cur.description;
+  // `computed` was silently DROPPED by every alter before this — fieldDef()'s own
+  // default (null) overwrote it because nothing threaded `cur.computed` through, so
+  // e.g. relabeling a computed column stripped its formula. Same survives-an-
+  // unrelated-alter treatment as label/description now.
+  const computed = opts.computed !== undefined ? opts.computed : cur.computed;
   const next = [...s.fields];
-  next[idx] = fieldDef(name, type, { required, options });
+  next[idx] = fieldDef(name, type, { required, options, def, label, description, computed });
   return writeSchema(home, module, s.path, s.note, next, `alter-column ${module}.${name}`);
 }
 

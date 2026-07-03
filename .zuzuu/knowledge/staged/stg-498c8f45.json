@@ -1,0 +1,39 @@
+{
+  "id": "stg-498c8f45",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-cli-init-mjs",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: cli/init.mjs",
+    "path": "/Users/hkc/Documents/zuzuu/src/cli/init.mjs",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/src/cli/init.mjs` (touched 35× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/src/cli/init.mjs` (touched 35× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 35,
+      "sessions": 1,
+      "sessionIds": [
+        "claude-code:d8a6774f-25fa-490f-934f-ce2c0b9e1832"
+      ]
+    }
+  ],
+  "confidence": null,
+  "score": 35,
+  "source": {
+    "producer": "observe",
+    "kind": "entity",
+    "sessions": [
+      "claude-code:d8a6774f-25fa-490f-934f-ce2c0b9e1832"
+    ],
+    "locator": {
+      "kind": "session-ids",
+      "sessions": [
+        "claude-code:d8a6774f-25fa-490f-934f-ce2c0b9e1832"
+      ]
+    }
+  },
+  "status": "pending"
+}

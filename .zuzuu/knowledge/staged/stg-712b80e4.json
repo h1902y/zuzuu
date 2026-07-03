@@ -1,0 +1,39 @@
+{
+  "id": "stg-712b80e4",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-client-overview-model-test-ts",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: client/overview-model.test.ts",
+    "path": "/Users/hkc/Documents/zuzuu/web/tests/client/overview-model.test.ts",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/tests/client/overview-model.test.ts` (touched 8× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/tests/client/overview-model.test.ts` (touched 8× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 8,
+      "sessions": 1,
+      "sessionIds": [
+        "claude-code:c7e0a32f-79a3-4d16-8545-a34e5f5f12f6"
+      ]
+    }
+  ],
+  "confidence": null,
+  "score": 8,
+  "source": {
+    "producer": "observe",
+    "kind": "entity",
+    "sessions": [
+      "claude-code:c7e0a32f-79a3-4d16-8545-a34e5f5f12f6"
+    ],
+    "locator": {
+      "kind": "session-ids",
+      "sessions": [
+        "claude-code:c7e0a32f-79a3-4d16-8545-a34e5f5f12f6"
+      ]
+    }
+  },
+  "status": "pending"
+}

@@ -32,6 +32,32 @@ export function createZuzuuWriteApi(getRoot: () => string, binary?: string): Hon
   /** A valid module arg: any safe slug (the CLI reports not-found for unknown ones). */
   const isModule = (f: unknown): f is string => typeof f === "string" && SAFE_SLUG.test(f);
 
+  // ── the operator lane (P1): direct row create/delete — the human's instant CRUD.
+  //    Distinct from the staged-proposal lane below: this lands NOW (validated +
+  //    minted by the CLI); the agent can never reach it (execution-gate denied).
+  app.post("/module/:key/row", async (c) => {
+    const key = c.req.param("key");
+    if (!SAFE_SLUG.test(key)) return c.json({ error: "unknown module" }, 404);
+    const body = await readBody(c);
+    const { id, change, force } = body;
+    if (typeof id !== "string" || !SAFE_ID.test(id)) return c.json({ error: "bad id" }, 400);
+    if (change !== undefined && (typeof change !== "object" || change === null || Array.isArray(change))) {
+      return c.json({ error: "change must be an object" }, 400);
+    }
+    return mutate(c, "note.create", {
+      module: key, id,
+      change: change ? JSON.stringify(change) : undefined,
+      force: force === true ? "true" : undefined,
+    });
+  });
+  app.delete("/module/:key/row/:id", async (c) => {
+    const key = c.req.param("key");
+    const id = c.req.param("id");
+    if (!SAFE_SLUG.test(key)) return c.json({ error: "unknown module" }, 404);
+    if (!SAFE_ID.test(id)) return c.json({ error: "bad id" }, 400);
+    return mutate(c, "note.delete", { module: key, id });
+  });
+
   // Set/clear a session's user label. A blank label clears it.
   app.post("/session-label/:id", async (c) => {
     const id = c.req.param("id");
@@ -155,6 +181,79 @@ export function createZuzuuWriteApi(getRoot: () => string, binary?: string): Hon
     // reconcile the drift: the real CLI verb is `zz module <key> rollback <n>`
     // (no `generation` subword; <n> is the generation number)
     return mutate(c, "module.rollback", { key, id });
+  });
+
+  // ── §H.5 the field-config panel: ALTER TABLE on a module's typed-column schema.
+  //    POST adds a column, PATCH alters one — both land instantly (operator-gated,
+  //    like `module new`), each minting a generation (rollback-able). Validated
+  //    before the spawn, same as every other write here.
+  const KNOWN_FIELD_TYPES = new Set(["text", "longtext", "select", "multi", "link", "date", "number", "bool"]);
+  const okColumnName = (v: unknown): v is string => typeof v === "string" && SAFE_SLUG.test(v) && v.length <= 64;
+  const okShortStr = (v: unknown, max: number): v is string => typeof v === "string" && v.length <= max;
+  const okOptions = (v: unknown): v is string[] =>
+    Array.isArray(v) && v.length <= 50 && v.every((o) => typeof o === "string" && o.length <= 100 && !o.includes(","));
+
+  /** Field-def params shared by add (type required) and alter (type optional —
+   *  the panel sends it anyway, a full-snapshot save, but a caller MAY omit it to
+   *  leave the type untouched). Returns catalog params on success, an error string
+   *  on the first invalid key. `required` rides as an explicit 'true'/'false'
+   *  string — never bare — so the CLI's flag() coercion can turn it OFF too. */
+  function columnFieldParams(body: Record<string, unknown>, { requireType }: { requireType: boolean }): { params: Record<string, string | undefined> } | { error: string } {
+    const params: Record<string, string | undefined> = {};
+    if (requireType || body.type !== undefined) {
+      if (!okShortStr(body.type, 20) || !KNOWN_FIELD_TYPES.has(body.type))
+        return { error: `type must be one of ${[...KNOWN_FIELD_TYPES].join("|")}` };
+      params.type = body.type;
+    }
+    if (body.required !== undefined) {
+      if (typeof body.required !== "boolean") return { error: "required must be a boolean" };
+      params.required = body.required ? "true" : "false";
+    }
+    if (body.options !== undefined) {
+      if (!okOptions(body.options)) return { error: "options must be a list of short strings (no commas)" };
+      params.options = (body.options as string[]).join(",");
+    }
+    if (body.default !== undefined) {
+      if (!okShortStr(body.default, 500)) return { error: "bad default" };
+      params.default = body.default;
+    }
+    if (body.label !== undefined) {
+      if (!okShortStr(body.label, 200)) return { error: "bad label" };
+      params.label = body.label;
+    }
+    if (body.description !== undefined) {
+      if (!okShortStr(body.description, 1000)) return { error: "bad description" };
+      params.description = body.description;
+    }
+    if (body.computed !== undefined) {
+      if (!okShortStr(body.computed, 200)) return { error: "bad computed formula" };
+      params.computed = body.computed;
+    }
+    return { params };
+  }
+
+  // Add a column (the toolbar's "+ column", single-module scope only).
+  app.post("/module/:key/column", async (c) => {
+    const key = c.req.param("key");
+    if (!isModule(key)) return c.json({ error: "bad module" }, 400);
+    const body = await readBody(c);
+    if (!okColumnName(body.name)) return c.json({ error: "bad column name" }, 400);
+    const r = columnFieldParams(body, { requireType: true });
+    if ("error" in r) return c.json({ error: r.error }, 400);
+    return mutate(c, "module.add-column", { module: key, name: body.name as string, ...r.params });
+  });
+
+  // Alter an existing column (the header caret's "Edit column"). `name` is
+  // immutable (rename is a refactor, offered separately — never here).
+  app.patch("/module/:key/column/:name", async (c) => {
+    const key = c.req.param("key");
+    if (!isModule(key)) return c.json({ error: "bad module" }, 400);
+    const name = c.req.param("name");
+    if (!okColumnName(name)) return c.json({ error: "bad column name" }, 400);
+    const body = await readBody(c);
+    const r = columnFieldParams(body, { requireType: false });
+    if ("error" in r) return c.json({ error: r.error }, 400);
+    return mutate(c, "module.alter-column", { module: key, name, ...r.params });
   });
 
   return app;

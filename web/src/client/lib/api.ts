@@ -7,16 +7,21 @@
 import type {
   ApproveResult,
   CreateSessionRequest,
+  DeleteRowResult,
   DirListing,
   FileListResponse,
+  FlowListResponse,
+  GenerationDiffResult,
   HeldActionResult,
   HeldSessionList,
   ListResponse,
+  ModuleColumnResult,
   ModuleDetail,
   ModuleGenerationList,
   ModuleItem,
   ModuleOverviewResponse,
   ModuleSchema,
+  NoteHistoryResponse,
   ProjectState,
   ProjectsList,
   RecentsList,
@@ -28,6 +33,7 @@ import type {
   SessionInfo,
   StagedChange,
   WorkspaceInfo,
+  WorldGraph,
 } from "#shared/index.js";
 
 /** A setup verb's response — the CLI JSON the daemon passes through (shape varies). */
@@ -63,14 +69,28 @@ export class ApiError extends Error {
   }
 }
 
+/** The most PRECISE reason in a failed mutation's body (audit item 4). A 502 from
+ *  the daemon carries `{error: "zuzuu command failed", stderr, data}` where `data`
+ *  is the CLI's structured refusal (`{ok:false, error: "field 'company' is
+ *  required"}`) — that inner reason is what the user can act on; the generic
+ *  wrapper is what they used to get. Exported for tests. */
+export function apiErrorMessage(status: number, body: unknown): string {
+  const b = body as { error?: unknown; stderr?: unknown; data?: unknown } | null;
+  const inner = (b?.data as { error?: unknown } | undefined)?.error;
+  if (typeof inner === "string" && inner.trim()) return inner.trim();
+  if (typeof b?.stderr === "string" && b.stderr.trim()) return b.stderr.trim().split("\n").at(-1)!;
+  if (typeof b?.error === "string" && b.error.trim()) return b.error;
+  return `request failed (${status})`;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, init);
   if (!res.ok) {
     if (res.status === 401) {
       throw new ApiError(401, "not authorized — open the URL printed by the zz-web daemon");
     }
-    const body = (await res.json().catch(() => null)) as { error?: string } | null;
-    throw new ApiError(res.status, body?.error ?? `request failed (${res.status})`);
+    const body: unknown = await res.json().catch(() => null);
+    throw new ApiError(res.status, apiErrorMessage(res.status, body));
   }
   return res.json() as Promise<T>;
 }
@@ -80,6 +100,21 @@ const json = (body: unknown): RequestInit => ({
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify(body),
 });
+const jsonMethod = (method: string, body: unknown): RequestInit => ({ ...json(body), method });
+
+/** The field-config panel's Save body (§H.5) — one shape for both `+ column`
+ *  (add: type required) and "Edit column" (alter: type optional, but the panel
+ *  sends a full-snapshot save so it's present in practice too). Undefined keys
+ *  are omitted client-side; on alter that means "leave unchanged". */
+export interface ColumnFieldBody {
+  type?: string;
+  required?: boolean;
+  options?: string[];
+  default?: string;
+  label?: string;
+  description?: string;
+  computed?: string;
+}
 
 export const api = {
   workspace: () => request<WorkspaceInfo>("/api/workspace"),
@@ -144,7 +179,15 @@ export const api = {
   // CLI-shelled by the daemon; the client only ever reads + posts intents.
   zuzuu: {
     overview: () => request<ModuleOverviewResponse>("/api/zuzuu/overview"),
+    // the whole project as one nodes+links document (the world map reads this);
+    // optional props ride chosen frontmatter columns on nodes
+    graph: (props?: string[]) =>
+      request<WorldGraph>(`/api/zuzuu/graph${props?.length ? `?props=${encodeURIComponent(props.join(","))}` : ""}`),
     projectState: () => request<ProjectState>("/api/zuzuu/project-state"),
+    // the Flow projection's summary read (§I rung 5): every workflow note + its
+    // run counts/latest-status — feeds the header toggle's availability check,
+    // the `>flow` palette command, and the Flow stage's workflow picker.
+    flow: () => request<FlowListResponse>("/api/zuzuu/flow"),
     // the held-session CODE queue — sessions awaiting a merge decision (the close
     // card's code section reads it). CLI absent / non-git → { held: [] }.
     held: () => request<HeldSessionList>("/api/zuzuu/held"),
@@ -154,15 +197,32 @@ export const api = {
     // the module's notes — optionally filtered·sorted·paginated server-side (the index
     // SELECT). No query ⇒ the whole module (the default the graph/search/review reads use).
     module: (key: string, query?: ModuleQuery) => request<ModuleDetail>(`/api/zuzuu/module/${key}${moduleQs(query)}`),
+    // the UNIFIED table (one table over everything): every module's rows, one page —
+    // each row carries its module; the Everything grid renders module as a column
+    items: (query?: ModuleQuery) => request<ModuleDetail>(`/api/zuzuu/items${moduleQs(query)}`),
     item: (key: string, id: string) => request<ModuleItem>(`/api/zuzuu/module/${key}/item/${id}`),
+    // a note's history (§G.1): the module's mutation-log entries filtered to this
+    // note, newest first — the NoteDocument's collapsed History group.
+    history: (key: string, id: string) => request<NoteHistoryResponse>(`/api/zuzuu/module/${key}/item/${id}/history`),
     schema: (key: string) => request<ModuleSchema>(`/api/zuzuu/module/${key}/schema`),
     generations: (key: string) => request<ModuleGenerationList>(`/api/zuzuu/module/${key}/generations`),
+    // §G.2 the generation strip's "what changed" panel: which notes were added/
+    // modified/deleted between two of a module's generations. `degraded: true` =
+    // nothing to diff against (e.g. `from` predates the module's first generation).
+    generationDiff: (key: string, from: string, to: string) =>
+      request<GenerationDiffResult>(`/api/zuzuu/module/${key}/generation/${from}/diff/${to}`),
     // a write resolves to a PENDING proposal (a staged change), not a landed row — it
     // surfaces in the review queue and lands only on approve (the gate, as data-provider
     // semantics). All 6 ops route here: create/update/delete/deprecate carry a `target`
     // note; relate/unrelate carry the edge in `change` ({from,type,to}) and need no target.
     stage: (key: string, body: { op: StagedChange["op"]; target?: string; change?: Record<string, unknown> }) =>
       request<StagedChange>(`/api/zuzuu/module/${key}/stage`, json(body)),
+    // the OPERATOR lane's instant row delete (Two-Lanes.md: `zz note delete`,
+    // lands NOW — distinct from `stage(...{op:"delete"})` above, the agent-lane
+    // proposal twin). §H.3.4/S1: the omnibar's Selection→Delete loops this per row
+    // (no batch route on the daemon yet — a one-batch-verb gap, noted not built).
+    deleteRow: (key: string, id: string) =>
+      request<DeleteRowResult>(`/api/zuzuu/module/${key}/row/${id}`, { method: "DELETE" }),
     // the daemon route requires { module } in the body (it 400s without it) — the
     // mutation request body isn't in #shared, so this contract is enforced by hand.
     approve: (id: string, module: string) =>
@@ -171,6 +231,14 @@ export const api = {
       request<RejectResult>(`/api/zuzuu/staged/${id}/reject`, json({ module, reason })),
     rollback: (key: string, id: string) =>
       request<RollbackResult>(`/api/zuzuu/module/${key}/generation/${id}/rollback`, { method: "POST" }),
+    // §H.5 the field-config panel: add a column (the toolbar's "+ column") or
+    // alter an existing one (the header caret's "Edit column" — name rides the
+    // URL, never the body; rename isn't offered here). Both land instantly
+    // (operator-gated) and mint a generation.
+    addColumn: (key: string, name: string, body: ColumnFieldBody) =>
+      request<ModuleColumnResult>(`/api/zuzuu/module/${key}/column`, json({ name, ...body })),
+    alterColumn: (key: string, name: string, body: ColumnFieldBody) =>
+      request<ModuleColumnResult>(`/api/zuzuu/module/${key}/column/${encodeURIComponent(name)}`, jsonMethod("PATCH", body)),
   },
 
   // the ACP drive lane: create a session, then attach /ws/acp/:id

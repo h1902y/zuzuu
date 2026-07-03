@@ -4,14 +4,15 @@
 // call shapes ({ tool: tool_name, input: tool_input }) — never an invented fixture.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { initHome } from '../../src/cli/init.mjs';
 import { gate, clearCache } from '../../src/guardrails/gate.mjs';
 import { check } from '../../src/use/check.mjs';
 import { read as readLog } from '../../src/notes/log.mjs';
-import { serialize } from '../../src/notes/note.mjs';
+import { serialize, parse } from '../../src/notes/note.mjs';
+import { gateWriteVerbPattern } from '../../src/cli/commands.mjs';
 
 function withInit(fn) {
   const root = mkdtempSync(join(tmpdir(), 'zz-brain-'));
@@ -83,4 +84,62 @@ test('Layer 4: re-running init is idempotent and does not double-log a seed', ()
   initHome(root); // reconcile pass
   const creates = readLog(home, 'instructions', 'mutations').filter((e) => e.note === 'review-the-gate');
   assert.equal(creates.length, 1);
+}));
+
+// ── SHOULD-FIX 1 (docs/audits/2026-07-03-triggers-review.md): the exec-gate's stored
+// pattern must track the live command table, not freeze at first-seed ────────────────
+
+test('the seeded protect-brain-exec rule denies `zz trigger fire` via the REAL stored note (classic mode)', () => withInit((root, home) => {
+  const decide = (command) => gate({ home }, { tool: 'Bash', input: { command } });
+  assert.equal(decide('zz trigger fire actions:t1')?.action, 'deny');
+  assert.equal(decide('zz trigger fire actions:t1')?.rule, 'protect-brain-exec');
+  assert.equal(decide('zz trigger enable actions:t1')?.action, 'deny');
+  assert.equal(decide('zz trigger disable actions:t1')?.action, 'deny');
+  assert.equal(decide('zz trigger list'), null, 'reads stay open');
+}));
+
+test('zz init reconciles a STALE protect-brain-exec pattern to the current write-verb table', () => withInit((root, home) => {
+  const p = join(home, 'instructions', 'items', 'protect-brain-exec.md');
+  // simulate a project seeded BEFORE `zz trigger fire` existed: a pattern that denies
+  // an older write verb but knows nothing about `trigger`.
+  const { note } = parse(readFileSync(p, 'utf8'), { id: 'protect-brain-exec' });
+  writeFileSync(p, serialize({ ...note, pattern: '(?:\\bzz|\\bzuzuu(?:\\.mjs)?)\\s+(?:note\\s+set)\\b' }));
+  clearCache();
+
+  // before reconciliation: the stale pattern does NOT catch the new verb
+  assert.equal(gate({ home }, { tool: 'Bash', input: { command: 'zz trigger fire actions:t1' } }), null, 'stale pattern misses the new verb');
+
+  const r = initHome(root); // the reconcile pass
+  assert.ok(r.reconciled.includes('instructions/protect-brain-exec'), 'reported as reconciled, not created/skipped');
+  clearCache();
+
+  const reread = parse(readFileSync(p, 'utf8'), { id: 'protect-brain-exec' }).note;
+  assert.equal(reread.pattern, gateWriteVerbPattern(), 'pattern converges to the live table');
+  assert.equal(gate({ home }, { tool: 'Bash', input: { command: 'zz trigger fire actions:t1' } })?.rule, 'protect-brain-exec', 're-armed after reconcile');
+}));
+
+test('zz init reconcile updates ONLY pattern — a human-edited action/reason on protect-brain-exec survives', () => withInit((root, home) => {
+  const p = join(home, 'instructions', 'items', 'protect-brain-exec.md');
+  const { note } = parse(readFileSync(p, 'utf8'), { id: 'protect-brain-exec' });
+  // a human downgraded deny→ask and wrote their own reason; pattern is stale (pre-trigger)
+  writeFileSync(p, serialize({
+    ...note, action: 'ask', reason: 'my own custom reason',
+    pattern: '(?:\\bzz|\\bzuzuu(?:\\.mjs)?)\\s+(?:note\\s+set)\\b',
+  }));
+
+  initHome(root);
+
+  const reread = parse(readFileSync(p, 'utf8'), { id: 'protect-brain-exec' }).note;
+  assert.equal(reread.pattern, gateWriteVerbPattern(), 'pattern reconciled');
+  assert.equal(reread.action, 'ask', "the human's action override survives reconciliation");
+  assert.equal(reread.reason, 'my own custom reason', "the human's reason survives reconciliation");
+}));
+
+test('zz init reconcile is a no-op once the pattern already matches the live table (idempotent)', () => withInit((root, home) => {
+  const p = join(home, 'instructions', 'items', 'protect-brain-exec.md');
+  const before = readFileSync(p, 'utf8');
+  const r = initHome(root);
+  assert.equal(r.reconciled.length, 0, 'already-current pattern is not re-reported as reconciled');
+  assert.ok(r.skipped.includes('instructions/protect-brain-exec'));
+  assert.equal(readFileSync(p, 'utf8'), before, 'byte-identical — no spurious rewrite');
 }));

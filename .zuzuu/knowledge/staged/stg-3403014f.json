@@ -1,0 +1,39 @@
+{
+  "id": "stg-3403014f",
+  "op": "create",
+  "module": "knowledge",
+  "target": "file-shell-workbenchshell-tsx",
+  "change": {
+    "type": "knowledge",
+    "title": "Hot file: shell/WorkbenchShell.tsx",
+    "path": "/Users/hkc/Documents/zuzuu/web/src/client/shell/WorkbenchShell.tsx",
+    "body": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/client/shell/WorkbenchShell.tsx` (touched 8× across 1 sessions)."
+  },
+  "rationale": "Hot file in this project: `/Users/hkc/Documents/zuzuu/web/src/client/shell/WorkbenchShell.tsx` (touched 8× across 1 sessions).",
+  "evidence": [
+    {
+      "kind": "entity",
+      "occurrences": 8,
+      "sessions": 1,
+      "sessionIds": [
+        "claude-code:c7e0a32f-79a3-4d16-8545-a34e5f5f12f6"
+      ]
+    }
+  ],
+  "confidence": null,
+  "score": 8,
+  "source": {
+    "producer": "observe",
+    "kind": "entity",
+    "sessions": [
+      "claude-code:c7e0a32f-79a3-4d16-8545-a34e5f5f12f6"
+    ],
+    "locator": {
+      "kind": "session-ids",
+      "sessions": [
+        "claude-code:c7e0a32f-79a3-4d16-8545-a34e5f5f12f6"
+      ]
+    }
+  },
+  "status": "pending"
+}

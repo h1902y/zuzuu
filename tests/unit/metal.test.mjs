@@ -129,7 +129,7 @@ test('repo: writeNote → readNote round-trips with id injected; listNoteIds fin
     const w = writeNote(home, 'knowledge', 'fact', { type: 'knowledge', title: 'Hello', body: 'world' });
     assert.equal(w.ok, true);
     // exact bytes on disk (the serializer's contract, through the repo)
-    assert.equal(readText(itemPath(home, 'knowledge', 'fact')), '---\ntype: knowledge\ntitle: Hello\n---\nworld\n');
+    assert.equal(readText(itemPath(home, 'knowledge', 'fact')), '---\ntype: knowledge\ntitle: Hello\nstatus: active\n---\nworld\n');
     const note = readNote(home, 'knowledge', 'fact');
     assert.equal(note.id, 'fact', 'id injected from the filename, not frontmatter');
     assert.equal(note.title, 'Hello');
