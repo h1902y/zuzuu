@@ -30,6 +30,80 @@ const nonEmptyStr = (v) => typeof v === 'string' && v.trim() !== '';
 // (zero-dep, importable downward by use/ and cli/, per this file's own header).
 export const ACTION_BINDINGS = new Set(['shell', 'agent', 'mcp']);
 
+// ── secrets (§J.3/§J.5, docs/specs/2026-07-02-polish-showcase-experience.md) — a
+// `type: secret` note is a DECLARATION ONLY. The load-bearing invariant: the VALUE
+// may never be written to a note — enforced HERE, at the write door, not left as a
+// convention. Exported so `use/secrets.mjs` (the resolver) and `cli/verbs/secret.mjs`
+// (the read-only view) read the SAME closed sets + the SAME scope-matching rule —
+// notes/ stays the schema source of truth (zero-dep, importable downward), same
+// pattern as ACTION_BINDINGS/bindingOf above.
+export const SECRET_ACTORS = new Set(['operator-only', 'agent-allowed']);
+export const SECRET_RESOLVES_FROM = new Set(['env', 'secrets-file', 'fly', 'oidc']);
+// The forbidden field NAMES a `type: secret` note may never carry (case-insensitive,
+// EXACT key match — not a substring test, so a legitimate declaration field like
+// `resolves_from` or `rotation_note` never false-positives). Deliberately small and
+// literal, mirroring the brief's own list — this is the write door's one job.
+export const SECRET_FORBIDDEN_FIELDS = new Set(['value', 'secret', 'key', 'token', 'password', 'credential']);
+const ENV_NAME_RE = /^[A-Z_][A-Z0-9_]*$/;
+// A scope entry is `<left>:<right>` — interpreted at RESOLVE time (scopeMatches,
+// below), not here: `module:<name>` / `tool:<name>` (a keyword-prefixed allowlist
+// rule) OR a bare `module:tool` address (an exact-match rule). All three shapes are
+// syntactically identical (`word:word`), so validation only checks the SHAPE.
+const SCOPE_ENTRY_RE = /^[A-Za-z0-9_-]+:[A-Za-z0-9_-]+$/;
+export const isScopeEntry = (v) => typeof v === 'string' && SCOPE_ENTRY_RE.test(v.trim());
+
+/**
+ * Does `caller` (a bare module id, or a `module:tool` address — e.g. `act()`'s own
+ * `${module}:${id}`) match ONE entry in a secret declaration's `scope` allowlist?
+ * Three entry shapes, first match wins: `module:<name>` (any caller IN that module),
+ * `tool:<name>` (any caller whose tool/leaf id is `name`, module-agnostic), or a
+ * literal `module:tool` address (exact match against the caller's full address).
+ * An unlisted caller — including a missing/empty scope — matches NOTHING (fail-closed:
+ * §J.3 "unlisted caller → resolution error, not a value").
+ */
+export function scopeMatches(scope, caller) {
+  if (!Array.isArray(scope) || !caller) return false;
+  const c = String(caller).trim();
+  const ci = c.indexOf(':');
+  const callerModule = ci === -1 ? c : c.slice(0, ci);
+  const callerTool = ci === -1 ? null : c.slice(ci + 1);
+  for (const raw of scope) {
+    if (!isScopeEntry(raw)) continue;
+    const entry = raw.trim();
+    const i = entry.indexOf(':');
+    const left = entry.slice(0, i);
+    const right = entry.slice(i + 1);
+    if (left === 'module' && right === callerModule) return true;
+    if (left === 'tool' && (right === callerTool || right === c)) return true;
+    if (entry === c) return true; // a bare 'module:tool' address, exact match
+  }
+  return false;
+}
+
+/** A secret declaration's effective ACTOR gate — absent/unrecognized ⇒ 'operator-only'
+ *  (fail-CLOSED default: an unlabeled secret never resolves for an agent). */
+export function secretActorOf(note) {
+  return SECRET_ACTORS.has(note?.actor) ? note.actor : 'operator-only';
+}
+
+/** A secret declaration's effective `resolves_from` — absent/unrecognized ⇒ 'env'
+ *  (§J.5: the host already materializes the value into `process.env` before this
+ *  process starts — fly-injected-at-boot, keychain/`op`-exported, or a plain `export`). */
+export function secretResolvesFromOf(note) {
+  return SECRET_RESOLVES_FROM.has(note?.resolves_from) ? note.resolves_from : 'env';
+}
+
+/** A secret declaration's effective `sensitive` — absent ⇒ `true` (Vercel's April-2026
+ *  breach lesson: opt-in sensitivity fails; default-secure instead). Boolean-ish
+ *  tolerant, like COERCIBLE.bool below (a staged `--field sensitive=false` lands
+ *  as the string "false"). */
+export function secretSensitiveOf(note) {
+  const v = note?.sensitive;
+  if (v === false) return false;
+  if (typeof v === 'string' && ['false', 'no', '0'].includes(v.toLowerCase())) return false;
+  return true;
+}
+
 /** A note's EFFECTIVE binding — absent/unrecognized → 'shell' (fail-soft: a garbage
  *  `binding:` value on a hand-edited note falls through to the well-tested shell path
  *  rather than silently no-opping; `validateNote` below is where a bad value is an
@@ -203,10 +277,42 @@ export function validateNote(note, fields = []) {
       }
     }
   }
-  // secrets: DECLARED metadata only (§I.1.3/§J.3 — names never values; RESOLUTION into
-  // a run's env is a follow-on build, not this one) — a tool may name which secret
-  // NAMES it will need. Type-agnostic (like `relations`, below) — harmless on a
-  // non-action note, meaningful once a tool references it.
+  // ── type: secret (§J.3/§J.5) — a DECLARATION ONLY. THE enforcement: the value can
+  // NEVER be written to a note — checked FIRST and unconditionally, before any other
+  // secret-shaped invariant, so a forbidden field is caught even on an otherwise
+  // malformed declaration. Case-insensitive EXACT key match (not substring) against
+  // SECRET_FORBIDDEN_FIELDS — a legitimate declaration field (name/scope/actor/
+  // resolves_from/rotation_note/sensitive/last_used) never collides.
+  if (note.type === 'secret') {
+    const presentKeys = Object.keys(note).map((k) => k.toLowerCase());
+    const carried = [...SECRET_FORBIDDEN_FIELDS].filter((f) => presentKeys.includes(f));
+    if (carried.length) {
+      errors.push(`a secret declaration must never carry a value-bearing field (found: ${carried.join(', ')}) — the value lives on the host, never in the note (see docs/guide/Secrets.md)`);
+    }
+    if (!nonEmptyStr(note.name) || !ENV_NAME_RE.test(note.name.trim())) {
+      errors.push("a secret needs a non-empty env-var-shaped 'name' (e.g. OPENAI_API_KEY — uppercase letters/digits/underscore, not starting with a digit)");
+    }
+    // scope is OPTIONAL here (an absent/empty scope is fail-closed — resolveSecret
+    // matches nothing — not a write-door error); PRESENT means well-formed.
+    if (note.scope != null) {
+      const ok = Array.isArray(note.scope) && note.scope.length > 0 && note.scope.every(isScopeEntry);
+      if (!ok) errors.push("a secret's scope must be a non-empty list of 'module:x' / 'tool:x' / 'module:tool' strings");
+    }
+    if (note.actor != null && !SECRET_ACTORS.has(note.actor)) {
+      errors.push(`a secret's actor must be one of operator-only|agent-allowed (got ${JSON.stringify(note.actor)})`);
+    }
+    if (note.resolves_from != null && !SECRET_RESOLVES_FROM.has(note.resolves_from)) {
+      errors.push(`a secret's resolves_from must be one of env|secrets-file|fly|oidc (got ${JSON.stringify(note.resolves_from)})`);
+    }
+    if (note.sensitive != null && !COERCIBLE.bool(note.sensitive)) {
+      errors.push("a secret's 'sensitive' must be boolean-ish (true/false/yes/no/1/0)");
+    }
+  }
+  // a TOOL's `secrets: [name]` — which secret NAMES it will need (names only, never
+  // values here either); `use/secrets.mjs`'s resolveSecret is the reader that turns a
+  // name into a value at run time, gated by that name's OWN `type: secret` declaration
+  // (scope + actor) — see act.mjs's binding dispatch. Type-agnostic (like `relations`,
+  // below) — harmless on a non-action note, meaningful once a tool references it.
   if (note.secrets != null) {
     const ok = Array.isArray(note.secrets) && note.secrets.every((s) => typeof s === 'string' && s.trim() !== '');
     if (!ok) errors.push("secrets must be a list of secret name strings (e.g. ['CLEARBIT_KEY'])");
