@@ -969,3 +969,33 @@ redaction covers runs.jsonl. So §J does NOT block the §H+§I merge. The ONE
 pre-remote-arc requirement: land the secrets-value-refusal schema rule + actor-gate
 before exposing an MCP server. The moat's real weak link at multi-agent scale is
 approval FATIGUE (§J.2), not the auth crypto — design the review UX accordingly.
+
+### §J.5 — Secrets via terminal-managed host mechanism; module holds only metas (user refinement, 03-07)
+
+Since remote = Fly Firecracker microVMs (one per Project, §J.1), don't invent a
+secret STORE — delegate value storage to the host's mechanism, managed by
+TERMINAL CALLS (the CLI-is-the-FFI ethos, §I.1 binding a). zuzuu holds ONLY the
+metadata declaration at the module level; the value never lives in zuzuu's world
+at all.
+
+- **The microVM is the isolation boundary.** Per-Project microVM = per-Project
+  secret isolation for free. `fly secrets set KEY=… -a <project-app>` (a terminal
+  call) injects at boot; inside the VM the value is already `process.env.KEY`
+  (fly secrets are write-only from outside, env-materialized inside — nothing to
+  read back, nothing to leak via a read path).
+- **Setting = a terminal call, per environment**: remote → `fly secrets set`;
+  local → OS keychain / `op` (1Password) / `env`. This RETIRES the weakest part of
+  §J.3 — the plaintext `.zuzuu/secrets.env` file on disk (keep only as a dev
+  fallback, or drop entirely for keychain/`op`).
+- **Reading = read env at runtime** — the resolver never shells a "get secret"
+  (there is no get; fly/keychain inject, the process reads env). Placeholder
+  injection for agent-run tools (§J.3) is unchanged: tool-side substitution from
+  env, agent sees `secret:name`.
+- **The module note = pure metas** (name · scope · actor · rotation_note ·
+  sensitive · last_used) — a declaration + governance layer over a value it never
+  touches. `resolves_from` is now mostly `env` (already-injected) or `oidc`; the
+  SET operation is a documented terminal call, not a zuzuu-owned file.
+- Net simplification: no vault to build, no encryption to own, no secrets file to
+  secure/gitignore/leak. zuzuu governs (metas + scope + actor-gate + redaction);
+  the host + microVM store and isolate; terminal calls manage. Borrowed, not
+  invented — the whole secret VALUE surface leaves zuzuu.
