@@ -824,3 +824,148 @@ NORTH STAR that makes sense of the daemon, the gate, the actor model, the tiers,
 and §I.1 all at once. Sequencing after merge: MCP client binding (§I.1 b) → MCP
 server (expose read tools + resources) → gated action-tools remotely → per-client
 authz (Enterprise). Every step keeps the gate as the boundary.
+
+## §J — Remote · HITL · Secrets: grounded synthesis (Fable review, 03-07)
+
+Three Sonnet briefs (fly/MCP-auth, HITL, secrets) reviewed + reconciled. The
+headline: **they are ONE coupled story, and each independently validates the
+zuzuu gate against the most mature system in its domain** (GitHub Copilot's
+branch-gate = stage→review; GitHub Environment Protection Rules = HITL×secrets;
+MCP's own spec insists OAuth ≠ authorization-to-write). Full source lists in the
+task transcripts; decisions + load-bearing sources below.
+
+### §J.0 — The unifying frame: three authorization layers, one "propose-not-execute" law
+
+A remote agent operating a hosted Project passes THREE distinct gates — every
+brief insisted these stay SEPARATE layers, never conflated:
+1. **OAuth (auth)** — "is this a legitimate client connection?" MCP servers are
+   OAuth 2.1 *resource servers only*, never token issuers; RFC 9728 metadata +
+   RFC 8707 resource-indicator audience binding (anti confused-deputy).
+2. **The review gate (write authz)** — "should this mutation land?" A fully
+   authenticated, correctly-scoped remote agent STILL only reaches `stage`;
+   `review approve` (human) is the sole path to a minted generation. OAuth scope
+   MUST NOT be conflated with write permission.
+3. **Secret scope+actor (credential authz)** — "may this caller's tool resolve
+   this credential, and does the agent ever see the value?" (§J.3).
+The one law across all three: *the authenticated/trusted caller is only allowed
+to PROPOSE; a separate principal approves; the dangerous thing (write · credential)
+is gated at the RESOURCE, not the caller.* GitHub does this three times over —
+it's the entire zuzuu model, externally validated.
+**Cross-cutting constraint (flagged by BOTH remote + HITL briefs): self-review
+separation.** If a remote agent session holds both propose AND resume credentials
+it can self-approve — GitHub forbids the initiator being the approver. So: the
+agent gets `stage`-scoped tokens; `review approve` requires a DIFFERENT principal
+(the owner's session / a push to the owner's separate device — never the agent
+runtime).
+
+### §J.1 — Remote hosting (Fly, one app per Project)
+- **Fly.io, one app per Project**, single region (volumes aren't cross-region-
+  replicated, bill while stopped), Dockerfile+fly.toml. `min_machines_running`:
+  0 for cost (~1–2s Node cold start, `suspend` faster than `stop`) or 1 (~$2/mo)
+  always-warm. Reject CF Durable Objects (no filesystem) and CF Containers
+  (ephemeral disk) as PRIMARY host — the design requires a real git checkout on a
+  real FS; this is the single strongest reason for Fly/VPS over Cloudflare.
+- **Optional hybrid**: a CF Worker as the OAuth front door (`workers-oauth-
+  provider` is the reference impl — separates auth handler from resource-server
+  handler, mints its OWN MCP-scoped token rather than passing the upstream token
+  through) proxying to the Fly machine that holds the repo. Only if OAuth speed >
+  infra simplicity.
+- **Git-native on a server = GitOps**: server is source-of-truth; remote-agent
+  mutations land as staged proposals (bot-ref/queue equivalent), never direct
+  commits; the human's local clone reconciles via ordinary `git push/pull` +
+  standard conflict surfacing — NO CRDT/live-merge layer (the gate already
+  absorbs concurrent-write risk by construction).
+- Doctrine: hosting is a `WEBCODE_HOSTED` remote-mode dependency only — named,
+  not a CLI-core violation.
+- Sources: modelcontextprotocol.io/specification/2025-11-25/basic/authorization ·
+  developers.cloudflare.com/agents/model-context-protocol/authorization ·
+  fly.io/docs/blueprints/per-user-dev-environments · github.blog Copilot agent.
+
+### §J.2 — HITL: the gate as a first-class, async-capable primitive
+- **`defer`, not `ask`** (Claude Agent SDK precedence deny>defer>ask>allow): a
+  deferred decision SUSPENDS the session (not destroyed) so approval arrives
+  out-of-band and resumes later. Our staged proposal (a file in git) is ALREADY
+  the durable-serialized-state the OpenAI SDK prescribes — the only missing piece
+  is the notification leg + a remote resume endpoint.
+- **Async approval reference architecture** (claude-push, prior art for exactly
+  this): hook the permission event → push an Allow/Deny notification (topic-name
+  = shared secret, pub/sub) → block on an SSE read with a bounded timeout →
+  **fall back to deny/terminal on timeout, NEVER silent-allow**.
+- **The approval payload minimum**: what · why · blast-radius · diff (push
+  notifications truncate — front-load the risk signal). Blast-radius we already
+  compute (trigger preview).
+- **Fight fatigue (the REAL residual risk to "gate protects from many agents")**:
+  batch approval over one-at-a-time (Deel "review N pending" + Approve-All +
+  deadline); a three-lens inbox (Jira: *pending-your-approval / requested-by-you /
+  all* = mine / my-agent's / audit); a RISK PREDICATE not a flag (OpenAI
+  `needsApproval:(input)=>bool`) — auto-approve the safe long tail (trivial appends
+  to an approved shape), reserve the gate for genuinely risky ops (new relation
+  types, schema-defining fields). Approval fatigue is where the moat actually
+  breaks, not the crypto.
+- **Posture on the TARGET, not the caller** (GitHub env protection): knowledge/
+  library ARE the "protected environments"; journal/actions/social are not — we
+  already get this structurally; state it as validated.
+- **Waits (workflow)**: signal-vs-timer race (Temporal `wait_condition`), non-
+  interrupting nudge before interrupting escalation (Camunda), never a silent/
+  unbounded/zombie wait; timeout = escalate-or-deny, never auto-approve.
+- Keep hard-check (validate/check, machine) distinct from soft-check (review,
+  judgment) — don't let human review absorb linter work (HCP Terraform).
+- Sources: claude-push (dev.to/coa00) · docs.claude.com agent-sdk/permissions ·
+  temporal.io/blog/human-in-the-loop-approvals · aipatternbook.com/approval-fatigue.
+
+### §J.3 — Secrets: a `secrets` module of DECLARATIONS, value never in note/log/context
+Reconciles with "no new entities": a secret DECLARATION is data (a `type`), the
+module is a container — consistent with the type-discipline resolution. NOT code.
+```yaml
+type: secret
+name: OPENAI_API_KEY
+scope: [module:library, tool:digest-fetch]   # allowlist of who may resolve
+actor: operator-only | agent-allowed          # the HITL×secrets gate
+resolves_from: env | secrets-file | fly | oidc # value lives here, NEVER in the note
+rotation_note: "rotate quarterly · owner: hkc" # Vercel's rotation field
+sensitive: true                                 # write-only, never round-tripped
+last_used: 2026-07-03                           # Modal's audit column
+```
+- **The value NEVER enters the note, `runs.jsonl`, or the agent context.** Enforced,
+  not aspirational: (1) schema REFUSES a `value` field on `type: secret` (write-
+  door refusal, not convention); (2) the runtime resolver is the only reader of
+  the host store; (3) redact at the INJECTION site in runs.jsonl (GitHub's lesson:
+  transformation defeats post-hoc masking — redact at source); (4) `sensitive`
+  declarations never round-trip even to `zz note view`.
+- **Access = runtime resolver checks the `scope` allowlist** (module:tool), not the
+  note (notes enforce nothing). Unlisted caller → resolution error, not a value.
+- **Agent-run tools get PLACEHOLDER tokens** (browser-use pattern, directly
+  portable): the tool layer — not the agent — resolves `secret:name` to the real
+  value and substitutes it into the outbound call/DOM/API AFTER the LLM decision.
+  The agent's context/transcript/staged notes only ever hold `secret:name`.
+  `operator-only` secrets (money/deletion/posting) never resolve in an agent loop.
+- **OIDC/keyless > stored** wherever the target supports it: `resolves_from: oidc`,
+  no host-store value at all — short-lived per-run token, nothing to leak.
+- **Resolution is view-like** (Supabase Vault): materialize on read, never persist
+  a second plaintext copy.
+- **Default-secure** (Vercel's April-2026 breach lesson: opt-in sensitivity fails)
+  — new secret declarations are `sensitive: true` by default.
+- Mobbin: Vercel (rotation-note + Sensitive toggle) · Modal (last-used) · StackAI
+  (Variables/Permissions split) · Base44 = the ANTI-pattern (plaintext inline "add
+  secret" — never echo). Sources: supabase.com/docs/guides/database/vault ·
+  docs.browser-use.com/examples/templates/sensitive-data · docs.github.com OIDC ·
+  vercel.com/docs sensitive-environment-variables · 1password `op://` references.
+
+### §J.4 — Sequencing + the merge decision
+Coupled but independently shippable, cheapest/highest-leverage first:
+1. **Secrets-declaration module (S, local, ships first)** — usable today with NO
+   server; and it HARDENS the pre-remote posture (the schema-refuses-value rule +
+   the actor-gate + placeholder injection). This is the one piece that should land
+   BEFORE any remote exposure so the never-in-note/log/context invariant is
+   enforced by construction, not bolted on after the surface is public.
+2. **HITL async/notification (M)** — improves the gate we already have; durable
+   proposal is already the right shape, add the notification leg + remote resume +
+   the three-lens/batch/risk-predicate review UX.
+3. **Remote / MCP-server (L, the big post-merge arc)** — OAuth resource-server,
+   Fly deploy, per-client identity (the Enterprise control-plane seed).
+**Merge check**: does anything we're about to merge leak a secret to a note/log/
+context? No — the vault has no secrets module yet, no API keys in notes, the §I
+redaction covers runs.jsonl. So §J does NOT block the §H+§I merge. The ONE
+pre-remote-arc requirement: land the secrets-value-refusal schema rule + actor-gate
+before exposing an MCP server. The moat's real weak link at multi-agent scale is
+approval FATIGUE (§J.2), not the auth crypto — design the review UX accordingly.
