@@ -7,6 +7,31 @@ that history).
 
 ## [Unreleased]
 
+### Added
+- **The TOOL + TOOLKIT model** (§I.6 MCP-native reading, `docs/specs/2026-07-02-
+  polish-showcase-experience.md`): no new entity — a `type: action` note IS a tool,
+  the module it lives in IS the toolkit, and a module's typed-column `fields` ARE
+  the tool's `inputSchema`. `notes/validate.mjs` grows a `binding: shell | agent |
+  mcp` field on action notes (absent = `shell` = today's `run:`, full back-compat)
+  with a per-binding write-door invariant (shell needs `run:`; agent needs a
+  `prompt:` — or reuses `run:` as one when absent; mcp needs `mcp: {server, tool}`)
+  plus an optional `secrets: [name]` declaration (a list of secret NAME strings —
+  metadata only; resolution into a run's env is a follow-on build). `zz tool list
+  [--json]` / `zz tool show <module:id> [--json]` are the new read-only toolkit/tool
+  VIEW — every tool grouped by its toolkit, or one tool's full contract (binding ·
+  inputSchema · secrets · the run/prompt/mcp target · a toolkit HITL note derived
+  from a REAL behavior, `policy.run.allow`) — the basis for a future real
+  `tools/list` MCP endpoint. `use/act.mjs` dispatches by binding: `shell` is the
+  unchanged existing path; `mcp` is a clean, explicit stub (no fake success — the
+  MCP client is a follow-on build); `agent` returns a structured
+  `{needsHost:true}` requirement rather than silently no-opping or headless-
+  spawning a host session — ACP (the lane that would carry this) is daemon-only
+  today (`web/src/server/acp.ts`, not reachable from the CLI), so a hosted daemon
+  is the documented follow-on that actually dispatches an agent-binding tool.
+  `use/workflow.mjs`'s `note:` composition steps resolve through the SAME `act()`,
+  so a composed workflow can't bypass a tool's binding either. See
+  `docs/guide/Tools.md` for the full model and what's stubbed vs. built.
+
 ### Fixed
 - **A trigger's note-change where-clause rejects a value-less operator** (NIT 2,
   `docs/audits/2026-07-03-triggers-review.md`): a string clause like `'tier>='`

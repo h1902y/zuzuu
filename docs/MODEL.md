@@ -93,6 +93,37 @@ envelope** that declares it.
   loop's artifacts in Plane 2). One repo → one Project; distinct from the **repo** (the
   code it lives alongside).
 
+### Tool · toolkit — the MCP-native reading of note · module (§I.6)
+
+The **runnable subset** of Plane 1 has a *second name*, not a second entity ("no new
+entity" — §I.6, `docs/specs/2026-07-02-polish-showcase-experience.md`): a `type:
+action` note **IS** an MCP **tool**; the **module** it lives in **IS** the MCP
+**toolkit** (`module.md` = the toolkit manifest); the module's declared typed-column
+**schema** (`fields`) **IS** the tool's `inputSchema` (JSON Schema — one schema,
+shared by every tool the module holds); `type` is the tool-vs-resource line already
+present (an action/tool exposes as a **TOOL** — `act`; a knowledge/library note
+exposes as a **RESOURCE** — read-only). A tool declares **how** it runs via `binding:
+shell | agent | mcp` (absent ⇒ `shell`, today's `run:`, full back-compat) —
+`notes/validate.mjs` enforces the binding-appropriate invariant (shell needs `run:`;
+agent needs a `prompt:`, or reuses `run:` as one when absent — one primary
+instruction field regardless of binding; mcp needs `mcp: {server, tool}`) — plus an
+optional `secrets: [name]` list (**DECLARED metadata only**; resolution into a run's
+env is a follow-on build — see §J.3/§J.5). `zz tool list` / `zz tool show <m:id>` are
+the **read-only VIEW** over this — every tool grouped by its toolkit, or one tool's
+full contract (binding · inputSchema · secrets · target · a toolkit HITL note) — the
+basis for a future real `tools/list` MCP endpoint, not the endpoint itself.
+**Dispatch** (`use/act.mjs`): `shell` is the existing gated + timed + logged path,
+unchanged; `mcp` is a clean, explicit stub (`{ok:false, error:'…not yet
+implemented…'}` — no fake client, no fake success); `agent` would delegate the tool's
+prompt to the host over the ACP lane, but **ACP is daemon-only today**
+(`web/src/server/acp.ts` — not reachable from this CLI process), so the CLI binding
+returns a structured `{ok:false, needsHost:true}` requirement rather than silently
+no-opping or headless-spawning a host session behind the interactive-first doctrine's
+back — a hosted daemon is the documented follow-on that actually dispatches it.
+**Composition** (`use/workflow.mjs`'s `note:` steps) resolves a target through the
+SAME `act()`, so a workflow can't bypass a tool's binding either. Full narrative:
+[`docs/guide/Tools.md`](guide/Tools.md).
+
 ### The `.zuzuu/` directory — birth and evolution
 
 A Project is a *directory*, and a **git-citizen**: zuzuu plants `.zuzuu/` at the repo's git
