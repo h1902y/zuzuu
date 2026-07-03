@@ -39,11 +39,29 @@ export const ACTION_BINDINGS = new Set(['shell', 'agent', 'mcp']);
 // pattern as ACTION_BINDINGS/bindingOf above.
 export const SECRET_ACTORS = new Set(['operator-only', 'agent-allowed']);
 export const SECRET_RESOLVES_FROM = new Set(['env', 'secrets-file', 'fly', 'oidc']);
-// The forbidden field NAMES a `type: secret` note may never carry (case-insensitive,
-// EXACT key match — not a substring test, so a legitimate declaration field like
-// `resolves_from` or `rotation_note` never false-positives). Deliberately small and
-// literal, mirroring the brief's own list — this is the write door's one job.
+// SUPERSEDED by SECRET_KEY_RE below (audit 2026-07-03-secrets-review.md S1) — kept
+// exported (the exact literal set) only because it's still a legible "the headline
+// forbidden names" reference for error text / tests; the actual write-door MATCH is
+// now the substring shape, not this exact-key Set.
 export const SECRET_FORBIDDEN_FIELDS = new Set(['value', 'secret', 'key', 'token', 'password', 'credential']);
+// ONE canonical secret-key-SHAPE matcher (S1) — substring, not exact, shared verbatim
+// by notes/log.mjs's runtime redaction (imported from here, not re-declared: the same
+// DRY move as WHERE_OPS above) so the WRITE door (this file) and the LOG door mask/
+// refuse the same shapes. `api_key`/`access_token`/`client_secret`/`apikey`/
+// `privatekey` ride the already-present key/token/secret substrings; `bearer`/
+// `passphrase`/`pat`/`pw` are the true additions the exact-match era missed entirely.
+// `pat`/`pw` use a lookaround, not `\b` — `\b` treats `_` as a word character, so
+// `\bpat\b` would NOT catch `GITHUB_PAT` or `db_pw` (no boundary between `_` and a
+// letter) — the lookaround excludes only adjacent alphanumerics, which underscore
+// isn't. `value` rides directly (not merely "looks secret-shaped" — it's this write
+// door's literal headline forbidden field, `{type:secret, value:'sk-…'}`).
+export const SECRET_KEY_RE = /(value|key|token|secret|password|passwd|credential|auth|bearer|passphrase|(?<![a-z0-9])pat(?![a-z0-9])|(?<![a-z0-9])pw(?![a-z0-9]))/i;
+// fields whose nested keys are STRUCTURAL (relation TYPE names, not value-bearing
+// data) — skipped by secretValueLeaks' one-level nested scan (S2) so a custom
+// relation type name never false-positives a refusal. Today's canonical relation
+// vocabulary (relates-to/informs/builds-on/…, see CLAUDE.md) doesn't collide with
+// SECRET_KEY_RE, but a future free-form type name might.
+const SECRET_SCAN_SKIP_NESTED = new Set(['relations']);
 const ENV_NAME_RE = /^[A-Z_][A-Z0-9_]*$/;
 // A scope entry is `<left>:<right>` — interpreted at RESOLVE time (scopeMatches,
 // below), not here: `module:<name>` / `tool:<name>` (a keyword-prefixed allowlist
@@ -78,6 +96,35 @@ export function scopeMatches(scope, caller) {
     if (entry === c) return true; // a bare 'module:tool' address, exact match
   }
   return false;
+}
+
+/**
+ * S1/S2 (audit 2026-07-03-secrets-review.md) — scan a (possibly PARTIAL) note-shaped
+ * object for a secret-VALUE leak: the write door's ONE job for `type: secret`.
+ * (a) every top-level key — substring-shape match (S1, SECRET_KEY_RE — not the old
+ *     exact-match SECRET_FORBIDDEN_FIELDS); (b) one level into any nested map (S2 —
+ *     `meta: {token:…}`), skipping known-structural maps (SECRET_SCAN_SKIP_NESTED);
+ *     (c) a non-empty `body` (S2 — a secret DECLARATION has no prose; an empty body
+ *     is the correct, honest shape, never an omission to fill).
+ * Pure; returns the offending field name(s) — dotted for a nested hit (`meta.token`),
+ * literal `'body'` for prose — `[]` means clean. No `note.type` gate here: the CALLER
+ * decides when this is worth running (`validateNote` below gates on
+ * `note.type === 'secret'`; `grow/stage.mjs`'s pre-write check gates on the STAGED
+ * change's PROJECTED type — see its own doc comment for why that's the SAME check,
+ * not a re-implementation).
+ */
+export function secretValueLeaks(note) {
+  if (!note || typeof note !== 'object') return [];
+  const hits = [];
+  for (const [k, v] of Object.entries(note)) {
+    if (k === 'body') continue; // checked separately below (prose, not a key)
+    if (SECRET_KEY_RE.test(k)) { hits.push(k); continue; }
+    if (v && typeof v === 'object' && !Array.isArray(v) && !SECRET_SCAN_SKIP_NESTED.has(k)) {
+      for (const nk of Object.keys(v)) if (SECRET_KEY_RE.test(nk)) hits.push(`${k}.${nk}`);
+    }
+  }
+  if (nonEmptyStr(note.body)) hits.push('body');
+  return hits;
 }
 
 /** A secret declaration's effective ACTOR gate — absent/unrecognized ⇒ 'operator-only'
@@ -280,14 +327,15 @@ export function validateNote(note, fields = []) {
   // ── type: secret (§J.3/§J.5) — a DECLARATION ONLY. THE enforcement: the value can
   // NEVER be written to a note — checked FIRST and unconditionally, before any other
   // secret-shaped invariant, so a forbidden field is caught even on an otherwise
-  // malformed declaration. Case-insensitive EXACT key match (not substring) against
-  // SECRET_FORBIDDEN_FIELDS — a legitimate declaration field (name/scope/actor/
-  // resolves_from/rotation_note/sensitive/last_used) never collides.
+  // malformed declaration. `secretValueLeaks` (S1/S2, audit 2026-07-03-secrets-
+  // review.md) is a SUBSTRING-shape match (not exact) that also recurses one level
+  // into nested maps and refuses a non-empty body — a legitimate declaration field
+  // (name/scope/actor/resolves_from/rotation_note/sensitive/last_used) never collides
+  // (verified: none of those names contain a SECRET_KEY_RE substring).
   if (note.type === 'secret') {
-    const presentKeys = Object.keys(note).map((k) => k.toLowerCase());
-    const carried = [...SECRET_FORBIDDEN_FIELDS].filter((f) => presentKeys.includes(f));
-    if (carried.length) {
-      errors.push(`a secret declaration must never carry a value-bearing field (found: ${carried.join(', ')}) — the value lives on the host, never in the note (see docs/guide/Secrets.md)`);
+    const leaks = secretValueLeaks(note);
+    if (leaks.length) {
+      errors.push(`a secret declaration must never carry a value-bearing field (found: ${leaks.join(', ')}) — the value lives on the host, never in the note (see docs/guide/Secrets.md)`);
     }
     if (!nonEmptyStr(note.name) || !ENV_NAME_RE.test(note.name.trim())) {
       errors.push("a secret needs a non-empty env-var-shaped 'name' (e.g. OPENAI_API_KEY — uppercase letters/digits/underscore, not starting with a digit)");

@@ -184,7 +184,9 @@ export function observeRuns(home, opts = {}) {
         op: c.op, target: c.target, change: c.change,
         rationale: c.rationale, evidence: c.evidence, source, score: c.score,
       });
-      if (rec && !rec.duplicate) staged.push({ module: c.module, ...rec });
+      // B1(a): `{error}` (no `.id`) is a refusal (a poisoned type:secret value), not a
+      // staged record.
+      if (rec && rec.id && !rec.duplicate) staged.push({ module: c.module, ...rec });
     }
   }
   return { evidence, flagged: flagged.length, candidates, proposed: staged.length, staged };

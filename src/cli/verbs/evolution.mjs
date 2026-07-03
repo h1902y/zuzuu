@@ -228,6 +228,9 @@ export const evolutionRows = [
       else change = fieldPairs(rest);
       const rec = zz.stage(module, { op, target: args.target, change });
       if (!rec) return fail(log, `invalid op '${op}' (create|update|delete|deprecate|relate|unrelate)`, json);
+      // B1(a) (audit 2026-07-03-secrets-review.md): a poisoned type:secret proposal is
+      // refused HERE, at stage time — `{error}` (no `.id`), never written to staged/.
+      if (rec.error) return fail(log, rec.error, json);
       const handle = { id: rec.id, op: rec.op, module: rec.module, target: rec.target, status: rec.status, score: rec.score, duplicate: !!rec.duplicate };
       emit(log, json, handle, ['staged', [{ id: rec.id, op: rec.op, target: rec.target ?? '', status: rec.status }], ['id', 'op', 'target', 'status'], ['zz review ' + module]]);
       return 0;

@@ -186,7 +186,9 @@ export function observe(home, opts = {}) {
       rationale: c.body, evidence: [{ kind: c.kind, ...c.evidence }],
       source, score: c.score ?? 1,
     });
-    if (p && !p.duplicate) staged.push({ module: route.module, ...p });
+    // B1(a): stageChange now returns `{error}` (no `.id`) for a refused proposal (a
+    // poisoned type:secret value) — `.id` distinguishes a real record from that.
+    if (p && p.id && !p.duplicate) staged.push({ module: route.module, ...p });
   }
   return { sessionsMined: sessions.length, candidates: candidates.length, proposed: staged.length, staged };
 }
