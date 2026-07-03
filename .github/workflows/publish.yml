@@ -30,6 +30,11 @@ jobs:
           [ "$LOCAL" != "$PUBLISHED" ] && echo "publish=true" >> "$GITHUB_OUTPUT" || echo "publish=false" >> "$GITHUB_OUTPUT"
       - if: steps.check.outputs.publish == 'true'
         run: npm test
+      # the CLI core is zero-dep, but the bundled workbench needs its OWN toolchain
+      # (typescript + vite) to build — install web/'s locked devDeps before staging,
+      # else `npx tsc` resolves a bogus standalone `tsc` package and the build fails.
+      - if: steps.check.outputs.publish == 'true'
+        run: npm ci --prefix web
       # stage the bundled workbench (web/ → web-app/) — single-package design:
       # the web app ships inside @zuzuucodes/cli; its deps are optionalDependencies
       - if: steps.check.outputs.publish == 'true'
