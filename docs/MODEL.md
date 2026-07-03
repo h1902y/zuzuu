@@ -248,15 +248,16 @@ is the **whole** durable Project; no deeper fan-out, because two things stay lea
 
 The **plumbing**: precise, single-purpose operations — the vocabulary every higher surface
 composes, each bottoming out in filesystem + git. Four families — **use** (read & run, no write) ·
-**grow** (the write loop + edits, every change human-gated) · **version** (read & roll a module's
+**grow** (the write loop + edits — an *agent's* writes gated through review, an *operator's* direct) · **version** (read & roll a module's
 git-native lineage) · **dispatch** (how a verb reaches a module) — and the **two gates**. Plane 3's
 porcelain (`zz`, `start · steer · wrap`, …) is built *on* these. Code: `src/metal/{git,fs,sqlite}.mjs`
 (the I/O owners) · `src/notes/{repo,rows,generation,log,index,validate}.mjs` (the note repository ·
 the lossless read projection · version · the ledger · search · the pre-write check) · `src/use/`
 (read/run) · `src/grow/{commit,observe,review,…}.mjs` (the one write boundary + the loop) ·
 `src/serve/{dispatch,wire,timeline,api}.mjs` (dispatch + the façade). The invariant, now **structural**:
-**one writer — `grow/commit.mjs` is the sole note-writer + the loop's sole minter, reached only
-through `review`; use reads + runs.**
+**one writer — `grow/commit.mjs` is the sole note-writer + sole minter; the AGENT reaches it only
+through `review` (the gate), the OPERATOR reaches it directly (still validated · logged · minted);
+use reads + runs.**
 
 ### Use — read & run (no Project write)
 
@@ -267,7 +268,7 @@ Each verb heads a small **family**.
 - **check** — integrity: broken links · orphans · stale. *Family:* `validate` (the type-keyed invariants **plus** a module's declared typed-column **schema** — a `module.md` `fields` block, the 8 FieldTypes — enforced as a **pre-write reject** at the write boundary: a note that violates its schema never lands. "A module is a TABLE, a note a ROW, the columns are the schema"; absent `fields` ⇒ schemaless).
 - **run** — the **Tier-2 DURABLE RUNNER** (§I.3/§I.4, `grow/run.mjs` + the `run` CLI namespace): **the run is a note**. `act`/`flow` are synchronous, in-process, seconds-long (Tier 0/1); `run` is their async sibling for procedures that legitimately span DAYS (a human step, an external wait) without any long-lived process — durability comes from the note + git, not from process supervision (§I.3's inversion: zuzuu is the CONTROL PLANE, never a Temporal-grade execution ENGINE). `zz run start <module:id>` reads a `type: workflow` note, **PINS** its ACTIVE generation (`workflow_generation`), and creates a `type: run` note (a dedicated `runs` module — deliberately OUTSIDE the five `STANDARD_MODULES`) whose `steps` mirror the workflow's DAG at pending/attempts:0 — materializing the state machine WITHOUT executing anything. `zz run advance <id>` is the **TICK**: it re-reads the workflow def AS-OF the pinned generation (`notes/generation.mjs`'s `noteAsOf`, a single-note time-travel read — a LIVE edit to the workflow after start never reaches an in-flight run), finds the next step whose `depends-on` are all `done`, and executes EXACTLY ONE step through the same gated `act()`/`runGated` path Tier 0/1 use (a step is `run:` · `note:` · or `wait:{on,timeout?}` — closed vocabulary), writing the new state back through the one write door. Crash-safety = the note IS the state (a re-tick after a crash just re-reads it); semantics are **AT-LEAST-ONCE**, never "exactly-once" — a side-effecting step's `idempotency_key` is stable across retries so a duplicate re-attempt is at least *recognizable*. `zz run advance --all` is a bounded convenience loop (still sequential ticks, never a daemon) that stops at `done`/`waiting`/`failed`. A `wait` step parks the run at `status: waiting, waiting_on: <signal>` — a 3-day human step is just a STATE, visible in the table — resumed by `zz run signal <id> <name>` or `zz run complete <id> <step>`; a declared `wait.timeout` is evaluated lazily on the next advance (no scheduler this rung — triggers are §I rung 4, deferred). `retry: {max}` re-picks a failed step up to max attempts; past max (or with none declared) the run fails and the **saga** compensates its `done` steps in reverse completion order — STOPPING (not skipping) at the first `irreversible: true` step, honesty over a fake rollback. Full narrative: [`docs/guide/Workflows.md`](guide/Workflows.md).
 
-### Grow — the loop (every write human-gated)
+### Grow — the write loop (the agent path, human-gated) + the operator lane
 
 **Five beats** — `stage` and `evolve` are loop beats, not typed verbs; `snapshot` is not a beat
 (minting a generation is part of evolve). Each approved change commits as a **git-native
