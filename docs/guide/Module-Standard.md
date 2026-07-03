@@ -41,7 +41,7 @@ fields:
   - { name: effort,  type: number }
 ```
 
-When a schema is present, **every note in the module is validated against it** — a write with the wrong type or a missing required field is **rejected at the review gate**, so the table stays clean. Declare no schema and the module is **schemaless** — any column is allowed, fully flexible (the default). The [[Workbench]] grid renders typed inputs (a dropdown for `select`, a date picker, …) for any module that declares a schema.
+When a schema is present, **every note in the module is validated against it** — a write with the wrong type or a missing required field is **rejected at the one write boundary**, whichever lane it came through: your own `zz note create/set` is refused just as an agent's `zz review approve` would be, so the table stays clean either way (see [[Two Lanes|Two-Lanes]]). Declare no schema and the module is **schemaless** — any column is allowed, fully flexible (the default). The [[Workbench]] grid renders typed inputs (a dropdown for `select`, a date picker, …) for any module that declares a schema.
 
 ```bash
 zz module schema <m>                 # view a module's columns

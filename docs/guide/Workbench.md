@@ -1,30 +1,18 @@
 # The Workbench (`zz host web`)
 
-The visual way to run zuzuu — a local browser app over your project and its `.zuzuu/` home. **Nothing leaves your machine**: a localhost daemon (token-gated) serves the UI; every note mutation goes through the `zz` CLI itself (one gate, one source of truth).
+The visual way to run zuzuu — a local browser app over your Project. **Nothing leaves your machine**: a localhost daemon (token-gated) serves the UI, and every write shells the `zz` CLI itself — one gate, one source of truth, browser included.
 
 ```bash
-zz host web   # the bundled workbench — ships with the CLI; launches and prints the URL  (alias: zz web)
+zz host web   # launches and prints the URL  (alias: zz web)
 ```
 
-## Home
+## One screen: the World
 
-`zz host web` lands on **Home**: your agent's status (active generation · pending approvals), the live digest, the five module cards (click to drill in), the generations timeline, and recent sessions. The whole loop runs from here:
+There is **one screen**, not a dashboard of pages. `zz host web` opens straight onto [[The World|The-World]] — your Project as a living map — with [[The Omnibar|Omnibar]] (`⌘K`) as the one input for everything you do. A "what needs me" pill (pending proposals + held sessions) sits on the map; the footer holds the Table⇄Map⇄Flow toggle, session dock, and Settings. There is no separate module-cards home page and no side nav — the map, the omnibar, the HUD, and the footer *are* the navigation. (An earlier five-card "Home" landing page existed during development and is retired; if you're picturing that, picture the map instead.)
 
-- **Start agent session ▾** — pick a detected host in a real embedded terminal. OpenCode is always available (it launches `zz host code`, which installs it on demand).
-- **Review N proposals** — the graduation ceremony in the browser (below).
-- **Open workbench** — the IDE view.
-
-**No zuzuu home yet?** Home becomes onboarding: *Set up zuzuu* runs `zz init` in a visible terminal (its narrated output is the tour), then *Enable* runs `zz host enable`.
-
-## The review ceremony
-
-Pending proposals, ranked, one card at a time — the change, its evidence, the score, the miner's rationale. **Approve / Reject (with a reason) / Skip.** Approvals apply through the CLI gate; each approval writes the note + **mints a generation**. Rejections archive with your reason. The same ceremony opens from the status-bar chip, the Agent sidebar tab, or Home. Mirrors `zz review`.
-
-## Modules are tables (the grid)
-
-Drill into a module and you get a **spreadsheet-style grid** — one row per note, columns for its fields. It's not read-only: you can **create, edit, delete, and deprecate** rows right in the grid, and **relate / unrelate** notes to draw (or cut) the links between them. Every one of those edits lands the same way an approval does — as a **reviewable proposal** at the gate, never a silent write — so the grid is a comfortable front-end to the exact same human-gated loop.
-
-If a module declares a **schema** (a typed-column `fields` block in its `module.md`), the grid renders proper typed inputs — **select** (from a fixed option list), **date**, **number**, **link**, text — and a write that breaks the schema (wrong type, a missing required field) is **rejected at the review gate** before it can land. Modules without a schema stay **schemaless and flexible** — any column goes. From the CLI: `zz module schema <m>` views a module's columns, and `zz module add-column / alter-column / drop-column` evolve them.
+- **Modules, as tables or as a map** — every module is both an island on the World and a grid of rows; `T` (or the header toggle) flips between them, and [[Flow View|Flow-View]] is the third projection for `type: workflow` notes. The grid itself, its schema-aware columns, filtering, and the field-config panel are covered in [[Modules as Tables|Modules-as-Tables]].
+- **Every write goes through one door, two lanes.** Creating, editing, or deleting a row from the grid — or from the omnibar's pre-filled `set`/`create` verbs — is **your** write: it lands instantly, validated and provenance-logged, the same operator lane as the CLI's `zz note create/set/delete`. An agent's proposals are the other lane: they render as **ghost nodes** on the map and `proposal`-badged rows in the omnibar until you approve them. Neither lane is "a reviewable proposal" by default — which one you get depends on who's writing. See [[Two Lanes|Two-Lanes]] for the full model.
+- **Review** — pending proposals list under the HUD pill and in the omnibar (`R` opens the full gate overlay); approve/reject/skip mirrors `zz review`. Approving a ghost solidifies it into a real node.
 
 ## Sessions are branches (invisible git)
 
@@ -43,3 +31,4 @@ Each session gets **its own git worktree** (a separate checked-out copy on its s
 
 - One install: `npm i -g @zuzuucodes/cli` includes the workbench (its runtime deps are `optionalDependencies` — a failed native build degrades the workbench, never the CLI; `--omit=optional` skips it). The daemon refuses to reimplement note writes — mutations always go through the CLI.
 - Node ≥ 22. The daemon binds localhost only, with a per-launch token. Direct entry: the `zuzuu-web <project-dir>` binary also ships with the CLI.
+- Full detail on the surfaces this page only introduces: [[The World|The-World]] (the map), [[The Omnibar|Omnibar]] (the one input), [[Flow View|Flow-View]] (workflow DAGs), [[Observability]] (log.jsonl/generations/module.md, explained in the UI), [[Daemon & API|Daemon-API]] (the HTTP/WS surface, if you're building on it).

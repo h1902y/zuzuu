@@ -31,11 +31,12 @@ zz query knowledge --dry-run             # just the count
 ```
 Output is **TOON** (token-dense, ~40% fewer tokens than JSON) and brief by default; `--full` adds bodies.
 
-## How knowledge gets in — always through you
+## How knowledge gets in — two lanes, one door
 
 | Path | What happens |
 |---|---|
-| `zz observe` | re-reads your real sessions, mines what RECURRED (a hot file, a frequent failure, a recurring command) → evidence-backed **proposals** routed to the right module |
-| **`zz review`** | the gate: list proposals, `approve`/`reject`. Approve writes the note + logs the mutation + mints a generation; reject archives. **Nothing enters the brain silently.** |
+| **`zz note create knowledge <id> --field …`** | **you, directly** — lands now: schema-validated, provenance-logged, minted. No review step; this is your own lane (see [[Two Lanes|Two-Lanes]]). |
+| `zz observe` | the agent's route in: re-reads your real sessions, mines what RECURRED (a hot file, a frequent failure, a recurring command) → evidence-backed **proposals** routed to the right module. |
+| **`zz review`** | the gate on those proposals: list, `approve`/`reject`. Approve writes the note + logs the mutation + mints a generation; reject archives. **Nothing an agent writes enters the brain silently.** |
 
-The gate is the moat: automated memory systems poison themselves with confident-but-wrong reflections — the human gate is the one defense, and the design keeps it cheap (proposals are batched, ranked, and deduped). `zz check` reports health (broken links, orphans, stale/superseded notes).
+The gate is the moat *for the agent*: automated memory systems poison themselves with confident-but-wrong reflections — the human gate on agent writes is the one defense, and the design keeps it cheap (proposals are batched, ranked, and deduped). Your own writes skip the gate because they're already yours — they're still schema-validated and logged, never silent. `zz check` reports health (broken links, orphans, stale/superseded notes).
