@@ -9,7 +9,12 @@
 | use modules as tables (schema · computed columns · views · import/export) | [guide/Modules-as-Tables.md](guide/Modules-as-Tables.md) |
 | understand the moat — why the agent is gated and I'm not | [guide/Two-Lanes.md](guide/Two-Lanes.md) |
 | read the map (islands · ghosts · the live push) | [guide/The-World.md](guide/The-World.md) |
+| run one input for everything (`⌘K`) | [guide/Omnibar.md](guide/Omnibar.md) |
+| give a tool a `binding` — shell, an agent, or MCP | [guide/Tools.md](guide/Tools.md) |
+| declare a secret without ever storing its value | [guide/Secrets.md](guide/Secrets.md) |
+| run something durably, or name a trigger | [guide/Workflows.md](guide/Workflows.md) |
 | see a workflow's DAG + its runs, live | [guide/Flow-View.md](guide/Flow-View.md) |
+| see why a ghost/generation looks the way it does | [guide/Observability.md](guide/Observability.md) |
 | build on the local API | [guide/Daemon-API.md](guide/Daemon-API.md) |
 | see a non-coding Project, end to end | [guide/Recipe-Personal-Vault.md](guide/Recipe-Personal-Vault.md) — the 277-note vault |
 | the workbench, guardrails, per-host detail, troubleshooting | [guide/](guide/) (mirrored to the GitHub wiki) |
@@ -91,9 +96,14 @@ the user (rendered) and contributor (source) audiences. One source, two surfaces
 
 **The wiki source** (`docs/guide/` → the GitHub `/wiki`; never edit the wiki repo directly)
 - The user guide: `Home`, `Getting-Started`, `Workbench`, `Guardrails`, `Troubleshooting`,
-  the module pages, the per-host pages (`Claude-Code`/`Codex`/`Gemini-CLI`/`OpenCode`/`pi`).
+  the module pages (`Module-Standard`, `Module-Home`, `Knowledge`, `Modules-as-Tables`),
+  the two-lanes write model (`Two-Lanes`), the visual surface (`The-World`, `Flow-View`,
+  `Omnibar`, `Observability`, `Daemon-API`), the §I/§J execution substrate (`Tools`,
+  `Secrets`, `Workflows`), and the per-host pages (`Claude-Code`/`Codex`/`Gemini-CLI`/
+  `OpenCode`/`pi`).
 - The cross-audience canon: `Decision-Log`, `Inspiration-Log`, `Roadmap`, `Glossary` (user view).
-- `_Sidebar.md` (wiki nav) · `README.md` (the publish model; not published).
+- `_Sidebar.md` (wiki nav, generated-equal to `Home.md`'s Pages list from a shared
+  canonical list — see `guide/README.md`) · `README.md` (the publish model; not published).
 
 **Working artifacts** (in-flight, not canonical reference)
 - `docs/brainstorms/` — requirements docs (ce-brainstorm). Tracked.
