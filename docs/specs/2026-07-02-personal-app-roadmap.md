@@ -1,5 +1,18 @@
 # The personal-application roadmap — one brain, one daemon, one map (02-07-2026)
 
+> **Retro-mark (03-07-2026, docs audit).** Phases 0–4 are substantially shipped —
+> cross-check against `CHANGELOG.md`'s `[2.0.0]` entry: the operator lane (Phase 1),
+> the daemon as the sole API + the `/ws/zuzuu` brain-state push (Phase 2), the World
+> map with ghost-node review (Phase 3), and query v2 + schema v2 + saved views +
+> import/export (Phase 4) all shipped. Phase 5's competitive frame and the personal
+> vault as the flagship recipe shipped too; its "automations" bullet is now the
+> §I/§J execution substrate in `2026-07-02-polish-showcase-experience.md`, not this
+> doc. This file is kept as the **historical rationale and sequencing record** —
+> for current shipped/next status, read `docs/guide/Roadmap.md` and `CHANGELOG.md`,
+> not the phase breakdown below (individual bullets were not re-verified line by
+> line; a few implementation details, like the startpage bridge's exact retirement
+> state, may have landed differently than sketched here).
+
 > Synthesis of the four 02-07 audits (`docs/audits/2026-07-02-{backend,frontend-merge,integration-seams,product-thesis}-audit.md`), written the day the thesis got its first proof: a root-mode personal vault (277 notes, 5 modules) driven entirely by conversation, rendered by a second frontend (the startpage galaxy). Read the audits for evidence; this doc is the decisions and the sequence.
 
 ## The thesis, and what the audits agreed on

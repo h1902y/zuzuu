@@ -1,5 +1,23 @@
 # Polish · Showcase · Experience — the three pre-merge activities (02-07-2026)
 
+> **Retro-mark (03-07-2026, docs audit).** §A–§J are, by design intent, almost
+> entirely shipped as of `CHANGELOG.md`'s `[2.0.0]` — the single-screen World +
+> omnibar shell (§C/§D/§E), the native table + field-config panel (§H), the tool/
+> toolkit model (§I.1/§I.6), the durable runner + triggers + Flow (§I rungs 1–5),
+> and the secrets model (§J.3/§J.5) all landed. What's still genuinely open, per
+> the shipped guide pages' own honest scoping, is narrower than this document's
+> ~1000 lines suggest: the MCP client (mcp binding is a stub), agent-binding
+> dispatch from a hosted daemon (ACP is daemon-only, not CLI-reachable), OIDC
+> secret resolution, unattended automation (cron auto-fire/ingress/note-change
+> auto-firing — hosted-tier, deferred on purpose), and the remote/multi-agent
+> arc of §I.6/§J.1/§J.2 (Fly hosting, OAuth, async HITL) — none of that shipped.
+> **This document is kept as the historical design rationale** — for current
+> shipped/next status read `docs/guide/Roadmap.md`, `docs/guide/Tools.md`,
+> `docs/guide/Secrets.md`, `docs/guide/Workflows.md`, and `CHANGELOG.md`'s
+> `[2.0.0]` entry, not the section-by-section design below (its per-line detail
+> was not re-verified against code; treat it as the "why," not the "what's true
+> today").
+
 > Follow-on to `2026-07-02-personal-app-roadmap.md` (phases 0–5 built on
 > `feat/personal-app-roadmap`). Before merge/publish, three activities land.
 > Non-negotiables for all three: CLI suite (469) + web suite (594) stay green at
