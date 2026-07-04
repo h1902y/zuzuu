@@ -18,6 +18,17 @@
 // `selectionAfterBatch` is the companion pure step: only the SUCCEEDED ids drop out
 // of the selection — a failed item stays selected (still actionable, not silently
 // dropped from view).
+//
+// Bug fix (multi-scenario test, live in 3 of 4 test projects) — the batch used to
+// dispatch in the queue's DISPLAY order (score.ts's sortByScore: blast-radius-
+// sorted, high-blast deletes/updates first). In a from-scratch build where a
+// note's CREATE and an UPDATE/DELETE/DEPRECATE targeting it are BOTH pending in
+// the same batch, the mutation dispatched before its target's create had landed —
+// the data layer correctly refuses to update/delete a note that doesn't exist yet,
+// so the approve failed ("Approved 29 of 31 — 2 failed to land"). `orderForApply`
+// (below) fixes the APPLY order only: a stable phase reorder (create=0, update=1,
+// delete/deprecate=2) run inside `runBatchApprove` right before dispatch. Display
+// order (sortByScore) and single-item approve are unchanged.
 import type { StagedSummary } from "#shared/index.js";
 import type { RejectReason } from "./review-model.js";
 import { isUpdate } from "./diff.js";
@@ -114,6 +125,34 @@ export interface BatchApproveResult {
   failed: string[];
 }
 
+/** op → its apply-phase: 0 (create) dispatches first, 2 (delete/deprecate)
+ *  dispatches last, everything else (update, relate/unrelate, an unrecognized
+ *  future op) sits in between at 1 — a safe middle default, not a claim that
+ *  those ops are order-safe among themselves (out of scope; see the file header's
+ *  "not a topological sort" note). An absent op defaults to "create" (mirrors
+ *  diff.ts's/score.ts's own "nearly all mined proposals are creates" convention),
+ *  so an untagged item never accidentally sorts AFTER a real create. */
+function applyPhase(op: string | undefined): number {
+  const o = op ?? "create";
+  if (o === "create") return 0;
+  if (o === "delete" || o === "deprecate") return 2;
+  return 1;
+}
+
+/** Reorder a batch's targets for APPLY ONLY (never for display — sortByScore's
+ *  blast-radius order is untouched; this runs strictly at dispatch time, inside
+ *  `runBatchApprove`): create-before-update-before-delete/deprecate, by
+ *  `applyPhase`. Stable within a phase — `Array.sort` is a stable sort per spec
+ *  (mirrors sortByScore's own stability note), so this only REGROUPS by phase, it
+ *  doesn't otherwise reshuffle. This is the fix for the observed from-scratch
+ *  failure: a create's target always dispatches before any same-batch
+ *  update/delete/deprecate that could depend on it existing. A full topological
+ *  sort on target refs is out of scope — phase ordering is enough to fix what was
+ *  actually observed. Pure — testable with no mocked approve at all. */
+export function orderForApply<T extends { op?: string }>(items: readonly T[]): T[] {
+  return [...items].sort((a, b) => applyPhase(a.op) - applyPhase(b.op));
+}
+
 /** Run a batch of approves, one per target, awaiting EVERY one (a slow/failed item
  *  never blocks or drops the rest — Promise.all) and partitioning by outcome. Pure
  *  orchestration over an INJECTED `approveOne` — never touches dataProvider/api
@@ -121,14 +160,19 @@ export interface BatchApproveResult {
  *  hitl-canvas.test.ts's convention). Tolerates `approveOne` either resolving `false`
  *  OR throwing/rejecting on failure — both count as a miss; only a resolved `true`
  *  counts as landed. This is the fix for the batch button's old silent no-op: a
- *  partial failure is now REPORTED, not swallowed. */
+ *  partial failure is now REPORTED, not swallowed.
+ *
+ *  `targets` is reordered via `orderForApply` before dispatch (the create-before-
+ *  mutate fix, see the file header) — a same-batch create always dispatches before
+ *  an update/delete/deprecate that targets it. */
 export async function runBatchApprove(
-  targets: readonly { id: string; module: string }[],
+  targets: readonly { id: string; module: string; op?: string }[],
   approveOne: (id: string, module: string) => Promise<boolean>,
 ): Promise<BatchApproveResult> {
+  const ordered = orderForApply(targets);
   const succeeded: string[] = [];
   const failed: string[] = [];
-  await Promise.all(targets.map(async (t) => {
+  await Promise.all(ordered.map(async (t) => {
     let ok = false;
     try { ok = await approveOne(t.id, t.module); }
     catch { ok = false; }
