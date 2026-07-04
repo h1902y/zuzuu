@@ -5,7 +5,7 @@
 // and surface the rest as elastic attribute chips (§H.2); every chip doubles as
 // a filter clause (§H.3 — attributes surface AND become the query grammar); the
 // filter input speaks the CLI's own where-grammar. All pure → tested.
-import type { ModuleItem } from "#shared/index.js";
+import type { ModuleItem, StagedSummary } from "#shared/index.js";
 import type { GridColumn } from "./grid-columns.js";
 
 /** Keys that never chip: structural/envelope keys the floor already shows, plus
@@ -93,6 +93,63 @@ export function clauseParts(clause: string): { key: string; op: string; value: s
     if (at > 0) return { key: clause.slice(0, at), op, value: clause.slice(at + op.length) };
   }
   return { key: clause, op: "", value: "" };
+}
+
+// ── the table's proposal register (U2) ────────────────────────────────────────
+// The grid had NO proposal state before this pass — a staged create/update was
+// invisible until you opened the review queue. `mergeTableRows` sources the SAME
+// staged summaries the review queue reads (ListContext's `staged`, fed by the
+// identical `zz.module()`/`zz.items()` fetch use-review-queue.ts's loadQueue()
+// calls — no new fetch, no daemon change) and turns them into PendingRow entries,
+// additive alongside the landed rows: the table stays an honest ledger of what's
+// landed AND what's proposed, never a merged guess at either.
+
+/** A staged create/update rendered as a table row (the new register). Delete/
+ *  relate/deprecate proposals don't map to a stable "add a row" visual this
+ *  pass — filtered out in `mergeTableRows`, noted here rather than silently
+ *  dropped. */
+export interface PendingRow {
+  readonly pending: true;
+  /** the staged proposal's own id — what the gate acts on (approve/reject). */
+  readonly stagedId: string;
+  readonly module: string;
+  readonly op: string;
+  /** the target note id for an update, else the staged proposal's own id (a
+   *  create has no landed id yet). */
+  readonly id: string;
+  readonly title: string;
+}
+
+/** Any row the table can render — a landed note or a pending proposal. The
+ *  `pending` discriminant never collides with ModuleItem (which carries no such
+ *  key), so `isPendingRow` narrows cleanly. */
+export type TableRow = ModuleItem | PendingRow;
+
+export function isPendingRow(row: TableRow): row is PendingRow {
+  return (row as Partial<PendingRow>).pending === true;
+}
+
+function pendingRowOf(s: StagedSummary): PendingRow {
+  const op = s.op ?? "create";
+  return {
+    pending: true,
+    stagedId: s.id,
+    module: s.module,
+    op,
+    id: s.target ?? s.id,
+    title: s.title || s.target || s.id,
+  };
+}
+
+/** Merge a list's landed rows with its pending create/update proposals — the
+ *  table's proposal register (U2). Pending rows are ADDITIVE (appended, never
+ *  mutating/replacing a real row) so an update-in-flight reads as "this note
+ *  ALSO has a proposed change," not a silently-swapped value. */
+export function mergeTableRows(rows: readonly ModuleItem[], staged: readonly StagedSummary[]): TableRow[] {
+  const pending = staged
+    .filter((s) => { const op = s.op ?? "create"; return op === "create" || op === "update"; })
+    .map(pendingRowOf);
+  return [...rows, ...pending];
 }
 
 /** Identity col + floor/schema cols + the elastic Attributes col (§H.2). The

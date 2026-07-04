@@ -1,7 +1,10 @@
-// shell/review/proposal-chip.ts — map a staged proposal to its type chip. Keyed on the
+// shell/review/proposal-chip.ts — map a staged proposal to its type LABEL. Keyed on the
 // NOTE TYPE first (so a `type: rule` note reads as a Guardrail even when it lives in the
 // `instructions` module — the rename moved mined rules there), falling back to the
 // module, then a neutral default. Pure → tested.
+// U2: ProposalCard now renders `.label` through the shared ProposalBadge (the
+// proposal-state token carries the color), not a module-hue Chip — `.tone` is kept
+// on the returned shape for API/test stability but is no longer consumed there.
 import type { ChipTone } from "../../ds/index.js";
 
 export interface ChipSpec { label: string; tone: ChipTone }

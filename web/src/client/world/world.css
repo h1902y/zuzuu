@@ -73,18 +73,23 @@
    human approves and the node solidifies. The keyframes (zz-world-pulse /
    zz-world-solidify / zz-world-ghost-out) are PROMOTED to the shared layer
    (client/index.css, U1/KTD2) — same names, same timing, so the table/card/inline
-   accepts can share this exact transition; only the references stay here. */
+   accepts can share this exact transition; only the references stay here.
+   U2: the ghost itself now draws from --color-proposal (the shared "not-yet-real"
+   hue, model.ts's GHOST_STROKE_TOKEN), not --color-accent — pending reads violet
+   everywhere. Approve still snaps to --color-accent (below, .zz-world-solidify /
+   the zz-world-solidify keyframe in index.css): solidify IS "becomes real," so it
+   correctly keeps the mint it's turning into. */
 .zz-world-ghost circle {
-  fill: var(--color-accent);
+  fill: var(--color-proposal);
   fill-opacity: 0.12;
-  stroke: var(--color-accent);
+  stroke: var(--color-proposal);
   stroke-width: 1.5;
   stroke-dasharray: 3 3;
   cursor: pointer;
   animation: zz-world-pulse 2.4s ease-in-out infinite;
 }
 .zz-world-ghost text {
-  fill: var(--color-accent);
+  fill: var(--color-proposal);
   font-family: var(--font-mono-data);
   font-size: 9px;
   text-anchor: middle;

@@ -41,6 +41,7 @@ import { useSettingsDialog } from "../state/settings-dialog.js";
 import { useTableSelection, selectionFor, EVERYTHING_SELECTION_SCOPE } from "../state/table-selection.js";
 import { selectionToCsv } from "../state/selection-csv.js";
 import { downloadText } from "../lib/download.js";
+import { ProposalBadge } from "../ds/index.js";
 import type { ModuleItem } from "#shared/index.js";
 
 export default function PaletteBody() {
@@ -436,7 +437,7 @@ function Item({ cmd, onSelect }: { cmd: PaletteCommand; onSelect: () => void }) 
       {cmd.meta && <span className="shrink-0 text-meta text-muted">{cmd.meta}</span>}
       <span className="ml-auto flex shrink-0 items-center gap-2">
         {badge === "instant" && <span className="rounded-sm bg-accent-dim px-1 text-meta text-ink-100">instant</span>}
-        {badge === "proposal" && <span className="rounded-sm border border-dashed border-border px-1 text-meta text-warning">proposal</span>}
+        {badge === "proposal" && <ProposalBadge state="pending" />}
         {hint && <span className="text-meta text-muted">{hint}</span>}
       </span>
     </Command.Item>

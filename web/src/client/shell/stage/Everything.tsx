@@ -12,7 +12,7 @@ import { useModuleFilter, filterOf } from "../../state/module-filter.js";
 import { useTableSelection, selectionFor, EVERYTHING_SELECTION_SCOPE, useClearSelectionOnQueryChange } from "../../state/table-selection.js";
 import { modulePalette } from "../../world/model.js";
 import { EVERYTHING_COLUMNS, moduleFacets, typeFacets, statusFacets, toggleFacet } from "./everything-model.js";
-import { parseInputClause } from "./table-model.js";
+import { parseInputClause, mergeTableRows } from "./table-model.js";
 import { useTableFilter } from "./use-table-filter.js";
 import { ClauseChips } from "./ClauseChips.js";
 import { ModuleDot, FacetChip } from "./FacetChip.js";
@@ -26,12 +26,20 @@ import { noteOrFlowNav } from "../shell-state.js";
 import { Text, EmptyState } from "../../ds/index.js";
 
 function EverythingInner({ moduleFacet, onModuleFacet }: { moduleFacet: string; onModuleFacet: (m: string) => void }) {
-  const { rows, total, loading, state, dispatch } = useList();
+  const { rows, total, loading, state, dispatch, staged } = useList();
   const select = useWorld((s) => s.select);
   const filterOps = useTableFilter("", state, dispatch);
   const overview = useQuery({ queryKey: ["zuzuu", "overview"], queryFn: api.zuzuu.overview });
   const modules = overview.data?.modules ?? [];
   const palette = modulePalette(modules.map((m) => m.id));
+  // U2 — the proposal register, wired the same way Grid.tsx does (mergeTableRows
+  // over ListContext's own `staged`). FLAGGED GAP: unlike the per-module route,
+  // the daemon's `/api/zuzuu/items` (the unified fetch this scope uses) hardcodes
+  // `staged: []` today (zuzuu-read.ts) — a server-side omission outside this
+  // pass's web/src/client/ scope. `staged` is wired through anyway so Everything
+  // gets pending rows for free the moment that route is fixed; until then this
+  // view shows none (Grid.tsx's per-module table already does).
+  const tableRows = mergeTableRows(rows, staged);
 
   // the typed input speaks the CLI's own grammar (§H.3.1): free text live-filters
   // via FTS as you type; Enter on a `key<op>value`/`#tag` shape commits it as a
@@ -102,12 +110,12 @@ function EverythingInner({ moduleFacet, onModuleFacet }: { moduleFacet: string; 
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
         {loading ? (
           <div className="grid h-full place-items-center"><Text tone="muted">loading…</Text></div>
-        ) : !rows.length ? (
+        ) : !tableRows.length ? (
           <EmptyState icon={Table2} {...emptyCopy(state.text ? "grid-filter" : "grid-empty")} />
         ) : (
           <NotesTable
             cols={EVERYTHING_COLUMNS}
-            rows={rows}
+            rows={tableRows}
             sort={state.sort}
             onSort={(key) => dispatch({ type: "toggleSort", key })}
             // §I rung 5: a workflow-typed row focuses Flow instead of the Record stage

@@ -9,7 +9,7 @@ import { reasonLine } from "./reason-line.js";
 import { proposalChip } from "./proposal-chip.js";
 import { provenanceOf } from "./provenance.js";
 import { DiffPreview } from "./DiffPreview.js";
-import { Stack, Inline, Text, Button, Chip } from "../../ds/index.js";
+import { Stack, Inline, Text, Button, Chip, ProposalBadge } from "../../ds/index.js";
 
 export function ProposalCard({ item, focused, diffOpen, onDiffOpenChange, onApprove, onReject }: {
   item: StagedSummary;
@@ -42,7 +42,11 @@ export function ProposalCard({ item, focused, diffOpen, onDiffOpenChange, onAppr
     >
       <Stack gap="xs">
         <Inline gap="sm" align="center">
-          {(() => { const c = proposalChip(item.change?.type, item.module); return <Chip label={c.label} tone={c.tone} />; })()}
+          {/* U2 — the surface most ABOUT proposals now READS as one: the type label
+              (Knowledge/Guardrail/…) rides the shared proposal-state badge instead
+              of a solid module-hue Chip, which used to make this card look the
+              most "settled" of the three old pending treatments. */}
+          {(() => { const c = proposalChip(item.change?.type, item.module); return <ProposalBadge state="pending" label={c.label} />; })()}
           <Text size="ui" weight="medium" truncate>{item.title}</Text>
         </Inline>
         <Text size="meta" tone="muted">{reasonLine(item.evidence?.[0]?.kind, item.evidence)}</Text>

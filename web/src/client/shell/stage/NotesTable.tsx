@@ -16,13 +16,13 @@ import type { ModuleItem } from "#shared/index.js";
 import type { FieldDef } from "../../data/field-registry.js";
 import { cellValue, type GridColumn } from "./grid-columns.js";
 import type { SortState } from "../../data/list-state.js";
-import { attrChips, visibleChips, chipClause, tableColumns, IDENTITY_COL, ATTRS_COL } from "./table-model.js";
+import { attrChips, visibleChips, chipClause, tableColumns, isPendingRow, type TableRow, type PendingRow, IDENTITY_COL, ATTRS_COL } from "./table-model.js";
 import { groupRows } from "./group-model.js";
 import { TypeGlyph } from "./TypeGlyph.js";
 import { StatusPill } from "./StatusPill.js";
 import { FieldConfigPanel } from "./FieldConfigPanel.js";
 import { NoteDocument } from "../../note/NoteDocument.js";
-import { Icon, Text } from "../../ds/index.js";
+import { Icon, Text, ProposalBadge } from "../../ds/index.js";
 
 export interface NotesTableSelection {
   selected: ReadonlySet<string>;
@@ -53,7 +53,10 @@ function SelectPill({ value }: { value: string }) {
 export function NotesTable({ cols, rows, sort, onSort, onRow, renderCell, fields = [], onChipClick, selection, groupBy, module }: {
   /** the CALLER's semantic columns — identity + Attributes are added here */
   cols: GridColumn[];
-  rows: ModuleItem[];
+  /** landed notes + (U2) pending create/update proposals, merged via
+   *  table-model's `mergeTableRows` — a `PendingRow` renders in its own
+   *  register (below), never through the real-row path. */
+  rows: TableRow[];
   sort: SortState | null;
   onSort: (key: string) => void;
   onRow: (row: ModuleItem) => void;
@@ -78,6 +81,11 @@ export function NotesTable({ cols, rows, sort, onSort, onRow, renderCell, fields
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [editingCol, setEditingCol] = useState<string | null>(null);
   const allCols = tableColumns(cols);
+  // U2 — the proposal register: pending rows always float to the top, OUTSIDE
+  // groupBy/pagination (grouping by lifecycle status etc. has no meaning for a
+  // not-yet-real row); the real-row path below is untouched.
+  const pendingRows = rows.filter(isPendingRow);
+  const realRows = rows.filter((r): r is ModuleItem => !isPendingRow(r));
   const toggleExpand = (addr: string) =>
     setExpanded((s) => { const n = new Set(s); if (n.has(addr)) n.delete(addr); else n.add(addr); return n; });
   const toggleGroup = (value: string) =>
@@ -202,8 +210,9 @@ export function NotesTable({ cols, rows, sort, onSort, onRow, renderCell, fields
         </tr>
       </thead>
       <tbody>
+        {pendingRows.map((row, idx) => renderPendingRow(row, idx))}
         {groupBy
-          ? groupRows(rows, groupBy, allCols).flatMap((g) => {
+          ? groupRows(realRows, groupBy, allCols).flatMap((g) => {
               const collapsed = collapsedGroups.has(g.value);
               const sumEntries = Object.entries(g.sums);
               return [
@@ -227,10 +236,35 @@ export function NotesTable({ cols, rows, sort, onSort, onRow, renderCell, fields
                 ...(collapsed ? [] : g.rows.flatMap((row, idx) => renderRowPair(row, idx))),
               ];
             })
-          : rows.flatMap((row, idx) => renderRowPair(row, idx))}
+          : realRows.flatMap((row, idx) => renderRowPair(row, idx))}
       </tbody>
     </table>
   );
+
+  /** U2 — the table's proposal register: a staged create/update, styled with the
+   *  shared proposal vocabulary (violet/dashed/pulsing — the SAME tokens
+   *  ProposalBadge/proposalRecipe use, ds/recipes/proposal.ts), not a hand-rolled
+   *  look. Read-only this pass (in-place accept lands in U8); no expand, no
+   *  selection checkbox — there's no landed note here yet to open or select. */
+  function renderPendingRow(row: PendingRow, idx: number): ReactNode {
+    return (
+      <tr
+        key={`§pending:${row.stagedId}`}
+        className="h-8 border-b border-dashed border-proposal bg-proposal/10 animate-proposal-pulse"
+      >
+        <td className="w-12 px-2 py-1.5">
+          <span className="text-meta text-muted">{idx + 1}</span>
+        </td>
+        <td className="px-4 py-1.5" colSpan={allCols.length}>
+          <span className="flex items-center gap-2">
+            <ProposalBadge state="pending" label={row.op} />
+            <span className="truncate text-ui text-ink-100">{row.title}</span>
+            <span className="ml-auto shrink-0 text-meta text-muted">{row.module}</span>
+          </span>
+        </td>
+      </tr>
+    );
+  }
 
   function renderRowPair(row: ModuleItem, idx: number): ReactNode[] {
     const addr = addrOf(row);
