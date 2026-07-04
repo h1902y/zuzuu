@@ -1,8 +1,24 @@
-// shell/review/ProposalCard.tsx — one staged proposal at the gate. Approve lands it
-// (→ evolve); Reject opens the reason taxonomy (the gate that teaches); since U5, Edit
-// opens an inline amend-then-re-stage form, and a checkbox joins the batch-selection
-// set. When `focused` (the keyboard decision flow, P2.4) the card rings + scrolls into
-// view. Composes ds primitives + the kit Button.
+// shell/review/ProposalCard.tsx — one staged proposal at the gate, composed as ONE
+// designed canvas (U7), not the accretion U2-U6 left behind. Fixed top-to-bottom
+// hierarchy (CARD_SECTIONS below, the card's tested view-model contract):
+//   identity (badge + title) → why (reason + provenance) → diff (the substance) →
+//   decision (the scorer + the gestures, quiet until focus/hover).
+// The scorer used to ride the identity row (a stray meter next to the title); it now
+// pairs with the actions it triages, in the decision footer — the fork this unit
+// resolves (see the file's bottom section + the PR report for the rationale).
+// Approve lands it (→ evolve); Reject opens the reason taxonomy (the gate that
+// teaches); Edit (U5) opens an inline amend-then-re-stage form; a checkbox (U5) joins
+// the batch-selection set — selection stays in the identity row (always visible, not
+// gesture-quiet: you need to see what's selected on cards you're NOT focused on).
+// When `focused` (the keyboard decision flow, P2.4) the card rings + scrolls into
+// view. On Approve/Reject (U7), the decision footer borrows the shared proposal
+// motion (solidify/dissolve, U1/KTD2) for the brief in-flight window before the item
+// leaves the queue — the same "ghost becomes real" language the World uses, now here
+// too; the identity badge above stays a stable type pill, untouched by the transient.
+// Composes ds primitives + the kit Button; no hand-rolled layout beyond the two
+// non-recipe-expressible chrome touches (the focus ring, the decision-footer's
+// quiet-until-focus opacity) — both mirror the card's own pre-existing outer-div
+// pattern, not new invented layout.
 import { useEffect, useRef, useState } from "react";
 import type { StagedSummary } from "#shared/index.js";
 import { REJECT_REASONS } from "./review-model.js";
@@ -13,8 +29,31 @@ import { provenanceOf } from "./provenance.js";
 import { DiffPreview } from "./DiffPreview.js";
 import { ConfidenceMeter } from "./ConfidenceMeter.js";
 import { Stack, Inline, Text, Button, Chip, ProposalBadge } from "../../ds/index.js";
+import type { ProposalState } from "../../ds/index.js";
 
 const editInput = "w-full rounded-ui border border-border bg-app px-2 py-1 text-meta text-ink-100 outline-none placeholder:text-muted focus:border-accent-dim";
+
+// ── the card's view-model (U7) — a tested contract, not just an implicit render order ──
+
+/** The four macro sections, in the imposed hierarchy. Exported so the ordering is a
+ *  pinned invariant (hitl-canvas.test.ts) — a future edit that silently reshuffles the
+ *  render breaks a test, not just a design review. */
+export const CARD_SECTIONS = ["identity", "why", "diff", "decision"] as const;
+export type CardSection = (typeof CARD_SECTIONS)[number];
+
+/** The decision section's active sub-mode — never more than one at a time. `landing`
+ *  (an approve/reject already dispatched, see `landing` state below) takes priority
+ *  over `editing`/`rejecting` (both close themselves before landing fires, but this
+ *  keeps the priority explicit and correct even if a caller drives them oddly);
+ *  `editing` beats `rejecting` (mirrors the pre-U7 ternary order verbatim — no
+ *  behavior change, just named + tested). Pure — no rendering, no side effects. */
+export type DecisionMode = "landing" | "editing" | "rejecting" | "actions";
+export function decisionMode(opts: { landing: boolean; editing: boolean; rejecting: boolean }): DecisionMode {
+  if (opts.landing) return "landing";
+  if (opts.editing) return "editing";
+  if (opts.rejecting) return "rejecting";
+  return "actions";
+}
 
 export function ProposalCard({
   item, focused, diffOpen, onDiffOpenChange,
@@ -63,6 +102,10 @@ export function ProposalCard({
   const [selfEditing, setSelfEditing] = useState(false);
   const [editValues, setEditValues] = useState<Record<string, string>>({});
   const [editId, setEditId] = useState("");
+  // U7 — the brief in-flight visual (borrows the shared proposal motion, KTD2): set
+  // synchronously on click, alongside (never instead of) the real onApprove/onReject
+  // call below — KTD5 holds, this is purely a local render flag, no new landing path.
+  const [landing, setLanding] = useState<ProposalState | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
   // The diff pane is parent-controlled when `diffOpen` is supplied (the queue's `d`
@@ -77,7 +120,6 @@ export function ProposalCard({
   const rejectControlled = rejectOpen !== undefined;
   const isRejecting = rejectControlled ? rejectOpen : rejecting;
   const highlightIdx = rejectControlled ? (reasonIndex ?? 0) : -1;
-  const openReject = () => (rejectControlled ? onRejectOpenChange?.(true) : setRejecting(true));
   const closeReject = () => (rejectControlled ? onRejectOpenChange?.(false) : setRejecting(false));
 
   // U5.2 — edit-before-approve: same controlled/uncontrolled split as diffOpen.
@@ -85,6 +127,8 @@ export function ProposalCard({
   const isEditing = editControlled ? editOpen : selfEditing;
   const openEdit = () => (editControlled ? onEditOpenChange?.(true) : setSelfEditing(true));
   const closeEdit = () => (editControlled ? onEditOpenChange?.(false) : setSelfEditing(false));
+
+  const mode = decisionMode({ landing: landing !== null, editing: isEditing, rejecting: isRejecting });
 
   const change = (item.change ?? {}) as Record<string, unknown>;
   const editableKeys = Object.keys(change).filter((k) => typeof change[k] === "string");
@@ -111,12 +155,32 @@ export function ProposalCard({
     closeEdit();
   };
 
+  // U7 — approve/reject now set the brief local `landing` flag alongside the SAME
+  // existing calls (KTD5: no new path, same onApprove/onReject the queue passes in).
+  const handleApprove = () => {
+    setLanding("approving");
+    onApprove(item.id, item.module);
+  };
+  const handleReject = (reason: string) => {
+    setLanding("rejecting");
+    onReject(item.id, item.module, reason);
+    closeReject();
+  };
+
+  const c = proposalChip(item.change?.type, item.module);
+  const prov = provenanceOf(item.source);
+
   return (
     <div
       ref={ref}
-      className={`rounded-ui border bg-surface p-2 transition-colors ${focused ? "border-accent ring-1 ring-inset ring-focus" : "border-border"}`}
+      className={`rounded-ui border bg-surface p-3 transition-colors ${focused ? "border-accent ring-1 ring-inset ring-focus" : "border-border"}`}
     >
-      <Stack gap="xs">
+      <Stack gap="sm">
+        {/* 1. IDENTITY — what this proposal is + its type, at a glance. Selection
+            stays here (always visible, not gesture-quiet — you scan it across every
+            card, not just the focused one). Stays a stable "what type of thing is
+            this" pill even while landing — the transient in-flight motion lives in
+            the decision footer below, not overloaded onto this identity chip. */}
         <Inline gap="sm" align="center">
           {onToggleSelect && (
             <input
@@ -127,34 +191,40 @@ export function ProposalCard({
               className="size-3.5 accent-current"
             />
           )}
-          {/* U2 — the surface most ABOUT proposals now READS as one: the type label
-              (Knowledge/Guardrail/…) rides the shared proposal-state badge instead
-              of a solid module-hue Chip, which used to make this card look the
-              most "settled" of the three old pending treatments. */}
-          {(() => { const c = proposalChip(item.change?.type, item.module); return <ProposalBadge state="pending" label={c.label} />; })()}
+          <ProposalBadge state="pending" label={c.label} />
           <Text size="ui" weight="medium" truncate>{item.title}</Text>
-          {/* U4 — the scorer's meter: confidence × blast-radius, replacing the old
-              stray muted `item.confidence` text line. Display only (KTD4/the moat):
-              it never approves/rejects, it just tells you how much scrutiny this one
-              deserves before you do. */}
-          <ConfidenceMeter item={item} />
         </Inline>
-        <Text size="meta" tone="muted">{reasonLine(item.evidence?.[0]?.kind, item.evidence)}</Text>
-        {item.preview && <Text size="meta" tone="muted">{item.preview}</Text>}
-        {(() => {
-          // Provenance (U6 / R6): name the session(s) this proposal was born from —
-          // the session↔proposal cross-reference. Degrades silently when no source.
-          const prov = provenanceOf(item.source);
-          if (!prov) return null;
-          return (
+
+        {/* 2. WHY — the case for this proposal: the reason line, an optional preview,
+            and its session provenance. Quiet by design (muted/subtle tones) — this is
+            context, not the decision itself. */}
+        <Stack gap="xs">
+          <Text size="meta" tone="muted">{reasonLine(item.evidence?.[0]?.kind, item.evidence)}</Text>
+          {item.preview && <Text size="meta" tone="muted">{item.preview}</Text>}
+          {prov && (
             <Inline gap="xs" wrap align="center">
               <Text size="meta" tone="subtle">{prov.label}</Text>
               {prov.display.map((s, i) => <Chip key={prov.sessions[i] ?? s} label={s} tone="neutral" />)}
             </Inline>
-          );
-        })()}
+          )}
+        </Stack>
+
+        {/* 3. THE DIFF — the substance: exactly what lands, field + body (U3). */}
         <DiffPreview item={item} open={isDiffOpen} onOpenChange={setDiffOpen} />
-        {isEditing ? (
+
+        {/* 4. THE DECISION — the scorer triages, the gestures act. Quiet (reduced
+            opacity) until focused/hovered/keyboard-active, so a resting queue reads
+            calm and the diff/why above carry the visual weight; a smooth opacity
+            transition on focus, matching the queue's own focus ring. */}
+        {mode === "landing" ? (
+          // U7 — the brief in-flight moment: the shared solidify/dissolve motion
+          // (KTD2, the same keyframes the World's ghost uses) stands in for a
+          // spinner, then the card leaves the queue once the gate call resolves.
+          <Inline gap="sm" align="center">
+            <ProposalBadge state={landing!} />
+            <Text size="meta" tone="muted">{landing === "approving" ? "landing…" : "leaving the queue…"}</Text>
+          </Inline>
+        ) : mode === "editing" ? (
           <Stack gap="xs" onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); closeEdit(); } }}>
             <Text size="meta" tone="subtle" weight="semibold">
               Edit — re-stages as a fresh proposal (no daemon edit-in-place yet; see review-flow.ts's editIntent)
@@ -181,14 +251,14 @@ export function ProposalCard({
               <Button variant="ghost" size="sm" onClick={closeEdit}>cancel</Button>
             </Inline>
           </Stack>
-        ) : isRejecting ? (
+        ) : mode === "rejecting" ? (
           <Inline gap="xs" wrap>
             {REJECT_REASONS.map((r, i) => (
               <Button
                 key={r}
                 variant={rejectControlled && i === highlightIdx ? "primary" : "outline"}
                 size="sm"
-                onClick={() => { onReject(item.id, item.module, r); closeReject(); }}
+                onClick={() => handleReject(r)}
               >
                 {i + 1}. {r}
               </Button>
@@ -196,11 +266,16 @@ export function ProposalCard({
             <Button variant="ghost" size="sm" onClick={closeReject}>cancel</Button>
           </Inline>
         ) : (
-          <Inline gap="sm">
-            <Button variant="primary" size="sm" onClick={() => onApprove(item.id, item.module)}>Approve</Button>
-            <Button variant="ghost" size="sm" onClick={openReject}>Reject</Button>
-            {onEdit && <Button variant="ghost" size="sm" onClick={openEdit}>Edit</Button>}
-          </Inline>
+          <div className={`transition-opacity ${focused ? "opacity-100" : "opacity-80 hover:opacity-100 focus-within:opacity-100"}`}>
+            <Inline gap="sm" justify="between" align="center">
+              <ConfidenceMeter item={item} />
+              <Inline gap="sm">
+                <Button variant="primary" size="sm" onClick={handleApprove}>Approve</Button>
+                <Button variant="ghost" size="sm" onClick={() => (rejectControlled ? onRejectOpenChange?.(true) : setRejecting(true))}>Reject</Button>
+                {onEdit && <Button variant="ghost" size="sm" onClick={openEdit}>Edit</Button>}
+              </Inline>
+            </Inline>
+          </div>
         )}
       </Stack>
     </div>

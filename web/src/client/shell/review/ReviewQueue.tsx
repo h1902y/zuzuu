@@ -1,7 +1,13 @@
-// shell/review/ReviewQueue.tsx — the unified cross-session proposal queue (the gate).
-// Pending proposals grouped by module OR by session/run (U6's toggle — "review
-// everything from last night's run"); each a ProposalCard. Rendered in the session
-// wing AND the global review overlay. The overlay (and, since U5, the wing when the
+// shell/review/ReviewQueue.tsx — the unified cross-session proposal queue, composed
+// (U7) as ONE deliberate review CANVAS rather than a queue that happens to have
+// controls bolted on: a toolbar strip (pending count · keyboard legend · the
+// module/session grouping toggle · the global batch affordance) sits above the
+// grouped list; each group header now names its count AND its safe-tail
+// batchability (`groupHeader` below) so scanning the surface tells you where the
+// easy approvals are before you open a single card. Pending proposals grouped by
+// module OR by session/run (U6's toggle — "review everything from last night's
+// run"); each a ProposalCard (U7's own coherence pass). Rendered in the session wing
+// AND the global review overlay. The overlay (and, since U5, the wing when the
 // overlay isn't open — see WorkbenchShell.tsx's `keyboard={!reviewOpen}`) passes
 // `keyboard` for the focused decision flow (P2.4 + U5's quick gestures): j/k (↓/↑)
 // move the cursor, a/Enter approves the focused proposal, d toggles its diff, r opens
@@ -12,7 +18,7 @@
 // WorkbenchShell.tsx) so two cursors never fight over the same keystroke. Selection +
 // edit are mouse-usable in EVERY instance (not gated on `keyboard`); the reject
 // taxonomy's click-to-open/mouse-pick path is unaffected either way. Calm "all caught
-// up" empty state. Static utilities only.
+// up" empty state, preserved verbatim. Static utilities only.
 //
 // U6 — `axis` is LOCAL component state (module | session), not a query param: it's
 // passed straight into `useReviewQueue(axis)`, which only re-partitions the SAME
@@ -30,12 +36,12 @@ import {
   toggleSelection, batchTargets, editIntent,
 } from "./review-flow.js";
 import { REJECT_REASONS, NO_SESSION_BUCKET } from "./review-model.js";
-import type { GroupAxis } from "./review-model.js";
+import type { GroupAxis, ScoredStaged } from "./review-model.js";
 import { shortSession } from "./provenance.js";
 import { Check } from "lucide-react";
 import { ProposalCard } from "./ProposalCard.js";
 import { emptyCopy } from "../empty-copy.js";
-import { Stack, Inline, Text, Button, EmptyState } from "../../ds/index.js";
+import { Stack, Inline, Text, Button, Box, EmptyState } from "../../ds/index.js";
 
 /** The group header label for either axis — "module" keys render verbatim; "session"
  *  keys are shortened for readability (provenance.ts's display convention), and the
@@ -43,6 +49,34 @@ import { Stack, Inline, Text, Button, EmptyState } from "../../ds/index.js";
 function groupLabel(axis: GroupAxis, key: string): string {
   if (axis === "module") return key;
   return key === NO_SESSION_BUCKET ? "no session" : shortSession(key);
+}
+
+/** A group header's full display model (U7 — "canvas" not "queue"): the label, the
+ *  group's TOTAL item count, and its batch-approve state — how many are batchable
+ *  right now (`batch`, selection-aware via the SAME `batchTargets` anti-fatigue model
+ *  U5 shipped) and whether that count reflects an explicit selection or the safe-tail
+ *  default. One source of truth for both the render and hitl-canvas.test.ts, so the
+ *  group header's "count + safe-tail batchability" is a tested contract, not just
+ *  markup. Pure — computes a value, touches nothing. */
+export interface GroupHeaderModel {
+  label: string;
+  count: number;
+  batch: ScoredStaged[];
+  batchIsSelection: boolean;
+}
+
+export function groupHeader(
+  axis: GroupAxis,
+  key: string,
+  items: readonly ScoredStaged[],
+  selected: ReadonlySet<string>,
+): GroupHeaderModel {
+  return {
+    label: groupLabel(axis, key),
+    count: items.length,
+    batch: batchTargets(items, selected),
+    batchIsSelection: items.some((it) => selected.has(it.id)),
+  };
 }
 
 export function ReviewQueue({ keyboard }: { keyboard?: boolean } = {}) {
@@ -133,39 +167,49 @@ export function ReviewQueue({ keyboard }: { keyboard?: boolean } = {}) {
   return (
     <div className="h-full overflow-y-auto p-6">
       <Stack gap="md">
-        <Inline gap="sm" justify="between">
-          <Text size="meta" tone="subtle" weight="semibold">REVIEW · {total} pending</Text>
-          {keyboard && <Text size="meta" tone="muted">j/k move · a approve · r reject · e edit · d diff · x select · ⇧A batch</Text>}
-        </Inline>
-        <Inline gap="sm" align="center">
-          <Text size="meta" tone="muted">group by</Text>
-          <Button variant={axis === "module" ? "outline" : "ghost"} size="sm" onClick={() => setAxis("module")}>module</Button>
-          <Button variant={axis === "session" ? "outline" : "ghost"} size="sm" onClick={() => setAxis("session")}>session/run</Button>
-        </Inline>
-        {batchQueue.length > 0 && (
-          <Inline gap="sm" align="center">
-            <Text size="meta" tone="muted">{selected.size > 0 ? `${selected.size} selected` : `${batchQueue.length} safe-tail`}</Text>
-            <Button variant="outline" size="sm" onClick={() => batchApprove(batchQueue)}>
-              Approve {batchQueue.length} {selected.size > 0 ? "selected" : "safe tail"}
-            </Button>
-            {selected.size > 0 && <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>clear</Button>}
-          </Inline>
-        )}
+        {/* the canvas toolbar (U7) — count + keyboard legend, the grouping toggle,
+            and the global batch affordance, read together as one control strip
+            rather than three unrelated rows. */}
+        <Box pad="sm" border="hairline" radius="ui" bg="surface">
+          <Stack gap="sm">
+            <Inline gap="sm" justify="between">
+              <Text size="meta" tone="subtle" weight="semibold">REVIEW · {total} pending</Text>
+              {keyboard && <Text size="meta" tone="muted">j/k move · a approve · r reject · e edit · d diff · x select · ⇧A batch</Text>}
+            </Inline>
+            <Inline gap="sm" align="center">
+              <Text size="meta" tone="muted">group by</Text>
+              <Button variant={axis === "module" ? "outline" : "ghost"} size="sm" onClick={() => setAxis("module")}>module</Button>
+              <Button variant={axis === "session" ? "outline" : "ghost"} size="sm" onClick={() => setAxis("session")}>session/run</Button>
+            </Inline>
+            {batchQueue.length > 0 && (
+              <Inline gap="sm" align="center">
+                <Text size="meta" tone="muted">{selected.size > 0 ? `${selected.size} selected` : `${batchQueue.length} safe-tail`}</Text>
+                <Button variant="outline" size="sm" onClick={() => batchApprove(batchQueue)}>
+                  Approve {batchQueue.length} {selected.size > 0 ? "selected" : "safe tail"}
+                </Button>
+                {selected.size > 0 && <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>clear</Button>}
+              </Inline>
+            )}
+          </Stack>
+        </Box>
         {Object.entries(grouped).map(([groupKey, items]) => {
-          // U6 — a group (module OR session/run) is its own batch-approve scope: the
-          // SAME anti-fatigue `batchTargets` model U5 shipped, just fed this group's
-          // items instead of the whole queue. An explicit selection intersecting this
-          // group wins outright; an empty one falls back to THIS group's safe tail
-          // only — a needsScrutiny item in this group is still never blind-swept.
-          const groupBatch = batchTargets(items, selected);
-          const groupHasSelection = items.some((it) => selected.has(it.id));
+          // U6/U7 — a group (module OR session/run) is its own batch-approve scope:
+          // the SAME anti-fatigue `batchTargets` model U5 shipped, surfaced through
+          // `groupHeader` alongside the group's total count. An explicit selection
+          // intersecting this group wins outright; an empty one falls back to THIS
+          // group's safe tail only — a needsScrutiny item in this group is still
+          // never blind-swept.
+          const header = groupHeader(axis, groupKey, items, selected);
           return (
             <Stack key={groupKey} gap="sm">
               <Inline gap="sm" align="center" justify="between">
-                <Text size="meta" tone="muted">{groupLabel(axis, groupKey)}</Text>
-                {groupBatch.length > 0 && (
-                  <Button variant="ghost" size="sm" onClick={() => batchApprove(groupBatch)}>
-                    Approve {groupBatch.length} {groupHasSelection ? "selected" : "safe tail"} from this {axis === "session" ? "run" : "module"}
+                <Inline gap="xs" align="baseline">
+                  <Text size="meta" tone="muted">{header.label}</Text>
+                  <Text size="meta" tone="subtle">· {header.count}</Text>
+                </Inline>
+                {header.batch.length > 0 && (
+                  <Button variant="ghost" size="sm" onClick={() => batchApprove(header.batch)}>
+                    Approve {header.batch.length} {header.batchIsSelection ? "selected" : "safe tail"} from this {axis === "session" ? "run" : "module"}
                   </Button>
                 )}
               </Inline>
