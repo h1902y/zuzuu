@@ -31,6 +31,29 @@ import { itemPath, manifestPath, cacheDir } from '../notes/store.mjs';
 import { readText, writeText, remove, mkdirp, withLock } from '../metal/fs.mjs';
 
 const isPlainObject = (x) => x != null && typeof x === 'object' && !Array.isArray(x);
+const nonEmptyStr = (v) => typeof v === 'string' && v.trim() !== '';
+
+// BUG (found live, 04-07-2026): `type` is the ONLY required note field (notes/validate.mjs),
+// but nothing ensured a CREATE had one before it reached that check — `zz stage … --op
+// create` with no `--field type=…` staged FINE, then failed at `zz review approve` with
+// `missing required field: type`, leaving the proposal stuck pending forever (the
+// propose→approve→land loop broken for every such create). Fix: a create's projected note
+// defaults `type` to `'note'` when the change omits one — HERE, in `projectChange` (the
+// pure op→note projection `commit`'s `applyOp` and `grow/stage`'s secret-refusal preview
+// both share), so EVERY path a create reaches this door through lands one — a fresh `zz
+// stage` proposal (stage.mjs also defaults it at stage time, so a NEW staged record is
+// self-describing before approval too), an already-staged record from before this fix
+// (exactly the stuck-pending repro), or a direct operator `note create`/batch `createMany`
+// (grow/edit.mjs's createNote/createNotes commit straight through this same projection).
+// An explicit type — staged or hand-supplied — always wins; this only fills the gap.
+// update/delete/relate/unrelate/deprecate are UNTOUCHED: they edit/reference an EXISTING
+// note, so e.g. an update whose target doesn't exist still fails validateNote as before —
+// there's no sane type to default onto a note this projection isn't creating.
+export function withDefaultType(op, change) {
+  const c = change ?? {};
+  if (op !== 'create' || nonEmptyStr(c.type)) return { ...c };
+  return { ...c, type: 'note' };
+}
 
 // Merge an update's `change` onto the current note. An object-valued field merges
 // ONE level (so `change:{relations:{about:'z'}}` keeps `relations.uses`), instead
@@ -65,7 +88,7 @@ export function projectChange(staged, current, edit = null) {
   // and validateNote tolerates it (unknown keys preserved).
   const withSource = (after) => (!edit && staged.source && after && after.source === undefined ? { ...after, source: staged.source } : after);
   switch (staged.op) {
-    case 'create': return { target: staged.target ?? change.id ?? staged.id, after: withSource({ ...change }) };
+    case 'create': return { target: staged.target ?? change.id ?? staged.id, after: withSource(withDefaultType('create', change)) };
     case 'update': {
       const target = staged.target ?? change.id ?? staged.id;
       return { target, after: withSource(current ? mergeEdit(current, change) : { ...change }) };
