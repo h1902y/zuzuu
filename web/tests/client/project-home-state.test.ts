@@ -2,7 +2,7 @@
 // per-rung status, and the setup-node visibility.
 import { describe, it, expect } from "vitest";
 import {
-  homeMode, currentRung, rungStatus, shouldShowSetupNode, RUNGS,
+  homeMode, currentRung, rungStatus, shouldShowSetupNode, RUNGS, onboardingWallShows,
 } from "../../src/client/shell/project-home-state.js";
 import type { ProjectStateKind } from "#shared/index.js";
 
@@ -60,5 +60,34 @@ describe("homeMode — contentful projects get the map home (audit items 1+2)", 
     expect(homeMode("hooks-off", 0)).toBe("onboarding");
     expect(homeMode("no-project", 5)).toBe("onboarding"); // no Project home at all — content count is noise
     expect(homeMode("not-a-repo", 5)).toBe("onboarding");
+  });
+});
+
+describe("onboardingWallShows — the full-screen lock, minus the 'Brain paused' bug", () => {
+  it("hooks-off NEVER walls — set up but not observing is reachable, not locked", () => {
+    // this is the exact bug: a project set up via the CLI (no `zz enable`) or one
+    // that declined the 3rd rung both used to hard-wall the whole workbench with
+    // no Escape/click-out/nav; git + .zuzuu/ already exist, so it must be reachable
+    expect(onboardingWallShows("hooks-off", 0)).toBe(false);
+    expect(onboardingWallShows("hooks-off", 5)).toBe(false);
+  });
+  it("pre-Project states still wall — there's genuinely nothing else to show yet", () => {
+    expect(onboardingWallShows("not-a-repo", 0)).toBe(true);
+    expect(onboardingWallShows("no-project", 0)).toBe(true);
+  });
+  it("no-activity keeps the first-run wall only when truly empty (unchanged)", () => {
+    expect(onboardingWallShows("no-activity", 0)).toBe(true);
+    expect(onboardingWallShows("no-activity", 3)).toBe(false);
+  });
+  it("steady never walls", () => {
+    expect(onboardingWallShows("steady", 0)).toBe(false);
+    expect(onboardingWallShows("steady", 5)).toBe(false);
+  });
+  it("doubles as the omnibar auto-open gate (§E.4): false means ⌘K may open safely", () => {
+    // a fresh, hooks-off project: nothing walls the screen, so the assist greeting
+    // is free to auto-open without colliding with a full-screen onboarding card
+    expect(onboardingWallShows("hooks-off", 0)).toBe(false);
+    // a truly fresh (not-a-repo) project: the wall IS up — auto-open must stay off
+    expect(onboardingWallShows("not-a-repo", 0)).toBe(true);
   });
 });

@@ -33,6 +33,7 @@ import { emptyStack, push, pop, top, placeholderFor, hintFor, laneBadge, type Om
 import { adapterGroup } from "../omnibar/omni-adapter.js";
 import { greetingModel } from "../omnibar/omni-greeting.js";
 import { brainSummary } from "../shell/overview/overview-model.js";
+import { companionView } from "../shell/onboarding/companion-state.js";
 import { proposalsGroup, viewsGroup, selectionGroup, type StagedRow } from "../omnibar/omni-sources.js";
 import { OmniDetail } from "../omnibar/OmniDetail.js";
 import { AcpConversation } from "../shell/stage/AcpView.js";
@@ -68,6 +69,11 @@ export default function PaletteBody() {
   const workspace = useQuery({ queryKey: ["workspace"], queryFn: api.workspace });
   // held sessions — the OTHER half of the needs-me composite (the greeting's brief)
   const held = useQuery({ queryKey: ["zuzuu", "held"], queryFn: api.zuzuu.held });
+  // the SAME queryKey WorkbenchShell reads (react-query shares the cache — no
+  // extra fetch) — bug fix: the greeting must know a setup rung is still
+  // pending so it never claims "All caught up" mid-onboarding (§E.4).
+  const projectState = useQuery({ queryKey: ["zuzuu", "project-state"], queryFn: api.zuzuu.projectState });
+  const setupLabel = projectState.data ? companionView(projectState.data.state, sessions.length).label : null;
   // §I rung 5 — >flow's target; shares the WorkbenchShell/Flow.tsx cache (same key)
   const flowList = useQuery({ queryKey: ["zuzuu", "flow"], queryFn: api.zuzuu.flow });
   const workflowAddrs = new Set((flowList.data?.workflows ?? []).map((w) => w.addr));
@@ -147,6 +153,7 @@ export default function PaletteBody() {
         integrity: health.integrity,
         lastSession: lastSess ? { id: lastSess.id, label: lastSess.title || lastSess.id.slice(0, 6) } : null,
         digestLine: digestCached ? (digestCached.split("\n").find((l) => l.trim()) ?? null) : null,
+        setupLabel,
       })
     : null;
 

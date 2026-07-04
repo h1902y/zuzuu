@@ -94,13 +94,22 @@ export function mostRecentlyActive(sessions: SessionLite[]): string | null {
 export interface RibbonState {
   liveness: number;
   pending: number;
-  /** true = the calm "all caught up" state (R5). */
+  /** true = the calm "all caught up" state (R5) — requires BOTH nothing
+   *  pending AND setup being done. A false claim otherwise (bug: the ribbon
+   *  used to say "all caught up" while the 3 setup rungs were still
+   *  pending, just because the proposal queue happened to be empty). */
   allCaughtUp: boolean;
 }
 
-/** The ambient gate signal (R5): live-session count + total pending proposals. */
-export function ribbonState(sessions: SessionLite[], pendingByModule: Record<string, number>): RibbonState {
+/** The ambient gate signal (R5): live-session count + total pending proposals,
+ *  honest-gated by `setupIncomplete` (a setup rung — git-init/init/enable —
+ *  still pending) so the calm state can never lie mid-onboarding. */
+export function ribbonState(
+  sessions: SessionLite[],
+  pendingByModule: Record<string, number>,
+  setupIncomplete = false,
+): RibbonState {
   const liveness = sessions.filter((s) => s.live).length;
   const pending = Object.values(pendingByModule).reduce((n, v) => n + v, 0);
-  return { liveness, pending, allCaughtUp: pending === 0 };
+  return { liveness, pending, allCaughtUp: pending === 0 && !setupIncomplete };
 }

@@ -17,11 +17,12 @@ import { FilterChips } from "./stage/FilterChips.js";
 import { useWorkbench } from "../state/store.js";
 import { useWorld } from "./world-state.js";
 import { selectActors } from "./shell-state.js";
-import { homeMode, currentRung, type RungId } from "./project-home-state.js";
+import { onboardingWallShows, currentRung, type RungId } from "./project-home-state.js";
 import { useStartSession } from "./session/use-start-session.js";
 import { sessionTabs } from "./session/session-tabs.js";
 import { toast } from "../state/toast.js";
 import { Checklist } from "./onboarding/Checklist.js";
+import { SetupPill } from "./onboarding/SetupPill.js";
 import { companionView } from "./onboarding/companion-state.js";
 import { onboardingStep, recordConsent, reopen, RUNG_ROUTE, describeSetupFailure, type ConsentRecord, type PrepRungId, type SetupFailure } from "./onboarding/onboarding-state.js";
 import { loadConsent, saveConsent } from "./onboarding/onboarding-consent.js";
@@ -112,6 +113,18 @@ export function WorkbenchShell() {
     select(t ? { kind: "flow", module: t.module, id: t.id } : { kind: "flow" });
   };
 
+  // Hoisted early (used by the greet-effect gate right below, and reused
+  // lower down for the ribbon/onboarding render) — content modules (beyond
+  // the safety floor), the mechanical project state, whether the full-screen
+  // onboarding wall should show (bug fix: hooks-off never walls — see
+  // onboardingWallShows), and whether a setup rung is still pending (the
+  // SAME "Setup n/3" signal the companion pin / SetupPill show).
+  const modules = overview.data?.modules ?? [];
+  const contentModules = modules.filter((m) => m.id !== "instructions" && m.id !== "guardrails").length;
+  const pState: ProjectStateKind | undefined = projectState.data?.state;
+  const onboarding = pState !== undefined && onboardingWallShows(pState, contentModules);
+  const setupIncomplete = pState !== undefined && companionView(pState, sessions.length).rung !== null;
+
   useEffect(() => { void refresh(); }, [refresh]); // load sessions; home is the database (no auto-open)
 
   // The brain-state push (/ws/zuzuu): a staged proposal, a landed row, or a schema
@@ -127,13 +140,17 @@ export function WorkbenchShell() {
   const greetRoot = workspace.data?.root ?? "";
   const greetReady = projectState.data !== undefined && !projectState.isLoading;
   useEffect(() => {
-    if (!greetRoot || !greetReady) return;
+    // bug fix: never auto-open ON TOP of the un-started onboarding wall (it
+    // used to fire regardless, colliding with the "Setup 1/3" card and
+    // showing a stale "All caught up" greeting under it). `onboarding` not
+    // yet resolved reads as "still walled" (skip) via `greetReady`.
+    if (!greetRoot || !greetReady || onboarding) return;
     const key = `zz:greeted:${greetRoot}`;
     const today = new Date().toDateString();
     if (localStorage.getItem(key) === today) return;
     localStorage.setItem(key, today);
     setPalette(true);
-  }, [greetRoot, greetReady, setPalette]);
+  }, [greetRoot, greetReady, onboarding, setPalette]);
 
   // The session tab resets on selection change (a per-node view). The MODULE view
   // does not: it lives per-module in the module-view store — a choice never leaks
@@ -221,14 +238,8 @@ export function WorkbenchShell() {
   const sel = selectActors(selected);
   const sessionNode = selected?.kind === "session" ? selected : null;
   const activeSession = sessionNode ? sessions.find((s) => s.id === sessionNode.id) : null;
-  const modules = overview.data?.modules ?? [];
   const pendingByModule = Object.fromEntries(modules.map((m) => [m.id, m.counts?.pending ?? 0]));
   const sessionsLite = sessions.map((s) => ({ id: s.id, live: s.alive, lastActiveAt: s.createdAt }));
-  const pState: ProjectStateKind | undefined = projectState.data?.state;
-  // content modules (beyond the safety floor) flip the home to the map even when a
-  // later rung is open — the open rung stays reachable via the ribbon hint
-  const contentModules = modules.filter((m) => m.id !== "instructions" && m.id !== "guardrails").length;
-  const onboarding = pState !== undefined && homeMode(pState, contentModules) === "onboarding";
   // ribbon setup nudge (R8) — visible whenever a rung is open and the checklist
   // dialog isn't (the dialog only shows during full onboarding)
   const setupHint = pState !== undefined && pState !== "steady" && !onboarding ? RUNG_HINT[currentRung(pState)] : undefined;
@@ -368,6 +379,22 @@ export function WorkbenchShell() {
             and the footer ARE the navigation; sessions live in the omnibar source. */}
         <main className="relative flex min-w-0 flex-1 flex-col bg-app">
           <HudPill hud={hud} onClick={() => setReview(true)} />
+          {/* bug fix: the "Brain paused" full-screen wall used to be the ONLY
+              way to see hooks-off (set up but not observing) — no Escape,
+              click-out, or nav out. hooks-off never walls now (onboarding is
+              false for it); this non-blocking, dismissible pill carries the
+              SAME narration/consent/re-enable affordance instead. */}
+          {pState === "hooks-off" && (
+            <SetupPill
+              projectName={workspace.data?.name ?? "this project"}
+              step={onboardStep}
+              failure={setupError}
+              onAffirm={affirmRung}
+              onDecline={declineRung}
+              onReopen={reopenRung}
+              onRetry={retrySetup}
+            />
+          )}
           {/* the per-stage header strip is retired (§ header consolidation): the
               breadcrumb + Table⇄Map toggle live in the TOP app header now. Only a
               SESSION keeps a stage strip — its Terminal·Changes tabs + End-session. */}
@@ -472,7 +499,7 @@ export function WorkbenchShell() {
         )}
       </div>
 
-      <Ribbon sessions={sessionsLite} pendingByModule={pendingByModule} setupHint={setupHint} onReview={() => setReview(true)} onSettings={() => setSettingsOpen(true)} />
+      <Ribbon sessions={sessionsLite} pendingByModule={pendingByModule} setupHint={setupHint} setupIncomplete={setupIncomplete} onReview={() => setReview(true)} onSettings={() => setSettingsOpen(true)} />
 
       {/* §D — onboarding is a DIALOG SEQUENCE over the dimmed World: the recorded
           consent gates (per-rung affirm/decline/reopen, resumable, failures inline
