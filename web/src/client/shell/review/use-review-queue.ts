@@ -10,6 +10,7 @@ import { api } from "../../lib/api.js";
 import { dataProvider } from "../../data/provider.js";
 import { toast } from "../../state/toast.js";
 import { aggregateStaged, groupBy, scoreQueue, sortByScore } from "./review-model.js";
+import type { EditIntent } from "./review-flow.js";
 
 /** Fetch the staged summaries of every module that has pending proposals. */
 async function loadQueue(): Promise<Record<string, StagedSummary[]>> {
@@ -46,5 +47,23 @@ export function useReviewQueue() {
     finally { invalidate(); }
   };
 
-  return { queue, grouped, total: queue.length, loading: q.isLoading, approve, reject };
+  // U5 edit-before-approve — the honest two-op fallback (review-flow.ts's editIntent
+  // documents the FLAGGED GAP: the daemon's approve route takes no field override, so
+  // there's no one-shot "land the edited version" today). Composes the two EXISTING
+  // gate ops instead of inventing a new landing path (KTD5): reject the stale
+  // proposal, then re-stage the edits as a FRESH create/update. The re-staged
+  // proposal re-enters the queue PENDING — it is never auto-approved (KTD4 holds).
+  const restage = async (intent: EditIntent) => {
+    const target = intent.restage.target;
+    if (!target) { toast("Couldn’t re-stage the edit — no target id", "error"); return; }
+    try {
+      await dataProvider.reject(intent.reject.id, intent.reject.module, intent.reject.reason);
+      await (intent.restage.op === "update"
+        ? dataProvider.update(intent.restage.module, target, intent.restage.change)
+        : dataProvider.create(intent.restage.module, target, intent.restage.change));
+    } catch (e) { toast(`Couldn’t re-stage the edit${why(e)}`, "error"); }
+    finally { invalidate(); }
+  };
+
+  return { queue, grouped, total: queue.length, loading: q.isLoading, approve, reject, restage };
 }

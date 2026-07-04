@@ -149,7 +149,22 @@ export function WorkbenchShell() {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const el = e.target as HTMLElement;
       if (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable) return;
-      if (e.key === "r" || e.key === "R") { e.preventDefault(); setReview(!useReview.getState().open); }
+      if (e.key === "r" || e.key === "R") {
+        // U5 — "r" is now the review queue's OWN reject-key for its focused card
+        // (ReviewQueue's keyboard model — see review-flow.ts/ReviewQueue.tsx). A
+        // ReviewQueue instance is keyboard-hot either as the overlay (already open)
+        // or as the wing (sel.wing === "review", the default whenever a session is
+        // selected — kept hot only while the overlay is closed, see the
+        // `keyboard={!reviewOpen}` wiring on the wing's <ReviewQueue/> below). Only
+        // fall through to the shell's open-toggle when NEITHER is hot, so "r" still
+        // opens the overlay from the World/table home exactly as before; once a
+        // queue owns "r", the shell defers to it entirely (Esc/the close button
+        // still close the overlay).
+        const reviewIsHot = useReview.getState().open || selectActors(useWorld.getState().selected).wing === "review";
+        if (reviewIsHot) return;
+        e.preventDefault();
+        setReview(true);
+      }
       else if (e.key === "t" || e.key === "T") {
         // ONE continuous space, two projections — T toggles them in a module context;
         // on the unified Everything it flips table ⇄ the FULL World (the '' scope);
@@ -439,7 +454,11 @@ export function WorkbenchShell() {
         {sel.wing !== "none" && (
           <aside className="hidden w-96 shrink-0 flex-col border-l border-border bg-surface xl:flex">
             {sel.wing === "review" ? (
-              <ReviewQueue />
+              // U5 — the wing now gets the same keyboard model as the overlay, but
+              // only while the overlay itself isn't open (avoids TWO keyboard-hot
+              // ReviewQueue instances racing the same keystroke — see the "r"
+              // collision note above and ReviewQueue.tsx's header).
+              <ReviewQueue keyboard={!reviewOpen} />
             ) : sel.wing === "form" && selected?.kind === "draft" ? (
               <NewNoteForm key={selected.module} module={selected.module} seed={selected.seed} />
             ) : sel.wing === "form" && (selected?.kind === "row" || selected?.kind === "note") ? (
