@@ -31,6 +31,7 @@ import { HudPill } from "./HudPill.js";
 import { projectionSwitch, type ProjTarget } from "./projection-switch.js";
 import { ProjectionToggle } from "./ProjectionToggle.js";
 import { Flow } from "./stage/Flow.js";
+import { ViewBoard } from "./stage/ViewBoard.js";
 import { flowTarget, isWorkflowAddr } from "./stage/flow-switch.js";
 import { useAppSurface } from "../state/app-surface.js";
 import { useSettingsDialog } from "../state/settings-dialog.js";
@@ -308,6 +309,7 @@ export function WorkbenchShell() {
     : selected?.kind === "draft" ? [moduleTitle(selected.module), "new note"]
     : selected?.kind === "session" ? [activeSession?.title || "session"]
     : selected?.kind === "flow" ? (selected.module && selected.id ? ["Flow", selected.module, selected.id] : ["Flow"])
+    : selected?.kind === "view" ? [moduleTitle(selected.module), selected.id]
     : [];
   const stagePrimary =
     header.primary?.key === "new-note" && selected?.kind === "module"
@@ -467,6 +469,8 @@ export function WorkbenchShell() {
               <AcpView id={selected.id} />
             ) : sel.stage === "flow" && selected?.kind === "flow" ? (
               <Flow module={selected.module} id={selected.id} />
+            ) : sel.stage === "view" && selected?.kind === "view" ? (
+              <ViewBoard module={selected.module} id={selected.id} />
             ) : projectState.isLoading || overview.isLoading ? (
               <Loading />
             ) : (
