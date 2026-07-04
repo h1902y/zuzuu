@@ -33,11 +33,12 @@ import { useReviewQueue } from "./use-review-queue.js";
 import {
   clampFocus, moveFocus, focusedId,
   openRejectMode, moveRejectReason, reasonIndexFromKey, REJECT_MODE_CLOSED,
-  toggleSelection, batchTargets, editIntent,
+  toggleSelection, batchTargets, editIntent, runBatchApprove, selectionAfterBatch,
 } from "./review-flow.js";
 import { REJECT_REASONS, NO_SESSION_BUCKET } from "./review-model.js";
 import type { GroupAxis, ScoredStaged } from "./review-model.js";
 import { shortSession } from "./provenance.js";
+import { toast } from "../../state/toast.js";
 import { Check } from "lucide-react";
 import { ProposalCard } from "./ProposalCard.js";
 import { emptyCopy } from "../empty-copy.js";
@@ -93,14 +94,31 @@ export function ReviewQueue({ keyboard }: { keyboard?: boolean } = {}) {
   const focusIdx = clampFocus(total, focus);
   const focusId = keyboard ? focusedId(queue, focusIdx) : null;
 
-  const rejectAndCount = (id: string, module: string, reason: string) => { setDecided((n) => n + 1); reject(id, module, reason); };
+  // Bug fix: `reject` now resolves to `false` on a refused/failed mutation
+  // (use-review-queue.ts) instead of silently "succeeding" — only count it as
+  // decided once it actually landed; the outcome still rides back to the caller
+  // (ProposalCard's onReject contract) so a failure clears its "landing…" state
+  // instead of hanging.
+  const rejectAndCount = async (id: string, module: string, reason: string): Promise<boolean> => {
+    const ok = await reject(id, module, reason);
+    if (ok) setDecided((n) => n + 1);
+    return ok;
+  };
   const openRejectFor = (id: string) => { setRejectingId(id); setRejectMode(openRejectMode()); };
   const closeReject = () => { setRejectingId(null); setRejectMode(REJECT_MODE_CLOSED); };
+  // Bug fix: a batch approve used to fire every item and forget it (no await, no
+  // failure signal) — a partial daemon failure silently no-opped. runBatchApprove
+  // (review-flow.ts's batch model) awaits every target and partitions the outcome;
+  // only the ids that actually landed drop out of `selected` (selectionAfterBatch) —
+  // a failed one stays selected, and a summary toast says so instead of nothing
+  // happening.
   const batchApprove = (targets: { id: string; module: string }[]) => {
     if (!targets.length) return;
-    for (const t of targets) approve(t.id, t.module);
-    setDecided((n) => n + targets.length);
-    setSelected(new Set());
+    void runBatchApprove(targets, approve).then(({ succeeded, failed }) => {
+      if (succeeded.length) setDecided((n) => n + succeeded.length);
+      if (failed.length) toast(`Approved ${succeeded.length} of ${targets.length} — ${failed.length} failed to land`, "error");
+      setSelected((s) => selectionAfterBatch(s, succeeded));
+    });
   };
 
   // the focused decision flow (P2.4) + U5's quick gestures. Ignores keystrokes while
@@ -129,7 +147,9 @@ export function ReviewQueue({ keyboard }: { keyboard?: boolean } = {}) {
       else if (e.key === "k" || e.key === "ArrowUp") { e.preventDefault(); setFocus((f) => moveFocus(total, clampFocus(total, f), -1)); }
       else if (e.key === "a" || e.key === "Enter") {
         const target = queue.find((q) => q.id === focusedId(queue, clampFocus(total, focus)));
-        if (target) { e.preventDefault(); setDecided((n) => n + 1); approve(target.id, target.module); }
+        // only count it as decided once it actually lands (approve resolves `false`
+        // on a refused/failed mutation — see use-review-queue.ts).
+        if (target) { e.preventDefault(); void approve(target.id, target.module).then((ok) => { if (ok) setDecided((n) => n + 1); }); }
       }
       else if (e.key === "A") { e.preventDefault(); batchApprove(batchTargets(queue, selected)); }
       else if (e.key === "d") {

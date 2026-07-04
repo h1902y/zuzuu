@@ -5,6 +5,19 @@
 // destructive/low-confidence item into a blind "approve all"), and the edit-before-
 // approve intent (`e`) — see editIntent's header for the FLAGGED GAP it composes
 // around. Pure → tested; the .tsx wires the keys/state onto these models.
+//
+// The BATCH MODEL (runBatchApprove + selectionAfterBatch, below) — bug fix: a batch
+// approve used to fire every item and forget it (`for (…) approve(…)`), so a partial
+// daemon failure inside the batch silently no-opped (no toast, no changed count, a
+// failed item still sitting in `selected` looking indistinguishable from a landed
+// one). `runBatchApprove` awaits every item (never lets one failure block the rest —
+// Promise.all, and it swallows a THROWN rejection too, not just a resolved `false`,
+// since a mocked/real approve could surface failure either way) and partitions the
+// outcome; the .tsx toasts a summary when `failed` is non-empty (reusing the existing
+// toast/why(e) pattern, see use-review-queue.ts) instead of staying silent.
+// `selectionAfterBatch` is the companion pure step: only the SUCCEEDED ids drop out
+// of the selection — a failed item stays selected (still actionable, not silently
+// dropped from view).
 import type { StagedSummary } from "#shared/index.js";
 import type { RejectReason } from "./review-model.js";
 import { isUpdate } from "./diff.js";
@@ -89,6 +102,49 @@ export function batchTargets<T extends { id: string; score: number }>(
 ): T[] {
   if (selected.size > 0) return items.filter((it) => selected.has(it.id));
   return items.filter((it) => it.score < SAFE_TAIL_THRESHOLD);
+}
+
+/** A batch approve's outcome — which target ids landed, which didn't. Display-only
+ *  (the .tsx toasts + reconciles `selected` off this); never a parallel landing
+ *  mechanism — every id still resolves through the SAME injected `approveOne` (KTD5,
+ *  in practice the one true `dataProvider.approve`-backed function use-review-queue.ts
+ *  exposes). */
+export interface BatchApproveResult {
+  succeeded: string[];
+  failed: string[];
+}
+
+/** Run a batch of approves, one per target, awaiting EVERY one (a slow/failed item
+ *  never blocks or drops the rest — Promise.all) and partitioning by outcome. Pure
+ *  orchestration over an INJECTED `approveOne` — never touches dataProvider/api
+ *  itself, so it's testable with a mocked resolve/reject, no DOM, no react-query (see
+ *  hitl-canvas.test.ts's convention). Tolerates `approveOne` either resolving `false`
+ *  OR throwing/rejecting on failure — both count as a miss; only a resolved `true`
+ *  counts as landed. This is the fix for the batch button's old silent no-op: a
+ *  partial failure is now REPORTED, not swallowed. */
+export async function runBatchApprove(
+  targets: readonly { id: string; module: string }[],
+  approveOne: (id: string, module: string) => Promise<boolean>,
+): Promise<BatchApproveResult> {
+  const succeeded: string[] = [];
+  const failed: string[] = [];
+  await Promise.all(targets.map(async (t) => {
+    let ok = false;
+    try { ok = await approveOne(t.id, t.module); }
+    catch { ok = false; }
+    (ok ? succeeded : failed).push(t.id);
+  }));
+  return { succeeded, failed };
+}
+
+/** After a batch lands, drop only the ids that actually SUCCEEDED from the selection
+ *  set (pure — returns a NEW Set, mirrors toggleSelection's never-mutate contract). A
+ *  failed id stays selected: it's still pending and still actionable, not silently
+ *  dropped from view alongside the ones that really landed. */
+export function selectionAfterBatch(selected: ReadonlySet<string>, succeeded: readonly string[]): Set<string> {
+  const next = new Set(selected);
+  for (const id of succeeded) next.delete(id);
+  return next;
 }
 
 // ── U5.2 — edit-before-approve (`e`) ────────────────────────────────────────────

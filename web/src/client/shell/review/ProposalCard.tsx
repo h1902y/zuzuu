@@ -15,6 +15,11 @@
 // motion (solidify/dissolve, U1/KTD2) for the brief in-flight window before the item
 // leaves the queue — the same "ghost becomes real" language the World uses, now here
 // too; the identity badge above stays a stable type pill, untouched by the transient.
+// Bug fix: that in-flight window used to be a one-way door — a daemon-side failure
+// left it stuck on "landing…" forever (no error, no way back). handleApprove/
+// handleReject now await the outcome and clearsLanding (below) un-sticks it back to
+// "actions" on a failure; the daemon's WHY still surfaces via the existing toast (see
+// use-review-queue.ts's `why`/`softError`), not a new inline mechanism.
 // Composes ds primitives + the kit Button; no hand-rolled layout beyond the two
 // non-recipe-expressible chrome touches (the focus ring, the decision-footer's
 // quiet-until-focus opacity) — both mirror the card's own pre-existing outer-div
@@ -53,6 +58,19 @@ export function decisionMode(opts: { landing: boolean; editing: boolean; rejecti
   if (opts.editing) return "editing";
   if (opts.rejecting) return "rejecting";
   return "actions";
+}
+
+/** Bug fix: `landing` used to be set on click and NEVER cleared — a daemon-side
+ *  failure (a rejected approve/reject mutation) left the card stuck on "landing…"
+ *  forever, with no error shown and no way back to actionable. This is the pure
+ *  contract for the fix: a FAILED outcome clears `landing` (→ decisionMode falls
+ *  through to "actions", the card is actionable again); a SUCCESSFUL one leaves it
+ *  set — the card is expected to unmount on its own once the queue's post-mutation
+ *  invalidate (use-review-queue.ts) refetches and the now-landed id drops out of the
+ *  list. Exported + pure so this transition is a tested contract (hitl-canvas.test.ts
+ *  style), not just inline component logic. */
+export function clearsLanding(ok: boolean): boolean {
+  return !ok;
 }
 
 export function ProposalCard({
@@ -94,8 +112,12 @@ export function ProposalCard({
    *  ones). */
   selected?: boolean;
   onToggleSelect?: (id: string) => void;
-  onApprove: (id: string, module: string) => void;
-  onReject: (id: string, module: string, reason: string) => void;
+  /** Resolves `true` once the daemon actually lands the change, `false` on a
+   *  refused/failed mutation (never throws — use-review-queue.ts's approve/reject
+   *  already catch + toast the daemon's reason; this return is ONLY the landing
+   *  signal `clearsLanding` acts on, see handleApprove/handleReject below). */
+  onApprove: (id: string, module: string) => Promise<boolean>;
+  onReject: (id: string, module: string, reason: string) => Promise<boolean>;
 }) {
   const [rejecting, setRejecting] = useState(false);
   const [selfDiffOpen, setSelfDiffOpen] = useState(false);
@@ -155,15 +177,18 @@ export function ProposalCard({
     closeEdit();
   };
 
-  // U7 — approve/reject now set the brief local `landing` flag alongside the SAME
+  // U7 — approve/reject set the brief local `landing` flag alongside the SAME
   // existing calls (KTD5: no new path, same onApprove/onReject the queue passes in).
+  // Bug fix: await the outcome and clear `landing` on a failure (clearsLanding above)
+  // — previously this fired the call and forgot it, so a daemon-side failure left the
+  // card stuck on "landing…" forever with no way back to Approve/Reject.
   const handleApprove = () => {
     setLanding("approving");
-    onApprove(item.id, item.module);
+    void onApprove(item.id, item.module).then((ok) => { if (clearsLanding(ok)) setLanding(null); });
   };
   const handleReject = (reason: string) => {
     setLanding("rejecting");
-    onReject(item.id, item.module, reason);
+    void onReject(item.id, item.module, reason).then((ok) => { if (clearsLanding(ok)) setLanding(null); });
     closeReject();
   };
 
