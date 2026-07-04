@@ -65,28 +65,31 @@ export function viewQuerySummary(state: Pick<ListState, "groupBy" | "kind" | "st
   return parts.length ? parts.join(" · ") : "all notes, ungrouped";
 }
 
-export type ViewBoardStatus = "ok" | "empty" | "missing-module" | "malformed";
+export type ViewBoardStatus = "ok" | "empty" | "malformed";
 
 /** R5's empty/error decision — never a blank stage or crash. Checked in order:
  *  1. MALFORMED — no note to read (fetch failed/404) or its `query` isn't a
  *     usable shape at all; there's no honest query to run.
- *  2. MISSING-MODULE — the resolved module (the query's own `module`, or the
- *     fallback) isn't one of the project's known modules (renamed/removed).
- *  3. EMPTY — a valid query against a real module that matched nothing.
- *  4. OK — otherwise.
- *  `knownModules: null` means "not loaded yet" — too early to call a module
- *  missing, so that check is skipped (the caller should gate this classifier on
- *  its own loading state; it never guesses). */
-export function classifyViewBoard({ note, resolvedModule, knownModules, rows }: {
+ *  2. OK — rows are present. Data is there — never claim it's missing, no
+ *     matter what module it resolved to.
+ *  3. EMPTY — a valid query that matched nothing. This is the ONE honest state
+ *     for "nothing to show", whether the module is genuinely empty or was
+ *     renamed/removed — there used to be a separate MISSING-MODULE state here,
+ *     gated on whether `resolvedModule` appeared in the "grown" modules list
+ *     (modules with a `module.md`, from `api.zuzuu.overview()`). That signal is
+ *     unreliable: the operator lane (`zz note create`) auto-vivifies a
+ *     module's notes without ever minting a `module.md`, so a perfectly
+ *     queryable module with real rows (e.g. a fresh `deals` with 8 notes) was
+ *     absent from "grown" and got a false "Module not found" BEFORE rows were
+ *     even considered — hiding real data behind a wrong classification. Rows
+ *     are ground truth; a manifest list is not. */
+export function classifyViewBoard({ note, rows }: {
   note: ViewNoteLike | null | undefined;
-  resolvedModule: string;
-  knownModules: readonly string[] | null;
   rows: readonly unknown[];
 }): ViewBoardStatus {
   if (!note || !isQueryRecord(note.query)) return "malformed";
-  if (knownModules && !knownModules.includes(resolvedModule)) return "missing-module";
-  if (rows.length === 0) return "empty";
-  return "ok";
+  if (rows.length > 0) return "ok";
+  return "empty";
 }
 
 /** The EmptyState copy for every non-"ok" classifier state (R5) — an
@@ -97,8 +100,6 @@ export function viewBoardCopy(status: Exclude<ViewBoardStatus, "ok">, resolvedMo
   switch (status) {
     case "empty":
       return { title: "No notes match this view", hint: "Nothing in the current query — widen it, or check back once notes land." };
-    case "missing-module":
-      return { title: "Module not found", hint: `This view queries "${resolvedModule}", which doesn't exist (renamed or removed?).` };
     case "malformed":
       return { title: "This view's query can't be read", hint: "Its query isn't a usable shape — re-save it from a table's filter/group/sort." };
   }

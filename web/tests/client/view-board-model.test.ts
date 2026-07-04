@@ -71,58 +71,54 @@ describe("viewQuerySummary — the board header's human reading of the running q
 
 describe("classifyViewBoard — R5's empty/error decision", () => {
   const goodNote = { query: { module: "crm" } };
-  const knownModules = ["crm", "library", "knowledge"];
 
-  it("'ok' for a real note, a known module, and non-zero rows", () => {
-    expect(classifyViewBoard({ note: goodNote, resolvedModule: "crm", knownModules, rows: [{ id: "a" }] })).toBe("ok");
+  it("'ok' for a real note with non-zero rows", () => {
+    expect(classifyViewBoard({ note: goodNote, rows: [{ id: "a" }] })).toBe("ok");
   });
 
-  it("'empty' for zero rows against an otherwise valid note + known module", () => {
-    expect(classifyViewBoard({ note: goodNote, resolvedModule: "crm", knownModules, rows: [] })).toBe("empty");
+  it("'empty' for zero rows against an otherwise valid note", () => {
+    expect(classifyViewBoard({ note: goodNote, rows: [] })).toBe("empty");
   });
 
-  it("'missing-module' when the resolved module isn't in the known-modules list", () => {
-    expect(classifyViewBoard({ note: goodNote, resolvedModule: "nope", knownModules, rows: [] })).toBe("missing-module");
-    // even with matching rows somehow present, an unresolvable module still wins over 'ok'
-    expect(classifyViewBoard({ note: goodNote, resolvedModule: "nope", knownModules, rows: [{ id: "a" }] })).toBe("missing-module");
+  it("'ok' for a module absent from any known-modules/manifest list, as long as it has rows — the manifest list is not the source of truth (this is the bug fix: a module with notes but no module.md must still render)", () => {
+    expect(classifyViewBoard({ note: goodNote, rows: [{ id: "a" }] })).toBe("ok");
+  });
+
+  it("a valid query against a module with zero rows is 'empty', not a false 'module not found' — one honest state covers both a genuinely empty module and a renamed/removed one", () => {
+    expect(classifyViewBoard({ note: goodNote, rows: [] })).toBe("empty");
   });
 
   it("'malformed' when the note itself is absent (fetch failed / 404)", () => {
-    expect(classifyViewBoard({ note: null, resolvedModule: "crm", knownModules, rows: [] })).toBe("malformed");
-    expect(classifyViewBoard({ note: undefined, resolvedModule: "crm", knownModules, rows: [] })).toBe("malformed");
+    expect(classifyViewBoard({ note: null, rows: [] })).toBe("malformed");
+    expect(classifyViewBoard({ note: undefined, rows: [] })).toBe("malformed");
   });
 
   it("'malformed' when `query` isn't a usable object shape (string/number/array/null)", () => {
     for (const bad of ["not-an-object", 42, ["array", "not", "object"], null]) {
-      expect(classifyViewBoard({ note: { query: bad }, resolvedModule: "crm", knownModules, rows: [] })).toBe("malformed");
+      expect(classifyViewBoard({ note: { query: bad }, rows: [] })).toBe("malformed");
     }
   });
 
   it("an EMPTY-but-valid query object ({}) is NOT malformed — a deliberate, unfiltered view", () => {
-    expect(classifyViewBoard({ note: { query: {} }, resolvedModule: "crm", knownModules, rows: [] })).toBe("empty");
-    expect(classifyViewBoard({ note: { query: {} }, resolvedModule: "crm", knownModules, rows: [{ id: "a" }] })).toBe("ok");
+    expect(classifyViewBoard({ note: { query: {} }, rows: [] })).toBe("empty");
+    expect(classifyViewBoard({ note: { query: {} }, rows: [{ id: "a" }] })).toBe("ok");
   });
 
-  it("malformed wins over missing-module (checked first — no query to even resolve a module from)", () => {
-    expect(classifyViewBoard({ note: null, resolvedModule: "nope", knownModules, rows: [] })).toBe("malformed");
-  });
-
-  it("knownModules: null (not loaded yet) skips the missing-module check rather than guessing", () => {
-    expect(classifyViewBoard({ note: goodNote, resolvedModule: "anything", knownModules: null, rows: [{ id: "a" }] })).toBe("ok");
-    expect(classifyViewBoard({ note: goodNote, resolvedModule: "anything", knownModules: null, rows: [] })).toBe("empty");
+  it("malformed wins over rows — no query to even run, regardless of what rows are passed", () => {
+    expect(classifyViewBoard({ note: null, rows: [{ id: "a" }] })).toBe("malformed");
   });
 });
 
 describe("viewBoardCopy — the EmptyState copy per classifier state", () => {
   it("every non-ok status has a non-empty title + hint", () => {
-    for (const status of ["empty", "missing-module", "malformed"] as const) {
+    for (const status of ["empty", "malformed"] as const) {
       const copy = viewBoardCopy(status, "crm");
       expect(copy.title.length).toBeGreaterThan(0);
       expect(copy.hint.length).toBeGreaterThan(0);
     }
   });
 
-  it("the missing-module copy names the actual unresolved module", () => {
-    expect(viewBoardCopy("missing-module", "ghost-mod").hint).toContain("ghost-mod");
+  it("the empty copy is the honest 'no notes match' message, not a false 'module not found'", () => {
+    expect(viewBoardCopy("empty", "deals").title).toBe("No notes match this view");
   });
 });

@@ -52,12 +52,11 @@ function ViewBoardHeader({ title, resolvedModule, summary }: { title: string; re
 /** Inside the provider: the query has already resolved a module scope, so this
  *  is where rows actually land (or don't) — the ONLY place classifyViewBoard
  *  runs, since it needs the fetched rows to tell "empty" from "ok". */
-function ViewBoardTable({ note, title, resolvedModule, summary, knownModules }: {
+function ViewBoardTable({ note, title, resolvedModule, summary }: {
   note: ViewNoteItem | null;
   title: string;
   resolvedModule: string;
   summary: string;
-  knownModules: readonly string[] | null;
 }) {
   const { rows, loading, state, dispatch } = useList();
   const select = useWorld((s) => s.select);
@@ -67,7 +66,7 @@ function ViewBoardTable({ note, title, resolvedModule, summary, knownModules }: 
 
   if (loading) return <Loading label="loading board…" />;
 
-  const status = classifyViewBoard({ note, resolvedModule, knownModules, rows });
+  const status = classifyViewBoard({ note, rows });
   if (status !== "ok") {
     const copy = viewBoardCopy(status, resolvedModule);
     return (
@@ -105,20 +104,18 @@ function ViewBoardTable({ note, title, resolvedModule, summary, knownModules }: 
  *  exported clean so that wiring is a one-line stage-dispatch addition. */
 export function ViewBoard({ module, id }: { module: string; id: string }) {
   const noteQuery = useQuery({ queryKey: ["zuzuu", "view-item", module, id], queryFn: () => api.zuzuu.item(module, id) });
-  const overview = useQuery({ queryKey: ["zuzuu", "overview"], queryFn: api.zuzuu.overview });
 
-  if (noteQuery.isLoading || overview.isLoading) return <Loading label="loading view…" />;
+  if (noteQuery.isLoading) return <Loading label="loading view…" />;
 
   const note = (noteQuery.data as ViewNoteItem | undefined) ?? null;
   const resolved = viewFetchState(note, module);
   const { module: resolvedModule, ...listState } = resolved;
-  const knownModules = (overview.data?.modules ?? []).map((m) => m.id);
   const summary = viewQuerySummary(listState);
   const title = note?.title || id;
 
   return (
     <NotesListProvider key={resolvedModule} module={resolvedModule} initial={listState}>
-      <ViewBoardTable note={note} title={title} resolvedModule={resolvedModule} summary={summary} knownModules={knownModules} />
+      <ViewBoardTable note={note} title={title} resolvedModule={resolvedModule} summary={summary} />
     </NotesListProvider>
   );
 }
