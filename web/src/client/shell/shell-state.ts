@@ -88,11 +88,10 @@ export function selectActors(node: NavNode | null): Selection {
  *  would otherwise produce for a note that is NEITHER (World's map click keeps
  *  the World as the stage and opens the record as the wing — `"note"`;
  *  Grid/Everything's row click opens the full Record stage — `"row"`).
- *  `isView` defaults to `false` so today's callers (Grid/Everything row clicks,
- *  World node clicks — all of which only compute `isWorkflow`) keep compiling
- *  and behaving exactly as before without editing them; wiring one of them to
- *  pass `kind === "view"` through is the tiny follow-up this pass leaves for a
- *  caller to pick up (see the U3 report — it is NOT done here). */
+ *  `isView` defaults to `false` so a caller that only computes `isWorkflow`
+ *  still compiles and behaves exactly as before; every existing entry point
+ *  (Grid/Everything/ViewBoard row clicks, World node clicks) now passes it
+ *  through too (the U3 follow-up this doc used to defer is done). */
 export function noteOrFlowNav(module: string, id: string, isWorkflow: boolean, asNote: "note" | "row", isView = false): NavNode {
   if (isWorkflow) return { kind: "flow", module, id };
   if (isView) return { kind: "view", module, id };

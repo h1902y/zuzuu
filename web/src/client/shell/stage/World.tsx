@@ -59,10 +59,11 @@ export function World({ focus, lens }: {
       // map-first: a node click keeps the World as the stage and opens the record
       // as the wing (`note`, not `row`) — reading never leaves the map. EXCEPT a
       // workflow note (§I rung 5): selecting it anywhere focuses Flow instead —
-      // its DAG is a more useful reading than flat frontmatter.
+      // its DAG is a more useful reading than flat frontmatter. U3 (live-views
+      // plan) mirrors the same seam for a `type:view` note — the ViewBoard.
       onSelectNote: (addr, module, id) => {
-        const isWorkflow = graphRef.current?.nodes.find((n) => n.addr === addr)?.type === "workflow";
-        select(noteOrFlowNav(module, id, isWorkflow, "note"));
+        const noteType = graphRef.current?.nodes.find((n) => n.addr === addr)?.type;
+        select(noteOrFlowNav(module, id, noteType === "workflow", "note", noteType === "view"));
       },
       onSelectModule: (module) => select({ kind: "module", id: module }),
       onGhostClick: () => setReview(true), // the in-map review: the gate overlay, in place

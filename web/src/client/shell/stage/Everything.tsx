@@ -118,8 +118,9 @@ function EverythingInner({ moduleFacet, onModuleFacet }: { moduleFacet: string; 
             rows={tableRows}
             sort={state.sort}
             onSort={(key) => dispatch({ type: "toggleSort", key })}
-            // §I rung 5: a workflow-typed row focuses Flow instead of the Record stage
-            onRow={(row) => select(noteOrFlowNav(row.module, row.id, row.kind === "workflow", "row"))}
+            // §I rung 5: a workflow-typed row focuses Flow instead of the Record stage.
+            // U3 (live-views plan): a view-typed row focuses the ViewBoard the same way.
+            onRow={(row) => select(noteOrFlowNav(row.module, row.id, row.kind === "workflow", "row", row.kind === "view"))}
             renderCell={renderCell}
             onChipClick={filterOps.addWhere}
             groupBy={state.groupBy}

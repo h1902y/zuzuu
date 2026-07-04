@@ -88,8 +88,9 @@ function ViewBoardTable({ note, title, resolvedModule, summary, knownModules }: 
           sort={state.sort}
           onSort={(key) => dispatch({ type: "toggleSort", key })}
           // §I rung 5 precedent (Grid/Everything): a workflow-typed row still
-          // focuses Flow — reading a row never changes surface behavior here.
-          onRow={(row) => select(noteOrFlowNav(row.module, row.id, row.kind === "workflow", "row"))}
+          // focuses Flow, and (U3) a view-typed row still focuses another
+          // ViewBoard — reading a row never changes surface behavior here.
+          onRow={(row) => select(noteOrFlowNav(row.module, row.id, row.kind === "workflow", "row", row.kind === "view"))}
           groupBy={state.groupBy}
           // selection / module / onChipClick OMITTED — R3, read-only by construction:
           // no checkboxes, no "Edit column" caret, no chip→filter mutation.
