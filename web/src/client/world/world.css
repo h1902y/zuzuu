@@ -70,7 +70,10 @@
 }
 
 /* the moat, visible: a pending proposal is a dashed translucent pulse until the
-   human approves and the node solidifies */
+   human approves and the node solidifies. The keyframes (zz-world-pulse /
+   zz-world-solidify / zz-world-ghost-out) are PROMOTED to the shared layer
+   (client/index.css, U1/KTD2) — same names, same timing, so the table/card/inline
+   accepts can share this exact transition; only the references stay here. */
 .zz-world-ghost circle {
   fill: var(--color-accent);
   fill-opacity: 0.12;
@@ -88,10 +91,6 @@
   pointer-events: none;
   transition: opacity 0.25s ease;
 }
-@keyframes zz-world-pulse {
-  0%, 100% { stroke-opacity: 0.9; fill-opacity: 0.1; }
-  50% { stroke-opacity: 0.35; fill-opacity: 0.22; }
-}
 
 /* C4 — the moat made visceral. Approve: the born node solidifies (dash → solid,
    a small overshoot pop). Reject: the ghost dissolves in place. */
@@ -100,17 +99,9 @@
   transform-origin: center;
   animation: zz-world-solidify 0.9s ease-out;
 }
-@keyframes zz-world-solidify {
-  0% { stroke: var(--color-accent); stroke-dasharray: 3 3; fill-opacity: 0.15; transform: scale(0.6); }
-  55% { stroke: var(--color-accent); stroke-dasharray: 0 0; fill-opacity: 1; transform: scale(1.18); }
-  100% { fill-opacity: 0.92; transform: scale(1); }
-}
 .zz-world-ghost-out {
   animation: zz-world-ghost-out 0.45s ease-in forwards;
   pointer-events: none;
-}
-@keyframes zz-world-ghost-out {
-  to { opacity: 0; }
 }
 
 .zz-world-chips {

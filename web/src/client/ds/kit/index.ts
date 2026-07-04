@@ -20,3 +20,5 @@ export type { Step, StepStatus } from "./Stepper.js";
 export { Chip } from "./Chip.js";
 export type { ChipTone } from "./Chip.js";
 export { Dialog } from "./Dialog.js";
+export { ProposalBadge, proposalBadgeVariant } from "./ProposalBadge.js";
+export type { ProposalState } from "./ProposalBadge.js";
