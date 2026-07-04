@@ -37,7 +37,6 @@ import { companionView } from "../shell/onboarding/companion-state.js";
 import { proposalsGroup, viewsGroup, selectionGroup, type StagedRow } from "../omnibar/omni-sources.js";
 import { OmniDetail } from "../omnibar/OmniDetail.js";
 import { AcpConversation } from "../shell/stage/AcpView.js";
-import { useModuleFilter } from "../state/module-filter.js";
 import { useSettingsDialog } from "../state/settings-dialog.js";
 import { useTableSelection, selectionFor, EVERYTHING_SELECTION_SCOPE } from "../state/table-selection.js";
 import { selectionToCsv } from "../state/selection-csv.js";
@@ -265,15 +264,12 @@ export default function PaletteBody() {
           .finally(() => void qc.invalidateQueries({ queryKey: ["zuzuu"] }));
         break;
       }
-      case "run-view": {
-        // one filter state, two projections: apply the view's lens to its scope
-        // and open the table; T flips the same lens onto the map as a spotlight.
-        const scope = action.module; // '' = the Everything scope
-        useModuleFilter.getState().patch(scope, { text: action.text, kind: action.noteKind, module: "" });
-        useModuleView.getState().set(scope, "table");
-        select(scope ? { kind: "module", id: scope } : { kind: "everything" });
+      case "run-view":
+        // U4 (live-views plan) — the FULL query lives on the view note itself;
+        // opening it is the same seam as a workflow's `open-flow` (focus the
+        // note's own board), not a partial lens applied to the module table.
+        select({ kind: "view", module: action.module, id: action.id });
         break;
-      }
       case "draft-note":
         // §E.3 — the adapter's create resolution: the DRAFT wing opens pre-filled;
         // staging happens on the form's save (the gate decides — never a blind write)
