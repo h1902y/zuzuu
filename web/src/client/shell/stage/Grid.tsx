@@ -16,6 +16,7 @@ import { useTableFilter } from "./use-table-filter.js";
 import { ClauseChips } from "./ClauseChips.js";
 import { FacetChip } from "./FacetChip.js";
 import { TableBuilders } from "./TableBuilders.js";
+import { SaveViewForm } from "./SaveViewForm.js";
 import { TableFooter } from "./TableFooter.js";
 import { FieldConfigPanel } from "./FieldConfigPanel.js";
 import { emptyCopy } from "../empty-copy.js";
@@ -82,6 +83,8 @@ function GridInner() {
           className="w-72 rounded-ui border border-border bg-app px-2 py-1 text-ui text-ink-100 outline-none placeholder:text-muted focus:border-accent-dim"
         />
         <TableBuilders cols={cols} state={state} filterOps={filterOps} dispatch={dispatch} />
+        {/* U5 (live-views plan): "Save as view" — the current filter/group/sort as a new type:view note */}
+        <SaveViewForm module={module} state={state} />
         {/* §H.5: "+ column" — single-module scope only (a schema column has no
             single home in the unified Everything view). Add mode, anchored. */}
         <div className="relative ml-auto">

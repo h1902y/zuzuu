@@ -39,6 +39,13 @@ import type {
 /** A setup verb's response — the CLI JSON the daemon passes through (shape varies). */
 type SetupResult = { ok?: boolean } & Record<string, unknown>;
 
+/** POST /module/:key/row's response — the CLI's `note create` result passed
+ *  straight through (`{ok:true, addr:"module:id"}`, src/cli/verbs/data.mjs).
+ *  Not in #shared: like SetupResult above, a thin pass-through the client
+ *  only reads `ok`/`addr` off of, not a shape the server independently
+ *  constructs a DTO for. */
+type CreateRowResult = { ok: boolean; addr?: string };
+
 /** The server-side module-list query (Rung 7): filter·sort·paginate the daemon pushes
  *  to the index. `type` is the note kind, `where` are repeatable `key=val` EAV filters,
  *  `sort` is `col[:desc]`. All optional — an empty query lists the module unfiltered. */
@@ -223,6 +230,14 @@ export const api = {
     // (no batch route on the daemon yet — a one-batch-verb gap, noted not built).
     deleteRow: (key: string, id: string) =>
       request<DeleteRowResult>(`/api/zuzuu/module/${key}/row/${id}`, { method: "DELETE" }),
+    // the OPERATOR lane's instant row CREATE (U5, live-views plan/KTD4): mints a
+    // note directly (validated + provenance-logged by `zz note create`) — lands
+    // NOW, no gate. Distinct from `stage(...{op:"create"})` above (the agent-lane
+    // proposal twin the agent uses instead); the route is agent-denied
+    // (`agentInvokable:false` on `note create`). `change` must carry its own
+    // `type` key (the route has no separate --type param — see zuzuu-write.ts).
+    createRow: (key: string, id: string, change: Record<string, unknown>) =>
+      request<CreateRowResult>(`/api/zuzuu/module/${key}/row`, json({ id, change })),
     // the daemon route requires { module } in the body (it 400s without it) — the
     // mutation request body isn't in #shared, so this contract is enforced by hand.
     approve: (id: string, module: string) =>
