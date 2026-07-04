@@ -25,14 +25,17 @@
 // quiet-until-focus opacity) — both mirror the card's own pre-existing outer-div
 // pattern, not new invented layout.
 import { useEffect, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import type { StagedSummary } from "#shared/index.js";
 import { REJECT_REASONS } from "./review-model.js";
 import { isUpdate } from "./diff.js";
 import { reasonLine } from "./reason-line.js";
 import { proposalChip } from "./proposal-chip.js";
 import { provenanceOf } from "./provenance.js";
+import { proposalTitle, targetPreview } from "./proposal-title.js";
 import { DiffPreview } from "./DiffPreview.js";
 import { ConfidenceMeter } from "./ConfidenceMeter.js";
+import { api } from "../../lib/api.js";
 import { Stack, Inline, Text, Button, Chip, ProposalBadge } from "../../ds/index.js";
 import type { ProposalState } from "../../ds/index.js";
 
@@ -195,6 +198,32 @@ export function ProposalCard({
   const c = proposalChip(item.change?.type, item.module);
   const prov = provenanceOf(item.source);
 
+  // Bug fix (live product test): DELETE/DEPRECATE/UPDATE proposals used to render
+  // `item.title` verbatim in the identity heading — for these ops the server can
+  // degrade that all the way to the raw stg-… id when the staged change carries no
+  // title/body/rationale (zuzuu-peek.ts's stagedTitle fallback chain), so a critical
+  // delete rendered as `stg-53ea6bc7` with no hint of what it removes. `proposalTitle`
+  // (proposal-title.ts) derives the heading from op+target instead — never the id —
+  // and is the SAME helper NoteDocument.tsx's inline U8 card uses (one source of
+  // truth). The target-note fetch shares DiffPreview's exact queryKey, so it's the
+  // same react-query cache entry (no duplicate request) — it just ALSO covers
+  // delete/deprecate (DiffPreview's own fetch is update-only, since there's no field
+  // diff to show for those ops) so the title can upgrade from a prettified id to the
+  // note's real name, and the WHY section below can show a small removal preview.
+  const targetNote = useQuery({
+    queryKey: ["zuzuu", "item-body", item.module, item.target],
+    queryFn: () => api.zuzuu.item(item.module, item.target as string),
+    enabled: typeof item.target === "string" && item.target.length > 0,
+    staleTime: 30_000,
+  });
+  const title = proposalTitle(item, targetNote.data);
+  const preview = targetPreview(targetNote.data);
+  // A delete/deprecate has no field diff (DiffPreview renders nothing for it) — this
+  // is the one place its target surfaces: the id at minimum, the note's own preview
+  // when it resolves. An update already gets this via the field diff below, so it's
+  // not repeated here.
+  const showsTargetLine = (item.op === "delete" || item.op === "deprecate") && item.target;
+
   return (
     <div
       ref={ref}
@@ -212,12 +241,12 @@ export function ProposalCard({
               type="checkbox"
               checked={selected ?? false}
               onChange={() => onToggleSelect(item.id)}
-              aria-label={`select ${item.title} for batch approve`}
+              aria-label={`select ${title} for batch approve`}
               className="size-3.5 accent-current"
             />
           )}
           <ProposalBadge state="pending" label={c.label} />
-          <Text size="ui" weight="medium" truncate>{item.title}</Text>
+          <Text size="ui" weight="medium" truncate>{title}</Text>
         </Inline>
 
         {/* 2. WHY — the case for this proposal: the reason line, an optional preview,
@@ -225,6 +254,16 @@ export function ProposalCard({
             context, not the decision itself. */}
         <Stack gap="xs">
           <Text size="meta" tone="muted">{reasonLine(item.evidence?.[0]?.kind, item.evidence)}</Text>
+          {/* delete/deprecate carry no field diff (below) — this is the one place
+              their target surfaces: the address always, the note's own preview when
+              it resolves. Never a bare card with no indication of what's affected. */}
+          {showsTargetLine && (
+            <Inline gap="xs" align="center">
+              <Text size="meta" tone="subtle">target</Text>
+              <Text size="meta" tone="muted" mono>{item.module}:{item.target}</Text>
+            </Inline>
+          )}
+          {showsTargetLine && preview && <Text size="meta" tone="muted">{preview}</Text>}
           {item.preview && <Text size="meta" tone="muted">{item.preview}</Text>}
           {prov && (
             <Inline gap="xs" wrap align="center">

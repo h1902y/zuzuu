@@ -29,6 +29,7 @@ import { useReviewQueue } from "../shell/review/use-review-queue.js";
 import { REJECT_REASONS } from "../shell/review/review-model.js";
 import { reasonLine } from "../shell/review/reason-line.js";
 import { proposalChip } from "../shell/review/proposal-chip.js";
+import { proposalTitle } from "../shell/review/proposal-title.js";
 import { useWorld } from "../shell/world-state.js";
 import { useWorldCommand } from "../state/world-command.js";
 import { useRootMode } from "../state/root-mode.js";
@@ -184,10 +185,19 @@ export function NoteDocument({ item, fields = [], width = "panel" }: {
             return (
               <div key={s.id} className={`rounded-ui border border-dashed border-proposal bg-proposal/10 p-2 ${motion}`}>
                 <Inline gap="sm" justify="between" align="center" wrap>
-                  <Inline gap="sm" align="center">
-                    <ProposalBadge state={state ?? "pending"} label={c.label} />
+                  <Stack gap="xs">
+                    <Inline gap="sm" align="center">
+                      <ProposalBadge state={state ?? "pending"} label={c.label} />
+                      {/* the SAME op+target-derived heading ProposalCard.tsx's review
+                          queue uses (proposal-title.ts) — never the raw stg-… id.
+                          `item` (this note) IS the proposal's target here by
+                          construction (pendingProposalsForNote filters on it), so a
+                          delete/deprecate against THIS note reads "Delete/Deprecate
+                          <this note's own name>", not an opaque id. */}
+                      <Text size="ui" weight="medium" truncate>{proposalTitle(s, item)}</Text>
+                    </Inline>
                     <Text size="meta" tone="muted">{reasonLine(s.evidence?.[0]?.kind, s.evidence)}</Text>
-                  </Inline>
+                  </Stack>
                   {!state && (
                     rejectOpenId === s.id ? (
                       <Inline gap="xs" wrap>
