@@ -9,20 +9,25 @@
 //     (clickable → that clause joins the filter; §H.2/§H.3 loop)
 //   · row expansion (chevron/Enter) → the shared NoteDocument inline (§H.6) —
 //     surveying → inspecting never changes surface
-// Cells are READ-ONLY (doctrine): the row's actions live in the omnibar.
+// Cells are READ-ONLY (doctrine): the row's actions live in the omnibar. The
+// pending-row register (U2) is the one exception (U8): a staged create/update
+// gets an in-place accept/reject, routed through the SAME gate the review queue
+// uses (`use-review-queue.ts`'s approve/reject, KTD5) — not a new landing path.
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight, ChevronsUpDown } from "lucide-react";
 import type { ModuleItem } from "#shared/index.js";
 import type { FieldDef } from "../../data/field-registry.js";
 import { cellValue, type GridColumn } from "./grid-columns.js";
 import type { SortState } from "../../data/list-state.js";
-import { attrChips, visibleChips, chipClause, tableColumns, isPendingRow, type TableRow, type PendingRow, IDENTITY_COL, ATTRS_COL } from "./table-model.js";
+import { attrChips, visibleChips, chipClause, tableColumns, isPendingRow, pendingRowIntent, solidifyPendingRow, type TableRow, type PendingRow, IDENTITY_COL, ATTRS_COL } from "./table-model.js";
 import { groupRows } from "./group-model.js";
 import { TypeGlyph } from "./TypeGlyph.js";
 import { StatusPill } from "./StatusPill.js";
 import { FieldConfigPanel } from "./FieldConfigPanel.js";
 import { NoteDocument } from "../../note/NoteDocument.js";
-import { Icon, Text, ProposalBadge } from "../../ds/index.js";
+import { useReviewQueue } from "../review/use-review-queue.js";
+import { REJECT_REASONS } from "../review/review-model.js";
+import { Icon, Text, Button, ProposalBadge } from "../../ds/index.js";
 
 export interface NotesTableSelection {
   selected: ReadonlySet<string>;
@@ -86,6 +91,25 @@ export function NotesTable({ cols, rows, sort, onSort, onRow, renderCell, fields
   // not-yet-real row); the real-row path below is untouched.
   const pendingRows = rows.filter(isPendingRow);
   const realRows = rows.filter((r): r is ModuleItem => !isPendingRow(r));
+  // U8 — the pending row's click-accept/reject: the SAME approve/reject the review
+  // queue calls (KTD5), reached through the identical hook (use-review-queue.ts) —
+  // not a bespoke call. `solidifyingIds`/`rejectingId` are purely local render state
+  // (the shared solidify motion + the reject taxonomy's open/closed toggle); once
+  // the gate confirms and the invalidated query refetches, the staged entry is gone
+  // and this row simply stops existing (mergeTableRows no longer produces it).
+  const { approve: approvePending, reject: rejectPending } = useReviewQueue();
+  const [solidifyingIds, setSolidifyingIds] = useState<Set<string>>(new Set());
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const acceptPendingRow = (row: PendingRow) => {
+    setSolidifyingIds((s) => new Set(s).add(row.stagedId));
+    const { id, module } = pendingRowIntent(row);
+    void approvePending(id, module);
+  };
+  const rejectPendingRow = (row: PendingRow, reason: string) => {
+    const { id, module } = pendingRowIntent(row);
+    setRejectingId(null);
+    void rejectPending(id, module, reason);
+  };
   const toggleExpand = (addr: string) =>
     setExpanded((s) => { const n = new Set(s); if (n.has(addr)) n.delete(addr); else n.add(addr); return n; });
   const toggleGroup = (value: string) =>
@@ -244,22 +268,43 @@ export function NotesTable({ cols, rows, sort, onSort, onRow, renderCell, fields
   /** U2 — the table's proposal register: a staged create/update, styled with the
    *  shared proposal vocabulary (violet/dashed/pulsing — the SAME tokens
    *  ProposalBadge/proposalRecipe use, ds/recipes/proposal.ts), not a hand-rolled
-   *  look. Read-only this pass (in-place accept lands in U8); no expand, no
-   *  selection checkbox — there's no landed note here yet to open or select. */
+   *  look. U8 — no longer read-only: an accept/reject lands the staged change via
+   *  the existing gate (KTD5); accepting swaps the pending look for the shared
+   *  "approving" state + the `animate-proposal-solidify` motion (applied to the
+   *  inner flex span, not the <tr> — CSS transforms don't apply to table-row
+   *  boxes, only to their content). Still no expand/selection checkbox — there's
+   *  no landed note here yet to open or select. */
   function renderPendingRow(row: PendingRow, idx: number): ReactNode {
+    const display = solidifyingIds.has(row.stagedId) ? solidifyPendingRow(row) : row;
+    const isRejectingRow = rejectingId === row.stagedId;
     return (
       <tr
         key={`§pending:${row.stagedId}`}
-        className="h-8 border-b border-dashed border-proposal bg-proposal/10 animate-proposal-pulse"
+        className={`h-8 border-b bg-proposal/10 ${display.solidifying ? "border-solid border-accent" : "border-dashed border-proposal"}`}
       >
         <td className="w-12 px-2 py-1.5">
           <span className="text-meta text-muted">{idx + 1}</span>
         </td>
         <td className="px-4 py-1.5" colSpan={allCols.length}>
-          <span className="flex items-center gap-2">
-            <ProposalBadge state="pending" label={row.op} />
-            <span className="truncate text-ui text-ink-100">{row.title}</span>
-            <span className="ml-auto shrink-0 text-meta text-muted">{row.module}</span>
+          <span className={`flex items-center gap-2 ${display.solidifying ? "animate-proposal-solidify" : "animate-proposal-pulse"}`}>
+            <ProposalBadge state={display.solidifying ? "approving" : "pending"} label={row.op} />
+            <span className="min-w-0 flex-1 truncate text-ui text-ink-100">{row.title}</span>
+            <span className="shrink-0 text-meta text-muted">{row.module}</span>
+            {!display.solidifying && (
+              isRejectingRow ? (
+                <span className="flex shrink-0 items-center gap-1">
+                  {REJECT_REASONS.map((r) => (
+                    <Button key={r} variant="outline" size="sm" onClick={() => rejectPendingRow(row, r)}>{r}</Button>
+                  ))}
+                  <Button variant="ghost" size="sm" onClick={() => setRejectingId(null)}>cancel</Button>
+                </span>
+              ) : (
+                <span className="flex shrink-0 items-center gap-1">
+                  <Button variant="primary" size="sm" onClick={() => acceptPendingRow(row)}>accept</Button>
+                  <Button variant="danger" size="sm" onClick={() => setRejectingId(row.stagedId)}>reject</Button>
+                </span>
+              )
+            )}
           </span>
         </td>
       </tr>

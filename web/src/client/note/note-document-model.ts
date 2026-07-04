@@ -4,7 +4,7 @@
 // grouped attribute cards (core / schema / relations / also-carries) · body ·
 // quiet footer. This derives the GROUPS from the envelope + the module's
 // declared fields; the .tsx renders them. Pure → tested.
-import type { ModuleItem } from "#shared/index.js";
+import type { ModuleItem, StagedSummary } from "#shared/index.js";
 import type { FieldDef } from "../data/field-registry.js";
 import { fieldConfig } from "../data/field-registry.js";
 
@@ -122,3 +122,26 @@ export function bornHere(item: ModuleItem): string | null {
  *  the map's resolver refines further; this is the tap's best guess). */
 export const targetAddr = (item: ModuleItem, target: string): string =>
   target.includes(":") ? target : `${item.module}:${target}`;
+
+// ── U8 — the inline note accept: this note's OWN pending proposal(s) ──────────
+//
+// NoteDocument is READ-ONLY by doctrine (see the .tsx header) EXCEPT for a
+// pending proposal against the note you're already reading — approving that in
+// place is the point of U8. The lookup is CLIENT-ONLY, no daemon change: it
+// filters the SAME cross-module staged queue `useReviewQueue()` already
+// aggregates (fed by the identical `zz.module()` fetch the review queue and the
+// table's proposal register (U2) read — no new fetch, no server plumbing gap
+// to flag here, unlike Everything.tsx's `/items` `staged: []` note).
+
+/** Every staged proposal that TARGETS this landed note (update/delete/deprecate —
+ *  a create never targets an existing id, `target` is null/absent for one, see
+ *  StagedSummary's doc comment in #shared/zuzuu.ts). Usually 0 or 1; a note can in
+ *  principle carry more than one in-flight proposal, so this returns all of them
+ *  rather than silently picking one. */
+export function pendingProposalsForNote(
+  queue: readonly StagedSummary[],
+  module: string,
+  id: string,
+): StagedSummary[] {
+  return queue.filter((s) => s.module === module && s.target === id);
+}

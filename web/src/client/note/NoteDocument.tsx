@@ -1,12 +1,17 @@
 // note/NoteDocument.tsx — THE note detail rendering (§H.6): one component, every
 // container (omnibar detail pane · wing · inline row expansion), width-adaptive.
-// Notion document grammar: header → lead → grouped attribute cards → GFM body →
-// collapsed History → quiet footer. READ-ONLY by doctrine — the single
-// affordance is the "Act ⌘K" hint; relation rows fly the map (navigation, not
-// mutation); History is a read too (§G.1 — teach the substrate).
-import { useRef } from "react";
+// Notion document grammar: header → lead → (U8) pending-proposal banner →
+// grouped attribute cards → GFM body → collapsed History → quiet footer.
+// READ-ONLY by doctrine — the single affordance is the "Act ⌘K" hint; relation
+// rows fly the map (navigation, not mutation); History is a read too (§G.1 —
+// teach the substrate). U8's ONE exception: a pending proposal AGAINST the note
+// you're already reading gets an inline accept/reject — approving where you meet
+// it, not only in the review queue — routed through the identical gate
+// (`dataProvider.approve/reject` via `use-review-queue.ts`, KTD5), never a new
+// landing path.
+import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { ModuleItem, HistoryEntry } from "#shared/index.js";
+import type { ModuleItem, HistoryEntry, StagedSummary } from "#shared/index.js";
 import type { FieldDef } from "../data/field-registry.js";
 import { Command } from "lucide-react";
 import { Gfm } from "../lib/Gfm.js";
@@ -18,12 +23,17 @@ import { moduleHue } from "../world/model.js";
 import { TypeGlyph } from "../shell/stage/TypeGlyph.js";
 import { StatusPill } from "../shell/stage/StatusPill.js";
 import { ActorGlyph } from "../shell/stage/ActorGlyph.js";
-import { noteGroups, leadOf, bornHere, targetAddr, type AttrRow } from "./note-document-model.js";
+import { noteGroups, leadOf, bornHere, targetAddr, pendingProposalsForNote, type AttrRow } from "./note-document-model.js";
 import { historyExtra, historyOpLabel } from "./note-history-model.js";
+import { useReviewQueue } from "../shell/review/use-review-queue.js";
+import { REJECT_REASONS } from "../shell/review/review-model.js";
+import { reasonLine } from "../shell/review/reason-line.js";
+import { proposalChip } from "../shell/review/proposal-chip.js";
 import { useWorld } from "../shell/world-state.js";
 import { useWorldCommand } from "../state/world-command.js";
 import { useRootMode } from "../state/root-mode.js";
-import { Icon, Text } from "../ds/index.js";
+import { Icon, Text, Stack, Inline, Button, ProposalBadge } from "../ds/index.js";
+import type { ProposalState } from "../ds/index.js";
 
 export type NoteDocumentWidth = "panel" | "wing" | "row";
 
@@ -121,6 +131,25 @@ export function NoteDocument({ item, fields = [], width = "panel" }: {
     }
   };
 
+  // U8 — this note's own pending proposal(s), inline. `queue` is the SAME
+  // cross-module staged summaries the review queue/World read (use-review-queue.ts's
+  // aggregated `zz.module()` fetch, cached under ["zuzuu","review-queue"] — no new
+  // fetch); `pendingProposalsForNote` is the pure client-side filter (a create never
+  // targets an existing id, so only update/delete/deprecate proposals ever match).
+  const { queue, approve: approvePending, reject: rejectPending } = useReviewQueue();
+  const pending = pendingProposalsForNote(queue, item.module, item.id);
+  const [landing, setLanding] = useState<Record<string, ProposalState>>({});
+  const [rejectOpenId, setRejectOpenId] = useState<string | null>(null);
+  const approveProposal = (s: StagedSummary) => {
+    setLanding((l) => ({ ...l, [s.id]: "approving" }));
+    void approvePending(s.id, s.module);
+  };
+  const rejectProposal = (s: StagedSummary, reason: string) => {
+    setLanding((l) => ({ ...l, [s.id]: "rejecting" }));
+    setRejectOpenId(null);
+    void rejectPending(s.id, s.module, reason);
+  };
+
   return (
     <div className="flex min-w-0 flex-col gap-3">
       {/* header: type glyph + TITLE large · id beneath as quiet mono · status pill */}
@@ -142,6 +171,44 @@ export function NoteDocument({ item, fields = [], width = "panel" }: {
 
       {/* the lead — a summary when the note HAS one; absent = absent */}
       {lead && <p className="text-ui font-semibold leading-relaxed text-ink-100">{lead}</p>}
+
+      {/* U8 — inline accept: a pending proposal against THIS note, in place. The
+          one exception to the read-only doctrine above — everything else here
+          stays a read. */}
+      {pending.length > 0 && (
+        <Stack gap="xs">
+          {pending.map((s) => {
+            const state = landing[s.id];
+            const c = proposalChip(s.change?.type, s.module);
+            const motion = state === "approving" ? "animate-proposal-solidify" : state === "rejecting" ? "animate-proposal-dissolve" : "animate-proposal-pulse";
+            return (
+              <div key={s.id} className={`rounded-ui border border-dashed border-proposal bg-proposal/10 p-2 ${motion}`}>
+                <Inline gap="sm" justify="between" align="center" wrap>
+                  <Inline gap="sm" align="center">
+                    <ProposalBadge state={state ?? "pending"} label={c.label} />
+                    <Text size="meta" tone="muted">{reasonLine(s.evidence?.[0]?.kind, s.evidence)}</Text>
+                  </Inline>
+                  {!state && (
+                    rejectOpenId === s.id ? (
+                      <Inline gap="xs" wrap>
+                        {REJECT_REASONS.map((r) => (
+                          <Button key={r} variant="outline" size="sm" onClick={() => rejectProposal(s, r)}>{r}</Button>
+                        ))}
+                        <Button variant="ghost" size="sm" onClick={() => setRejectOpenId(null)}>cancel</Button>
+                      </Inline>
+                    ) : (
+                      <Inline gap="sm">
+                        <Button variant="primary" size="sm" onClick={() => approveProposal(s)}>Approve</Button>
+                        <Button variant="danger" size="sm" onClick={() => setRejectOpenId(s.id)}>Reject</Button>
+                      </Inline>
+                    )
+                  )}
+                </Inline>
+              </div>
+            );
+          })}
+        </Stack>
+      )}
 
       {/* grouped attribute cards */}
       <div className={`grid gap-2 ${two ? "grid-cols-2" : "grid-cols-1"}`}>

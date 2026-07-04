@@ -118,6 +118,14 @@ export interface PendingRow {
    *  create has no landed id yet). */
   readonly id: string;
   readonly title: string;
+  /** U8 — set the instant a click-accept dispatches `dataProvider.approve` (via
+   *  `pendingRowIntent` below), before the refetch that actually lands the note.
+   *  Drives the row's brief "approving" look (ProposalBadge state + the shared
+   *  `animate-proposal-solidify` motion, U1/KTD2) — a pure render flag, never a
+   *  fake landed row. `isPendingRow` stays true throughout: this row only stops
+   *  being a PendingRow when `mergeTableRows` next runs WITHOUT its staged entry
+   *  (the gate confirmed it landed) and the real `ModuleItem` row takes its place. */
+  readonly solidifying?: boolean;
 }
 
 /** Any row the table can render — a landed note or a pending proposal. The
@@ -150,6 +158,26 @@ export function mergeTableRows(rows: readonly ModuleItem[], staged: readonly Sta
     .filter((s) => { const op = s.op ?? "create"; return op === "create" || op === "update"; })
     .map(pendingRowOf);
   return [...rows, ...pending];
+}
+
+// ── in-place accept (U8) ─────────────────────────────────────────────────────
+// The table's proposal register (above) was read-only in U2 ("in-place accept
+// lands in U8"). These are the row's two pure gestures — the .tsx dispatches
+// them, never invents its own landing call (KTD5: the SAME `dataProvider.approve/
+// reject` the review queue uses, via `use-review-queue.ts`'s wrapped approve/reject).
+
+/** A pending row's click-accept/reject INTENT — exactly the `(id, module)` pair
+ *  `dataProvider.approve`/`reject` take. Pure: the row already carries everything
+ *  the gate needs (the staged proposal's own id, not the target note's), so this
+ *  is just the honest extraction, not a computation. */
+export function pendingRowIntent(row: PendingRow): { id: string; module: string } {
+  return { id: row.stagedId, module: row.module };
+}
+
+/** The brief in-flight transform after a click-accept (before the refetch lands
+ *  the real note): same row, `solidifying` set. Pure — never mutates `row`. */
+export function solidifyPendingRow(row: PendingRow): PendingRow {
+  return { ...row, solidifying: true };
 }
 
 /** Identity col + floor/schema cols + the elastic Attributes col (§H.2). The
