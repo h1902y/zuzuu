@@ -11,7 +11,7 @@ import { gridColumns } from "./grid-columns.js";
 import { NotesTable } from "./NotesTable.js";
 import { statusFacets } from "./everything-model.js";
 import { fieldsFromSchema } from "./schema-fields.js";
-import { parseInputClause } from "./table-model.js";
+import { parseInputClause, mergeTableRows } from "./table-model.js";
 import { useTableFilter } from "./use-table-filter.js";
 import { ClauseChips } from "./ClauseChips.js";
 import { FacetChip } from "./FacetChip.js";
@@ -26,7 +26,7 @@ import { Table2, Plus } from "lucide-react";
 import { Text, EmptyState, Button, Icon } from "../../ds/index.js";
 
 function GridInner() {
-  const { module, rows, total, loading, state, dispatch } = useList();
+  const { module, rows, total, loading, state, dispatch, staged } = useList();
   const select = useWorld((s) => s.select);
   const filterOps = useTableFilter(module, state, dispatch);
   const schema = useQuery({ queryKey: ["zuzuu", "schema", module], queryFn: () => api.zuzuu.schema(module) });
@@ -35,6 +35,10 @@ function GridInner() {
   const fields = fieldsFromSchema(schema.data?.schema);
   const cols = gridColumns(fields, rows);
   const statuses = statusFacets(rows, state.status);
+  // U2 — the table's proposal register: `staged` is the SAME staged summaries the
+  // review queue reads (this list's own `zz.module()` fetch — no new request);
+  // merge them in as pending rows so a staged create/update is visible IN PLACE.
+  const tableRows = mergeTableRows(rows, staged);
   const [addingColumn, setAddingColumn] = useState(false);
 
   // §H.3.4: selection lives OUTSIDE the table (the omnibar's context, not chrome);
@@ -106,12 +110,12 @@ function GridInner() {
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
         {loading ? (
           <div className="grid h-full place-items-center"><Text tone="muted">loading…</Text></div>
-        ) : !rows.length ? (
+        ) : !tableRows.length ? (
           <EmptyState icon={Table2} {...emptyCopy(state.text ? "grid-filter" : "grid-empty")} />
         ) : (
           <NotesTable
             cols={cols}
-            rows={rows}
+            rows={tableRows}
             sort={state.sort}
             onSort={(key) => dispatch({ type: "toggleSort", key })}
             // §I rung 5: a workflow-typed row focuses Flow instead of the Record stage

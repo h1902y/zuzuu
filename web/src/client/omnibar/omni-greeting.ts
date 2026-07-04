@@ -22,6 +22,11 @@ export interface GreetingInput {
   lastSession: { id: string; label: string } | null;
   /** the FIRST line of the cached readiness digest (null = not cached — never fetch) */
   digestLine: string | null;
+  /** non-null while a setup rung (git-init/init/enable) is still pending — the
+   *  companion pin's own label (e.g. "Setup 2/3", from companionView), reused
+   *  verbatim so the copy matches everywhere. The greeting must NEVER claim
+   *  "All caught up" while this is set (bug: false all-caught-up mid-setup). */
+  setupLabel: string | null;
 }
 
 export interface GreetingModel {
@@ -38,10 +43,12 @@ export function salutationFor(hour: number, name: string): string {
 }
 
 export function greetingModel(input: GreetingInput): GreetingModel {
-  const { hour, projectName, pending, held, integrity, lastSession, digestLine } = input;
+  const { hour, projectName, pending, held, integrity, lastSession, digestLine, setupLabel } = input;
   const needsMe = pending + held;
 
   const brief: string[] = [];
+  // bug fix: setup leads — honest first, never masked by a calm "All caught up."
+  if (setupLabel) brief.push(`${setupLabel} — finish setup to get started.`);
   if (needsMe > 0) brief.push(needsMeCopy(pending, held));
   if (lastSession) brief.push(`You were in ${lastSession.label}.`);
   if (integrity > 0) brief.push(`${integrity} integrity issue${integrity === 1 ? "" : "s"} worth a look.`);

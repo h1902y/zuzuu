@@ -7,6 +7,7 @@ import { captureSignals } from '../../hosts/capture.mjs';
 import { observe } from '../../grow/observe.mjs';
 import { observeRuns } from '../../grow/runs-miner.mjs';
 import { listTriggers, showTrigger, fireTrigger, setTriggerEnabled } from '../../grow/trigger.mjs';
+import { coerceForField } from '../../grow/edit.mjs';
 import { renderNoteDiff } from '../../use/diff.mjs';
 import { toon } from '../../notes/toon.mjs';
 import { fail, emit, list, fieldPairs, flag } from '../args.mjs';
@@ -222,10 +223,18 @@ export const evolutionRows = [
       // create/update/delete/deprecate operate on a --target note; relate/unrelate carry
       // the edge in --change ({from,type,to}), so they need no --target.
       if ((op === 'create' || op === 'update' || op === 'delete' || op === 'deprecate') && !args.target) return fail(log, `--target <id> is required for op '${op}'`, json);
-      // the change body: --change <json> (the machine path) OR repeated --field k=v (human sugar)
+      // the change body: --change <json> (the machine path) OR repeated --field k=v (human
+      // sugar; values coerce SCHEMA-AWARE — the SAME `coerceForField` `note create` uses, so
+      // `--field relations='{"relates-to":["m:id"]}'` lands a real map (a JSON-object value
+      // parses), not the literal string `note create` would never have produced. Before this
+      // fix `stage` scanned --field with the identity coerce (fieldPairs' own default) while
+      // `note create` used coerceForField — the SAME human-facing flag silently landing two
+      // different shapes, so an agent's staged relations vanished (or, since validateNote DOES
+      // reject a non-map relations at approve/commit, the create was refused outright instead
+      // of landing an edge — either way, --field could never carry a relation through `stage`).
       let change = {};
       if (args.change) { try { change = JSON.parse(args.change); } catch { return fail(log, 'invalid --change JSON', json); } }
-      else change = fieldPairs(rest);
+      else change = fieldPairs(rest, (k, v) => coerceForField(zz.home, module, k, v));
       const rec = zz.stage(module, { op, target: args.target, change });
       if (!rec) return fail(log, `invalid op '${op}' (create|update|delete|deprecate|relate|unrelate)`, json);
       // B1(a) (audit 2026-07-03-secrets-review.md): a poisoned type:secret proposal is

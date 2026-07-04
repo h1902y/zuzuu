@@ -5,7 +5,7 @@
 // and surface the rest as elastic attribute chips (§H.2); every chip doubles as
 // a filter clause (§H.3 — attributes surface AND become the query grammar); the
 // filter input speaks the CLI's own where-grammar. All pure → tested.
-import type { ModuleItem } from "#shared/index.js";
+import type { ModuleItem, StagedSummary } from "#shared/index.js";
 import type { GridColumn } from "./grid-columns.js";
 
 /** Keys that never chip: structural/envelope keys the floor already shows, plus
@@ -93,6 +93,91 @@ export function clauseParts(clause: string): { key: string; op: string; value: s
     if (at > 0) return { key: clause.slice(0, at), op, value: clause.slice(at + op.length) };
   }
   return { key: clause, op: "", value: "" };
+}
+
+// ── the table's proposal register (U2) ────────────────────────────────────────
+// The grid had NO proposal state before this pass — a staged create/update was
+// invisible until you opened the review queue. `mergeTableRows` sources the SAME
+// staged summaries the review queue reads (ListContext's `staged`, fed by the
+// identical `zz.module()`/`zz.items()` fetch use-review-queue.ts's loadQueue()
+// calls — no new fetch, no daemon change) and turns them into PendingRow entries,
+// additive alongside the landed rows: the table stays an honest ledger of what's
+// landed AND what's proposed, never a merged guess at either.
+
+/** A staged create/update rendered as a table row (the new register). Delete/
+ *  relate/deprecate proposals don't map to a stable "add a row" visual this
+ *  pass — filtered out in `mergeTableRows`, noted here rather than silently
+ *  dropped. */
+export interface PendingRow {
+  readonly pending: true;
+  /** the staged proposal's own id — what the gate acts on (approve/reject). */
+  readonly stagedId: string;
+  readonly module: string;
+  readonly op: string;
+  /** the target note id for an update, else the staged proposal's own id (a
+   *  create has no landed id yet). */
+  readonly id: string;
+  readonly title: string;
+  /** U8 — set the instant a click-accept dispatches `dataProvider.approve` (via
+   *  `pendingRowIntent` below), before the refetch that actually lands the note.
+   *  Drives the row's brief "approving" look (ProposalBadge state + the shared
+   *  `animate-proposal-solidify` motion, U1/KTD2) — a pure render flag, never a
+   *  fake landed row. `isPendingRow` stays true throughout: this row only stops
+   *  being a PendingRow when `mergeTableRows` next runs WITHOUT its staged entry
+   *  (the gate confirmed it landed) and the real `ModuleItem` row takes its place. */
+  readonly solidifying?: boolean;
+}
+
+/** Any row the table can render — a landed note or a pending proposal. The
+ *  `pending` discriminant never collides with ModuleItem (which carries no such
+ *  key), so `isPendingRow` narrows cleanly. */
+export type TableRow = ModuleItem | PendingRow;
+
+export function isPendingRow(row: TableRow): row is PendingRow {
+  return (row as Partial<PendingRow>).pending === true;
+}
+
+function pendingRowOf(s: StagedSummary): PendingRow {
+  const op = s.op ?? "create";
+  return {
+    pending: true,
+    stagedId: s.id,
+    module: s.module,
+    op,
+    id: s.target ?? s.id,
+    title: s.title || s.target || s.id,
+  };
+}
+
+/** Merge a list's landed rows with its pending create/update proposals — the
+ *  table's proposal register (U2). Pending rows are ADDITIVE (appended, never
+ *  mutating/replacing a real row) so an update-in-flight reads as "this note
+ *  ALSO has a proposed change," not a silently-swapped value. */
+export function mergeTableRows(rows: readonly ModuleItem[], staged: readonly StagedSummary[]): TableRow[] {
+  const pending = staged
+    .filter((s) => { const op = s.op ?? "create"; return op === "create" || op === "update"; })
+    .map(pendingRowOf);
+  return [...rows, ...pending];
+}
+
+// ── in-place accept (U8) ─────────────────────────────────────────────────────
+// The table's proposal register (above) was read-only in U2 ("in-place accept
+// lands in U8"). These are the row's two pure gestures — the .tsx dispatches
+// them, never invents its own landing call (KTD5: the SAME `dataProvider.approve/
+// reject` the review queue uses, via `use-review-queue.ts`'s wrapped approve/reject).
+
+/** A pending row's click-accept/reject INTENT — exactly the `(id, module)` pair
+ *  `dataProvider.approve`/`reject` take. Pure: the row already carries everything
+ *  the gate needs (the staged proposal's own id, not the target note's), so this
+ *  is just the honest extraction, not a computation. */
+export function pendingRowIntent(row: PendingRow): { id: string; module: string } {
+  return { id: row.stagedId, module: row.module };
+}
+
+/** The brief in-flight transform after a click-accept (before the refetch lands
+ *  the real note): same row, `solidifying` set. Pure — never mutates `row`. */
+export function solidifyPendingRow(row: PendingRow): PendingRow {
+  return { ...row, solidifying: true };
 }
 
 /** Identity col + floor/schema cols + the elastic Attributes col (§H.2). The

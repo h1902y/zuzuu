@@ -19,11 +19,15 @@
 
 .zz-world-link {
   stroke: var(--color-ink-600);
-  stroke-opacity: 0.5;
+  stroke-opacity: 0.55;
   stroke-width: 1;
+  transition: stroke-opacity 0.2s ease, stroke 0.2s ease;
 }
 .zz-world-link.cross {
-  stroke-opacity: 0.28;
+  /* D — was 0.28: on a dense graph this read as near-invisible, and cross-module
+     edges are the structure worth seeing. Still dashed + a touch dimmer than a
+     same-module edge, so the distinction (structure vs. connective tissue) holds. */
+  stroke-opacity: 0.4;
   stroke-dasharray: 2 4;
 }
 
@@ -52,6 +56,21 @@
 .zz-world-label.zz-world-dim { opacity: 0 !important; }
 .zz-world-link.zz-world-dim { stroke-opacity: 0.05; }
 
+/* hover-to-trace (C): hovering a node lights its incident edges + immediate
+   neighbors and fades the rest, so a dense graph still reads as a traceable
+   network. A DELIBERATELY SEPARATE class pair from zz-world-dim (the spotlight
+   lens above) — same recession values, but the two states must compose rather
+   than fight over one class (a spotlight-dimmed node already has
+   pointer-events:none, so it can't trigger a trace; clearing the trace on
+   mouseleave must never touch the spotlight's own dim state). */
+.zz-world-link.zz-world-trace-lit {
+  stroke: var(--color-accent);
+  stroke-opacity: 0.85;
+}
+.zz-world-node.zz-world-trace-dim { opacity: 0.12; }
+.zz-world-label.zz-world-trace-dim { opacity: 0 !important; }
+.zz-world-link.zz-world-trace-dim { stroke-opacity: 0.05; }
+
 .zz-world-label {
   fill: var(--color-ink-300);
   font-family: var(--font-mono-data);
@@ -70,27 +89,31 @@
 }
 
 /* the moat, visible: a pending proposal is a dashed translucent pulse until the
-   human approves and the node solidifies */
+   human approves and the node solidifies. The keyframes (zz-world-pulse /
+   zz-world-solidify / zz-world-ghost-out) are PROMOTED to the shared layer
+   (client/index.css, U1/KTD2) — same names, same timing, so the table/card/inline
+   accepts can share this exact transition; only the references stay here.
+   U2: the ghost itself now draws from --color-proposal (the shared "not-yet-real"
+   hue, model.ts's GHOST_STROKE_TOKEN), not --color-accent — pending reads violet
+   everywhere. Approve still snaps to --color-accent (below, .zz-world-solidify /
+   the zz-world-solidify keyframe in index.css): solidify IS "becomes real," so it
+   correctly keeps the mint it's turning into. */
 .zz-world-ghost circle {
-  fill: var(--color-accent);
+  fill: var(--color-proposal);
   fill-opacity: 0.12;
-  stroke: var(--color-accent);
+  stroke: var(--color-proposal);
   stroke-width: 1.5;
   stroke-dasharray: 3 3;
   cursor: pointer;
   animation: zz-world-pulse 2.4s ease-in-out infinite;
 }
 .zz-world-ghost text {
-  fill: var(--color-accent);
+  fill: var(--color-proposal);
   font-family: var(--font-mono-data);
   font-size: 9px;
   text-anchor: middle;
   pointer-events: none;
   transition: opacity 0.25s ease;
-}
-@keyframes zz-world-pulse {
-  0%, 100% { stroke-opacity: 0.9; fill-opacity: 0.1; }
-  50% { stroke-opacity: 0.35; fill-opacity: 0.22; }
 }
 
 /* C4 — the moat made visceral. Approve: the born node solidifies (dash → solid,
@@ -100,17 +123,9 @@
   transform-origin: center;
   animation: zz-world-solidify 0.9s ease-out;
 }
-@keyframes zz-world-solidify {
-  0% { stroke: var(--color-accent); stroke-dasharray: 3 3; fill-opacity: 0.15; transform: scale(0.6); }
-  55% { stroke: var(--color-accent); stroke-dasharray: 0 0; fill-opacity: 1; transform: scale(1.18); }
-  100% { fill-opacity: 0.92; transform: scale(1); }
-}
 .zz-world-ghost-out {
   animation: zz-world-ghost-out 0.45s ease-in forwards;
   pointer-events: none;
-}
-@keyframes zz-world-ghost-out {
-  to { opacity: 0; }
 }
 
 .zz-world-chips {

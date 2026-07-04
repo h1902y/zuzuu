@@ -52,3 +52,19 @@ export function rungStatus(state: ProjectStateKind, rung: RungId): RungStatus {
 export function shouldShowSetupNode(state: ProjectStateKind): boolean {
   return state !== "steady";
 }
+
+/** Whether the full-screen onboarding wall — the non-dismissible consent
+ *  surface (no Escape, no click-out, no header nav; R13/R14/KTD1) — should
+ *  cover the whole workbench. Same as `homeMode(...) === "onboarding"`, with
+ *  ONE further carve-out: `hooks-off` never walls. git + `.zuzuu/` already
+ *  exist there, so the brain is reachable by hand (map, table, the operator
+ *  lane) regardless of content count — agent-OBSERVING is a separate concern
+ *  from viewing/editing it manually. Before this carve-out, a project set up
+ *  via the CLI (no `zz enable` run) or one that declined the 3rd rung both
+ *  rendered a "Brain paused" card whose ONLY exit was "Re-enable setup" —
+ *  Escape/click-outside/the header nav all did nothing. Also doubles as the
+ *  omnibar's auto-open gate (§E.4): the assist greeting must never fire ON
+ *  TOP of this wall while it's up. */
+export function onboardingWallShows(state: ProjectStateKind, contentModules = 0): boolean {
+  return homeMode(state, contentModules) === "onboarding" && state !== "hooks-off";
+}

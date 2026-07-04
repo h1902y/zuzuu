@@ -14,7 +14,7 @@ import { createHash } from 'node:crypto';
 import { readJson, writeJson } from '../notes/store.mjs';
 import { ensureModuleManifest } from '../notes/module-templates.mjs';
 import { readNote } from '../notes/repo.mjs';
-import { projectChange, lookupId } from './commit.mjs';
+import { projectChange, lookupId, withDefaultType } from './commit.mjs';
 import { secretValueLeaks } from '../notes/validate.mjs';
 
 const OPS = new Set(['create', 'update', 'delete', 'relate', 'unrelate', 'deprecate']);
@@ -70,11 +70,22 @@ function secretStageRefusal(home, module, p) {
  */
 export function stageChange(home, module, p) {
   if (!OPS.has(p.op)) return null;
-  const refusal = secretStageRefusal(home, module, p);
+  // a typeless CREATE defaults `type` to 'note' HERE too (not only at approve/commit,
+  // where `withDefaultType` is imported FROM — see its doc comment in commit.mjs for the
+  // full bug + why every path needs it) so the STAGED record itself is self-describing —
+  // `zz review`'s preview shows the real landing type before anyone approves it, not a
+  // blank that only resolves at commit time. Scoped to `op === 'create'` only, and only
+  // reassigning `change` there: every other op's `change` (delete/deprecate routinely omit
+  // one entirely) flows through completely UNTOUCHED — including staying `undefined` when
+  // omitted — so the content-hash `stageId` below keeps hashing exactly what it always did
+  // for those ops (a blanket `withDefaultType` call would silently turn an omitted
+  // `undefined` into `{}`, shifting every non-create id).
+  const change = p.op === 'create' ? withDefaultType('create', p.change) : p.change;
+  const refusal = secretStageRefusal(home, module, { ...p, change });
   if (refusal) return { error: refusal };
-  const id = stageId({ ...p, module });
+  const id = stageId({ ...p, module, change });
   const record = {
-    id, op: p.op, module, target: p.target ?? null, change: p.change ?? {},
+    id, op: p.op, module, target: p.target ?? null, change: change ?? {},
     rationale: p.rationale ?? '', evidence: p.evidence ?? [],
     confidence: p.confidence ?? null, score: p.score ?? 0,
     source: p.source ?? null, status: 'pending',

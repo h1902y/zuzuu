@@ -4,7 +4,7 @@ import { greetingModel, salutationFor } from "../../src/client/omnibar/omni-gree
 
 const BASE = {
   hour: 9, projectName: "personal", pending: 0, held: 0, integrity: 0,
-  lastSession: null, digestLine: null,
+  lastSession: null, digestLine: null, setupLabel: null,
 };
 
 describe("greetingModel", () => {
@@ -28,6 +28,21 @@ describe("greetingModel", () => {
     const g = greetingModel(BASE);
     expect(g.brief).toEqual(["All caught up."]);
     expect(g.rows.some((r) => r.action.kind === "review")).toBe(false);
+  });
+
+  it("never claims 'All caught up' while setup is incomplete (bug fix)", () => {
+    // nothing pending, nothing held, no integrity issues — the OLD greeting fell
+    // straight through to "All caught up.", colliding with the still-open setup rung
+    const g = greetingModel({ ...BASE, setupLabel: "Setup 2/3" });
+    expect(g.brief).not.toContain("All caught up.");
+    expect(g.brief[0]).toContain("Setup 2/3");
+  });
+
+  it("setup leads even when something else also needs the user", () => {
+    const g = greetingModel({ ...BASE, setupLabel: "Setup 3/3", pending: 2 });
+    expect(g.brief[0]).toContain("Setup 3/3");
+    expect(g.brief.join(" ")).toContain("2 proposals to review");
+    expect(g.brief.join(" ")).not.toContain("All caught up.");
   });
 
   it("surfaces the cached digest line ONLY when integrity is quiet", () => {

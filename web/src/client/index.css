@@ -48,6 +48,19 @@
   /* danger — the neon brand's destructive (warm crimson, distinct from mint) */
   --color-danger: #ff3b5c;
 
+  /* proposal — the ds's ONE canonical "not-yet-real" state (U1: ds/recipes/proposal.ts
+     + ds/kit/ProposalBadge.tsx). RECONCILES the old 3-way disagreement — the palette
+     drew pending as dashed warning-yellow, the World as dashed accent-mint, the review
+     card as a settled solid chip. Deliberately NOT warning (that reads as "problem,"
+     not "pending") and NOT accent (mint is the CONFIRMED/real state a proposal
+     solidifies INTO on approve — reusing it for the not-yet-real state erases the very
+     distinction the moat exists to show, see world.css's ghost→solidify). A calm violet
+     is distinct from every status hue AND every module hue in use — reads as its own
+     thing, unmistakably "in between." (DARK values; light goes deep-for-legibility,
+     same treatment as --color-accent.) */
+  --color-proposal: #c9a3f7;
+  --color-proposal-dim: #ab7ce8; /* solidify/hover-equivalent, pairs with the -dim siblings */
+
   /* semantic aliases — declared ONCE, follow the ramp through every theme */
   --color-app: var(--color-ink-950);
   --color-surface: var(--color-ink-900);
@@ -112,6 +125,8 @@
   --color-accent-dim: #9be9c4;
   --color-on-accent: #06140d;
   --color-danger: #ff3b5c;
+  --color-proposal: #c9a3f7;
+  --color-proposal-dim: #ab7ce8;
   --color-success: #5ef2a0;
   --color-warning: #e0a83c;
   --color-info: #3bd6c9;
@@ -142,6 +157,8 @@
   --color-accent-dim: #0b7d5d; /* deeper — hover/pressed */
   --color-on-accent: #f4f3f7;  /* near-white text on the deep mint-teal */
   --color-danger: #d12c4a;
+  --color-proposal: #7c3aed;      /* deep violet — legible on a light field */
+  --color-proposal-dim: #6425c9;  /* deeper — hover/pressed */
   --color-success: #1f9d6a;
   --color-warning: #b5821a;
   --color-info: #0d9aa0;
@@ -163,10 +180,34 @@
   from { opacity: 0; }
   to { opacity: 1; }
 }
+/* proposal-state motion (U1/KTD2) — PROMOTED from world/world.css: the World's
+   ghost-pulse / solidify-pop / dissolve-out is the emotional gold standard; the
+   keyframes now live here so a table row, a card, or an inline accept can play the
+   identical transition, not just the map. world/world.css keeps referencing these
+   names unchanged (the SVG ghost's look doesn't change) — stroke/fill-* are SVG-only
+   and no-op harmlessly on HTML elements, where opacity + transform carry the read. */
+@keyframes zz-world-pulse {
+  0%, 100% { stroke-opacity: 0.9; fill-opacity: 0.1; }
+  50% { stroke-opacity: 0.35; fill-opacity: 0.22; }
+}
+@keyframes zz-world-solidify {
+  0% { stroke: var(--color-accent); stroke-dasharray: 3 3; fill-opacity: 0.15; transform: scale(0.6); }
+  55% { stroke: var(--color-accent); stroke-dasharray: 0 0; fill-opacity: 1; transform: scale(1.18); }
+  100% { fill-opacity: 0.92; transform: scale(1); }
+}
+@keyframes zz-world-ghost-out {
+  to { opacity: 0; }
+}
 .animate-pop { animation: zz-pop 160ms cubic-bezier(0.34, 1.4, 0.64, 1); }
 .animate-fade { animation: zz-fade 120ms ease-out; }
+/* the proposal recipe's motion classes (ds/recipes/proposal.ts) — bound to the
+   shared keyframes above, same naming pattern as animate-pop/animate-fade. */
+.animate-proposal-pulse { animation: zz-world-pulse 2.4s ease-in-out infinite; }
+.animate-proposal-solidify { animation: zz-world-solidify 0.9s ease-out; }
+.animate-proposal-dissolve { animation: zz-world-ghost-out 0.45s ease-in forwards; }
 @media (prefers-reduced-motion: reduce) {
-  .animate-pop, .animate-fade { animation: none; }
+  .animate-pop, .animate-fade,
+  .animate-proposal-pulse, .animate-proposal-solidify, .animate-proposal-dissolve { animation: none; }
 }
 
 html,

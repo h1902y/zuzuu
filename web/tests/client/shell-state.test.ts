@@ -48,4 +48,14 @@ describe("ribbonState — the ambient gate", () => {
     expect(ribbonState([], {}).allCaughtUp).toBe(true);
     expect(ribbonState([{ id: "a", live: true }], { knowledge: 0 }).allCaughtUp).toBe(true);
   });
+  it("never claims all-caught-up while setup is incomplete (bug fix)", () => {
+    // nothing pending, but a setup rung is still open — must NOT read "all caught up"
+    const r = ribbonState([], {}, true);
+    expect(r.allCaughtUp).toBe(false);
+    expect(r.pending).toBe(0);
+  });
+  it("setupIncomplete defaults to false — existing call sites are unaffected", () => {
+    expect(ribbonState([], { knowledge: 2 }).allCaughtUp).toBe(false);
+    expect(ribbonState([], { knowledge: 2 }).pending).toBe(2);
+  });
 });
