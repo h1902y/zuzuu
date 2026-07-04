@@ -1,13 +1,15 @@
 // shell/review/use-review-queue.ts — load the cross-module proposal queue and the
-// gate actions. Fetches each pending module's staged summaries, aggregates + groups
-// via the review-model core, and exposes approve/reject (→ evolve / teach) with a
-// refetch. Thin glue over the DataProvider; the aggregation logic is tested.
+// gate actions. Fetches each pending module's staged summaries, aggregates + scores +
+// sorts (U4: confidence × blast-radius — destructive/low-confidence float to the top,
+// replacing the old flat first-seen order) + groups via the review-model core, and
+// exposes approve/reject (→ evolve / teach) with a refetch. Thin glue over the
+// DataProvider; the aggregation/scoring logic is tested.
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { StagedSummary } from "#shared/index.js";
 import { api } from "../../lib/api.js";
 import { dataProvider } from "../../data/provider.js";
 import { toast } from "../../state/toast.js";
-import { aggregateStaged, groupBy } from "./review-model.js";
+import { aggregateStaged, groupBy, scoreQueue, sortByScore } from "./review-model.js";
 
 /** Fetch the staged summaries of every module that has pending proposals. */
 async function loadQueue(): Promise<Record<string, StagedSummary[]>> {
@@ -22,7 +24,10 @@ async function loadQueue(): Promise<Record<string, StagedSummary[]>> {
 export function useReviewQueue() {
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ["zuzuu", "review-queue"], queryFn: loadQueue });
-  const queue = aggregateStaged(q.data ?? {});
+  // U4: score (confidence × blast-radius) then sort HIGHEST-attention first, BEFORE
+  // grouping — so both the flat `queue` and each module's bucket in `grouped` read
+  // destructive/low-confidence-first, batchable-tail-last (was flat first-seen order).
+  const queue = sortByScore(scoreQueue(aggregateStaged(q.data ?? {})));
   const grouped = groupBy(queue, "module");
   const invalidate = () => void qc.invalidateQueries({ queryKey: ["zuzuu"] }); // queue + overview + project-state
 

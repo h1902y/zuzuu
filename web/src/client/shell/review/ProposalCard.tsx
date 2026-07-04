@@ -9,6 +9,7 @@ import { reasonLine } from "./reason-line.js";
 import { proposalChip } from "./proposal-chip.js";
 import { provenanceOf } from "./provenance.js";
 import { DiffPreview } from "./DiffPreview.js";
+import { ConfidenceMeter } from "./ConfidenceMeter.js";
 import { Stack, Inline, Text, Button, Chip, ProposalBadge } from "../../ds/index.js";
 
 export function ProposalCard({ item, focused, diffOpen, onDiffOpenChange, onApprove, onReject }: {
@@ -48,10 +49,14 @@ export function ProposalCard({ item, focused, diffOpen, onDiffOpenChange, onAppr
               most "settled" of the three old pending treatments. */}
           {(() => { const c = proposalChip(item.change?.type, item.module); return <ProposalBadge state="pending" label={c.label} />; })()}
           <Text size="ui" weight="medium" truncate>{item.title}</Text>
+          {/* U4 — the scorer's meter: confidence × blast-radius, replacing the old
+              stray muted `item.confidence` text line. Display only (KTD4/the moat):
+              it never approves/rejects, it just tells you how much scrutiny this one
+              deserves before you do. */}
+          <ConfidenceMeter item={item} />
         </Inline>
         <Text size="meta" tone="muted">{reasonLine(item.evidence?.[0]?.kind, item.evidence)}</Text>
         {item.preview && <Text size="meta" tone="muted">{item.preview}</Text>}
-        {item.confidence && <Text size="meta" tone="muted">{item.confidence}</Text>}
         {(() => {
           // Provenance (U6 / R6): name the session(s) this proposal was born from —
           // the session↔proposal cross-reference. Degrades silently when no source.
