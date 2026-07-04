@@ -19,11 +19,15 @@
 
 .zz-world-link {
   stroke: var(--color-ink-600);
-  stroke-opacity: 0.5;
+  stroke-opacity: 0.55;
   stroke-width: 1;
+  transition: stroke-opacity 0.2s ease, stroke 0.2s ease;
 }
 .zz-world-link.cross {
-  stroke-opacity: 0.28;
+  /* D — was 0.28: on a dense graph this read as near-invisible, and cross-module
+     edges are the structure worth seeing. Still dashed + a touch dimmer than a
+     same-module edge, so the distinction (structure vs. connective tissue) holds. */
+  stroke-opacity: 0.4;
   stroke-dasharray: 2 4;
 }
 
@@ -51,6 +55,21 @@
 .zz-world-node.zz-world-dim { opacity: 0.12; pointer-events: none; }
 .zz-world-label.zz-world-dim { opacity: 0 !important; }
 .zz-world-link.zz-world-dim { stroke-opacity: 0.05; }
+
+/* hover-to-trace (C): hovering a node lights its incident edges + immediate
+   neighbors and fades the rest, so a dense graph still reads as a traceable
+   network. A DELIBERATELY SEPARATE class pair from zz-world-dim (the spotlight
+   lens above) — same recession values, but the two states must compose rather
+   than fight over one class (a spotlight-dimmed node already has
+   pointer-events:none, so it can't trigger a trace; clearing the trace on
+   mouseleave must never touch the spotlight's own dim state). */
+.zz-world-link.zz-world-trace-lit {
+  stroke: var(--color-accent);
+  stroke-opacity: 0.85;
+}
+.zz-world-node.zz-world-trace-dim { opacity: 0.12; }
+.zz-world-label.zz-world-trace-dim { opacity: 0 !important; }
+.zz-world-link.zz-world-trace-dim { stroke-opacity: 0.05; }
 
 .zz-world-label {
   fill: var(--color-ink-300);

@@ -1,6 +1,9 @@
 // client/world/model.ts — the world's pure model (palette · affinity · ghosts · radius).
 import { describe, expect, it } from "vitest";
-import { cardPicks, deriveAffinity, moduleHue, modulePalette, nodeRadius, reconcileGhosts, resolveMentionAddrs } from "../../src/client/world/model.js";
+import {
+  buildNeighborIndex, cardPicks, declutter, deriveAffinity, moduleHue, modulePalette, nodeRadius,
+  reconcileGhosts, resolveMentionAddrs, truncLabel,
+} from "../../src/client/world/model.js";
 import type { WorldGraphLink } from "../../src/shared/zuzuu.js";
 
 describe("modulePalette", () => {
@@ -97,5 +100,74 @@ describe("resolveMentionAddrs (glow targets)", () => {
   it("dedupes across forms, input order kept", () => {
     expect(resolveMentionAddrs(["brahman", "knowledge:brahman", "2026-07-02"], addrs))
       .toEqual(["knowledge:brahman", "journal:2026-07-02"]);
+  });
+});
+
+describe("truncLabel (label truncation, B)", () => {
+  it("leaves short strings untouched", () => {
+    expect(truncLabel("brahman")).toBe("brahman");
+    expect(truncLabel("exactly-eighteen!!")).toBe("exactly-eighteen!!"); // 18 chars, at the boundary
+  });
+  it("truncates past max with an ellipsis — the dense-graph example", () => {
+    expect(truncLabel("Scaling Monosemanticity Paper")).toBe("Scaling Monosemant…");
+  });
+  it("respects a custom max", () => {
+    expect(truncLabel("abcdefgh", 4)).toBe("abcd…");
+  });
+});
+
+describe("declutter (label collision pass, A)", () => {
+  it("keeps every label when no boxes overlap", () => {
+    const cands = [
+      { addr: "a", x: 0, y: 0, w: 40, priority: 5 },
+      { addr: "b", x: 200, y: 0, w: 40, priority: 3 },
+      { addr: "c", x: 0, y: 200, w: 40, priority: 1 },
+    ];
+    expect(declutter(cands)).toEqual(new Set(["a", "b", "c"]));
+  });
+  it("hides the lower-priority label when its box overlaps a higher-priority one already placed", () => {
+    const cands = [
+      { addr: "hub", x: 0, y: 0, w: 40, priority: 10 },
+      { addr: "leaf", x: 5, y: 0, w: 40, priority: 1 }, // overlaps hub's box, loses on priority
+    ];
+    const shown = declutter(cands);
+    expect(shown.has("hub")).toBe(true);
+    expect(shown.has("leaf")).toBe(false);
+  });
+  it("a non-overlapping label survives regardless of priority", () => {
+    const cands = [
+      { addr: "hub", x: 0, y: 0, w: 40, priority: 10 },
+      { addr: "far", x: 500, y: 500, w: 40, priority: 1 },
+    ];
+    expect(declutter(cands)).toEqual(new Set(["hub", "far"]));
+  });
+  it("ties are stable — input order breaks it, not re-sorted arbitrarily", () => {
+    const cands = [
+      { addr: "first", x: 0, y: 0, w: 40, priority: 5 },
+      { addr: "second", x: 2, y: 0, w: 40, priority: 5 }, // overlapping box, same priority
+    ];
+    const shown = declutter(cands);
+    expect(shown.has("first")).toBe(true);
+    expect(shown.has("second")).toBe(false);
+  });
+});
+
+describe("buildNeighborIndex (hover-to-trace, C)", () => {
+  const links = [
+    { source: "k:a", target: "k:b" },
+    { source: "k:a", target: "k:c" },
+    { source: "k:b", target: "k:c" },
+  ];
+  it("collects neighbors symmetrically, one hop", () => {
+    const { neighbors } = buildNeighborIndex(links);
+    expect([...(neighbors.get("k:a") ?? [])].sort()).toEqual(["k:b", "k:c"]);
+    expect([...(neighbors.get("k:b") ?? [])].sort()).toEqual(["k:a", "k:c"]);
+    expect(neighbors.get("k:z")).toBeUndefined(); // an unknown node has no entry
+  });
+  it("collects the incident link indices for a node", () => {
+    const { incidentLinks } = buildNeighborIndex(links);
+    expect([...(incidentLinks.get("k:a") ?? [])].sort()).toEqual([0, 1]);
+    expect([...(incidentLinks.get("k:c") ?? [])].sort()).toEqual([1, 2]);
+    expect(incidentLinks.get("k:z")).toBeUndefined();
   });
 });

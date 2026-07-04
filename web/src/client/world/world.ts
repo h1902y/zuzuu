@@ -18,7 +18,11 @@ import { select, type Selection } from "d3-selection";
 import { zoom, zoomIdentity, type ZoomBehavior, type ZoomTransform } from "d3-zoom";
 import { drag } from "d3-drag";
 import type { WorldGhost, WorldGraph, WorldGraphNode } from "#shared/index.js";
-import { deriveAffinity, modulePalette, nodeRadius, moduleHue, cardPicks, resolveMentionAddrs, deepZoomModule, CARD_ZOOM, type AffinityLink } from "./model.js";
+import {
+  deriveAffinity, modulePalette, nodeRadius, moduleHue, cardPicks, resolveMentionAddrs, deepZoomModule, CARD_ZOOM,
+  declutter, truncLabel, buildNeighborIndex,
+  type AffinityLink, type LabelCandidate, type NeighborIndex,
+} from "./model.js";
 
 interface SimNode extends SimulationNodeDatum, WorldGraphNode { r: number }
 interface SimLink { source: SimNode | string; target: SimNode | string; type: string; cross?: boolean }
@@ -80,6 +84,12 @@ export function mountWorld(container: HTMLElement, cb: WorldCallbacks = {}): Wor
   let transform: ZoomTransform = zoomIdentity;
   let destroyed = false;
   let fitted = false;
+  // label declutter (A): the addrs the greedy collision pass says should show,
+  // recomputed on settle/zoom/setData — see applyDeclutter() below.
+  let shownLabels = new Set<string>();
+  // hover-to-trace (C): addr → neighbors/incident-link-indices, rebuilt each setData.
+  let neighborIndex: NeighborIndex = { neighbors: new Map(), incidentLinks: new Map() };
+  let declutterTimer: ReturnType<typeof setTimeout> | null = null;
 
   // ── level 1: the module world ──
   const metaSim: Simulation<MetaNode, MetaLink> = forceSimulation<MetaNode>([])
@@ -103,7 +113,7 @@ export function mountWorld(container: HTMLElement, cb: WorldCallbacks = {}): Wor
   }
   const sim: Simulation<SimNode, SimLink> = forceSimulation<SimNode>([])
     .velocityDecay(0.4)
-    .force("charge", forceManyBody<SimNode>().strength(-90).theta(0.9).distanceMax(200))
+    .force("charge", forceManyBody<SimNode>().strength(-110).theta(0.9).distanceMax(200))
     .force("follow", forceFollow)
     .force("collide", forceCollide<SimNode>().radius((d) => d.r + 4).strength(0.95).iterations(3))
     .stop();
@@ -129,6 +139,7 @@ export function mountWorld(container: HTMLElement, cb: WorldCallbacks = {}): Wor
       placeChips();
       placeCards();
       checkDeepZoom();
+      scheduleDeclutter();
     });
   (svg as Selection<SVGSVGElement, unknown, null, undefined>).call(zoomer);
 
@@ -154,11 +165,40 @@ export function mountWorld(container: HTMLElement, cb: WorldCallbacks = {}): Wor
 
   const hubMin = () => Math.max(3, Math.ceil(nodes.length / 40));
 
+  // would this label show at zoom k, ignoring collisions? (the declutter candidate gate)
+  function wouldShowLabel(d: SimNode, k: number): boolean {
+    return k < CARD_ZOOM && (k >= 1.5 || d.degree >= hubMin());
+  }
+
   function restyle(): void {
     const k = transform.k;
-    // labels hand off to the mini-cards at card zoom (the card carries the title)
-    labelSel.attr("opacity", (d) => (k >= CARD_ZOOM ? 0 : k >= 1.5 ? 0.9 : d.degree >= hubMin() ? 0.75 : 0));
+    // labels hand off to the mini-cards at card zoom (the card carries the title);
+    // among labels that pass the zoom gate, only the ones the declutter pass
+    // (applyDeclutter, below) placed without overlap actually show.
+    labelSel.attr("opacity", (d) => (wouldShowLabel(d, k) && shownLabels.has(d.addr) ? (k >= 1.5 ? 0.9 : 0.75) : 0));
     ghostSel.select("text").attr("opacity", k >= 1.2 ? 0.85 : 0);
+  }
+
+  // ── label declutter (A) — the core dense-graph fix: every label that would
+  // show at this zoom is a CANDIDATE; greedily place the highest-degree ones
+  // first and hide any whose approximate box collides with one already placed.
+  // Cheap but O(n²) — run on settle/zoom-debounce/setData, never every tick
+  // (tick() positions are approximate mid-settle anyway; this call finalizes).
+  function applyDeclutter(): void {
+    const k = transform.k;
+    const candidates: LabelCandidate[] = [];
+    for (const n of nodes) {
+      if (n.x == null || n.y == null || !wouldShowLabel(n, k)) continue;
+      const text = truncLabel(n.title || n.id);
+      candidates.push({ addr: n.addr, x: n.x, y: n.y - n.r - 5, w: text.length * 5.4, priority: n.degree });
+    }
+    shownLabels = declutter(candidates);
+    restyle();
+  }
+  // debounced trigger for zoom/pan (rapid-fire events; the collision pass isn't)
+  function scheduleDeclutter(): void {
+    if (declutterTimer) clearTimeout(declutterTimer);
+    declutterTimer = setTimeout(() => { declutterTimer = null; applyDeclutter(); }, 120);
   }
 
   // ── in-map mini-cards (C2 — the zoom ladder's missing rung): at k ≥ CARD_ZOOM
@@ -259,7 +299,7 @@ export function mountWorld(container: HTMLElement, cb: WorldCallbacks = {}): Wor
     placeCards();
   }
   sim.on("tick", tick);
-  sim.on("end", () => { if (!fitted) { fitted = true; fit(); } });
+  sim.on("end", () => { applyDeclutter(); if (!fitted) { fitted = true; fit(); } });
 
   // ── chips (drag the island / click the module) ──
   function buildChips(): void {
@@ -303,6 +343,32 @@ export function mountWorld(container: HTMLElement, cb: WorldCallbacks = {}): Wor
       .style("background", (d) => palette[d.id] ?? "currentColor");
   }
 
+  // ── hover-to-trace (C) — hovering a node lights its incident edges and
+  // immediate neighbors and fades everything else, so a dense graph still
+  // reads as a traceable network node-by-node. Deliberately a SEPARATE class
+  // pair (zz-world-trace-lit/-dim) from zz-world-dim (the spotlight lens): a
+  // spotlight-dimmed node has pointer-events:none already so it can't trigger
+  // a trace, and clearing the trace on mouseleave must never disturb the
+  // spotlight's own dim state. neighborIndex (rebuilt each setData) makes this
+  // an O(degree) lookup rather than a graph walk per hover.
+  function traceFrom(addr: string): void {
+    const neighborAddrs = neighborIndex.neighbors.get(addr) ?? new Set<string>();
+    const incident = neighborIndex.incidentLinks.get(addr) ?? new Set<number>();
+    const litLinks = new Set<SimLink>();
+    for (const i of incident) { const l = links[i]; if (l) litLinks.add(l); }
+    const inTrace = (a: string) => a === addr || neighborAddrs.has(a);
+    nodeSel.classed("zz-world-trace-dim", (n) => !inTrace(n.addr));
+    labelSel.classed("zz-world-trace-dim", (n) => !inTrace(n.addr));
+    linkSel
+      .classed("zz-world-trace-lit", (l) => litLinks.has(l))
+      .classed("zz-world-trace-dim", (l) => !litLinks.has(l));
+  }
+  function clearTrace(): void {
+    nodeSel.classed("zz-world-trace-dim", false);
+    labelSel.classed("zz-world-trace-dim", false);
+    linkSel.classed("zz-world-trace-lit", false).classed("zz-world-trace-dim", false);
+  }
+
   // ── data ──
   function setData(graph: WorldGraph): void {
     if (destroyed) return;
@@ -335,9 +401,12 @@ export function mountWorld(container: HTMLElement, cb: WorldCallbacks = {}): Wor
     });
     const byAddr = new Map(nodes.map((n) => [n.addr, n]));
     const moduleOf = new Map(graph.nodes.map((n) => [n.addr, n.module]));
-    links = graph.links
-      .filter((l) => byAddr.has(l.source) && byAddr.has(l.target))
-      .map((l) => ({ source: l.source, target: l.target, type: l.type, cross: moduleOf.get(l.source) !== moduleOf.get(l.target) }));
+    const filteredLinks = graph.links.filter((l) => byAddr.has(l.source) && byAddr.has(l.target));
+    links = filteredLinks.map((l) => ({ source: l.source, target: l.target, type: l.type, cross: moduleOf.get(l.source) !== moduleOf.get(l.target) }));
+    // hover-to-trace (C): built from the plain source/target addrs, BEFORE
+    // forceLink mutates links' source/target into node object references —
+    // filteredLinks and links share index order 1:1, so index i means the same edge.
+    neighborIndex = buildNeighborIndex(filteredLinks.map((l) => ({ source: l.source, target: l.target })));
 
     // level-1 affinity springs from cross-module edge counts
     const affinity: MetaLink[] = deriveAffinity(graph.links, moduleOf).map((a) => ({ ...a }));
@@ -347,7 +416,7 @@ export function mountWorld(container: HTMLElement, cb: WorldCallbacks = {}): Wor
 
     sim.nodes(nodes);
     sim.force("link", forceLink<SimNode, SimLink>(links).id((d) => d.addr)
-      .distance((l) => 46 + (l.cross ? 80 : 0))
+      .distance((l) => 54 + (l.cross ? 80 : 0))
       .strength((l) => (l.cross ? 0.05 : 0.25)));
 
     // joins
@@ -364,8 +433,14 @@ export function mountWorld(container: HTMLElement, cb: WorldCallbacks = {}): Wor
       .attr("opacity", (d) => (d.status === "archived" || d.status === "deprecated" ? 0.45 : 0.92));
     nodeSel
       .on("click", (_ev: MouseEvent, d) => cb.onSelectNote?.(d.addr, d.module, d.id))
-      .on("mouseenter", function (this: SVGCircleElement) { select(this).classed("hover", true); })
-      .on("mouseleave", function (this: SVGCircleElement) { select(this).classed("hover", false); })
+      .on("mouseenter", function (this: SVGCircleElement, _ev: MouseEvent, d: SimNode) {
+        select(this).classed("hover", true);
+        traceFrom(d.addr);
+      })
+      .on("mouseleave", function (this: SVGCircleElement) {
+        select(this).classed("hover", false);
+        clearTrace();
+      })
       .call(drag<SVGCircleElement, SimNode>()
         .on("start", (_ev, d) => { sim.alphaTarget(0.2).restart(); d.fx = d.x; d.fy = d.y; })
         .on("drag", (ev: { dx: number; dy: number }, d) => { d.fx = (d.fx ?? 0) + ev.dx / transform.k; d.fy = (d.fy ?? 0) + ev.dy / transform.k; })
@@ -381,7 +456,7 @@ export function mountWorld(container: HTMLElement, cb: WorldCallbacks = {}): Wor
       .data(nodes, (d) => d.addr)
       .join("text")
       .attr("class", "zz-world-label")
-      .text((d) => d.title || d.id);
+      .text((d) => truncLabel(d.title || d.id)); // B — full title still lives on the mini-card at card-zoom
     ringSel = ringLayer.selectAll<SVGCircleElement, string>("circle")
       .data(modules, (m) => m)
       .join("circle")
@@ -390,7 +465,7 @@ export function mountWorld(container: HTMLElement, cb: WorldCallbacks = {}): Wor
 
     buildChips();
     rebuildGhosts();
-    restyle();
+    applyDeclutter(); // A — initial pass on fresh data (also calls restyle()); sim.on("end") refines it once settled
     applySpotlight(); // the joins rebuilt the selections — the lens must survive new data
     sim.alpha(prev.size ? 0.3 : 0.9).restart();
   }
@@ -511,6 +586,7 @@ export function mountWorld(container: HTMLElement, cb: WorldCallbacks = {}): Wor
       destroyed = true;
       container.removeEventListener("wheel", onWheel);
       if (glowTimer) clearTimeout(glowTimer);
+      if (declutterTimer) clearTimeout(declutterTimer);
       ro.disconnect();
       sim.stop();
       metaSim.stop();
