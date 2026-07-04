@@ -4,12 +4,18 @@
 // replacing the old flat first-seen order) + groups via the review-model core, and
 // exposes approve/reject (→ evolve / teach) with a refetch. Thin glue over the
 // DataProvider; the aggregation/scoring logic is tested.
+//
+// U6 — `axis` picks the grouping view (module | session/run, default "module" for
+// existing callers like World.tsx). It is NOT part of the react-query key: switching
+// axis only re-runs the pure `groupByAxis` partition over the already-fetched,
+// already-scored `queue` on the next render — no refetch, no cache invalidation.
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { StagedSummary } from "#shared/index.js";
 import { api } from "../../lib/api.js";
 import { dataProvider } from "../../data/provider.js";
 import { toast } from "../../state/toast.js";
-import { aggregateStaged, groupBy, scoreQueue, sortByScore } from "./review-model.js";
+import { aggregateStaged, groupByAxis, scoreQueue, sortByScore } from "./review-model.js";
+import type { GroupAxis } from "./review-model.js";
 import type { EditIntent } from "./review-flow.js";
 
 /** Fetch the staged summaries of every module that has pending proposals. */
@@ -22,14 +28,16 @@ async function loadQueue(): Promise<Record<string, StagedSummary[]>> {
   return byModule;
 }
 
-export function useReviewQueue() {
+export function useReviewQueue(axis: GroupAxis = "module") {
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ["zuzuu", "review-queue"], queryFn: loadQueue });
   // U4: score (confidence × blast-radius) then sort HIGHEST-attention first, BEFORE
-  // grouping — so both the flat `queue` and each module's bucket in `grouped` read
+  // grouping — so both the flat `queue` and each bucket in `grouped` read
   // destructive/low-confidence-first, batchable-tail-last (was flat first-seen order).
   const queue = sortByScore(scoreQueue(aggregateStaged(q.data ?? {})));
-  const grouped = groupBy(queue, "module");
+  // U6: `groupByAxis` only re-partitions this same sorted `queue` — no query re-run,
+  // so toggling `axis` between renders never refetches (see file header).
+  const grouped = groupByAxis(queue, axis);
   const invalidate = () => void qc.invalidateQueries({ queryKey: ["zuzuu"] }); // queue + overview + project-state
 
   // Surface the gate's PRECISE refusal (audit item 4): the CLI says exactly what's
