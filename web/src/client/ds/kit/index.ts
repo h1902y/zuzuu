@@ -24,3 +24,5 @@ export { ProposalBadge, proposalBadgeVariant } from "./ProposalBadge.js";
 export type { ProposalState } from "./ProposalBadge.js";
 export { Diff, COLLAPSE_AT } from "./Diff.js";
 export type { DiffProps } from "./Diff.js";
+export { OverlayStackProvider, useOverlayStack, useDismiss } from "./overlay/index.js";
+export type { UseDismissOptions, OverlayId, OverlayStack } from "./overlay/index.js";
