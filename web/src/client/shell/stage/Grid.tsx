@@ -18,6 +18,7 @@ import { FacetChip } from "./FacetChip.js";
 import { TableBuilders } from "./TableBuilders.js";
 import { TableFooter } from "./TableFooter.js";
 import { FieldConfigPanel } from "./FieldConfigPanel.js";
+import { toggleToolbarPopover, type ToolbarPopoverKey } from "./toolbar-popover-model.js";
 import { emptyCopy } from "../empty-copy.js";
 import { api } from "../../lib/api.js";
 import { useWorld } from "../world-state.js";
@@ -39,7 +40,11 @@ function GridInner() {
   // review queue reads (this list's own `zz.module()` fetch — no new request);
   // merge them in as pending rows so a staged create/update is visible IN PLACE.
   const tableRows = mergeTableRows(rows, staged);
-  const [addingColumn, setAddingColumn] = useState(false);
+  // U4's toolbar-popover coordinator: ONE lifted slot for "which toolbar popover
+  // is open" — Filter/Group/Sort (TableBuilders' own trio) vs. the separate
+  // "+ column" FieldConfigPanel are siblings in this same toolbar row, so opening
+  // one must close whichever other was open (toggleToolbarPopover, pure).
+  const [openPopover, setOpenPopover] = useState<ToolbarPopoverKey | null>(null);
 
   // §H.3.4: selection lives OUTSIDE the table (the omnibar's context, not chrome);
   // toggle carries the row so the omnibar's export verb has the data without a
@@ -81,19 +86,19 @@ function GridInner() {
           placeholder={`filter ${module}… (or key=value, #tag)`}
           className="w-72 rounded-ui border border-border bg-app px-2 py-1 text-ui text-ink-100 outline-none placeholder:text-muted focus:border-accent-dim"
         />
-        <TableBuilders cols={cols} state={state} filterOps={filterOps} dispatch={dispatch} />
+        <TableBuilders cols={cols} state={state} filterOps={filterOps} dispatch={dispatch} open={openPopover} onOpenChange={setOpenPopover} />
         {/* §H.5: "+ column" — single-module scope only (a schema column has no
             single home in the unified Everything view). Add mode, anchored. */}
         <div className="relative ml-auto">
-          <Button variant="ghost" size="sm" onClick={() => setAddingColumn((v) => !v)}>
+          <Button variant="ghost" size="sm" onClick={() => setOpenPopover((cur) => toggleToolbarPopover(cur, "column"))}>
             <Icon icon={Plus} size={13} /> Column
           </Button>
-          {addingColumn && (
+          {openPopover === "column" && (
             <FieldConfigPanel
               module={module}
               field={null}
               existingNames={fields.map((f) => f.name)}
-              onClose={() => setAddingColumn(false)}
+              onClose={() => setOpenPopover(null)}
               align="right"
             />
           )}

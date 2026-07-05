@@ -5,6 +5,14 @@
 // dialog as the Projects Home "New project"), with a manual-path fallback. Picking a
 // recent or a folder switches IN PLACE via enterProject (no page reload). Composes ds
 // primitives + the kit; static layout utilities only.
+//
+// U4 (curried-plotting-coral.md): the hand-rolled full-screen scrim button is
+// gone — composes the shared Popover (U2) for outside-click + topmost-only
+// Escape. The standalone `window` Escape branch is ALSO gone (useDismiss now
+// handles it, topmost-only) — only ⌘O/Ctrl-O toggle remains as this component's
+// own listener. Not `closeOnSelect`: picking a recent/folder already closes via
+// `switchTo`/`toHome`'s own `setOpen(false)`, and the manual-path entry step must
+// stay open across keystrokes — same behavior as before, unchanged.
 import { useEffect, useReducer, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/api.js";
@@ -13,7 +21,7 @@ import { pickerRows, filterPickerRows, openFolderReducer, initialOpenFolder } fr
 import { useEnterProject } from "../session/use-enter-project.js";
 import { useAppSurface } from "../../state/app-surface.js";
 import { toast } from "../../state/toast.js";
-import { Stack, Inline, Text, Icon, Button, EmojiPicker } from "../../ds/index.js";
+import { Stack, Inline, Text, Icon, Button, EmojiPicker, Popover } from "../../ds/index.js";
 
 export function Switcher() {
   const [open, setOpen] = useState(false);
@@ -37,11 +45,12 @@ export function Switcher() {
     } catch { toast("Couldn't set the emoji", "error"); }
   }
 
-  // ⌘O / Ctrl-O toggles the picker; Escape closes it.
+  // ⌘O / Ctrl-O toggles the picker. Escape is no longer handled here — the
+  // Popover below composes useDismiss, which closes it (topmost-only) via the
+  // shared overlay stack instead of this private listener (U4).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "o") { e.preventDefault(); setOpen((v) => !v); }
-      else if (e.key === "Escape") setOpen(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -91,89 +100,86 @@ export function Switcher() {
         <Icon icon={ChevronDown} size={14} />
       </button>
       {open && (
-        <>
-          <button type="button" aria-label="close" onClick={() => setOpen(false)} className="fixed inset-0 z-10 cursor-default" />
-          <div className="animate-pop absolute left-0 top-full z-20 mt-1 w-80 rounded-ui border border-border bg-elevated p-2 shadow-overlay">
-            <Stack gap="xs">
-              <button
-                type="button"
-                onClick={toHome}
-                className="flex w-full items-center gap-2 rounded-ui px-2 py-1 text-left text-meta text-subtle transition-colors hover:bg-hover hover:text-ink-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-focus"
-              >
-                <Icon icon={ArrowLeft} size={13} /> All projects
-              </button>
+        <Popover open onClose={() => setOpen(false)} className="z-20 mt-1 w-80 rounded-ui border border-border bg-elevated p-2 shadow-overlay">
+          <Stack gap="xs">
+          <button
+            type="button"
+            onClick={toHome}
+            className="flex w-full items-center gap-2 rounded-ui px-2 py-1 text-left text-meta text-subtle transition-colors hover:bg-hover hover:text-ink-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-focus"
+          >
+            <Icon icon={ArrowLeft} size={13} /> All projects
+          </button>
 
-              <div className="border-t border-border pt-1">
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search projects…"
-                  className="w-full rounded-ui bg-app px-2 py-1 text-ui text-ink-100 outline-none placeholder:text-muted focus:bg-surface"
-                />
-              </div>
+          <div className="border-t border-border pt-1">
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search projects…"
+              className="w-full rounded-ui bg-app px-2 py-1 text-ui text-ink-100 outline-none placeholder:text-muted focus:bg-surface"
+            />
+          </div>
 
-              {rows.map((row) => (
-                <button
-                  key={row.path}
-                  type="button"
-                  disabled={row.current}
-                  onClick={() => switchTo(row.path)}
-                  className="flex w-full items-center justify-between gap-2 rounded-ui px-2 py-1 text-left text-ui text-subtle transition-colors hover:bg-hover hover:text-ink-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-focus disabled:cursor-default disabled:opacity-50"
-                >
-                  <span className="min-w-0 flex-1 truncate">{row.name}</span>
-                  {row.current && <Text size="meta" tone="muted">current</Text>}
-                </button>
-              ))}
-              {!rows.length && <Text size="meta" tone="muted">no matching projects</Text>}
+          {rows.map((row) => (
+            <button
+              key={row.path}
+              type="button"
+              disabled={row.current}
+              onClick={() => switchTo(row.path)}
+              className="flex w-full items-center justify-between gap-2 rounded-ui px-2 py-1 text-left text-ui text-subtle transition-colors hover:bg-hover hover:text-ink-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-focus disabled:cursor-default disabled:opacity-50"
+            >
+              <span className="min-w-0 flex-1 truncate">{row.name}</span>
+              {row.current && <Text size="meta" tone="muted">current</Text>}
+            </button>
+          ))}
+          {!rows.length && <Text size="meta" tone="muted">no matching projects</Text>}
 
-              <div className="mt-1 border-t border-border pt-2">
-                <Stack gap="sm">
-                  <Button variant="outline" size="sm" disabled={picking} onClick={() => void nativePick()}>
-                    <Icon icon={FolderOpen} size={14} /> {picking ? "Choosing…" : "Choose a folder…"}
-                  </Button>
+          <div className="mt-1 border-t border-border pt-2">
+            <Stack gap="sm">
+              <Button variant="outline" size="sm" disabled={picking} onClick={() => void nativePick()}>
+                <Icon icon={FolderOpen} size={14} /> {picking ? "Choosing…" : "Choose a folder…"}
+              </Button>
 
-                  {!manual ? (
-                    <Text as="button" interactive size="meta" tone="muted" onClick={() => setManual(true)}>
-                      or enter a path manually
-                    </Text>
-                  ) : (
+              {!manual ? (
+                <Text as="button" interactive size="meta" tone="muted" onClick={() => setManual(true)}>
+                  or enter a path manually
+                </Text>
+              ) : (
+                <Stack gap="none">
+                  <input
+                    autoFocus
+                    value={folder.prefix}
+                    onChange={(e) => dispatch({ type: "setPrefix", prefix: e.target.value })}
+                    onKeyDown={(e) => {
+                      if (e.key === "ArrowDown") { e.preventDefault(); dispatch({ type: "moveHighlight", delta: 1 }); }
+                      else if (e.key === "ArrowUp") { e.preventDefault(); dispatch({ type: "moveHighlight", delta: -1 }); }
+                      else if (e.key === "Enter") {
+                        if (folder.dirs.length) { e.preventDefault(); dispatch({ type: "applyHighlighted" }); }
+                        else if (folder.prefix.startsWith("/")) switchTo(folder.prefix);
+                      }
+                    }}
+                    placeholder="/absolute/path/to/folder"
+                    className="w-full rounded-ui border border-border bg-app px-2 py-1 text-ui text-ink-100 outline-none placeholder:text-muted focus:border-accent-dim"
+                  />
+                  {folder.dirs.length > 0 && (
                     <Stack gap="none">
-                      <input
-                        autoFocus
-                        value={folder.prefix}
-                        onChange={(e) => dispatch({ type: "setPrefix", prefix: e.target.value })}
-                        onKeyDown={(e) => {
-                          if (e.key === "ArrowDown") { e.preventDefault(); dispatch({ type: "moveHighlight", delta: 1 }); }
-                          else if (e.key === "ArrowUp") { e.preventDefault(); dispatch({ type: "moveHighlight", delta: -1 }); }
-                          else if (e.key === "Enter") {
-                            if (folder.dirs.length) { e.preventDefault(); dispatch({ type: "applyHighlighted" }); }
-                            else if (folder.prefix.startsWith("/")) switchTo(folder.prefix);
-                          }
-                        }}
-                        placeholder="/absolute/path/to/folder"
-                        className="w-full rounded-ui border border-border bg-app px-2 py-1 text-ui text-ink-100 outline-none placeholder:text-muted focus:border-accent-dim"
-                      />
-                      {folder.dirs.length > 0 && (
-                        <Stack gap="none">
-                          {folder.dirs.map((d, i) => (
-                            <button
-                              key={d}
-                              type="button"
-                              onClick={() => dispatch({ type: "applyAt", index: i })}
-                              className={`flex items-center rounded-ui px-2 py-1 text-left text-meta transition-colors hover:bg-hover ${i === folder.highlighted ? "bg-selected text-ink-100" : "text-subtle"}`}
-                            >
-                              <Inline gap="xs"><Icon icon={CornerDownRight} size={11} /> {d}/</Inline>
-                            </button>
-                          ))}
-                        </Stack>
-                      )}
+                      {folder.dirs.map((d, i) => (
+                        <button
+                          key={d}
+                          type="button"
+                          onClick={() => dispatch({ type: "applyAt", index: i })}
+                          className={`flex items-center rounded-ui px-2 py-1 text-left text-meta transition-colors hover:bg-hover ${i === folder.highlighted ? "bg-selected text-ink-100" : "text-subtle"}`}
+                        >
+                          <Inline gap="xs"><Icon icon={CornerDownRight} size={11} /> {d}/</Inline>
+                        </button>
+                      ))}
                     </Stack>
                   )}
                 </Stack>
-              </div>
+              )}
             </Stack>
           </div>
-        </>
+          </Stack>
+        </Popover>
       )}
       </div>
     </div>

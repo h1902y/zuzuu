@@ -1,9 +1,14 @@
 // ds/kit/Popover.tsx — the shared anchored popover primitive (U2, curried-plotting
 // -coral.md). Generalizes the `Panel` + `Scrim` shape TableBuilders.tsx hand-rolls
 // three times (Filter/Group/Sort) — same tokens, same look, no redesign — so U4 can
-// convert it and the other ~6 copy-pasted anchored popovers (SaveViewForm,
-// FieldConfigPanel, EmojiPicker, NewSessionMenu, HostPill, Switcher) onto ONE
-// primitive instead of each re-inventing outside-click + Escape.
+// convert it and the other copy-pasted anchored popovers (FieldConfigPanel,
+// EmojiPicker, NewSessionMenu, HostPill, Switcher) onto ONE primitive instead of
+// each re-inventing outside-click + Escape. `className` (U4) overrides the panel
+// chrome (width/padding/border/shadow/z) per-consumer — FieldConfigPanel's wider
+// scrolling form, EmojiPicker's chromeless emoji-mart host, HostPill's
+// opens-upward higher-stacked menu — while `animate-pop absolute` + `placement`
+// (the anchoring itself) stay fixed for every consumer: same primitive, each
+// popover keeps its OWN pre-existing look.
 //
 // Composes useDismiss (U1): outside-pointerdown and topmost-only Escape come from
 // the shared overlay stack — there is no more hand-rolled "invisible full-screen
@@ -46,17 +51,27 @@ export interface PopoverProps {
    *  single-select). Leave false (default) for a multi-add surface like Filter's
    *  "+ add condition", which must stay open across picks. */
   closeOnSelect?: boolean;
+  /** Panel chrome — z-index/spacing/size/border/shadow. Defaults to
+   *  `TableBuilders.tsx`'s exact pre-U4 `Panel` shape (`z-20 mt-1 w-72 rounded-ui
+   *  border bg-elevated p-2 shadow-overlay`), so Filter/Group/Sort need not pass
+   *  this at all. A differently-shaped popover (FieldConfigPanel's wider
+   *  scrolling form, EmojiPicker's chromeless host div, HostPill's
+   *  opens-upward/higher-stacked menu) overrides it — still the same primitive
+   *  (dismiss wiring + anchoring), each keeping its OWN pre-existing look. */
+  className?: string;
   children: ReactNode;
 }
+
+const DEFAULT_PANEL_CLASSES = "z-20 mt-1 w-72 rounded-ui border border-border bg-elevated p-2 shadow-overlay";
 
 /**
  * An anchored panel that dismisses via the shared overlay stack instead of a
  * private scrim: an outside pointerdown, or Escape when it's the topmost
  * overlay, calls `onClose`. Same visual shape as `TableBuilders.tsx`'s `Panel`
  * (`animate-pop absolute z-20 mt-1 w-72 rounded-ui border bg-elevated p-2
- * shadow-overlay`) — this is a shared primitive, not a redesign.
+ * shadow-overlay`) by default — this is a shared primitive, not a redesign.
  */
-export function Popover({ open, onClose, id, placement = "below-left", closeOnSelect = false, children }: PopoverProps) {
+export function Popover({ open, onClose, id, placement = "below-left", closeOnSelect = false, className = DEFAULT_PANEL_CLASSES, children }: PopoverProps) {
   const generatedId = useId();
   const overlayId = resolveOverlayId(id, generatedId);
   const ref = useRef<HTMLDivElement | null>(null);
@@ -71,7 +86,7 @@ export function Popover({ open, onClose, id, placement = "below-left", closeOnSe
   return (
     <div
       ref={ref}
-      className={`animate-pop absolute z-20 mt-1 w-72 rounded-ui border border-border bg-elevated p-2 shadow-overlay ${placementClasses(placement)}`}
+      className={`animate-pop absolute ${className} ${placementClasses(placement)}`}
     >
       <PopoverCtx.Provider value={{ onClose, closeOnSelect }}>{children}</PopoverCtx.Provider>
     </div>
