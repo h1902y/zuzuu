@@ -36,6 +36,14 @@ export interface UseDismissOptions {
   closeOnOutside?: boolean;
   /** The overlay's own root DOM node — "outside" is outside THIS. */
   ref: RefObject<HTMLElement | null>;
+  /** Master gate, default true. `false` makes this call a total no-op: no stack
+   *  registration, no Escape listener, no outside-click listener. Exists for a
+   *  caller that must call this hook UNCONDITIONALLY (hooks can't be conditional —
+   *  see the doc below) but sometimes isn't really open/dismissable — e.g.
+   *  ds/kit/Dialog.tsx's locked case (`onClose` omitted): it still calls
+   *  `useDismiss` every render, with `enabled: false`, so the locked dialog
+   *  registers NOTHING on the shared stack (never blocks or dismisses). */
+  enabled?: boolean;
 }
 
 /**
@@ -48,14 +56,17 @@ export interface UseDismissOptions {
  * closed (`if (!open) return null`, as ds/kit/Dialog.tsx already does) must call
  * this ABOVE that early return — the same rule as any other hook.
  */
-export function useDismiss({ id, onClose, closeOnEscape = true, closeOnOutside = true, ref }: UseDismissOptions): void {
+export function useDismiss({ id, onClose, closeOnEscape = true, closeOnOutside = true, enabled = true, ref }: UseDismissOptions): void {
   const { stack, register, unregister } = useOverlayStack();
 
-  // register for the mount's lifetime.
+  // register for the mount's lifetime — but only while `enabled` (see the option's
+  // doc: a locked Dialog calls this hook every render with `enabled: false` and
+  // must not occupy a stack slot).
   useEffect(() => {
+    if (!enabled) return;
     register(id);
     return () => unregister(id);
-  }, [id, register, unregister]);
+  }, [enabled, id, register, unregister]);
 
   // read through a ref so the listener effects below don't need to re-subscribe
   // just because the caller passed a fresh `onClose` closure this render.
@@ -66,7 +77,7 @@ export function useDismiss({ id, onClose, closeOnEscape = true, closeOnOutside =
   // flip who's topmost) — cheap (a handful of open overlays at most) and far
   // simpler to reason about than shadowing the stack in a ref.
   useEffect(() => {
-    if (!closeOnEscape) return;
+    if (!enabled || !closeOnEscape) return;
     function onKeyDown(e: KeyboardEvent) {
       if (!shouldCloseOnEscape(stack, id, e.key)) return;
       e.preventDefault();
@@ -75,10 +86,10 @@ export function useDismiss({ id, onClose, closeOnEscape = true, closeOnOutside =
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [closeOnEscape, stack, id]);
+  }, [enabled, closeOnEscape, stack, id]);
 
   useEffect(() => {
-    if (!closeOnOutside) return;
+    if (!enabled || !closeOnOutside) return;
     function onPointerDown(e: PointerEvent) {
       if (!shouldCloseOnOutside(stack, id, ref.current, e.target as Node | null)) return;
       onCloseRef.current();
@@ -90,5 +101,5 @@ export function useDismiss({ id, onClose, closeOnEscape = true, closeOnOutside =
     // matches where the overlay's own DOM actually lives for `contains` checks.
     document.addEventListener("pointerdown", onPointerDown, true);
     return () => document.removeEventListener("pointerdown", onPointerDown, true);
-  }, [closeOnOutside, stack, id, ref]);
+  }, [enabled, closeOnOutside, stack, id, ref]);
 }

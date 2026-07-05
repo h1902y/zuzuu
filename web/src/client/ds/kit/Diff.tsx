@@ -4,14 +4,15 @@
 // this component (see that file's header). Presentational + prop-driven like every
 // other ds/kit component — the CALLER resolves `current`/`change`/`beforeBody`
 // (react-query, the daemon, …); this component only renders the diff MODEL
-// (ds/lib/diff.ts's combinedDiff) and owns the inline/modal collapse discipline + the
-// modal's Esc-to-close behavior (mirrors ds/kit/Dialog.tsx). Reuses U1's ProposalBadge
-// for the modal header, and tints both row boxes with the proposal token (border-
-// proposal/30) — this content IS a not-yet-real proposal preview, the same vocabulary
-// ProposalBadge/proposal.ts established.
-import { useEffect } from "react";
+// (ds/lib/diff.ts's combinedDiff) and owns the inline/modal collapse discipline. The
+// modal mode composes ds/kit/Dialog (U3, curried-plotting-coral.md) — Escape (when
+// topmost) + outside-click dismiss come from Dialog's useDismiss wiring, not a private
+// keydown listener. Reuses U1's ProposalBadge for the modal header, and tints both row
+// boxes with the proposal token (border-proposal/30) — this content IS a not-yet-real
+// proposal preview, the same vocabulary ProposalBadge/proposal.ts established.
 import { Stack, Inline, Text } from "../primitives/index.js";
 import { Button } from "./Button.js";
+import { Dialog } from "./Dialog.js";
 import { ProposalBadge } from "./ProposalBadge.js";
 import { combinedDiff, type DiffRow, type FieldDiffRow } from "../lib/diff.js";
 
@@ -72,13 +73,6 @@ export interface DiffProps {
 /** The shared before/after Diff (U3): field-level old→new (update only) + the LCS
  *  body diff, combined under ONE ≤COLLAPSE_AT-row inline / collapse-to-modal rule. */
 export function Diff({ change, current, update, beforeBody = "", title, open, onOpenChange }: DiffProps) {
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onOpenChange(false); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onOpenChange]);
-
   const { fieldRows, bodyRows, total, collapsed } = combinedDiff({ update, current, change, beforeBody });
   if (total === 0) return null; // nothing meaningful to preview
 
@@ -114,23 +108,25 @@ export function Diff({ change, current, update, beforeBody = "", title, open, on
         </Button>
         <Text size="meta" tone="muted">press d</Text>
       </Inline>
-      {open && (
-        <div className="fixed inset-0 z-30 flex items-start justify-center bg-scrim p-6 pt-24">
-          <button type="button" aria-label="close" onClick={() => onOpenChange(false)} className="fixed inset-0 cursor-default" />
-          <div className="animate-pop relative flex max-h-full w-full max-w-2xl flex-col overflow-hidden rounded-lg border border-border bg-elevated p-6 shadow-overlay">
-            <Stack gap="md">
-              <Inline gap="sm" justify="between">
-                <Inline gap="xs" align="center">
-                  <Text size="lg" font="display">{title}</Text>
-                  <ProposalBadge state="pending" label={update ? "update" : "create"} />
-                </Inline>
-                <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>Done</Button>
-              </Inline>
-              <div className="min-h-0 overflow-y-auto">{body}</div>
-            </Stack>
-          </div>
-        </div>
-      )}
+      {/* no explicit `id` — DiffPreview mounts one of these PER proposal card in the
+          review queue list, so each instance needs Dialog's own generated (useId)
+          stack slot, not a shared literal string (see Popover's identical note). */}
+      <Dialog
+        open={open}
+        title={
+          <Inline gap="sm" justify="between">
+            <Inline gap="xs" align="center">
+              <Text size="lg" font="display">{title}</Text>
+              <ProposalBadge state="pending" label={update ? "update" : "create"} />
+            </Inline>
+            <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>Done</Button>
+          </Inline>
+        }
+        onClose={() => onOpenChange(false)}
+        className="inset-x-6 top-24 bottom-6 mx-auto w-full max-w-2xl overflow-hidden p-6"
+      >
+        <div className="min-h-0 overflow-y-auto">{body}</div>
+      </Dialog>
     </>
   );
 }

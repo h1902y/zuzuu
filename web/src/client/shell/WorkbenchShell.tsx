@@ -52,7 +52,7 @@ import { Plus, Power, Orbit } from "lucide-react";
 import { Palette } from "../palette/Palette.js";
 import { useEndSession } from "../state/end-session.js";
 import { EndSessionDialog } from "./session/EndSessionDialog.js";
-import { Loading, ThemeToggle, AppHeader, Text, Inline, Icon } from "../ds/index.js";
+import { Loading, ThemeToggle, AppHeader, Text, Inline, Icon, Dialog } from "../ds/index.js";
 import { useReview } from "../state/review.js";
 import { Switcher } from "./switcher/Switcher.js";
 import { Ribbon } from "./Ribbon.js";
@@ -516,15 +516,23 @@ export function WorkbenchShell() {
         </div>
       )}
 
-      {/* §D — Settings: a dialog from the footer's right edge; the canvas undisturbed */}
-      {settingsOpen && (
-        <>
-          <button type="button" aria-label="close settings" onClick={() => setSettingsOpen(false)} className="animate-fade fixed inset-0 z-40 bg-scrim" />
-          <div className="animate-pop fixed inset-x-0 top-16 z-50 mx-auto flex max-h-96 w-full max-w-2xl flex-col overflow-y-auto rounded-lg border border-border bg-elevated shadow-overlay">
-            <Settings />
-          </div>
-        </>
-      )}
+      {/* §D — Settings: a dialog from the footer's right edge; the canvas undisturbed.
+          Composes ds/kit/Dialog (U3, curried-plotting-coral.md) — no separate title/
+          footer slots (<Settings> renders its own heading + owns its own padding), so
+          the scrim + panel markup is the only thing that changed here. NOTE for U5:
+          this dialog's own useDismiss registration now ALSO closes it on Escape (when
+          topmost) / outside-click, alongside the pre-existing `settingsOpen` branch in
+          this file's Escape cascade below (~line 212) — that cascade still owns its
+          own priority order (review → settings → world-selection) untouched; U5 is
+          where the two mechanisms get reconciled. */}
+      <Dialog
+        open={settingsOpen}
+        id="settings-dialog"
+        onClose={() => setSettingsOpen(false)}
+        className="inset-x-0 top-16 mx-auto max-h-96 w-full max-w-2xl overflow-y-auto"
+      >
+        <Settings />
+      </Dialog>
 
       {reviewOpen && (
         <>
