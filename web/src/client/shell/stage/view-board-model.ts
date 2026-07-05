@@ -28,13 +28,39 @@ function isQueryRecord(v: unknown): v is Record<string, unknown> {
   return v !== null && v !== undefined && typeof v === "object" && !Array.isArray(v);
 }
 
+/** Whether a resolved fetch state already pins down `type` — either via the
+ *  view's own `query.type` (surfaced here as `state.kind`, U1's mapping) or an
+ *  explicit `type…` clause the author hand-wrote into `where[]` (e.g.
+ *  `type=deal`, `type!=lost-deal`). Either one is the author's own intent —
+ *  `excludeViewNotesGuard` below must not override it. */
+function hasTypeConstraint(state: Pick<ResolvedViewQuery, "kind" | "where">): boolean {
+  return Boolean(state.kind) || state.where.some((clause) => clauseParts(clause).key === "type");
+}
+
+/** A board is a projection of a module's DATA, not the `type:view` notes that
+ *  define boards over it — without this, a "Pipeline by stage" view
+ *  (`{module:deals, where:["stage!=lost"], group-by:stage}`) renders a row for
+ *  its OWN view note (grouped under "—", since a view note has no `stage`
+ *  field). Appends `type!=view` to the resolved fetch state's `where[]` so
+ *  view notes never surface as board rows — UNLESS the view's own query
+ *  already constrains `type` (`hasTypeConstraint`), in which case the
+ *  author's explicit intent wins and this is a no-op. Pure: takes/returns a
+ *  `ResolvedViewQuery`, so it's testable without touching `viewFetchState`'s
+ *  own note-shaped input. */
+export function excludeViewNotesGuard(state: ResolvedViewQuery): ResolvedViewQuery {
+  if (hasTypeConstraint(state)) return state;
+  return { ...state, where: [...state.where, "type!=view"] };
+}
+
 /** U2's fetch-scope derivation (R1/R2/R8): a view note's `query` → the ListState
  *  the SAME list provider Everything/Grid use can fetch (module scope + filter +
  *  sort + groupBy) — entirely delegated to U1. `note` may be absent (the getOne
  *  fetch hasn't resolved, or 404'd) — `viewQueryToListState` is total, so this
- *  never throws; the caller's classifier decides what an unusable note MEANS. */
+ *  never throws; the caller's classifier decides what an unusable note MEANS.
+ *  The result then gets `excludeViewNotesGuard`'s display-scope filter: a
+ *  board's rows are the module's data, never its own view definitions. */
 export function viewFetchState(note: ViewNoteLike | null | undefined, moduleFallback: string): ResolvedViewQuery {
-  return viewQueryToListState(note?.query, moduleFallback);
+  return excludeViewNotesGuard(viewQueryToListState(note?.query, moduleFallback));
 }
 
 /** `!=`/`>=`/`<=` read as their math glyphs in the header line; `=`/`>`/`<` are

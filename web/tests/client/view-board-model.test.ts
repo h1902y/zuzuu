@@ -3,14 +3,14 @@
 // human query-summary line, and the R5 empty/error classifier. No DOM/render
 // harness in this suite — ViewBoard.tsx itself is untested here by design.
 import { describe, it, expect } from "vitest";
-import { viewFetchState, viewQuerySummary, classifyViewBoard, viewBoardCopy } from "../../src/client/shell/stage/view-board-model.js";
+import { viewFetchState, viewQuerySummary, classifyViewBoard, viewBoardCopy, excludeViewNotesGuard } from "../../src/client/shell/stage/view-board-model.js";
 import { initialListState } from "../../src/client/data/list-state.js";
 
 describe("viewFetchState — fetch scope + groupBy, delegated to U1", () => {
-  it("derives module/where/groupBy straight through a real view note's query", () => {
+  it("derives module/where/groupBy straight through a real view note's query (plus the `type!=view` guard, since this query names no type)", () => {
     const s = viewFetchState({ query: { module: "crm", where: ["stage!=lost"], "group-by": "stage" } }, "fallback");
     expect(s.module).toBe("crm");
-    expect(s.where).toEqual(["stage!=lost"]);
+    expect(s.where).toEqual(["stage!=lost", "type!=view"]);
     expect(s.groupBy).toBe("stage");
   });
 
@@ -26,13 +26,57 @@ describe("viewFetchState — fetch scope + groupBy, delegated to U1", () => {
     expect(viewFetchState({ query: {} }, "crm").module).toBe("crm");
   });
 
-  it("a note with no query at all still resolves to a safe ListState using the fallback — no throw", () => {
-    expect(viewFetchState({ query: undefined }, "crm")).toEqual({ ...initialListState, module: "crm" });
+  it("a note with no query at all still resolves to a safe ListState using the fallback — no throw (plus the `type!=view` guard, since there's no type constraint to respect)", () => {
+    expect(viewFetchState({ query: undefined }, "crm")).toEqual({ ...initialListState, module: "crm", where: ["type!=view"] });
   });
 
-  it("a missing note (null/undefined — fetch not resolved / 404) resolves to a safe fallback ListState", () => {
-    expect(viewFetchState(null, "crm")).toEqual({ ...initialListState, module: "crm" });
-    expect(viewFetchState(undefined, "crm")).toEqual({ ...initialListState, module: "crm" });
+  it("a missing note (null/undefined — fetch not resolved / 404) resolves to a safe fallback ListState (plus the `type!=view` guard)", () => {
+    expect(viewFetchState(null, "crm")).toEqual({ ...initialListState, module: "crm", where: ["type!=view"] });
+    expect(viewFetchState(undefined, "crm")).toEqual({ ...initialListState, module: "crm", where: ["type!=view"] });
+  });
+
+  it("appends a `type!=view` guard to a board query with no type constraint — a board's rows are the module's data, never the view note itself", () => {
+    const s = viewFetchState({ query: { module: "deals", where: ["stage!=lost"], "group-by": "stage" } }, "fallback");
+    expect(s.where).toEqual(["stage!=lost", "type!=view"]);
+  });
+
+  it("adds the bare `type!=view` guard even with no other where clauses at all", () => {
+    expect(viewFetchState({ query: { module: "deals" } }, "fallback").where).toEqual(["type!=view"]);
+  });
+
+  it("does NOT add the guard when `query.type` already constrains type — respects the author's explicit intent", () => {
+    const s = viewFetchState({ query: { module: "deals", type: "account", where: ["stage!=lost"] } }, "fallback");
+    expect(s.where).toEqual(["stage!=lost"]);
+  });
+
+  it("does NOT add the guard when `where[]` already has an explicit `type…` clause", () => {
+    expect(viewFetchState({ query: { module: "deals", where: ["type=account"] } }, "fallback").where).toEqual(["type=account"]);
+    expect(viewFetchState({ query: { module: "deals", where: ["type!=lost-deal"] } }, "fallback").where).toEqual(["type!=lost-deal"]);
+  });
+});
+
+describe("excludeViewNotesGuard — a board's rows are the module's data, never its own view notes", () => {
+  it("appends `type!=view` when the resolved state has no type constraint at all", () => {
+    const s = excludeViewNotesGuard({ ...initialListState, module: "deals", where: ["stage!=lost"] });
+    expect(s.where).toEqual(["stage!=lost", "type!=view"]);
+  });
+
+  it("is a no-op when `kind` (query.type) is already set", () => {
+    const s = { ...initialListState, module: "deals", kind: "account", where: ["stage!=lost"] };
+    expect(excludeViewNotesGuard(s)).toEqual(s);
+  });
+
+  it("is a no-op when `where[]` already has an explicit `type…` clause, regardless of operator", () => {
+    const eq = { ...initialListState, module: "deals", where: ["type=account"] };
+    const neq = { ...initialListState, module: "deals", where: ["type!=lost-deal"] };
+    expect(excludeViewNotesGuard(eq)).toEqual(eq);
+    expect(excludeViewNotesGuard(neq)).toEqual(neq);
+  });
+
+  it("only touches `where` — every other field on the resolved state passes through unchanged", () => {
+    const s = { ...initialListState, module: "deals", groupBy: "stage", kind: "", status: "active", text: "acme", sort: { key: "tier", dir: "asc" as const } };
+    const out = excludeViewNotesGuard(s);
+    expect(out).toEqual({ ...s, where: ["type!=view"] });
   });
 });
 
