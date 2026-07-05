@@ -113,3 +113,17 @@ export function ribbonState(
   const pending = Object.values(pendingByModule).reduce((n, v) => n + v, 0);
   return { liveness, pending, allCaughtUp: pending === 0 && !setupIncomplete };
 }
+
+/** U5 (curried-plotting-coral.md) — the shell's Escape handler no longer hardcodes
+ *  a review→settings→world-selection priority cascade: every overlay now owns its
+ *  own Escape via `useDismiss`, guarded by the shared overlay stack's topmost check
+ *  (Settings' Dialog since U3; the Review overlay's own registration as of U5).
+ *  This predicate is the ONE thing left for the shell's OWN Escape to decide —
+ *  whether to clear the map/world selection — and it must say yes ONLY when
+ *  nothing is shadowing it: an empty overlay stack means no overlay is open to
+ *  consume the keypress first; a non-empty one means some overlay is topmost and
+ *  its own `useDismiss` registration already owns this Escape, so the shell must
+ *  stay out of its way entirely. */
+export function shouldClearWorldSelectionOnEscape(overlayStackSize: number, hasSelection: boolean): boolean {
+  return overlayStackSize === 0 && hasSelection;
+}
