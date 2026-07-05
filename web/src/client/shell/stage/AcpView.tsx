@@ -7,25 +7,52 @@
 // They share the session — the daemon replays its trace to a (re)joining socket, so
 // closing the panel loses nothing; the conversation continues in the background.
 import { useEffect, useReducer, useRef, useState } from "react";
-import { Send, Square, Wrench, Brain, ListChecks, TriangleAlert, CircleDot, ShieldQuestion, ShieldX, ShieldCheck } from "lucide-react";
+import { Send, Square, Wrench, Brain, ListChecks, TriangleAlert, CircleDot, ShieldQuestion, ShieldX, ShieldCheck, X } from "lucide-react";
 import { AcpConnection } from "../../lib/acp-client.js";
 import { useAcpIntent } from "../../state/acp-intent.js";
 import { useWorldCommand } from "../../state/world-command.js";
+import { useWorld } from "../world-state.js";
 import { applyAcpMessage, extractMentions, initialAcpView, type AcpView as AcpVM, type Block } from "./acp-model.js";
-import { Stack, Inline, Text, Button, Icon } from "../../ds/index.js";
+import { Stack, Inline, Text, Button, Icon, useDismiss } from "../../ds/index.js";
 
 const TOOL_STATUS_TONE: Record<string, string> = {
   completed: "text-success", failed: "text-danger", in_progress: "text-warning", pending: "text-muted",
 };
 
-/** The stage wrapper: header + the shared conversation surface. */
+/** The stage wrapper: header + the shared conversation surface, PLUS a real exit
+ *  (U6, curried-plotting-coral.md) — the compose textarea below has no Escape of its
+ *  own, and the shell's global Escape handler deliberately bails on a focused
+ *  INPUT/TEXTAREA (WorkbenchShell.tsx, to protect the real terminal's typing), so
+ *  Escape used to do NOTHING while chatting ("sticky" — confirmed live). Fixed by
+ *  registering this stage via `useDismiss`: its window `keydown` listener
+ *  (use-dismiss.ts) has no textarea guard at all, so it closes/backs out of THIS view
+ *  even mid-compose — without loosening the shell's own guard (still checked first,
+ *  still returns early for the terminal's own Escape branch) and without touching the
+ *  real `New shell` terminal (a completely different stage, never a useDismiss
+ *  overlay — TermView is untouched by this change). `closeOnOutside` stays off: this
+ *  is a full-stage view, not a floating panel — there's no scrim, and the "outside"
+ *  would just be the app header/footer chrome, where an incidental click (Settings,
+ *  the project switcher) shouldn't silently drop the conversation. The visible X
+ *  below is the discoverable twin of the Escape keystroke.
+ */
 export function AcpView({ id }: { id: string }) {
-  return <AcpConversation id={id} />;
+  const select = useWorld((s) => s.select);
+  const ref = useRef<HTMLDivElement | null>(null);
+  const onClose = () => select(null); // back to the World home — the same "clear selection" exit Escape uses everywhere else
+  useDismiss({ id: "acp", onClose, closeOnOutside: false, ref });
+  return (
+    <div ref={ref} className="flex h-full min-h-0 flex-col">
+      <AcpConversation id={id} onClose={onClose} />
+    </div>
+  );
 }
 
 /** The conversation surface both the stage and the omnibar chat panel mount.
- *  `compact` tightens paddings for the panel. */
-export function AcpConversation({ id, compact = false }: { id: string; compact?: boolean }) {
+ *  `compact` tightens paddings for the panel. `onClose` (stage-only — the omnibar's
+ *  compact panel omits it and gets no button here; it already backs out via the
+ *  palette's own Esc/view-stack pop) renders the visible dismiss affordance in the
+ *  header. */
+export function AcpConversation({ id, compact = false, onClose }: { id: string; compact?: boolean; onClose?: () => void }) {
   const [vm, dispatch] = useReducer(applyAcpMessage, initialAcpView);
   const [draft, setDraft] = useState("");
   const [decided, setDecided] = useState<Record<string, "allow" | "deny">>({});
@@ -88,6 +115,17 @@ export function AcpConversation({ id, compact = false }: { id: string; compact?:
         <Text size="meta" tone="muted">· {vm.status}</Text>
         {vm.usage?.totalTokens != null && (
           <Text size="meta" tone="subtle">· {vm.usage.totalTokens.toLocaleString()} tok</Text>
+        )}
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="close agent view"
+            title="Close (Esc)"
+            className="ml-auto rounded-ui p-1 text-muted hover:bg-surface hover:text-ink-100"
+          >
+            <Icon icon={X} size={14} />
+          </button>
         )}
       </div>
 

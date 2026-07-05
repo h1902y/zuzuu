@@ -34,15 +34,21 @@ import {
   clampFocus, moveFocus, focusedId,
   openRejectMode, moveRejectReason, reasonIndexFromKey, REJECT_MODE_CLOSED,
   toggleSelection, batchTargets, editIntent, runBatchApprove, selectionAfterBatch,
+  shouldAutoCloseReview,
 } from "./review-flow.js";
 import { REJECT_REASONS, NO_SESSION_BUCKET } from "./review-model.js";
 import type { GroupAxis, ScoredStaged } from "./review-model.js";
 import { shortSession } from "./provenance.js";
 import { toast } from "../../state/toast.js";
+import { useReview } from "../../state/review.js";
 import { Check } from "lucide-react";
 import { ProposalCard } from "./ProposalCard.js";
 import { emptyCopy } from "../empty-copy.js";
 import { Stack, Inline, Text, Button, Box, EmptyState } from "../../ds/index.js";
+
+/** How long the "all caught up" beat stays visible before the OVERLAY auto-closes
+ *  (U6) — long enough to register as a deliberate confirmation, not a yank. */
+const AUTO_CLOSE_DELAY_MS = 1200;
 
 /** The group header label for either axis — "module" keys render verbatim; "session"
  *  keys are shortened for readability (provenance.ts's display convention), and the
@@ -80,7 +86,7 @@ export function groupHeader(
   };
 }
 
-export function ReviewQueue({ keyboard }: { keyboard?: boolean } = {}) {
+export function ReviewQueue({ keyboard, overlay }: { keyboard?: boolean; overlay?: boolean } = {}) {
   const [axis, setAxis] = useState<GroupAxis>("module");
   const { queue, grouped, total, loading, approve, reject, restage } = useReviewQueue(axis);
   const [focus, setFocus] = useState(0);
@@ -90,9 +96,25 @@ export function ReviewQueue({ keyboard }: { keyboard?: boolean } = {}) {
   const [rejectMode, setRejectMode] = useState(REJECT_MODE_CLOSED);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const setReviewOpen = useReview((s) => s.setOpen);
 
   const focusIdx = clampFocus(total, focus);
   const focusId = keyboard ? focusedId(queue, focusIdx) : null;
+
+  // U6 (curried-plotting-coral.md) — bug fix: approving/rejecting the last pending
+  // proposal used to leave an empty review OVERLAY sitting open. `overlay` (only
+  // set on WorkbenchShell's overlay instance — never the session wing's) + a
+  // settled `total === 0` (never mid-fetch, via shouldAutoCloseReview) schedules a
+  // gentle beat — the calm "all caught up" EmptyState below stays visible for
+  // AUTO_CLOSE_DELAY_MS before the overlay dismisses itself, so it reads as a
+  // confirmation, not a yank. The cleanup clears the timeout if the queue grows
+  // again within the window (a fresh proposal streaming in) — it never closes out
+  // from under a genuinely non-empty queue.
+  useEffect(() => {
+    if (!shouldAutoCloseReview(!!overlay, loading, total)) return;
+    const t = setTimeout(() => setReviewOpen(false), AUTO_CLOSE_DELAY_MS);
+    return () => clearTimeout(t);
+  }, [overlay, loading, total, setReviewOpen]);
 
   // Bug fix: `reject` now resolves to `false` on a refused/failed mutation
   // (use-review-queue.ts) instead of silently "succeeding" — only count it as
@@ -134,7 +156,14 @@ export function ReviewQueue({ keyboard }: { keyboard?: boolean } = {}) {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
 
       if (rejectMode.open && rejectingId) {
-        if (e.key === "Escape") { e.preventDefault(); closeReject(); return; }
+        // U6 (curried-plotting-coral.md) — Escape is no longer handled HERE: the
+        // focused card's own `useDismiss({id: "review-reject", …})` registration
+        // (ProposalCard.tsx) now owns it, nested ABOVE "review" on the shared
+        // stack so it cancels the reject sub-mode ONLY, leaving the review overlay
+        // itself open for a second Escape. Handling it in both places used to
+        // fire this branch's `closeReject()` AND the review's own topmost-Escape
+        // close on the SAME keypress (U5's flagged gap — everything closed at
+        // once instead of backing out one level).
         const digit = reasonIndexFromKey(e.key, REJECT_REASONS.length);
         if (digit !== null) { e.preventDefault(); rejectAndCount(rejectingId, queue.find((q) => q.id === rejectingId)?.module ?? "", REJECT_REASONS[digit]!); closeReject(); return; }
         if (e.key === "j" || e.key === "ArrowDown") { e.preventDefault(); setRejectMode((m) => moveRejectReason(m, REJECT_REASONS.length, 1)); return; }

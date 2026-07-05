@@ -233,3 +233,20 @@ export function editIntent(item: StagedSummary, edited: Record<string, unknown>,
     restage: { module: item.module, op, target, change: { ...(item.change ?? {}), ...edited } },
   };
 }
+
+// ── U6 (curried-plotting-coral.md) — auto-close the review OVERLAY when emptied ──
+//
+// Bug fix: approving/rejecting the last pending proposal used to leave an empty
+// review overlay sitting open (the calm "all caught up" EmptyState renders inside
+// it, but nothing ever dismissed the overlay itself). This is the pure trigger:
+// ONLY the overlay instance (not the session wing's own `<ReviewQueue>`, which has
+// no "open" state to close) should self-close, and only once the queue has
+// genuinely settled at zero — never mid-fetch, so a loading flicker (`total`
+// transiently 0 before the first fetch resolves) can never fire it.
+
+/** Should the review overlay schedule its gentle auto-close beat right now?
+ *  `overlay` is true only for the OVERLAY <ReviewQueue> instance (WorkbenchShell
+ *  passes it; the wing's instance never does — closing isn't its job). */
+export function shouldAutoCloseReview(overlay: boolean, loading: boolean, total: number): boolean {
+  return overlay && !loading && total === 0;
+}

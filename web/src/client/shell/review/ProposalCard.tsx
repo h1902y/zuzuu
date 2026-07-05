@@ -36,7 +36,7 @@ import { proposalTitle, targetPreview } from "./proposal-title.js";
 import { DiffPreview } from "./DiffPreview.js";
 import { ConfidenceMeter } from "./ConfidenceMeter.js";
 import { api } from "../../lib/api.js";
-import { Stack, Inline, Text, Button, Chip, ProposalBadge } from "../../ds/index.js";
+import { Stack, Inline, Text, Button, Chip, ProposalBadge, useDismiss } from "../../ds/index.js";
 import type { ProposalState } from "../../ds/index.js";
 
 const editInput = "w-full rounded-ui border border-border bg-app px-2 py-1 text-meta text-ink-100 outline-none placeholder:text-muted focus:border-accent-dim";
@@ -146,6 +146,20 @@ export function ProposalCard({
   const isRejecting = rejectControlled ? rejectOpen : rejecting;
   const highlightIdx = rejectControlled ? (reasonIndex ?? 0) : -1;
   const closeReject = () => (rejectControlled ? onRejectOpenChange?.(false) : setRejecting(false));
+  const rejectRef = useRef<HTMLDivElement>(null);
+  // U6 (curried-plotting-coral.md) — nest the reject sub-mode as its OWN overlay
+  // (id "review-reject") on the shared stack while it's open. WorkbenchShell's
+  // review overlay registers "review" via this SAME useDismiss mechanism (U5), so
+  // without this, Escape fired BOTH closeReject() AND the review's own topmost-
+  // Escape close — one keystroke closed everything instead of backing out one
+  // level (U5's flagged gap). With "review-reject" pushed above "review" while
+  // open, "review"'s own listener sees it's no longer topmost and no-ops — only
+  // THIS nested overlay's listener answers Escape, cancelling just the reject
+  // sub-mode; a second Escape then closes the review itself (the PaletteBody
+  // view-stack spirit — one level at a time). Called UNCONDITIONALLY (hooks can't
+  // be conditional); `enabled: isRejecting` keeps it off the stack whenever this
+  // card isn't mid-reject.
+  useDismiss({ id: "review-reject", onClose: closeReject, enabled: isRejecting, ref: rejectRef });
 
   // U5.2 — edit-before-approve: same controlled/uncontrolled split as diffOpen.
   const editControlled = editOpen !== undefined;
@@ -316,19 +330,21 @@ export function ProposalCard({
             </Inline>
           </Stack>
         ) : mode === "rejecting" ? (
-          <Inline gap="xs" wrap>
-            {REJECT_REASONS.map((r, i) => (
-              <Button
-                key={r}
-                variant={rejectControlled && i === highlightIdx ? "primary" : "outline"}
-                size="sm"
-                onClick={() => handleReject(r)}
-              >
-                {i + 1}. {r}
-              </Button>
-            ))}
-            <Button variant="ghost" size="sm" onClick={closeReject}>cancel</Button>
-          </Inline>
+          <div ref={rejectRef}>
+            <Inline gap="xs" wrap>
+              {REJECT_REASONS.map((r, i) => (
+                <Button
+                  key={r}
+                  variant={rejectControlled && i === highlightIdx ? "primary" : "outline"}
+                  size="sm"
+                  onClick={() => handleReject(r)}
+                >
+                  {i + 1}. {r}
+                </Button>
+              ))}
+              <Button variant="ghost" size="sm" onClick={closeReject}>cancel</Button>
+            </Inline>
+          </div>
         ) : (
           <div className={`transition-opacity ${focused ? "opacity-100" : "opacity-80 hover:opacity-100 focus-within:opacity-100"}`}>
             <Inline gap="sm" justify="between" align="center">

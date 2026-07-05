@@ -563,7 +563,10 @@ export function WorkbenchShell() {
               unchanged (U3's scope note — this stays its own hand-rolled canvas,
               not a Dialog). */}
           <div ref={reviewPanelRef} className="animate-pop fixed inset-x-0 top-12 z-50 mx-auto flex max-h-96 w-96 flex-col overflow-hidden rounded-lg border border-border bg-elevated shadow-overlay">
-            <ReviewQueue keyboard />
+            {/* U6 — `overlay` marks THIS instance as the one allowed to auto-close
+                itself once the queue empties (review-flow.ts's shouldAutoCloseReview);
+                the wing's <ReviewQueue> below never gets it — closing isn't its job. */}
+            <ReviewQueue keyboard overlay />
           </div>
         </>
       )}
