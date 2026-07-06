@@ -84,8 +84,12 @@ A step is exactly one of:
   or even another `type: workflow` (composition, same rule Tier-0/1 uses).
 - **`wait: {on, timeout?}`** — a pause. The run parks at `status: waiting,
   waiting_on: <on>`; `zz run signal`/`zz run complete` resolves it. A declared
-  `timeout` is checked lazily, the next time anything calls `advance` on that run
-  (there's no scheduler yet — see Roadmap for triggers).
+  `timeout` is checked lazily, the next time anything calls `advance` on that
+  run — for a MANUAL run that's still purely on a human's own cadence (no
+  scheduler evaluates it for you); for a run the wake source's local tick
+  fired (below), the tick itself re-advances it every cadence while it's
+  non-terminal, so a `waiting` unattended run's timeout gets evaluated on the
+  tick's own schedule, not a person's.
 
 That's it. No BPMN-style sprawl of node types.
 
@@ -175,9 +179,10 @@ uses; nothing is fired to compute it.
 **exactly one** durable run — never one per matching row, which is a batch
 concern this rung doesn't build. The run's `inputs` carry the trigger's declared
 `inputs` plus the matched-note context (`MATCHED_COUNT`, `MATCHED_SAMPLE`). A
-`cron` trigger fired manually just runs its target once; `on.expr` is read by
-nothing local today — it exists so the note is ready for the hosted scheduler
-later with no schema migration.
+`cron` trigger fired manually just runs its target once. `on.expr` **is** read
+locally now: an opted-in Project's local tick evaluates it every cadence (see
+"The wake source" below) — the field was designed in ahead of that rung
+specifically so no schema migration was needed when firing arrived.
 
 **The second gate.** `enabled: false` is the default posture — a trigger can be
 reviewed-in (staged by an agent, approved by a human) and still stay inert until
@@ -205,19 +210,76 @@ action refuses with the same "is not a workflow" error `zz run start` gives a
 human pointed at that address. Wrap a single action as a trivial one-step
 workflow if you want to trigger it.
 
-## Not built yet (on purpose)
+## The wake source — an opt-in local tick fires triggers now (rung 1)
 
-- **No unattended scheduler.** A `cron` trigger's `expr` is validated (shape
-  only) but never auto-fired locally — a laptop must not fire triggers
-  unattended (the honest local/hosted boundary). `zz doctor` names any declared
-  cron trigger so the gap stays visible, not silent.
-- **No ingress.** `/ingress/<trigger-id>` webhooks are hosted-tier only.
-- **No note-change auto-firing.** Nothing watches the index for newly-matching
-  rows and fires on its own — `trigger fire` is always explicit today.
-- **No daemon.** `zz run advance --all` is a bounded loop in one process, not a
-  background service.
-- **The web surface exists now** — [Flow](Flow-View), the third projection
-  alongside Table/Map: a workflow's steps as a DAG, its runs overlaid live.
-  Read-only this pass (no run-control buttons, no canvas editing, no trigger
-  blast-radius preview yet) — advancing a run is still `zz run advance` / a
-  later pass.
+**The honest boundary moved, on purpose.** It used to read "a laptop must not
+fire triggers unattended" — full stop. As of the wake-source rung
+(`docs/plans/2026-07-06-001-feat-wake-source-tick-plan.md`), that boundary is
+**crossed, deliberately and narrowly**: a founder who explicitly opts in
+(`zz autonomy on`) gets a **local tick** that fires *enabled* triggers while
+their machine is awake — still gated, still fail-closed, still no cloud. The
+old boundary is not undone; it's been replaced by a stricter, honest one:
+
+> A local tick you opted into (`zz autonomy on`) fires enabled triggers while
+> your machine is awake — still gated, still fail-closed, still no cloud. The
+> hosted 24/7 tier remains deferred.
+
+```bash
+zz autonomy on              # the founder's explicit, auditable opt-in (off by default)
+zz autonomy status          # is it on? what did the last tick fire/skip/deny?
+zz tick --once              # run one tick by hand — fires due enabled triggers, advances their runs
+zz web --autonomy           # the workbench daemon hosts the cadence (shells `zz tick --once`)
+zz daemon                   # OR the dedicated tick host — loops the same core in-process
+```
+
+**What actually changed, precisely:**
+
+- **`cron` triggers now auto-fire — locally, opt-in.** A `cron` trigger's
+  `expr` is evaluated by a zero-dependency matcher (`grow/cron-match.mjs`) on
+  every tick; a due-and-unfired window fires exactly once (a `stateDir`
+  watermark makes this idempotent across overlapping ticks).
+- **`note-change` triggers now auto-fire too** — once per newly-matching row,
+  same idempotent watermark.
+- **Firing still adds no new execution authority.** A tick-fired trigger goes
+  through the exact same `fireTrigger` → `startRun` path a human's
+  `zz trigger fire` uses — the tick is a scheduler over that existing gate,
+  never a second one.
+- **Unattended runs gate their STEPS fail-closed** (a malformed rule, an
+  engine error, or an `ask` verdict all *deny* — see `docs/MODEL.md`'s
+  actor/gate-posture split), even though the run NOTE is still written through
+  the one operator-authorized write door. A manual, human-started run is
+  completely unchanged — same fail-open contract as always.
+- **No unattended agent spawn — structurally.** An `agent`-binding step inside
+  a tick-fired run returns `needsHost:true` and fails that one step cleanly;
+  ACP dispatch is daemon-only and the CLI-driven tick can never reach it. This
+  isn't a policy the tick has to remember to respect — it's the same
+  structural block every other CLI-driven run already hits.
+- **Off by default, two independent gates.** Nothing fires until BOTH (a) the
+  founder has run `zz autonomy on` for this Project, and (b) the individual
+  trigger is `enabled: true`. Either gate closed ⇒ that trigger stays silent.
+
+**Still deferred, hosted-tier only** — this rung does NOT build:
+
+- **No ingress.** `/ingress/<trigger-id>` webhooks, inbound email, and OAuth
+  remain hosted-tier only — no unattended *inbound* door on a laptop.
+- **No 24/7 tier.** The local tick only runs while your machine is awake and
+  something is hosting it (`zz web --autonomy` or `zz daemon`); the Fly-hosted
+  always-on tier is a separate, later rung.
+- **No rich morning digest.** "What your office did overnight" as a narrative
+  surface is a named later rung — this pass gives you the raw decision log
+  (`zz doctor`, `zz autonomy status`, the `runs` table), not a curated summary.
+- **The web surface's Flow view stays read-only** — [Flow](Flow-View), the
+  third projection alongside Table/Map: a workflow's steps as a DAG, its runs
+  overlaid live (now including tick-fired ones). No run-control buttons, no
+  canvas editing, no trigger blast-radius preview yet — advancing a run is
+  still `zz run advance` / a later pass.
+
+**Seeing what fired.** A tick-fired run is not a separate, hidden thing — it
+surfaces exactly like a human-started one: it's a row in the `runs` module
+table, it pushes live to the workbench over `/ws/zuzuu`, and its steps land in
+`runs.jsonl` same as any other. The one ADDITIONAL record is the tick's own
+decision log (`grow/tick-state.mjs`'s `stateDir`-scoped `tick.log.jsonl`) —
+what each tick fired, skipped (not due / disabled / already-fired), and
+denied (a fire attempt that failed) — the unattended equivalent of watching it
+happen. `zz doctor` and `zz autonomy status` both read the latest entry so the
+switch's position and its last action are never silent.

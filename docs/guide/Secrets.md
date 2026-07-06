@@ -147,6 +147,27 @@ resolve for an `agent`-actor run, full stop — mirrors the guardrails execution
 own fail-closed posture for an unattended agent. `agent-allowed` resolves for either.
 Both gates must pass; neither substitutes for the other.
 
+**`operator-only` means the operator LANE, not a human physically present at the
+keyboard** — carried forward from the wake-source rung's Opus moat review
+(`docs/plans/2026-07-06-001-feat-wake-source-tick-plan.md`, U2/KTD2). `resolveSecret`
+checks `ctx.actor` — the WRITE-AUTHORIZATION axis (`'operator'` vs `'agent'`) — never
+the gate-POSTURE axis (`gateActor`/`gate_actor`) an unattended tick-fired run carries
+for its fail-closed step gating. A run the wake source fires unattended still writes
+its run note through the operator door and so still carries `actor: 'operator'` all
+the way down into `use/act.mjs`'s `resolveSecret(home, name, { caller, actor })` call
+— meaning an unattended, opted-in (`zz autonomy on`), curated automation resolves an
+`operator-only` secret **exactly as a present human operator's `zz act`/`zz run
+advance` would**. This is by design, not a gap: `operator-only` was never "requires a
+human watching this exact run" — it's "requires the operator LANE" (the same
+authorization boundary `commit`/`startRun`/`advanceRun` enforce), and the wake source
+adds no new write authority, only a new unattended CALLER of the same lane (§I rung
+4). The value itself never enters a note, `runs.jsonl`, or an agent's context either
+way — see "Placeholder injection" above; only a shell step's child-process env ever
+sees it. **If a future need demands a secret that must never resolve without a human
+physically present** (independent of which lane authorized the run), that's an
+additive `requires-present-operator`-style flag on the declaration — a NEW, narrower
+gate layered on top of `actor`, not a fix to a hole in this one.
+
 ## Placeholder injection — the browser-use pattern
 
 When a `type: action` tool declares `secrets: [name]` and runs (`zz act` / `zz tool`

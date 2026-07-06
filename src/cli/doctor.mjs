@@ -21,6 +21,8 @@ import { toon } from '../notes/toon.mjs';
 import { listTriggers } from '../grow/trigger.mjs';
 import { readNote } from '../notes/repo.mjs';
 import { gateWriteVerbPattern } from './commands.mjs';
+import { isAutonomyEnabled } from '../grow/autonomy.mjs';
+import { readTickLog } from '../grow/tick-state.mjs';
 
 /** A structured health report: {problems[], warnings[], info[], ok}. */
 export function doctorReport(cwd = process.cwd()) {
@@ -49,12 +51,27 @@ export function doctorReport(cwd = process.cwd()) {
     }
     if (broken) warnings.push(`${broken} broken link(s) — see \`zz check\``);
     if (ungated) warnings.push(`${ungated} note(s) added outside review — see \`zz check\` (propose via \`zz stage\`; \`zz init\` reconciles seeds)`);
-    // triggers (§I rung 4): a `cron` trigger's `expr` is HOSTED-ONLY — local zuzuu has
-    // no scheduler and never auto-fires it (§I.2 B4's honest boundary: no unattended
-    // ingress on a laptop). Name the gap here so it's discoverable, not silent.
+    // the wake source (U6, docs/plans/2026-07-06-001-feat-wake-source-tick-plan.md):
+    // the honest boundary is no longer "nothing fires on its own" — an opted-in local
+    // tick (`zz autonomy on`) fires ENABLED triggers while the machine is awake, still
+    // gated + fail-closed (KTD2's unattended posture), still no cloud (the hosted
+    // 24/7 tier stays deferred). Mirror `zz autonomy status`'s own read (U4,
+    // `cli/verbs/autonomy.mjs`'s `lastTickEntry`): the opt-in flag
+    // (`grow/autonomy.mjs`'s `isAutonomyEnabled`) + the last tick-decision-log entry
+    // (`grow/tick-state.mjs`'s `readTickLog` — the unattended record of what
+    // fired/skipped/denied each tick). Surfaced unconditionally (ON or OFF) so the
+    // switch's position is never silent — same spirit as the exec-gate check above.
     if (mods.length) {
-      const cronTriggers = listTriggers(zz.home).filter((t) => t.onKind === 'cron');
-      if (cronTriggers.length) warnings.push(`${cronTriggers.length} cron trigger(s) declared — local zuzuu never auto-fires them (hosted-tier only); fire manually with \`zz trigger fire <module:id>\``);
+      if (isAutonomyEnabled(zz.home)) {
+        const entries = readTickLog(zz.home);
+        const last = entries.length ? entries[entries.length - 1] : null;
+        info.push(last
+          ? `autonomy: ON — last tick ${last.ts}, fired ${last.fired}`
+          : 'autonomy: ON — no tick has run yet (`zz tick --once`, or `zz web --autonomy` / `zz daemon` on a cadence)');
+      } else {
+        const idle = listTriggers(zz.home).filter((t) => t.enabled).length;
+        warnings.push(`autonomy: OFF — ${idle} enabled trigger(s) idle (run \`zz autonomy on\` to enable the local tick)`);
+      }
     }
     // exec-gate staleness (SHOULD-FIX 1, docs/audits/2026-07-03-triggers-review.md): the
     // `protect-brain-exec` rule's stored PATTERN is a snapshot of gateWriteVerbPattern()
