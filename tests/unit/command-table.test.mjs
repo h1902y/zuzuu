@@ -43,6 +43,8 @@ const SWITCH_VERBS = [
   'commands', // Rung 9b: the generated catalog verb (the daemon reads this)
   'graph', // personal-app roadmap P2: the project-as-graph document (the map surface reads this)
   'observe-runs', // §I rung 2: the runs-miner — observe's sibling, mining runs.jsonl instead of transcripts
+  'tick', // U4, docs/plans/2026-07-06-001-feat-wake-source-tick-plan.md: run the wake-source tick core once
+  'daemon', // U4, same plan: the dedicated tick host (loops the same core on a cadence) — flat like `hook`, not a `host` sub-verb
 ];
 
 // The Tier-2 noun namespaces (Rung 4): every old flat verb still resolves at the top
@@ -56,7 +58,10 @@ const SWITCH_VERBS = [
 // read-only — there is no `secret set`, since the VALUE is terminal-managed, never a
 // zuzuu-stored thing. `secret declare` is its one write leaf — operator-lane
 // AUTHORING sugar over `note create`, typed for a declaration's metas, no value flag.
-const NAMESPACES = ['gen', 'host', 'module', 'note', 'registry', 'run', 'secret', 'session', 'tool', 'trigger'];
+// `autonomy` (U4, docs/plans/2026-07-06-001-feat-wake-source-tick-plan.md) is the
+// newest: `autonomy on|off|status` — the founder's opt-in switch + its read-only
+// status, the same cold/niche shape as `trigger`.
+const NAMESPACES = ['autonomy', 'gen', 'host', 'module', 'note', 'registry', 'run', 'secret', 'session', 'tool', 'trigger'];
 
 /** Resolve a row to the handler it ultimately runs (following an `alias` pointer). */
 const canonicalOf = (row) => row.alias

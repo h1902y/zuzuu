@@ -25,6 +25,7 @@ import { setupRows } from './verbs/setup.mjs';
 import { dataRows } from './verbs/data.mjs';
 import { runRows } from './verbs/run.mjs';
 import { evolutionRows } from './verbs/evolution.mjs';
+import { autonomyRows } from './verbs/autonomy.mjs';
 import { inspectionRows } from './verbs/inspection.mjs';
 import { toolRows } from './verbs/tool.mjs';
 import { secretRows } from './verbs/secret.mjs';
@@ -90,6 +91,7 @@ export const COMMANDS = [
   ...dataRows,
   ...runRows,
   ...evolutionRows,
+  ...autonomyRows,
   ...inspectionRows,
   ...toolRows,
   ...secretRows,
