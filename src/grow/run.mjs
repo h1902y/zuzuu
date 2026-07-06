@@ -63,6 +63,36 @@
 //     next advance that touches a waiting run (no scheduler this rung — §I rung 4,
 //     triggers, is explicitly deferred) — an elapsed wait fails the step (and the run)
 //     exactly like any other failed step, with the same saga treatment.
+//
+// UNATTENDED GATE POSTURE (KTD2, docs/plans/2026-07-06-001-feat-wake-source-tick-plan.md
+// — the wake-source rung's security-critical decoupling): `actor` here means exactly
+// one thing — WRITE AUTHORIZATION. `startRun`/`advanceRun` refuse any non-`operator`
+// actor outright (unchanged, see the REFUSED_NON_OPERATOR guards below); the run
+// note's own write always goes through the operator-only door. That is a SEPARATE
+// concern from GATE POSTURE — whether a step's guardrail check fails open (a human is
+// watching, `ask` passes, a malformed rule is skipped) or fail-closed (nobody is
+// watching — deny on any uncertainty). Historically the gate derived its posture from
+// this same `actor`, so a tick-fired run (which must write as `operator` — there is no
+// other legitimate door) would ALSO gate its steps fail-OPEN, which is wrong: nobody
+// is present to answer an `ask` or notice a silently-dropped rule.
+//
+// The fix: `startRun`'s new `unattended` option (default `false` — every existing
+// caller is unaffected) stamps the run note itself with `gate_actor: 'agent'` (else
+// `null`) — the posture rides on the NOTE, not a call-stack parameter, so it survives
+// crash-recovery/re-reads exactly like every other piece of run state (`tick`, below,
+// reads it fresh off the note on every call). `tick` derives a `gateActor` from that
+// field and threads it — ALONGSIDE `actor`, never replacing it — into
+// `runInlineStep`/`runNoteRefStep`/`failRun`→`runSaga`, which pass it to
+// `runGated`/`act()`/`runWorkflow` as `gateActor` (see guardrails/gate.mjs's `gate()`:
+// `ctx.gateActor`, when present, decides the fail-open/fail-closed posture INSTEAD of
+// `ctx.actor` — absent, unchanged). `gateActor` can only ever be `'agent'` or absent
+// here — this derivation never manufactures a value that would make a step MORE
+// permissive than its `actor` alone would; it only ever ADDS strictness. A run without
+// the marker (every pre-existing caller, and every human `zz run start`) carries
+// `gate_actor: null`, so `tick` computes `gateActor: undefined`, and every downstream
+// call behaves BYTE-FOR-BYTE as before (posture derives from `actor` alone, i.e.
+// `operator` ⇒ fail-open). Setting the marker itself is only reachable through
+// `startRun`'s own operator-only door — nothing an agent actor can trigger.
 
 import { existsSync, readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -100,6 +130,10 @@ const RUNS_FIELDS = [
   { name: 'status', type: 'select', required: true, options: ['running', 'waiting', 'done', 'failed'], label: 'Status' },
   { name: 'waiting_on', type: 'text', label: 'Waiting on', description: 'the signal name a waiting run is blocked on' },
   { name: 'failed_step', type: 'text', label: 'Failed step' },
+  {
+    name: 'gate_actor', type: 'text', label: 'Gate actor',
+    description: "'agent' when this run was started unattended (KTD2) — its STEPS gate fail-closed (an `ask` verdict, a malformed rule, or an engine error all deny). Absent/null (the default) = attended — steps gate fail-open exactly as before. Independent of the run's WRITE authorization (`actor`), which is always operator-only regardless of this field.",
+  },
 ];
 
 /** Materialize the `runs` module's manifest on first use (idempotent) — mirrors
@@ -178,9 +212,17 @@ function writeRun(home, runId, change, actor) {
  * the step DAG (shape + topo order, same doctrine as Tier 0's `runWorkflow`), and
  * create the run note through the operator write path. Returns the run id — nothing
  * has executed yet.
+ *
+ * `opts.unattended` (KTD2, default `false` — every existing caller unaffected) stamps
+ * the new run note's `gate_actor` field `'agent'` instead of `null`. This does NOT
+ * change who may call `startRun` (still operator-only, checked immediately below,
+ * unconditionally) or who wrote the note (`actor`, unchanged) — it only marks the
+ * run's STEPS to gate fail-closed once ticked (see this file's header comment and
+ * `tick`, below). The wake-source tick (a later unit) is the intended caller of
+ * `{unattended:true}`; a human `zz run start` never sets it.
  * @returns {{ok, runId?, run?, error?, refused?}}
  */
-export function startRun(home, workflowModule, workflowId, inputs = {}, actor = 'operator') {
+export function startRun(home, workflowModule, workflowId, inputs = {}, actor = 'operator', { unattended = false } = {}) {
   if (actor !== 'operator') return REFUSED_NON_OPERATOR;
   const live = readNote(home, workflowModule, workflowId);
   if (!live) return { ok: false, error: `no note '${workflowModule}:${workflowId}'` };
@@ -217,7 +259,7 @@ export function startRun(home, workflowModule, workflowId, inputs = {}, actor = 
   const note = {
     type: 'run', title: `Run: ${workflowModule}:${workflowId}`, status: 'running',
     workflow: `${workflowModule}:${workflowId}`, workflow_generation: gen,
-    waiting_on: null, failed_step: null, actor, inputs,
+    waiting_on: null, failed_step: null, actor, gate_actor: unattended ? 'agent' : null, inputs,
     steps, completed_order: [], compensations: [],
     created_at: now, started_at: now, updated_at: now, ended_at: null,
   };
@@ -238,17 +280,26 @@ function withIdempotencyKey(inputs, idempotencyKey) {
   return idempotencyKey ? { ...inputs, IDEMPOTENCY_KEY: idempotencyKey } : inputs;
 }
 
-function runInlineStep(home, workflowModule, def, inputs, actor, idempotencyKey) {
+// `gateActor` (KTD2, threaded from `tick`'s read of the run note's `gate_actor` field
+// — see this file's header comment): rides ALONGSIDE `actor` into `runGated`/`act()`/
+// `runWorkflow`, deciding the guardrails gate's fail-open/fail-closed posture
+// independent of `actor` (which stays whatever the caller authorized the WRITE as —
+// always `operator` for every path in this file). `undefined` (an attended run)
+// reproduces today's behavior exactly (posture derives from `actor` alone).
+function runInlineStep(home, workflowModule, def, inputs, actor, idempotencyKey, gateActor) {
   const allow = readManifest(home, workflowModule).policy?.run?.allow ?? null;
-  return runGated(home, workflowModule, def.run, { allow, inputs: withIdempotencyKey(inputs, idempotencyKey), cwd: repoRoot(), timeout: def.timeout, actor });
+  return runGated(home, workflowModule, def.run, { allow, inputs: withIdempotencyKey(inputs, idempotencyKey), cwd: repoRoot(), timeout: def.timeout, actor, gateActor });
 }
 
 /** A `note:` step, Tier-2 flavor: mirrors `use/workflow.mjs`'s composition — a leaf
  *  runnable note goes through `act()` (its own lock/gate/logRun); a `type: workflow`
  *  target is invoked via a FRESH Tier-0 `runWorkflow` (one bounded, synchronous
  *  sub-invocation — "one short invocation" holds even when that invocation is a
- *  whole nested DAG). `via` attributes the run.jsonl entry back to this durable run. */
-function runNoteRefStep(home, def, inputs, actor, runId, idempotencyKey) {
+ *  whole nested DAG). `via` attributes the run.jsonl entry back to this durable run.
+ *  `gateActor` (KTD2, see `runInlineStep` above) rides into BOTH dispatch shapes —
+ *  the nested `runWorkflow` composition and the leaf `act()` call — so a tick-fired
+ *  unattended run's fail-closed posture survives composition, not just a bare step. */
+function runNoteRefStep(home, def, inputs, actor, runId, idempotencyKey, gateActor) {
   const addr = splitAddr(def.note);
   if (!addr) return { ran: false, success: false, error: `note ref '${def.note}' must be 'module:id'` };
   const targetPath = itemPath(home, addr.module, addr.id);
@@ -258,7 +309,7 @@ function runNoteRefStep(home, def, inputs, actor, runId, idempotencyKey) {
   const stepInputs = withIdempotencyKey(def.inputs && typeof def.inputs === 'object' ? def.inputs : inputs, idempotencyKey);
   const via = `${RUNS_MODULE}:${runId}`;
   if (target.type === 'workflow') {
-    const nested = runWorkflow(home, addr.module, addr.id, stepInputs, actor, { visited: new Set(), depth: 0, via });
+    const nested = runWorkflow(home, addr.module, addr.id, stepInputs, actor, { visited: new Set(), depth: 0, via, gateActor });
     return { ran: Array.isArray(nested.steps), success: !!nested.ok, exitCode: nested.ok ? 0 : 1, error: nested.error };
   }
   // binding-aware, mirroring use/workflow.mjs's runNoteRefStep exactly (§I.1/§I.6): a
@@ -270,13 +321,17 @@ function runNoteRefStep(home, def, inputs, actor, runId, idempotencyKey) {
     return { ran: false, success: false, error: `note ref '${def.note}' is not runnable and not a workflow` };
   }
   const manifest = readManifest(home, addr.module);
-  const r = act({ home, module: addr.module, manifest, actor, via }, addr.id, stepInputs);
+  const r = act({ home, module: addr.module, manifest, actor, via, gateActor }, addr.id, stepInputs);
   return { ran: r.ran, success: !!r.ok, exitCode: r.exitCode, denied: r.denied, timedOut: r.timedOut, error: r.error };
 }
 
 // ── the saga (mirrors workflow.mjs's reverse-compensation loop, honoring `irreversible`) ──
 
-function runSaga(home, workflowModule, run, defs) {
+// `gateActor` (KTD2): the saga's own compensate commands are gated the SAME as the
+// run's forward steps — an unattended run's rollback is just as unattended as its
+// forward progress, so a compensate command must gate fail-closed too, not fall back
+// to fail-open just because it runs during unwind.
+function runSaga(home, workflowModule, run, defs, gateActor) {
   const byId = new Map(run.steps.map((s) => [s.id, s]));
   const allow = readManifest(home, workflowModule).policy?.run?.allow ?? null;
   const root = repoRoot();
@@ -287,7 +342,7 @@ function runSaga(home, workflowModule, run, defs) {
     if (!s || s.status !== 'done' || !d) continue;
     if (d.irreversible) { compensations.push({ id, irreversible: true, compensated: false }); break; } // STOP — honesty over a fake rollback (§I.2 B3)
     if (d.compensate) {
-      const c = runGated(home, workflowModule, d.compensate, { allow, inputs: run.inputs, cwd: root, actor: run.actor });
+      const c = runGated(home, workflowModule, d.compensate, { allow, inputs: run.inputs, cwd: root, actor: run.actor, gateActor });
       compensations.push({ id, success: !!c.success });
     }
   }
@@ -298,15 +353,16 @@ function runSaga(home, workflowModule, run, defs) {
  *  completion order, stopping at the first `irreversible` step), write once, and log
  *  the terminal outcome under the WORKFLOW's own module/id (so `observeRuns`/the
  *  runs-miner mines a durable run's outcome exactly like a Tier-0/1 run's). `run` must
- *  already carry the failing step's terminal `steps` entry (status:'failed', ended). */
-function failRun(home, runId, run, failedStepId, errorMsg, actor) {
+ *  already carry the failing step's terminal `steps` entry (status:'failed', ended).
+ *  `gateActor` (KTD2) threads into the saga's own compensate commands — see `runSaga`. */
+function failRun(home, runId, run, failedStepId, errorMsg, actor, gateActor) {
   const addr = splitAddr(run.workflow);
   const defs = new Map();
   if (addr) {
     const pinned = noteAsOf(home, addr.module, addr.id, run.workflow_generation);
     if (pinned.ok) for (const s of pinned.note.steps ?? []) defs.set(s.id, s);
   }
-  const compensations = addr ? runSaga(home, addr.module, run, defs) : [];
+  const compensations = addr ? runSaga(home, addr.module, run, defs, gateActor) : [];
   const now = nowIso();
   const w = writeRun(home, runId, {
     steps: run.steps, status: 'failed', failed_step: failedStepId, error: errorMsg,
@@ -357,6 +413,13 @@ function checkWaitTimeout(home, run) {
 // ── the tick — advances EXACTLY ONE step ─────────────────────────────────────────
 
 function tick(home, runId, run, actor) {
+  // KTD2: the gate posture is read fresh off the NOTE on every tick (never carried on
+  // a call stack) — `=== 'agent'` is a strict equality, so anything other than the
+  // literal marker (absent, null, a future/garbage value) falls back to `undefined`,
+  // which reproduces today's behavior exactly (posture derives from `actor` alone).
+  // This can only ever ADD strictness relative to `actor`, never remove it.
+  const gateActor = run.gate_actor === 'agent' ? 'agent' : undefined;
+
   if (run.status === 'done' || run.status === 'failed') return { ok: true, status: run.status, ticked: false };
 
   if (run.status === 'waiting') {
@@ -365,7 +428,7 @@ function tick(home, runId, run, actor) {
     const now = nowIso();
     const errorMsg = `wait '${timedOut.signal}' timed out`;
     const nextSteps = run.steps.map((s) => (s.id === timedOut.stepId ? { ...s, status: 'failed', ended: now, error: errorMsg } : s));
-    return failRun(home, runId, { ...run, steps: nextSteps }, timedOut.stepId, errorMsg, actor);
+    return failRun(home, runId, { ...run, steps: nextSteps }, timedOut.stepId, errorMsg, actor, gateActor);
   }
   if (run.status !== 'running') return { ok: false, error: `run '${runId}' has an unrecognized status '${run.status}'` };
 
@@ -408,8 +471,8 @@ function tick(home, runId, run, actor) {
   }
 
   const result = kind === 'run'
-    ? runInlineStep(home, addr.module, def, run.inputs, actor, target.idempotency_key)
-    : runNoteRefStep(home, def, run.inputs, actor, runId, target.idempotency_key);
+    ? runInlineStep(home, addr.module, def, run.inputs, actor, target.idempotency_key, gateActor)
+    : runNoteRefStep(home, def, run.inputs, actor, runId, target.idempotency_key, gateActor);
 
   target.exit_code = result.exitCode ?? null;
   target.error = result.error ?? null;
@@ -441,7 +504,7 @@ function tick(home, runId, run, actor) {
   target.status = 'failed';
   target.ended = now;
   const errorMsg = result.error || `step '${ready.id}' failed (exit ${result.exitCode ?? '?'})`;
-  return failRun(home, runId, { ...run, steps: nextSteps }, ready.id, errorMsg, actor);
+  return failRun(home, runId, { ...run, steps: nextSteps }, ready.id, errorMsg, actor, gateActor);
 }
 
 /**

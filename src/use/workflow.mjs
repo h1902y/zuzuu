@@ -183,7 +183,7 @@ export function workflowStaleAfterMs(steps) {
  * of this module) — an unsafe/malformed target address surfaces as a step failure,
  * not a crash.
  */
-function runNoteRefStep(home, module, id, step, { inputs, actor, visited, depth }) {
+function runNoteRefStep(home, module, id, step, { inputs, actor, visited, depth, gateActor }) {
   try {
     const addr = splitAddr(step.note); // shape already validated — non-null here
     const targetPath = itemPath(home, addr.module, addr.id);
@@ -199,8 +199,10 @@ function runNoteRefStep(home, module, id, step, { inputs, actor, visited, depth 
     if (target.type === 'workflow') {
       // recurse — cycle/depth checked by the callee's own top-of-function guard
       // (the SAME check the root call makes on itself), so there is exactly one
-      // place that logic lives.
-      const nested = runWorkflow(home, addr.module, addr.id, stepInputs, actor, { visited, depth: depth + 1, via });
+      // place that logic lives. `gateActor` (KTD2) rides down with `visited`/`depth`/
+      // `via` — a nested composition keeps the SAME gate posture as its parent, same
+      // doctrine as `actor` above, just for the decoupled axis.
+      const nested = runWorkflow(home, addr.module, addr.id, stepInputs, actor, { visited, depth: depth + 1, via, gateActor });
       const attempted = Array.isArray(nested.steps); // false ⇒ refused before running anything (cycle · depth cap · lock · not-a-workflow · missing note)
       return { ran: attempted, success: !!nested.ok, exitCode: nested.ok ? 0 : 1, error: nested.error, running: nested.running, nested };
     }
@@ -220,7 +222,7 @@ function runNoteRefStep(home, module, id, step, { inputs, actor, visited, depth 
     // + logged — with `via` riding the ctx so its `logRun` attributes this run back to
     // the composing workflow.
     const manifest = readManifest(home, addr.module);
-    const ctx = { home, module: addr.module, manifest, actor, via };
+    const ctx = { home, module: addr.module, manifest, actor, via, gateActor };
     const r = act(ctx, addr.id, stepInputs);
     return { ran: r.ran, success: !!r.ok, exitCode: r.exitCode, denied: r.denied, timedOut: r.timedOut, running: r.running, error: r.error };
   } catch (e) {
@@ -238,13 +240,19 @@ function runNoteRefStep(home, module, id, step, { inputs, actor, visited, depth 
  * per-step lock would let two invocations interleave step-by-step, which defeats the
  * point); a composed step's OWN target note gets its OWN lock (see header comment).
  *
- * `_composition` is INTERNAL recursion state (`{visited, depth, via}`) — a note-ref
- * step passes it through when recursing into a nested workflow. External callers
- * never pass a 6th argument; the default starts a fresh composition tree.
+ * `_composition` is INTERNAL recursion state (`{visited, depth, via, gateActor}`) — a
+ * note-ref step passes it through when recursing into a nested workflow. External
+ * callers never pass a 6th argument; the default starts a fresh composition tree.
+ * `gateActor` (KTD2, guardrails/gate.mjs) is an OPTIONAL decoupled gate posture — absent
+ * (every external caller today), every step's gate posture derives from `actor` alone,
+ * unchanged. The Tier-2 durable runner (`grow/run.mjs`) is the one caller that seeds it
+ * (via this same `_composition` shape, a pattern it already uses for `visited`/`depth`/
+ * `via`) when a note-ref step targets a nested workflow from a run stamped unattended —
+ * so the fail-closed posture survives composition, not just a single leaf step.
  * @returns {{ ok, steps?, failedStep?, compensations?, error?, running? }}
  */
 export function runWorkflow(home, module, id, inputs = {}, actor = 'operator', _composition = null) {
-  const { visited, depth, via } = _composition ?? { visited: new Set(), depth: 0, via: null };
+  const { visited, depth, via, gateActor } = _composition ?? { visited: new Set(), depth: 0, via: null, gateActor: undefined };
   const path = itemPath(home, module, id);
   if (!existsSync(path)) return { ok: false, error: `no note '${module}:${id}'` };
   const { note } = parse(readFileSync(path, 'utf8'), { id });
@@ -284,8 +292,8 @@ export function runWorkflow(home, module, id, inputs = {}, actor = 'operator', _
       // step, either shape, is just another failed step, falling into the same
       // saga-compensation path below.
       const r = step.note
-        ? runNoteRefStep(home, module, id, step, { inputs, actor, visited: nextVisited, depth })
-        : runGated(home, module, step.run, { allow, inputs, cwd: root, timeout: step.timeout, actor });
+        ? runNoteRefStep(home, module, id, step, { inputs, actor, visited: nextVisited, depth, gateActor })
+        : runGated(home, module, step.run, { allow, inputs, cwd: root, timeout: step.timeout, actor, gateActor });
       results.push({ id: step.id, ran: r.ran, success: !!r.success, exitCode: r.exitCode, denied: r.denied, timedOut: !!r.timedOut, note: step.note });
       if (!r.ran || !r.success) {
         // compensate completed steps in reverse (saga rollback for side effects) — if
@@ -294,7 +302,7 @@ export function runWorkflow(home, module, id, inputs = {}, actor = 'operator', _
         // before we ever got here — see the header comment's "nesting order".
         const compensations = [];
         for (const s of [...done].reverse()) if (s.compensate) {
-          const c = runGated(home, module, s.compensate, { allow, inputs, cwd: root, actor });
+          const c = runGated(home, module, s.compensate, { allow, inputs, cwd: root, actor, gateActor });
           compensations.push({ id: s.id, success: !!c.success });
         }
         logRun(home, module, id, { inputs, success: false, timedOut: !!r.timedOut, actor, via });

@@ -8,9 +8,15 @@
 > the shipped guide pages' own honest scoping, is narrower than this document's
 > ~1000 lines suggest: the MCP client (mcp binding is a stub), agent-binding
 > dispatch from a hosted daemon (ACP is daemon-only, not CLI-reachable), OIDC
-> secret resolution, unattended automation (cron auto-fire/ingress/note-change
-> auto-firing — hosted-tier, deferred on purpose), and the remote/multi-agent
-> arc of §I.6/§J.1/§J.2 (Fly hosting, OAuth, async HITL) — none of that shipped.
+> secret resolution, and the remote/multi-agent arc of §I.6/§J.1/§J.2 (Fly
+> hosting, OAuth, async HITL) — none of that shipped.
+> **Update (06-07-2026, the wake-source rung).** One item in the "unattended
+> automation" list above has PARTIALLY shipped since this retro-mark was
+> written: cron auto-fire and note-change auto-firing now exist, LOCALLY and
+> OPT-IN, via `zz autonomy on` + the local tick (`docs/plans/2026-07-06-001-
+> feat-wake-source-tick-plan.md`) — see §I.2 B4 below, annotated in place.
+> INGRESS webhooks and the hosted 24/7 tier remain fully deferred; the boundary
+> crossed is narrower than "unattended automation" as a whole.
 > **This document is kept as the historical design rationale** — for current
 > shipped/next status read `docs/guide/Roadmap.md`, `docs/guide/Tools.md`,
 > `docs/guide/Secrets.md`, `docs/guide/Workflows.md`, and `CHANGELOG.md`'s
@@ -644,6 +650,26 @@ at them instead of pretending to roll back.
 is localhost/token. ANSWER (hosted tier): `/ingress/<trigger-id>` webhooks on
 the Fly machine, each bound to a trigger note (gated, versioned); email-in via
 the same. BOUNDARY (local tier): no unattended ingress on a laptop.
+>
+> **Annotated (06-07-2026, the wake-source rung,
+> `docs/plans/2026-07-06-001-feat-wake-source-tick-plan.md`).** This boundary
+> has been CROSSED — narrowly, opt-in, fail-closed — via the local tick (rung
+> 1 of the wider agentic-office arc), NOT undone. A founder who explicitly
+> runs `zz autonomy on` gets a local tick (`zz tick`/`zz web --autonomy`/
+> `zz daemon`) that fires *enabled* `cron` and `note-change` triggers while
+> their machine is awake — the exact same gated `fireTrigger`→`startRun` a
+> human's `zz trigger fire` uses, with the fired run's STEPS gating
+> fail-closed (no human present) while its NOTE still writes through the one
+> operator-authorized door. An `agent`-binding step still can't spawn an
+> unattended agent (`needsHost:true`, structural). What's still true of this
+> boundary, unchanged: there is still **no INGRESS** — no webhook, no inbound
+> email, no external event can reach a laptop's daemon — and there is still
+> **no hosted 24/7 tier** — the tick only runs while the machine is awake and
+> something (the web daemon or `zz daemon`) is hosting it. "No unattended
+> *local* firing at all" is the part that moved; "no unattended *inbound* door"
+> and "no always-on hosted tier" have not. See `docs/guide/Workflows.md`'s
+> "The wake source" section and `docs/MODEL.md`'s §I rung 4 for the full
+> mechanism.
 
 **B5 · Irreversibility — exactly-once vs the outside world.** Retried workflow
 = double email to a customer; compensation cannot unsend. ANSWER: idempotency

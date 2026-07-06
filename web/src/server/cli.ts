@@ -32,6 +32,12 @@ interface CliArgs {
   dev: boolean;
   /** explicit path to the zuzuu CLI this workbench shipped with (from `zz web`) */
   zuzuuBin: string | null;
+  /** U5 — host the wake-source tick (shells `zz tick --once` on a cadence).
+   *  OFF BY DEFAULT: forwarded from `zz web --autonomy`; the real gate is the
+   *  operator-flipped `instructions:autonomy` note the shelled tick itself reads. */
+  autonomy: boolean;
+  /** tick cadence override in ms (default: server.ts's DEFAULT_TICK_INTERVAL_MS) */
+  tickIntervalMs: number | null;
 }
 
 function parseArgs(argv: string[]): CliArgs {
@@ -43,6 +49,8 @@ function parseArgs(argv: string[]): CliArgs {
     token: null,
     dev: false,
     zuzuuBin: null,
+    autonomy: false,
+    tickIntervalMs: null,
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!;
@@ -66,6 +74,12 @@ function parseArgs(argv: string[]): CliArgs {
       case "--zuzuu-bin":
         args.zuzuuBin = argv[++i] ?? null;
         break;
+      case "--autonomy":
+        args.autonomy = true;
+        break;
+      case "--tick-interval-ms":
+        args.tickIntervalMs = Number(argv[++i]);
+        break;
       case "--help":
       case "-h":
         console.log(`zz-web — the zuzuu visual workbench (terminal + files + the Project)
@@ -73,12 +87,15 @@ function parseArgs(argv: string[]): CliArgs {
 Usage: zz-web [dir] [options]
 
 Options:
-  -p, --port <n>   port to listen on (default ${DEFAULT_PORT}, scans up if busy)
-      --host <h>   bind address (default 127.0.0.1 — do not expose without care)
-      --no-open    don't open the browser
-      --token <t>  fixed auth token (default: a persisted per-workspace token)
-      --dev        allow the Vite dev server origin (development only)
-  -h, --help       show this help`);
+  -p, --port <n>        port to listen on (default ${DEFAULT_PORT}, scans up if busy)
+      --host <h>        bind address (default 127.0.0.1 — do not expose without care)
+      --no-open         don't open the browser
+      --token <t>       fixed auth token (default: a persisted per-workspace token)
+      --dev             allow the Vite dev server origin (development only)
+      --autonomy        host the wake-source tick (shells "zz tick --once" on a cadence;
+                        off by default — still gated by "zz autonomy on" per project)
+      --tick-interval-ms <n>  tick cadence in ms when --autonomy is on (default 45000)
+  -h, --help            show this help`);
         process.exit(0);
         break;
       default:
@@ -193,6 +210,8 @@ async function main(): Promise<void> {
     publicHost,
     extraOrigins: extraOrigins.length ? extraOrigins : undefined,
     zuzuuBinary,
+    autonomy: args.autonomy,
+    ...(args.tickIntervalMs !== null ? { tickIntervalMs: args.tickIntervalMs } : {}),
   });
 
   daemon.listen((boundPort) => {

@@ -6,7 +6,9 @@
 import { enable, disable } from '../enable.mjs';
 import { code } from '../code.mjs';
 import { web } from '../web.mjs';
+import { runDaemon, DEFAULT_INTERVAL_MS } from '../daemon.mjs';
 import { runHook } from '../../hosts/hook.mjs';
+import { open } from '../../serve/api.mjs';
 import { emit } from '../args.mjs';
 
 export const hostRows = [
@@ -39,6 +41,21 @@ export const hostRows = [
     path: ['host', 'web'], plane: 'host', json: false, permission: 'run', agentInvokable: false,
     usage: 'host web', summary: 'launch the workbench',
     handler: ({ args }) => web({ ...args, _: args._ }) ?? 0,
+  },
+  {
+    // the dedicated wake-source tick host (U4, docs/plans/2026-07-06-001-feat-wake-
+    // source-tick-plan.md, KTD1's SECOND host — `src/cli/daemon.mjs` is the in-process
+    // loop over the SAME `grow/tick.mjs` core the web daemon shells `zz tick --once`
+    // against). Flat, like `hook` — a distinct top-level command, not a `host`-noun
+    // sub-verb. `admin` + agentInvokable:false: it's a long-lived process that fires
+    // automation on its own cadence, so it lands in the exec-deny set exactly like
+    // `tick`/`autonomy on|off` — an agent must never be able to shell it into existence.
+    path: ['daemon'], plane: 'host', json: false, permission: 'admin', agentInvokable: false,
+    usage: 'daemon [--interval <ms>]', summary: 'run the dedicated wake-source tick host — loops the tick core on a cadence until SIGINT/SIGTERM',
+    handler: ({ cwd, args, log }) => {
+      const intervalMs = Number(args.interval) > 0 ? Number(args.interval) : DEFAULT_INTERVAL_MS;
+      return runDaemon(open(cwd).home, { intervalMs, log });
+    },
   },
   {
     path: ['hook'], plane: 'host', json: false, permission: 'gate', agentInvokable: true,

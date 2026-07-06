@@ -51,7 +51,7 @@ test('doctor: a broken link surfaces as a warning', async () => {
   });
 });
 
-test('doctor: a cron trigger warns that local zuzuu never auto-fires it (hosted-only, §I.2 B4)', async () => {
+test('doctor: a declared trigger (autonomy still off) surfaces the wake-source idle warning, not "never auto-fires" (U6, superseded by tests/unit/doctor-autonomy.test.mjs)', async () => {
   const { writeNote } = await import('../../src/notes/repo.mjs');
   withDir((cwd) => {
     initHome(cwd);
@@ -63,7 +63,11 @@ test('doctor: a cron trigger warns that local zuzuu never auto-fires it (hosted-
       on: { kind: 'cron', expr: '0 3 * * *' }, run: 'actions:flow',
     }, { validate: false });
     const r = doctorReport(cwd);
-    assert.ok(r.warnings.some((w) => /cron trigger/.test(w) && /never auto-fires/.test(w)), r.warnings.join('\n'));
+    // this trigger is DISABLED (the second gate), so it's not among the "enabled
+    // trigger(s) idle" count — but the honest new boundary line (autonomy OFF) must
+    // still be present, and the retired "never auto-fires" wording must be gone.
+    assert.ok(r.warnings.some((w) => /autonomy: OFF — 0 enabled trigger/.test(w)), r.warnings.join('\n'));
+    assert.ok(!r.warnings.some((w) => /never auto-fires/.test(w)), r.warnings.join('\n'));
   });
 });
 

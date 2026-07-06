@@ -179,9 +179,37 @@ export function evaluate(rules, { tool, input }) {
  *    agent has nobody watching to notice a rule silently failing to compile or an
  *    `ask` silently passing through; "we don't know" must mean "don't run", not
  *    "run anyway".
+ *
+ *  `ctx.gateActor` — added for the wake-source rung (KTD2, docs/plans/2026-07-06-001-
+ *  feat-wake-source-tick-plan.md) — DECOUPLES this failure POSTURE from `ctx.actor`.
+ *  `ctx.actor` still governs a completely separate axis elsewhere (write authorization
+ *  — `commit`/`grow/run.mjs`'s `startRun`/`advanceRun` refuse any non-`operator` actor;
+ *  secrets' operator-only gate). Historically `ctx.actor` ALSO decided this function's
+ *  own strict/fail-open posture, conflating the two: a tick-fired durable run needs to
+ *  WRITE its run note as `operator` (the one legitimate write door) while its STEPS
+ *  gate `agent`-strict (nobody is present to answer an `ask` or notice a silently
+ *  dropped rule). `ctx.gateActor`, when present, decides the posture ALONGSIDE
+ *  `ctx.actor`; absent (the default — every pre-existing caller), it contributes
+ *  nothing and posture derives from `ctx.actor` alone, exactly as before. The one
+ *  caller that sets `ctx.gateActor` independently of `ctx.actor` is `grow/run.mjs`'s
+ *  step execution for a run stamped `gate_actor: 'agent'` at `startRun` — see its
+ *  header comment for the full thread from note field → here.
+ *
+ *  U3 hardening (wake-source moat review): `strict` is an OR of both axes —
+ *  `ctx.actor === 'agent' || ctx.gateActor === 'agent'` — rather than one value
+ *  overriding the other (`ctx.gateActor ?? ctx.actor`, the original KTD2 shape). The
+ *  `??` form was CORRECT for every caller that exists today (both only ever pass
+ *  `gateActor` as `'agent'` or leave it `undefined`), but it was correct by CALLER
+ *  DISCIPLINE, not by construction: a caller that ever passed `gateActor` as some
+ *  OTHER truthy-but-non-'agent' value while `actor:'agent'` would have SILENTLY
+ *  DROPPED to fail-open — strictness could be reduced, never just added. The OR form
+ *  makes "add-only strictness" a structural guarantee of `gate()` itself — strict
+ *  is true whenever EITHER axis says `'agent'`, and neither axis can ever cancel the
+ *  other out. Behaviorally IDENTICAL for every caller in this codebase today (see
+ *  gate-actor.test.mjs + run-unattended-gate.test.mjs, both still green).
  */
 export function gate(ctx, call) {
-  const strict = ctx.actor === 'agent';
+  const strict = ctx.actor === 'agent' || ctx.gateActor === 'agent';
   try {
     const modules = ctx.module ? [ctx.module] : RULE_MODULES;
     let malformed = false;

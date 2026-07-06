@@ -186,13 +186,21 @@ function withMatchContext(inputs, matches) {
  * disabled trigger unless `force:true` (the second gate, still overridable by an
  * explicit human override — never by a note-change match alone). `dryRun:true`
  * computes everything (including the blast-radius preview) WITHOUT starting a run.
+ *
+ * `opts.unattended` (KTD2, docs/plans/2026-07-06-001-feat-wake-source-tick-plan.md —
+ * threaded straight to `startRun`'s own option of the same name, default `false`,
+ * every existing caller unaffected): the wake-source tick (`grow/tick.mjs`) is the
+ * intended caller of `{unattended:true}` — it stamps the resulting run's
+ * `gate_actor:'agent'` so its STEPS gate fail-closed (nobody is present), while the
+ * run note's own WRITE still lands through the operator door (`actor`, unchanged —
+ * a human `zz trigger fire` never sets this).
  * @param {string} home
  * @param {string} module
  * @param {string} id
- * @param {{dryRun?:boolean, force?:boolean, actor?:string}} [opts]
+ * @param {{dryRun?:boolean, force?:boolean, actor?:string, unattended?:boolean}} [opts]
  * @returns {{ok, error?, refused?, dryRun?, wouldFire?, inputs?, matches?, runId?, run?}}
  */
-export function fireTrigger(home, module, id, { dryRun = false, force = false, actor = 'operator' } = {}) {
+export function fireTrigger(home, module, id, { dryRun = false, force = false, actor = 'operator', unattended = false } = {}) {
   const trigger = readNote(home, module, id);
   if (!trigger) return { ok: false, error: `no note '${module}:${id}'` };
   if (trigger.type !== 'trigger') return { ok: false, error: `'${module}:${id}' is not a trigger` };
@@ -207,7 +215,7 @@ export function fireTrigger(home, module, id, { dryRun = false, force = false, a
   const wouldFire = `${target.module}:${target.id}`;
   if (dryRun) return { ok: true, dryRun: true, wouldFire, inputs, matches };
 
-  const started = startRun(home, target.module, target.id, inputs, actor);
+  const started = startRun(home, target.module, target.id, inputs, actor, { unattended });
   if (!started.ok) return { ok: false, error: started.error, refused: started.refused, wouldFire };
   return { ok: true, wouldFire, inputs, matches, runId: started.runId, run: started.run };
 }
