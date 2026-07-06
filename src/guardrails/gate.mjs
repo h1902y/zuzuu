@@ -179,9 +179,25 @@ export function evaluate(rules, { tool, input }) {
  *    agent has nobody watching to notice a rule silently failing to compile or an
  *    `ask` silently passing through; "we don't know" must mean "don't run", not
  *    "run anyway".
+ *
+ *  `ctx.gateActor` — added for the wake-source rung (KTD2, docs/plans/2026-07-06-001-
+ *  feat-wake-source-tick-plan.md) — DECOUPLES this failure POSTURE from `ctx.actor`.
+ *  `ctx.actor` still governs a completely separate axis elsewhere (write authorization
+ *  — `commit`/`grow/run.mjs`'s `startRun`/`advanceRun` refuse any non-`operator` actor;
+ *  secrets' operator-only gate). Historically `ctx.actor` ALSO decided this function's
+ *  own strict/fail-open posture, conflating the two: a tick-fired durable run needs to
+ *  WRITE its run note as `operator` (the one legitimate write door) while its STEPS
+ *  gate `agent`-strict (nobody is present to answer an `ask` or notice a silently
+ *  dropped rule). `ctx.gateActor`, when present, is the posture used here INSTEAD of
+ *  `ctx.actor`; absent (the default — every pre-existing caller), this falls back to
+ *  `ctx.actor` exactly as before, so nothing about today's behavior moves. The one
+ *  caller that sets `ctx.gateActor` independently of `ctx.actor` is `grow/run.mjs`'s
+ *  step execution for a run stamped `gate_actor: 'agent'` at `startRun` — see its
+ *  header comment for the full thread from note field → here.
  */
 export function gate(ctx, call) {
-  const strict = ctx.actor === 'agent';
+  const posture = ctx.gateActor ?? ctx.actor;
+  const strict = posture === 'agent';
   try {
     const modules = ctx.module ? [ctx.module] : RULE_MODULES;
     let malformed = false;

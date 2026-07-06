@@ -92,12 +92,17 @@ function tokenize(run) {
  * unattended agent actor fails CLOSED on a malformed rule / engine error / `ask`
  * verdict (see guardrails/gate.mjs); an interactive operator keeps the original
  * fail-open, ask-passes contract (a human is present to see the run and decide).
+ * `opts.gateActor` (optional — the wake-source rung's KTD2 decoupling) OVERRIDES
+ * `actor` for JUST that gate posture, independent of whatever `actor` itself means to
+ * the caller (e.g. `grow/run.mjs` keeps `actor:'operator'` for its own write
+ * authorization while passing `gateActor:'agent'` for an unattended run's steps) —
+ * see `guardrails/gate.mjs`'s `gate()` doc comment for the full rationale.
  * @returns {{ ran, exitCode?, success?, stdout?, stderr?, denied?, timedOut?, error? }}
  */
-export function runGated(home, module, command, { allow = null, inputs = {}, cwd, timeout, actor = 'operator', secretsEnv = {} } = {}) {
+export function runGated(home, module, command, { allow = null, inputs = {}, cwd, timeout, actor = 'operator', secretsEnv = {}, gateActor } = {}) {
   // the gate applies to curated runs too — a deny rule blocks them. No explicit
   // module → it enforces both `instructions` (the default) and legacy `guardrails`.
-  const verdict = gate({ home, actor }, { tool: 'Bash', input: { command } });
+  const verdict = gate({ home, actor, gateActor }, { tool: 'Bash', input: { command } });
   if (verdict && verdict.action === 'deny') {
     return { ran: false, denied: true, error: `blocked by rule ${verdict.rule}: ${verdict.reason}` };
   }
@@ -153,10 +158,13 @@ export function runGated(home, module, command, { allow = null, inputs = {}, cwd
  * return value) only ever sees the NAME, never the value; `logRun` redacts the names'
  * env values out of the logged `inputs` too (§J.3: "the agent's context/transcript/
  * staged notes only ever hold `secret:name`" — the placeholder-injection pattern).
+ * `ctx.gateActor` (optional — KTD2, see guardrails/gate.mjs) rides straight through to
+ * the gate call inside `runGated`, below, decoupled from `ctx.actor` — absent, the
+ * gate posture derives from `ctx.actor` exactly as before.
  * @returns {{ ok, ran, exitCode?, success?, stdout?, stderr?, timedOut?, error?, denied?, running?, needsHost?, secretsResolved? }}
  */
 export function act(ctx, id, inputs = {}) {
-  const { home, module, manifest, actor = 'operator', via } = ctx;
+  const { home, module, manifest, actor = 'operator', via, gateActor } = ctx;
   const path = itemPath(home, module, id);
   if (!existsSync(path)) return { ok: false, ran: false, error: `no note '${module}:${id}'` };
   const { ok, note } = parse(readFileSync(path, 'utf8'), { id });
@@ -196,7 +204,7 @@ export function act(ctx, id, inputs = {}) {
   try {
     // policy: the note's own policy narrows the module default (never widens)
     const policy = { ...(manifest.policy ?? {}), ...(note.policy ?? {}) };
-    const r = runGated(home, module, note.run, { allow: policy.run?.allow ?? null, inputs, timeout: note.timeout, actor, secretsEnv });
+    const r = runGated(home, module, note.run, { allow: policy.run?.allow ?? null, inputs, timeout: note.timeout, actor, secretsEnv, gateActor });
     if (!r.ran) return { ok: false, ...r };
     // S3 (audit 2026-07-03-secrets-review.md) — a resolved secret's value must never
     // survive into the RETURNED stdout/stderr: that return IS the caller's context (an
