@@ -27,6 +27,7 @@ import { handleZuzuuSocket } from "./ws-zuzuu.js";
 import { AcpManager, handleAcpSocket } from "./acp.js";
 import { createAcpApi } from "./acp-routes.js";
 import { PathError, resolveSafe } from "./safe-path.js";
+import { runZuzuuMut } from "./zuzuu-cli.js";
 
 export interface ServerConfig {
   /** realpath'd absolute workspace root */
@@ -50,10 +51,26 @@ export interface ServerConfig {
   commandAllowlist?: string[];
   /** zuzuu binary override (tests); defaults to "zuzuu" on PATH */
   zuzuuBinary?: string;
+  /**
+   * U5 (wake-source plan) — host the tick: on a cadence, SHELL `zz tick --once`
+   * against the live workspace root (never import the engine — the daemon only
+   * shells the gated CLI, same as every other brain mutation in zuzuu-cli.ts).
+   * OFF BY DEFAULT. This flag only decides whether the daemon shells `zz tick`
+   * at all — the real gate is the operator-flipped `instructions:autonomy` note
+   * that the shelled `zz tick` itself reads (it no-ops on an opted-out project
+   * regardless of this flag).
+   */
+  autonomy?: boolean;
+  /** Tick cadence in ms when `autonomy` is on (default: DEFAULT_TICK_INTERVAL_MS). Injectable for tests. */
+  tickIntervalMs?: number;
 }
 
 /** Host CLIs an agent/command session may run. Argv-spawned, never a shell. */
 const DEFAULT_COMMAND_ALLOWLIST = ["claude", "gemini", "codex", "pi", "opencode", "zuzuu"];
+
+/** Sane default wake-source cadence (U5) — frequent enough to feel "awake", far
+ *  from tight enough to matter for a CLI-shell-per-fire cost. */
+const DEFAULT_TICK_INTERVAL_MS = 45_000;
 
 export class WebcodeServer {
   readonly app: Hono;
@@ -71,6 +88,11 @@ export class WebcodeServer {
   private readonly mainTreeLock: MainTreeLock = createMainTreeLock();
   /** the ACP "drive lane" — live ACP agent subprocesses, relayed over /ws/acp */
   private readonly acp: AcpManager;
+  /** U5 — the wake-source tick host: a setInterval shelling `zz tick --once`.
+   *  null unless cfg.autonomy is true; cleared in stop(). */
+  private tickTimer: NodeJS.Timeout | null = null;
+  /** overlap guard — skip a fire while the previous shell hasn't resolved yet. */
+  private tickInFlight = false;
 
   constructor(private readonly cfg: ServerConfig) {
     this.root = cfg.root;
@@ -242,11 +264,35 @@ export class WebcodeServer {
       }
       reject(404, "Not Found");
     });
+
+    // ── U5: the wake-source tick host (off by default) ────────────────────
+    // Shells `zz tick --once` on a cadence — never imports src/grow/* (the
+    // moat rule: the daemon only shells the gated CLI). `this.root` is read
+    // fresh on every fire (not captured here), so a switchTo() mid-run
+    // retargets the NEXT tick automatically — a tick never fires against a
+    // stale root. The overlap guard skips a fire if the previous shell
+    // hasn't resolved, so a slow/wedged `zz tick` can't pile up invocations.
+    if (cfg.autonomy) {
+      const intervalMs = cfg.tickIntervalMs ?? DEFAULT_TICK_INTERVAL_MS;
+      this.tickTimer = setInterval(() => {
+        if (this.tickInFlight) return; // previous tick still running — skip this cadence
+        this.tickInFlight = true;
+        const opts = cfg.zuzuuBinary !== undefined ? { binary: cfg.zuzuuBinary } : {};
+        void runZuzuuMut(this.root, ["tick", "--once"], opts)
+          .catch(() => { /* best-effort — a failed shell just waits for the next cadence */ })
+          .finally(() => { this.tickInFlight = false; });
+      }, intervalMs);
+      this.tickTimer.unref(); // never keeps the process alive on its own
+    }
   }
 
   stop(): void {
     this.sessions.shutdown();
     this.acp.shutdown();
     this.server?.close();
+    if (this.tickTimer) {
+      clearInterval(this.tickTimer);
+      this.tickTimer = null;
+    }
   }
 }
