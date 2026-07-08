@@ -83,7 +83,7 @@ export const secretRows = [
     // typed for a declaration's metas. Never a value flag, on purpose (see header).
     path: ['secret', 'declare'], plane: 'data', json: true, permission: 'write', agentInvokable: false,
     usage: 'secret declare <name> [--id id] [--scope tool:x,module:y] [--actor operator-only|agent-allowed] [--resolves-from env|secrets-file|fly|oidc] [--rotation text] [--sensitive true|false] [--force]',
-    summary: "author a type:secret DECLARATION's metas — never a value (sugar over note create, the operator lane)",
+    summary: "register a secret by name (its value is never stored here)",
     io: { params: ['name'], flags: { id: '--id', scope: '--scope', actor: '--actor', 'resolves-from': '--resolves-from', rotation: '--rotation', sensitive: '--sensitive', force: '--force' } },
     handler: ({ args, cwd, log, json, rest }) => {
       const usage = "usage: zz secret declare <name> [--id id] [--scope tool:x,module:y] [--actor operator-only|agent-allowed] [--resolves-from env|secrets-file|fly|oidc] [--rotation text] [--sensitive true|false] [--force]";
@@ -110,7 +110,7 @@ export const secretRows = [
   },
   {
     path: ['secret', 'list'], plane: 'data', json: true, permission: 'read', agentInvokable: true,
-    usage: 'secret list [--json]', summary: 'every secret DECLARATION — name · scope · actor · sensitive · resolves_from · last_used · host availability (never the value)',
+    usage: 'secret list [--json]', summary: 'your registered secrets — name, scope, and whether each is available (never the value)',
     io: { params: [], flags: {} },
     handler: ({ cwd, log, json }) => {
       const home = open(cwd).home;
@@ -124,7 +124,7 @@ export const secretRows = [
   },
   {
     path: ['secret', 'show'], plane: 'data', json: true, permission: 'read', agentInvokable: true,
-    usage: 'secret show <name> [--json]', summary: "one secret declaration's metas — never the value, even when sensitive:false",
+    usage: 'secret show <name> [--json]', summary: "details of one secret (never its value)",
     io: { params: ['name'], flags: {} },
     handler: ({ args, cwd, log, json }) => {
       const name = String(args._[0] ?? '');
@@ -141,7 +141,7 @@ export const secretRows = [
   },
   {
     path: ['secret', 'check'], plane: 'data', json: true, permission: 'read', agentInvokable: true,
-    usage: 'secret check [--json]', summary: 'a doctor for secrets — which declared secrets are MISSING from the host, and the command to fix each',
+    usage: 'secret check [--json]', summary: 'which secrets are missing, and how to add each',
     io: { params: [], flags: {} },
     handler: ({ cwd, log, json }) => {
       const home = open(cwd).home;

@@ -16,27 +16,27 @@ export const sessionRows = [
     // held session branch + checkpoints at the merge gate. `status`/`label` stay reads (allowed).
     writeSubcommands: ['merge', 'finalize', 'continue', 'discard', 'worktree close', 'worktree finalize', 'worktree discard'],
     usage: 'session [status | land | hold | resume | drop | worktree … | label]',
-    summary: 'inspect & steer the per-session git substrate',
+    summary: 'inspect and manage your work sessions',
     handler: ({ args, cwd, log, warn }) => sessionCommand(args, cwd, log, warn),
   },
   {
     path: ['session', 'land'], plane: 'session', json: true, permission: 'admin', agentInvokable: false,
-    usage: 'session land [id]', summary: 'land a session — squash-merge (auto-detects worktree vs in-place)',
+    usage: 'session land [id]', summary: 'finish a session and merge its work in',
     handler: ({ args, cwd, log, warn }) => sessionCommand({ ...args, _: ['land', ...args._] }, cwd, log, warn),
   },
   {
     path: ['session', 'hold'], plane: 'session', json: true, permission: 'admin', agentInvokable: false,
-    usage: 'session hold [id]', summary: 'hold a session for the merge gate (auto-detects worktree)',
+    usage: 'session hold [id]', summary: 'pause a session for review before merging',
     handler: ({ args, cwd, log, warn }) => sessionCommand({ ...args, _: ['hold', ...args._] }, cwd, log, warn),
   },
   {
     path: ['session', 'resume'], plane: 'session', json: true, permission: 'admin', agentInvokable: false,
-    usage: 'session resume [id]', summary: 'resume a held session (back onto its branch)',
+    usage: 'session resume [id]', summary: 'resume a paused session',
     handler: ({ args, cwd, log, warn }) => sessionCommand({ ...args, _: ['resume', ...args._] }, cwd, log, warn),
   },
   {
     path: ['session', 'drop'], plane: 'session', json: true, permission: 'admin', agentInvokable: false,
-    usage: 'session drop [id] --yes', summary: 'drop a session — DELETE its branch + checkpoints',
+    usage: 'session drop [id] --yes', summary: 'discard a session and its work (permanent)',
     handler: ({ args, cwd, log, warn }) => sessionCommand({ ...args, _: ['drop', ...args._] }, cwd, log, warn),
   },
 ];

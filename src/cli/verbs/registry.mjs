@@ -10,12 +10,12 @@ export const registryRows = [
   {
     path: ['registry'], plane: 'registry', json: true, permission: 'admin', agentInvokable: false,
     usage: 'registry [ensure [<path>…] | init | add <path> | sync | status]',
-    summary: 'the project registry (1:N tree of tracked repos)',
+    summary: 'the projects you track',
     handler: ({ args, cwd, log }) => registryCommand(args, cwd, log),
   },
   {
     path: ['registry', 'subscribe'], plane: 'registry', json: true, permission: 'write', agentInvokable: false,
-    usage: 'registry subscribe <module>', summary: 'subscribe to a published module (stages its notes)',
+    usage: 'registry subscribe <module>', summary: 'subscribe to a shared collection (adds its notes as suggestions)',
     handler: ({ args, cwd, log, json }) => {
       const m = args._[0];
       if (!m) return fail(log, 'usage: zz registry subscribe <module>', json);

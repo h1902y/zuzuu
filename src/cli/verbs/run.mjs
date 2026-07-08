@@ -18,7 +18,7 @@ export const runRows = [
   {
     path: ['run', 'start'], plane: 'data', json: true, permission: 'write', agentInvokable: false,
     usage: 'run start <workflow-module:id> [--input k=v …]',
-    summary: 'materialize a durable run note from a workflow (step 0 — does NOT execute)',
+    summary: 'start a run from a workflow (does not execute yet)',
     io: { params: ['addr'], flags: {} },
     handler: ({ args, cwd, log, json, rest }) => {
       const addr = splitAddr(args._[0]);
@@ -33,7 +33,7 @@ export const runRows = [
   },
   {
     path: ['run', 'advance'], plane: 'data', json: true, permission: 'write', agentInvokable: false,
-    usage: 'run advance <run-id> [--all]', summary: 'tick a durable run one step (--all ticks until done/waiting/failed)',
+    usage: 'run advance <run-id> [--all]', summary: 'advance a run one step (--all runs it to the end)',
     io: { params: ['id'], flags: { all: '--all' } },
     handler: ({ args, cwd, log, json }) => {
       // `zz run advance --all <run-id>` (the brief's own usage order) has the naive
@@ -53,7 +53,7 @@ export const runRows = [
   },
   {
     path: ['run', 'signal'], plane: 'data', json: true, permission: 'write', agentInvokable: false,
-    usage: 'run signal <run-id> <signal-name>', summary: 'resolve a waiting run by its wait signal name',
+    usage: 'run signal <run-id> <signal-name>', summary: 'unblock a waiting run by signal name',
     io: { params: ['id', 'signal'], flags: {} },
     handler: ({ args, cwd, log, json }) => {
       const [id, signal] = args._;
@@ -66,7 +66,7 @@ export const runRows = [
   },
   {
     path: ['run', 'complete'], plane: 'data', json: true, permission: 'write', agentInvokable: false,
-    usage: 'run complete <run-id> <step-id>', summary: 'resolve a waiting run by step id',
+    usage: 'run complete <run-id> <step-id>', summary: 'unblock a waiting run by step id',
     io: { params: ['id', 'step'], flags: {} },
     handler: ({ args, cwd, log, json }) => {
       const [id, step] = args._;

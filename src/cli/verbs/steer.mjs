@@ -36,7 +36,7 @@ export const steerRows = [
   },
   {
     path: ['steer'], plane: 'steer', json: false, permission: 'read', agentInvokable: true,
-    usage: 'steer [--park <item>]', summary: 'stay on scope: drift signals · parking lot · guidance to pin',
+    usage: 'steer [--park <item>]', summary: 'stay on scope — drift signals, parking lot, and guidance',
     handler: ({ args, cwd, log }) => {
       const home = open(cwd).home;
       if (args.clear) { clearParking(home); log('parking lot cleared'); return 0; }

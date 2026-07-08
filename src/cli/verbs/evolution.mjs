@@ -83,7 +83,7 @@ export function genMint({ args, cwd, log, json }) {
 export const evolutionRows = [
   {
     path: ['observe'], plane: 'evolution', json: true, permission: 'write', agentInvokable: true,
-    usage: 'observe', summary: 'mine real sessions → staged changes (the cold-start)',
+    usage: 'observe', summary: 'learn from how you work and suggest improvements',
     handler: ({ args, cwd, log, json }) => {
       const zz = open(cwd);
       const sessions = captureSignals({ cwd, scope: args.scope || 'all' });
@@ -102,7 +102,7 @@ export const evolutionRows = [
     // direct write), so it stays OUT of the execution gate's deny set alongside it.
     path: ['observe-runs'], plane: 'evolution', json: true, permission: 'write', agentInvokable: true,
     usage: 'observe-runs [module] [--since <iso>] [--dry-run]',
-    summary: "mine runs.jsonl → failure/flake evidence → staged proposals (observe's sibling)",
+    summary: "learn from past runs (failures, flakes) and suggest fixes",
     handler: ({ args, cwd, log, json }) => {
       const zz = open(cwd);
       const [module] = args._;
@@ -139,7 +139,7 @@ export const evolutionRows = [
   // (the unattended scheduler + ingress, both hosted-tier).
   {
     path: ['trigger', 'list'], plane: 'evolution', json: true, permission: 'read', agentInvokable: true,
-    usage: 'trigger list [--json]', summary: 'every trigger note — on-kind · run target · enabled · blast-radius count',
+    usage: 'trigger list [--json]', summary: 'your automations — when each fires, what it runs, and how many notes it affects',
     handler: ({ cwd, log, json }) => {
       const rows = listTriggers(open(cwd).home);
       const view = rows.map((t) => ({ addr: t.addr, on: t.onKind ?? '', run: t.run ?? '', enabled: t.enabled, matches: t.blastRadius ?? '' }));
@@ -149,7 +149,7 @@ export const evolutionRows = [
   },
   {
     path: ['trigger', 'show'], plane: 'evolution', json: true, permission: 'read', agentInvokable: true,
-    usage: 'trigger show <module:id>', summary: 'one trigger note + its blast-radius preview (Apollo-style "current matches: N")',
+    usage: 'trigger show <module:id>', summary: 'one automation and a preview of what it currently affects',
     io: { params: ['addr'], flags: {} },
     handler: ({ args, cwd, log, json }) => {
       const addr = splitTriggerAddr(args._[0]);
@@ -168,7 +168,7 @@ export const evolutionRows = [
     // rides the operator lane exactly like the durable runner it delegates to.
     path: ['trigger', 'fire'], plane: 'evolution', json: true, permission: 'write', agentInvokable: false,
     usage: 'trigger fire <module:id> [--dry-run] [--force]',
-    summary: 'fire a trigger NOW — one durable run via the same gate `run start` uses (refuses if disabled unless --force)',
+    summary: 'run an automation now (skips if turned off, unless --force)',
     io: { params: ['addr'], flags: { 'dry-run': '--dry-run', force: '--force' } },
     handler: ({ args, cwd, log, json }) => {
       const addr = splitTriggerAddr(args._[0]);
@@ -184,7 +184,7 @@ export const evolutionRows = [
   },
   {
     path: ['trigger', 'enable'], plane: 'evolution', json: true, permission: 'write', agentInvokable: false,
-    usage: 'trigger enable <module:id>', summary: 'the second gate (§I.4 #7) — let a reviewed-in trigger fire',
+    usage: 'trigger enable <module:id>', summary: 'turn an automation on',
     io: { params: ['addr'], flags: {} },
     handler: ({ args, cwd, log, json }) => {
       const addr = splitTriggerAddr(args._[0]);
@@ -197,7 +197,7 @@ export const evolutionRows = [
   },
   {
     path: ['trigger', 'disable'], plane: 'evolution', json: true, permission: 'write', agentInvokable: false,
-    usage: 'trigger disable <module:id>', summary: 'turn a trigger off without deleting it',
+    usage: 'trigger disable <module:id>', summary: 'turn an automation off (without deleting it)',
     io: { params: ['addr'], flags: {} },
     handler: ({ args, cwd, log, json }) => {
       const addr = splitTriggerAddr(args._[0]);
@@ -211,7 +211,7 @@ export const evolutionRows = [
 
   {
     path: ['stage'], plane: 'evolution', json: true, permission: 'write', agentInvokable: true,
-    usage: 'stage <m> --op create|update|delete|deprecate|relate|unrelate [--target <id>] --field k=v', summary: 'stage a change (a pending proposal)',
+    usage: 'stage <m> --op create|update|delete|deprecate|relate|unrelate [--target <id>] --field k=v', summary: 'suggest a change for your approval',
     io: { params: ['module'], flags: { op: '--op', target: '--target', change: '--change' } }, // catalog: the daemon stages via --change <json>
     handler: ({ args, cwd, log, json, rest }) => {
       // the write entry-door: a UI (or human) stages a change → a PENDING proposal
@@ -252,7 +252,7 @@ export const evolutionRows = [
     // so the deny set stays table-driven (writeVerbPaths reads `writeSubcommands`).
     writeSubcommands: ['approve', 'apply'],
     usage: 'review [module | plan <m> | apply <m> | approve <m> <id> | reject <m> <id>]',
-    summary: 'THE human gate — list · preview · apply staged changes',
+    summary: 'your suggestions inbox — see, preview, and approve changes',
     handler: ({ args, cwd, log, json }) => {
       const zz = open(cwd);
       const [sub, m, id] = args._;
@@ -304,27 +304,27 @@ export const evolutionRows = [
   // ── gen: the per-module generation lineage — the Tier-2 `gen …` namespace ──
   {
     path: ['gen', 'log'], plane: 'evolution', json: true, permission: 'read', agentInvokable: true,
-    usage: 'gen log [module]', summary: 'the generation timeline — how the brain evolved',
+    usage: 'gen log [module]', summary: 'the history of changes over time',
     handler: genLog,
   },
   {
     path: ['gen', 'list'], plane: 'evolution', json: true, permission: 'read', agentInvokable: true,
-    usage: 'gen list <m>', summary: "a module's generation lineage + the active one",
+    usage: 'gen list <m>', summary: "a collection's version history",
     handler: genList,
   },
   {
     path: ['gen', 'diff'], plane: 'evolution', json: true, permission: 'read', agentInvokable: true,
-    usage: 'gen diff <m> <a> <b>', summary: 'diff two generations of a module',
+    usage: 'gen diff <m> <a> <b>', summary: 'compare two versions of a collection',
     handler: genDiff,
   },
   {
     path: ['gen', 'rollback'], plane: 'evolution', json: true, permission: 'admin', agentInvokable: false,
-    usage: 'gen rollback <m> <n>', summary: 'roll a module back to generation n (pointer-flip)',
+    usage: 'gen rollback <m> <n>', summary: 'restore a collection to an earlier version',
     handler: genRollback,
   },
   {
     path: ['gen', 'mint'], plane: 'evolution', json: true, permission: 'admin', agentInvokable: false,
-    usage: 'gen mint <m> [--from id,id]', summary: "freeze a module's current items into a new generation",
+    usage: 'gen mint <m> [--from id,id]', summary: "save a collection's current state as a version",
     handler: genMint,
     io: { params: ['module'], flags: { from: '--from' } },
   },

@@ -65,7 +65,7 @@ export const toolRows = [
   {
     path: ['tool', 'list'], plane: 'data', json: true, permission: 'read', agentInvokable: true,
     usage: 'tool list [--json]',
-    summary: 'every tool (action note) grouped by its toolkit (module) — addr · binding · summary · inputSchema · secrets',
+    summary: 'your tools, grouped by toolkit — what each does and needs',
     io: { params: [], flags: {} },
     handler: ({ cwd, log, json }) => {
       const zz = open(cwd);
@@ -92,7 +92,7 @@ export const toolRows = [
   {
     path: ['tool', 'show'], plane: 'data', json: true, permission: 'read', agentInvokable: true,
     usage: 'tool show <module:id> [--json]',
-    summary: "one tool's full contract — binding · inputSchema (types/required/labels) · secrets · the run/prompt/mcp target · toolkit HITL note",
+    summary: "one tool in full — its inputs, secrets, and what it runs",
     io: { params: ['addr'], flags: {} },
     handler: ({ args, cwd, log, json }) => {
       const addr = String(args._[0] ?? '');
