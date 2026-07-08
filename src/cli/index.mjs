@@ -64,7 +64,10 @@ export async function run(argv, io = {}) {
   // m s d` → ['m','s','d'], exactly like the old `merge m s d`).
   let target = matched;
   if (matched.alias) {
-    warn(`zz: '${matched.path.join(' ')}' is deprecated — use '${matched.alias.join(' ')}'`);
+    // a QUIET alias (the human-verb surface, e.g. `suggest`→stage) dispatches to the
+    // SAME canonical handler with NO deprecation note — it's not back-compat for a
+    // retired word, it's the front door. Everything else keeps warning (unchanged).
+    if (!matched.quiet) warn(`zz: '${matched.path.join(' ')}' is deprecated — use '${matched.alias.join(' ')}'`);
     target = COMMANDS.find((c) => c.path.length === matched.alias.length && c.path.every((p, i) => p === matched.alias[i]));
     if (!target) return fail(log, `alias '${matched.path.join(' ')}' has no canonical target`);
   }

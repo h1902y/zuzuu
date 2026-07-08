@@ -211,7 +211,7 @@ export const evolutionRows = [
 
   {
     path: ['stage'], plane: 'evolution', json: true, permission: 'write', agentInvokable: true,
-    usage: 'stage <m> --op create|update|delete|deprecate|relate|unrelate [--target <id>] --field k=v', summary: 'suggest a change for your approval',
+    usage: 'suggest <m> --op create|update|delete|deprecate|relate|unrelate [--target <id>] --field k=v', summary: 'suggest a change for your approval',
     io: { params: ['module'], flags: { op: '--op', target: '--target', change: '--change' } }, // catalog: the daemon stages via --change <json>
     handler: ({ args, cwd, log, json, rest }) => {
       // the write entry-door: a UI (or human) stages a change → a PENDING proposal
@@ -251,7 +251,7 @@ export const evolutionRows = [
     // changes — the execution gate denies those two subcommands to the agent. Declared here
     // so the deny set stays table-driven (writeVerbPaths reads `writeSubcommands`).
     writeSubcommands: ['approve', 'apply'],
-    usage: 'review [module | plan <m> | apply <m> | approve <m> <id> | reject <m> <id>]',
+    usage: 'approvals [module | plan <m> | apply <m> | approve <m> <id> | reject <m> <id>]',
     summary: 'your suggestions inbox — see, preview, and approve changes',
     handler: ({ args, cwd, log, json }) => {
       const zz = open(cwd);
@@ -304,27 +304,27 @@ export const evolutionRows = [
   // ── gen: the per-module generation lineage — the Tier-2 `gen …` namespace ──
   {
     path: ['gen', 'log'], plane: 'evolution', json: true, permission: 'read', agentInvokable: true,
-    usage: 'gen log [module]', summary: 'the history of changes over time',
+    usage: 'history log [module]', summary: 'the history of changes over time',
     handler: genLog,
   },
   {
     path: ['gen', 'list'], plane: 'evolution', json: true, permission: 'read', agentInvokable: true,
-    usage: 'gen list <m>', summary: "a collection's version history",
+    usage: 'history list <m>', summary: "a collection's version history",
     handler: genList,
   },
   {
     path: ['gen', 'diff'], plane: 'evolution', json: true, permission: 'read', agentInvokable: true,
-    usage: 'gen diff <m> <a> <b>', summary: 'compare two versions of a collection',
+    usage: 'history diff <m> <a> <b>', summary: 'compare two versions of a collection',
     handler: genDiff,
   },
   {
     path: ['gen', 'rollback'], plane: 'evolution', json: true, permission: 'admin', agentInvokable: false,
-    usage: 'gen rollback <m> <n>', summary: 'restore a collection to an earlier version',
+    usage: 'history rollback <m> <n>', summary: 'restore a collection to an earlier version',
     handler: genRollback,
   },
   {
     path: ['gen', 'mint'], plane: 'evolution', json: true, permission: 'admin', agentInvokable: false,
-    usage: 'gen mint <m> [--from id,id]', summary: "save a collection's current state as a version",
+    usage: 'history mint <m> [--from id,id]', summary: "save a collection's current state as a version",
     handler: genMint,
     io: { params: ['module'], flags: { from: '--from' } },
   },

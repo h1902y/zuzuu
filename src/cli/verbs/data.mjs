@@ -153,7 +153,7 @@ export const dataRows = [
   },
   {
     path: ['module'], plane: 'data', json: true, permission: 'read', agentInvokable: true,
-    usage: 'module [list | overview | items <k> | item <k> <id> | schema <k>]',
+    usage: 'collection [list | overview | items <k> | item <k> <id> | schema <k>]',
     summary: 'browse collections and their notes',
     handler: ({ args, cwd, log, json, warn, rest }) => {
       const zz = open(cwd);
@@ -259,7 +259,7 @@ export const dataRows = [
   // itself. `module schema <k>` (the READ) stays inside the `module` handler above.
   {
     path: ['module', 'add-column'], plane: 'data', json: true, permission: 'admin', agentInvokable: false,
-    usage: 'module add-column <k> <name> <type> [--required] [--options a,b] [--default v] [--label l] [--description d] [--computed f]', summary: 'add a field to a collection',
+    usage: 'collection add-field <k> <name> <type> [--required] [--options a,b] [--default v] [--label l] [--description d] [--computed f]', summary: 'add a field to a collection',
     // catalog: the daemon's field-config panel (§H.5) shells this for "+ column"
     io: { params: ['module', 'name', 'type'], flags: { required: '--required', options: '--options', default: '--default', label: '--label', description: '--description', computed: '--computed' } },
     handler: ({ args, cwd, log, json }) => {
@@ -281,7 +281,7 @@ export const dataRows = [
   },
   {
     path: ['module', 'alter-column'], plane: 'data', json: true, permission: 'admin', agentInvokable: false,
-    usage: 'module alter-column <k> <name> [--type t] [--required] [--options a,b] [--default v] [--label l] [--description d] [--computed f]', summary: 'change a field (type, required, options, default, label, …)',
+    usage: 'collection change-field <k> <name> [--type t] [--required] [--options a,b] [--default v] [--label l] [--description d] [--computed f]', summary: 'change a field (type, required, options, default, label, …)',
     // catalog: the daemon's field-config panel (§H.5) shells this for "Edit column".
     // `required` MUST ride as an explicit 'true'/'false' string (flag() below) — a
     // bare truthiness check can never express "turn it off".
@@ -305,7 +305,7 @@ export const dataRows = [
   },
   {
     path: ['module', 'drop-column'], plane: 'data', json: true, permission: 'admin', agentInvokable: false,
-    usage: 'module drop-column <k> <name>', summary: 'remove a field from a collection',
+    usage: 'collection remove-field <k> <name>', summary: 'remove a field from a collection',
     handler: ({ args, cwd, log, json }) => {
       const [m, name] = args._;
       if (!m || !name) return fail(log, 'usage: zz module drop-column <key> <name>', json);
@@ -319,18 +319,18 @@ export const dataRows = [
   // ── module: create + enable/disable (the lifecycle writes the workbench shells) ──
   {
     path: ['module', 'new'], plane: 'data', json: true, permission: 'admin', agentInvokable: false,
-    usage: 'module new <id> [--title t --tagline t --capabilities a,b --kinds k --required a,b]',
+    usage: 'collection new <id> [--title t --tagline t --capabilities a,b --kinds k --required a,b]',
     summary: 'create a new collection', handler: moduleNew,
     io: { params: ['id'], flags: { title: '--title', tagline: '--tagline', capabilities: '--capabilities', kinds: '--kinds', required: '--required' } },
   },
   {
     path: ['module', 'enable'], plane: 'data', json: true, permission: 'admin', agentInvokable: false,
-    usage: 'module enable <id>', summary: "turn a collection on", handler: moduleToggle(true),
+    usage: 'collection enable <id>', summary: "turn a collection on", handler: moduleToggle(true),
     io: { params: ['key'], flags: {} },
   },
   {
     path: ['module', 'disable'], plane: 'data', json: true, permission: 'admin', agentInvokable: false,
-    usage: 'module disable <id>', summary: "turn a collection off", handler: moduleToggle(false),
+    usage: 'collection disable <id>', summary: "turn a collection off", handler: moduleToggle(false),
     io: { params: ['key'], flags: {} },
   },
 
@@ -366,7 +366,7 @@ export const dataRows = [
   {
     // the module-as-table boundary, outbound: every row, lossless (custom columns ride)
     path: ['module', 'export'], plane: 'data', json: true, permission: 'read', agentInvokable: true,
-    usage: 'module export <k> [--csv]', summary: 'export a collection (JSON, or --csv for spreadsheets)',
+    usage: 'collection export <k> [--csv]', summary: 'export a collection (JSON, or --csv for spreadsheets)',
     handler: ({ args, cwd, log, json }) => {
       const m = args._[0];
       if (!m) return fail(log, 'usage: zz module export <key> [--csv]', json);
@@ -382,7 +382,7 @@ export const dataRows = [
     // the same one door). Deliberately NOT a `doctor --fix` flag: doctor is a read
     // verb agents may shell — a write behind its flag would hole the generated gate.
     path: ['module', 'backfill'], plane: 'data', json: true, permission: 'write', agentInvokable: false,
-    usage: 'module backfill [--dry-run]', summary: 'fill in missing titles and status on older notes',
+    usage: 'collection backfill [--dry-run]', summary: 'fill in missing titles and status on older notes',
     handler: ({ args, cwd, log, json }) => {
       const r = open(cwd).backfillFloor({ dryRun: !!args['dry-run'] });
       if (!r.ok) return fail(log, r.error, json);
@@ -397,7 +397,7 @@ export const dataRows = [
     // inbound: bulk rows through the operator lane's batch create — ONE transaction,
     // ONE generation, all-or-nothing, schema-validated. Operator-only (agent-denied).
     path: ['module', 'import'], plane: 'data', json: true, permission: 'write', agentInvokable: false,
-    usage: 'module import <k> --json <file> | --csv <file> [--force]', summary: 'import many notes at once from JSON or CSV',
+    usage: 'collection import <k> --json <file> | --csv <file> [--force]', summary: 'import many notes at once from JSON or CSV',
     handler: ({ args, cwd, log, json }) => {
       const m = args._[0];
       const file = str(args.json) || str(args.csv);
