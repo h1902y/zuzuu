@@ -238,9 +238,13 @@ export function writeVerbPaths() {
  *  form — the muscle-memory + daemon shapes — so they can't slip the gate either. */
 export function gateWriteVerbPattern() {
   const phrases = new Set();
+  // the deprecated key-first `<module-word> <m> <leaf>` shape (gen rollback) is reachable
+  // through `module` AND every bare alias of `module` (e.g. `collection`) — the prefix must
+  // cover them all, else `zz collection <m> rollback` slips the gate. Stays derived.
+  const moduleWords = ['module', ...COMMANDS.filter((c) => c.alias?.length === 1 && c.alias[0] === 'module').map((c) => c.path[0])];
   for (const p of writeVerbPaths()) {
     phrases.add(p.join('\\s+')); // `note set` → note\s+set (segments are [a-z-] verbs — regex-safe literally)
-    if (p[0] === 'gen' && p.length === 2) phrases.add(`(?:module\\s+\\S+\\s+)?${p[1]}`); // gen leaf, bare + `module <m> <leaf>`
+    if (p[0] === 'gen' && p.length === 2) phrases.add(`(?:(?:${moduleWords.join('|')})\\s+\\S+\\s+)?${p[1]}`); // gen leaf, bare + `<module-word> <m> <leaf>` (module + its aliases)
   }
   // longest phrase first (a benign ordering habit — alternatives are distinct verbs anyway)
   const alt = [...phrases].sort((a, b) => b.length - a.length).join('|');

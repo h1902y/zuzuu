@@ -168,6 +168,18 @@ test('the `review` write subcommands are denied through `approvals` too (the nam
   assert.equal(re.test('zz approvals reject knowledge fact-x'), false, "'approvals reject' is not denied (matches 'review reject')");
 });
 
+test('the deprecated key-first `<m> rollback` write is denied through the `collection` alias too (the slice-2 review bypass)', () => {
+  const re = new RegExp(gateWriteVerbPattern(), 'i');
+  // `zz collection <m> rollback <n>` routes into the module handler's key-first genRollback
+  // (admin, agent-denied); it must be caught exactly like `zz module <m> rollback` / `zz gen rollback`.
+  assert.ok(re.test('zz collection knowledge rollback 3'), "gate denies 'zz collection <m> rollback'");
+  assert.ok(re.test('node /x/bin/zuzuu.mjs collection knowledge rollback 3'), 'denied via the binary path too');
+  assert.ok(re.test('zz module knowledge rollback 3'), 'canonical key-first still denied');
+  for (const open of ['zz collection knowledge generations', 'zz collection knowledge diff 1 2', 'zz collection export knowledge', 'zz collection rollback']) {
+    assert.equal(re.test(open), false, `'${open}' stays open through the alias`);
+  }
+});
+
 test('`suggest` is correctly NOT denied — stage is the agent-sanctioned proposal channel', () => {
   const re = new RegExp(gateWriteVerbPattern(), 'i');
   assert.equal(re.test('zz suggest knowledge --op create --target x'), false, "'suggest' is allowed, mirrors 'stage'");
