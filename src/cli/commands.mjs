@@ -86,6 +86,36 @@ const aliasRows = [
   [['subscribe'], ['registry', 'subscribe']],
 ].map(([path, alias]) => ({ path, alias }));
 
+// ── human-verb aliases (surface-spec.md slice 2) ────────────────────────────
+// Same shape as `aliasRows` — data, not wrappers — but QUIET: these are the surface
+// vocabulary a user reads/says (`suggest`/`approvals`/`history`/`collection`), not a
+// retired word being phased out, so dispatch is silent (no deprecation note). The
+// ENGINE canonical path never changes — only the human word routes to it. `writeVerbPaths`
+// below covers every WRITE one automatically because each `alias:` array is either the
+// EXACT denied canonical path (the `collection` write leaves, `history rollback|mint`),
+// or — for `approvals`, which aliases the bare `review` row whose write subcommands
+// (`approve`/`apply`) are declared data rather than standalone rows — the dedicated
+// write-subcommand-owner pass a few lines down.
+const humanVerbRows = [
+  [['suggest'], ['stage']],
+  [['approvals'], ['review']],
+  [['history', 'log'], ['gen', 'log']],
+  [['history', 'list'], ['gen', 'list']],
+  [['history', 'diff'], ['gen', 'diff']],
+  [['history', 'rollback'], ['gen', 'rollback']],
+  [['history', 'mint'], ['gen', 'mint']],
+  [['collection'], ['module']],
+  [['collection', 'new'], ['module', 'new']],
+  [['collection', 'add-field'], ['module', 'add-column']],
+  [['collection', 'change-field'], ['module', 'alter-column']],
+  [['collection', 'remove-field'], ['module', 'drop-column']],
+  [['collection', 'enable'], ['module', 'enable']],
+  [['collection', 'disable'], ['module', 'disable']],
+  [['collection', 'export'], ['module', 'export']],
+  [['collection', 'import'], ['module', 'import']],
+  [['collection', 'backfill'], ['module', 'backfill']],
+].map(([path, alias]) => ({ path, alias, quiet: true }));
+
 export const COMMANDS = [
   ...setupRows,
   ...dataRows,
@@ -101,6 +131,7 @@ export const COMMANDS = [
   ...steerRows,
   ...hostRows,
   ...aliasRows,
+  ...humanVerbRows,
 ];
 
 // ── the command catalog — GENERATED FROM THE TABLE, the daemon's argv source ───────
@@ -184,6 +215,19 @@ export function writeVerbPaths() {
   // 3. every back-compat alias that points at one of the denied canonical paths
   const denied = new Set(paths.map((p) => p.join(' ')));
   for (const c of COMMANDS) if (c.alias && denied.has(c.alias.join(' '))) paths.push(c.path.slice());
+  // 4. a NAMESPACE alias whose target is a write-subcommand OWNER's bare path (e.g.
+  //    `approvals`→`review`) inherits those subcommands too: `zz approvals approve` must
+  //    deny exactly like `zz review approve`. Step 3's exact-path match can't see this —
+  //    the owner's BARE path (`review`) is a read, never itself in `paths`; only its
+  //    declared writeSubcommands are. Without this pass, `approvals approve/apply` would
+  //    silently escape the gate the moment `approvals` existed — the exact hole the human-
+  //    verb aliasing slice (surface-spec.md #2) would otherwise open.
+  const subOwners = canon.filter((c) => (c.writeSubcommands ?? []).length);
+  for (const c of COMMANDS) {
+    if (!c.alias) continue;
+    const owner = subOwners.find((o) => o.path.length === c.alias.length && o.path.every((p, i) => p === c.alias[i]));
+    if (owner) for (const sub of owner.writeSubcommands) paths.push([...c.path, ...sub.split(/\s+/)]);
+  }
   return paths;
 }
 
@@ -194,9 +238,13 @@ export function writeVerbPaths() {
  *  form — the muscle-memory + daemon shapes — so they can't slip the gate either. */
 export function gateWriteVerbPattern() {
   const phrases = new Set();
+  // the deprecated key-first `<module-word> <m> <leaf>` shape (gen rollback) is reachable
+  // through `module` AND every bare alias of `module` (e.g. `collection`) — the prefix must
+  // cover them all, else `zz collection <m> rollback` slips the gate. Stays derived.
+  const moduleWords = ['module', ...COMMANDS.filter((c) => c.alias?.length === 1 && c.alias[0] === 'module').map((c) => c.path[0])];
   for (const p of writeVerbPaths()) {
     phrases.add(p.join('\\s+')); // `note set` → note\s+set (segments are [a-z-] verbs — regex-safe literally)
-    if (p[0] === 'gen' && p.length === 2) phrases.add(`(?:module\\s+\\S+\\s+)?${p[1]}`); // gen leaf, bare + `module <m> <leaf>`
+    if (p[0] === 'gen' && p.length === 2) phrases.add(`(?:(?:${moduleWords.join('|')})\\s+\\S+\\s+)?${p[1]}`); // gen leaf, bare + `<module-word> <m> <leaf>` (module + its aliases)
   }
   // longest phrase first (a benign ordering habit — alternatives are distinct verbs anyway)
   const alt = [...phrases].sort((a, b) => b.length - a.length).join('|');

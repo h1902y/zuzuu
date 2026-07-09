@@ -8,7 +8,7 @@ import { emit } from '../args.mjs';
 export const setupRows = [
   {
     path: ['init'], plane: 'setup', json: true, permission: 'admin', agentInvokable: false,
-    usage: 'init [--root]', summary: 'scaffold the Project — .zuzuu/ by default, or the repo root itself (--root)',
+    usage: 'init [--root]', summary: 'set up a new project here',
     handler: ({ args, cwd, log, json }) => {
       const r = initHome(cwd, { atRoot: !!args.root });
       emit(log, json, { ok: true, home: r.home, created: r.created, skipped: r.skipped, reconciled: r.reconciled },

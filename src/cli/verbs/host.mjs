@@ -14,7 +14,7 @@ import { emit } from '../args.mjs';
 export const hostRows = [
   {
     path: ['host', 'enable'], plane: 'host', json: true, permission: 'admin', agentInvokable: false,
-    usage: 'host enable', summary: 'install the lifecycle + guardrails hooks',
+    usage: 'host enable', summary: 'set up zuzuu in this workspace',
     handler: ({ cwd, log, json }) => {
       const r = enable(cwd);
       emit(log, json, { ok: true, path: r.path, installed: r.installed },
@@ -24,7 +24,7 @@ export const hostRows = [
   },
   {
     path: ['host', 'disable'], plane: 'host', json: true, permission: 'admin', agentInvokable: false,
-    usage: 'host disable', summary: 'remove the lifecycle + guardrails hooks',
+    usage: 'host disable', summary: 'remove zuzuu from this workspace',
     handler: ({ cwd, log, json }) => {
       const r = disable(cwd);
       emit(log, json, { ok: true, path: r.path, removed: r.removed },
@@ -34,7 +34,7 @@ export const hostRows = [
   },
   {
     path: ['host', 'code'], plane: 'host', json: false, permission: 'run', agentInvokable: false,
-    usage: 'host code [dir]', summary: 'launch OpenCode (the bundled host)',
+    usage: 'host code [dir]', summary: 'launch the bundled coding assistant',
     handler: ({ args, log }) => code({ ...args, _: args._ }, { log }),
   },
   {
@@ -51,7 +51,7 @@ export const hostRows = [
     // automation on its own cadence, so it lands in the exec-deny set exactly like
     // `tick`/`autonomy on|off` — an agent must never be able to shell it into existence.
     path: ['daemon'], plane: 'host', json: false, permission: 'admin', agentInvokable: false,
-    usage: 'daemon [--interval <ms>]', summary: 'run the dedicated wake-source tick host — loops the tick core on a cadence until SIGINT/SIGTERM',
+    usage: 'daemon [--interval <ms>]', summary: 'run the background worker — checks for scheduled work on a cadence until you stop it',
     handler: ({ cwd, args, log }) => {
       const intervalMs = Number(args.interval) > 0 ? Number(args.interval) : DEFAULT_INTERVAL_MS;
       return runDaemon(open(cwd).home, { intervalMs, log });

@@ -36,7 +36,7 @@ function lastTickEntry(home) {
 export const autonomyRows = [
   {
     path: ['autonomy', 'on'], plane: 'evolution', json: true, permission: 'write', agentInvokable: false,
-    usage: 'autonomy on', summary: "flip the founder's opt-in switch ON — the wake source may fire enabled triggers unattended",
+    usage: 'autonomy on', summary: "turn on background automation — let scheduled work run on its own while your machine is awake",
     handler: ({ cwd, log, json }) => {
       const r = setAutonomyEnabled(open(cwd).home, true);
       if (!r.ok) return fail(log, r.error, json);
@@ -46,7 +46,7 @@ export const autonomyRows = [
   },
   {
     path: ['autonomy', 'off'], plane: 'evolution', json: true, permission: 'write', agentInvokable: false,
-    usage: 'autonomy off', summary: 'flip the opt-in switch OFF — the wake source fires nothing again (the fail-closed default)',
+    usage: 'autonomy off', summary: 'turn off background automation — nothing runs on its own (the default)',
     handler: ({ cwd, log, json }) => {
       const r = setAutonomyEnabled(open(cwd).home, false);
       if (!r.ok) return fail(log, r.error, json);
@@ -56,7 +56,7 @@ export const autonomyRows = [
   },
   {
     path: ['autonomy', 'status'], plane: 'evolution', json: true, permission: 'read', agentInvokable: true,
-    usage: 'autonomy status', summary: 'is the wake source on, and what the last tick fired/skipped/denied',
+    usage: 'autonomy status', summary: 'is background automation on, and what it last did',
     handler: ({ cwd, log, json }) => {
       const home = open(cwd).home;
       const enabled = isAutonomyEnabled(home);
@@ -70,7 +70,7 @@ export const autonomyRows = [
     // a write (it may start durable runs) — never agent-invokable, mirroring `trigger
     // fire`/`run start`: firing is exactly the gated path those already use.
     path: ['tick'], plane: 'evolution', json: true, permission: 'write', agentInvokable: false,
-    usage: 'tick [--once]', summary: 'run the wake-source tick once — fire due enabled triggers (opt-in only) and advance their runs',
+    usage: 'tick [--once]', summary: 'check for scheduled work once and run anything due',
     handler: ({ cwd, log, json }) => {
       // `--once` is the only mode a single CLI invocation ever runs (the CONTINUOUS
       // loop is `zz daemon`'s job, host.mjs) — accepted for the explicit, documented

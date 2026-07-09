@@ -60,8 +60,40 @@ const SWITCH_VERBS = [
 // AUTHORING sugar over `note create`, typed for a declaration's metas, no value flag.
 // `autonomy` (U4, docs/plans/2026-07-06-001-feat-wake-source-tick-plan.md) is the
 // newest: `autonomy on|off|status` — the founder's opt-in switch + its read-only
-// status, the same cold/niche shape as `trigger`.
-const NAMESPACES = ['autonomy', 'gen', 'host', 'module', 'note', 'registry', 'run', 'secret', 'session', 'tool', 'trigger'];
+// status, the same cold/niche shape as `trigger`. `collection` and `history` (surface-
+// spec.md slice 2) are the human-verb namespace aliases over `module`/`gen` — quiet,
+// same shape, not part of the old switch.
+const NAMESPACES = ['autonomy', 'collection', 'gen', 'history', 'host', 'module', 'note', 'registry', 'run', 'secret', 'session', 'tool', 'trigger'];
+
+// Slice 2 (surface-spec.md #2): flat QUIET human-verb aliases added beside the old
+// switch surface — `suggest`→stage, `approvals`→review, `collection`→module (its
+// bare read subforms). Real top-level table rows, just not part of the pre-rung-1
+// switch SWITCH_VERBS pins.
+const HUMAN_FLAT_VERBS = ['approvals', 'collection', 'suggest'];
+
+// Slice 2: canonical rows whose `usage:` DISPLAY string now leads with the human verb
+// while `path:` (what the router matches, and what `SAFE_RENAMES`-style tests still
+// exercise) stays the engine word — the whole point of the re-skin. Maps the row's
+// path-join to the human usage-prefix `zz help` shows instead.
+const HUMAN_USAGE_PREFIX = {
+  'stage': 'suggest',
+  'review': 'approvals',
+  'gen log': 'history log',
+  'gen list': 'history list',
+  'gen diff': 'history diff',
+  'gen rollback': 'history rollback',
+  'gen mint': 'history mint',
+  'module': 'collection',
+  'module add-column': 'collection add-field',
+  'module alter-column': 'collection change-field',
+  'module drop-column': 'collection remove-field',
+  'module new': 'collection new',
+  'module enable': 'collection enable',
+  'module disable': 'collection disable',
+  'module export': 'collection export',
+  'module backfill': 'collection backfill',
+  'module import': 'collection import',
+};
 
 /** Resolve a row to the handler it ultimately runs (following an `alias` pointer). */
 const canonicalOf = (row) => row.alias
@@ -80,11 +112,11 @@ test('every old-switch verb resolves to exactly one handler (canonical or via al
   }
 });
 
-test('the table keeps the switch surface + adds only the five noun namespaces', () => {
+test('the table keeps the switch surface + adds only the five noun namespaces (+ slice-2 human aliases)', () => {
   const flatVerbs = [...new Set(COMMANDS.filter((c) => c.path.length === 1).map((c) => c.path[0]))].sort();
-  assert.deepEqual(flatVerbs, [...SWITCH_VERBS].sort(), 'every old flat verb still resolves top-level');
+  assert.deepEqual(flatVerbs, [...SWITCH_VERBS, ...HUMAN_FLAT_VERBS].sort(), 'every old flat verb still resolves top-level, plus the new quiet human-verb aliases');
   const nouns = [...new Set(COMMANDS.filter((c) => c.path.length > 1).map((c) => c.path[0]))].sort();
-  assert.deepEqual(nouns, NAMESPACES, 'the only namespaced paths are module/note/gen/session/host/registry');
+  assert.deepEqual(nouns, NAMESPACES, 'the only namespaced paths are module/note/gen/session/host/registry + collection/history');
 });
 
 test('every NON-alias row carries the help + capability metadata the loop reads', () => {
@@ -108,17 +140,22 @@ test('every NON-alias row appears in `zz help` (help cannot drift from the route
   const help = helpText();
   for (const c of COMMANDS) {
     if (c.alias) continue;  // aliases are back-compat, not surface — deliberately absent
-    assert.ok(help.includes(c.path.join(' ')), `help lists '${c.path.join(' ')}'`);
-    assert.ok(help.includes(c.summary), `help shows the summary for '${c.path.join(' ')}'`);
+    const key = c.path.join(' ');
+    // slice 2: a display-relabeled row shows its HUMAN usage-prefix, not the engine
+    // path — that's the point (surface-spec.md). Everything else keeps the old check.
+    const expect = HUMAN_USAGE_PREFIX[key] ?? key;
+    assert.ok(help.includes(expect), `help lists '${expect}' (router path '${key}')`);
+    assert.ok(help.includes(c.summary), `help shows the summary for '${key}'`);
   }
 });
 
 test('`zz help` renders the Tier-2 noun namespaces as grouped sections', () => {
   const help = helpText();
-  // the namespace headings + a representative canonical path under each
+  // the namespace headings + a representative canonical path under each (gen's is
+  // shown via its slice-2 human display text, `history log` — see HUMAN_USAGE_PREFIX)
   for (const [heading, path] of [
     ['note — edit notes', 'note fold'],
-    ['gen — generations', 'gen log'],
+    ['gen — generations', 'history log'],
     ['session — the per-session git surface', 'session land'],
     ['host — launch & lifecycle', 'host enable'],
     ['registry — published modules', 'registry subscribe'],

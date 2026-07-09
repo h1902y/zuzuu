@@ -39,7 +39,7 @@ function moduleToggle(enabled) {
 export const dataRows = [
   {
     path: ['query'], plane: 'data', json: true, permission: 'read', agentInvokable: true,
-    usage: 'query <module|--all> [text]', summary: 'search  (--all cross-module · --where k<op>v · --group-by k [--agg fn:field] · --view m:id · --from walk · --to backlinks · --as-of <n> · --tag t · --full)',
+    usage: 'query <module|--all> [text]', summary: 'search notes — across collections (--all), by field (--where), grouped (--group-by), or a saved view (--view)',
     handler: ({ args, cwd, log, json, rest }) => {
       const zz = open(cwd);
       // `--all` searches the WHOLE project (module = '' — the index's plan() already
@@ -123,7 +123,7 @@ export const dataRows = [
   },
   {
     path: ['graph'], plane: 'data', json: true, permission: 'read', agentInvokable: true,
-    usage: 'graph [--props a,b]', summary: 'the whole project as nodes + links (the map surface reads this)',
+    usage: 'graph [--props a,b]', summary: 'the whole project as a map of notes and their links',
     io: { params: [], flags: { props: '--props' } }, // catalog: the daemon shells `graph --props …`
     handler: ({ args, cwd, log, json }) => {
       const g = graphData(open(cwd).home, { props: list(args.props) });
@@ -153,8 +153,8 @@ export const dataRows = [
   },
   {
     path: ['module'], plane: 'data', json: true, permission: 'read', agentInvokable: true,
-    usage: 'module [list | overview | items <k> | item <k> <id> | schema <k>]',
-    summary: 'inspect modules · notes  (generations → the `gen` namespace)',
+    usage: 'collection [list | overview | items <k> | item <k> <id> | schema <k>]',
+    summary: 'browse collections and their notes',
     handler: ({ args, cwd, log, json, warn, rest }) => {
       const zz = open(cwd);
       const [a, b, c] = args._;
@@ -259,7 +259,7 @@ export const dataRows = [
   // itself. `module schema <k>` (the READ) stays inside the `module` handler above.
   {
     path: ['module', 'add-column'], plane: 'data', json: true, permission: 'admin', agentInvokable: false,
-    usage: 'module add-column <k> <name> <type> [--required] [--options a,b] [--default v] [--label l] [--description d] [--computed f]', summary: 'add a typed column to a module schema',
+    usage: 'collection add-field <k> <name> <type> [--required] [--options a,b] [--default v] [--label l] [--description d] [--computed f]', summary: 'add a field to a collection',
     // catalog: the daemon's field-config panel (§H.5) shells this for "+ column"
     io: { params: ['module', 'name', 'type'], flags: { required: '--required', options: '--options', default: '--default', label: '--label', description: '--description', computed: '--computed' } },
     handler: ({ args, cwd, log, json }) => {
@@ -281,7 +281,7 @@ export const dataRows = [
   },
   {
     path: ['module', 'alter-column'], plane: 'data', json: true, permission: 'admin', agentInvokable: false,
-    usage: 'module alter-column <k> <name> [--type t] [--required] [--options a,b] [--default v] [--label l] [--description d] [--computed f]', summary: 'change a column (type · required · options · default · label · description · computed)',
+    usage: 'collection change-field <k> <name> [--type t] [--required] [--options a,b] [--default v] [--label l] [--description d] [--computed f]', summary: 'change a field (type, required, options, default, label, …)',
     // catalog: the daemon's field-config panel (§H.5) shells this for "Edit column".
     // `required` MUST ride as an explicit 'true'/'false' string (flag() below) — a
     // bare truthiness check can never express "turn it off".
@@ -305,7 +305,7 @@ export const dataRows = [
   },
   {
     path: ['module', 'drop-column'], plane: 'data', json: true, permission: 'admin', agentInvokable: false,
-    usage: 'module drop-column <k> <name>', summary: 'drop a column from a module schema',
+    usage: 'collection remove-field <k> <name>', summary: 'remove a field from a collection',
     handler: ({ args, cwd, log, json }) => {
       const [m, name] = args._;
       if (!m || !name) return fail(log, 'usage: zz module drop-column <key> <name>', json);
@@ -319,25 +319,25 @@ export const dataRows = [
   // ── module: create + enable/disable (the lifecycle writes the workbench shells) ──
   {
     path: ['module', 'new'], plane: 'data', json: true, permission: 'admin', agentInvokable: false,
-    usage: 'module new <id> [--title t --tagline t --capabilities a,b --kinds k --required a,b]',
-    summary: 'create a new module manifest', handler: moduleNew,
+    usage: 'collection new <id> [--title t --tagline t --capabilities a,b --kinds k --required a,b]',
+    summary: 'create a new collection', handler: moduleNew,
     io: { params: ['id'], flags: { title: '--title', tagline: '--tagline', capabilities: '--capabilities', kinds: '--kinds', required: '--required' } },
   },
   {
     path: ['module', 'enable'], plane: 'data', json: true, permission: 'admin', agentInvokable: false,
-    usage: 'module enable <id>', summary: "set a module's enabled flag on", handler: moduleToggle(true),
+    usage: 'collection enable <id>', summary: "turn a collection on", handler: moduleToggle(true),
     io: { params: ['key'], flags: {} },
   },
   {
     path: ['module', 'disable'], plane: 'data', json: true, permission: 'admin', agentInvokable: false,
-    usage: 'module disable <id>', summary: "set a module's enabled flag off", handler: moduleToggle(false),
+    usage: 'collection disable <id>', summary: "turn a collection off", handler: moduleToggle(false),
     io: { params: ['key'], flags: {} },
   },
 
   // ── note: edit notes (gated writes) — the Tier-2 `note …` namespace ──
   {
     path: ['note', 'view'], plane: 'data', json: true, permission: 'read', agentInvokable: true,
-    usage: 'note view <m> <id>', summary: 'read a note body windowed (--offset n · --limit n)',
+    usage: 'note view <m> <id>', summary: 'read a note',
     handler: ({ args, cwd, log, json }) => {
       const [m, id] = args._;
       if (!m || !id) return fail(log, 'usage: zz note view <module> <id> [--offset n] [--limit n]', json);
@@ -351,7 +351,7 @@ export const dataRows = [
   },
   {
     path: ['note', 'flow'], plane: 'data', json: false, permission: 'run', agentInvokable: true,
-    usage: 'note flow <m> <id>', summary: 'run a workflow note (a DAG of gated run-steps)',
+    usage: 'note flow <m> <id>', summary: 'run a workflow note (a sequence of steps)',
     handler: ({ args, cwd, log }) => {
       const [m, id] = args._;
       if (!m || !id) return fail(log, 'usage: zz note flow <module> <id>');
@@ -366,7 +366,7 @@ export const dataRows = [
   {
     // the module-as-table boundary, outbound: every row, lossless (custom columns ride)
     path: ['module', 'export'], plane: 'data', json: true, permission: 'read', agentInvokable: true,
-    usage: 'module export <k> [--csv]', summary: 'dump a module as rows (JSON default · --csv for spreadsheets)',
+    usage: 'collection export <k> [--csv]', summary: 'export a collection (JSON, or --csv for spreadsheets)',
     handler: ({ args, cwd, log, json }) => {
       const m = args._[0];
       if (!m) return fail(log, 'usage: zz module export <key> [--csv]', json);
@@ -382,7 +382,7 @@ export const dataRows = [
     // the same one door). Deliberately NOT a `doctor --fix` flag: doctor is a read
     // verb agents may shell — a write behind its flag would hole the generated gate.
     path: ['module', 'backfill'], plane: 'data', json: true, permission: 'write', agentInvokable: false,
-    usage: 'module backfill [--dry-run]', summary: 'fill missing title/status on legacy notes (one generation per module)',
+    usage: 'collection backfill [--dry-run]', summary: 'fill in missing titles and status on older notes',
     handler: ({ args, cwd, log, json }) => {
       const r = open(cwd).backfillFloor({ dryRun: !!args['dry-run'] });
       if (!r.ok) return fail(log, r.error, json);
@@ -397,7 +397,7 @@ export const dataRows = [
     // inbound: bulk rows through the operator lane's batch create — ONE transaction,
     // ONE generation, all-or-nothing, schema-validated. Operator-only (agent-denied).
     path: ['module', 'import'], plane: 'data', json: true, permission: 'write', agentInvokable: false,
-    usage: 'module import <k> --json <file> | --csv <file> [--force]', summary: 'bulk-create rows from a JSON array or CSV (one generation)',
+    usage: 'collection import <k> --json <file> | --csv <file> [--force]', summary: 'import many notes at once from JSON or CSV',
     handler: ({ args, cwd, log, json }) => {
       const m = args._[0];
       const file = str(args.json) || str(args.csv);
@@ -421,7 +421,7 @@ export const dataRows = [
     // agentInvokable:false keeps the agent on its stage→review channel.
     path: ['note', 'create'], plane: 'data', json: true, permission: 'write', agentInvokable: false,
     usage: 'note create <m> <id> --type t [--field k=v …] [--body text] [--force] · note create <m> --batch <json>',
-    summary: 'create a row directly (schema defaults fill in; --force = upsert; --batch = many rows, one generation)',
+    summary: 'create a note directly (--force overwrites; --batch adds many at once)',
     io: { params: ['module', 'id'], flags: { type: '--type', change: '--change', force: '--force' } }, // catalog: the daemon's direct-create lane
     handler: ({ args, cwd, log, json, rest }) => {
       const zz = open(cwd);
@@ -453,7 +453,7 @@ export const dataRows = [
   },
   {
     path: ['note', 'delete'], plane: 'data', json: true, permission: 'write', agentInvokable: false,
-    usage: 'note delete <m> <id>', summary: 'delete a row directly (referrers flagged by zz check; fold merges instead)',
+    usage: 'note delete <m> <id>', summary: 'delete a note (use merge to combine instead)',
     io: { params: ['module', 'id'], flags: {} }, // catalog: the daemon's direct-delete lane
     handler: ({ args, cwd, log, json }) => {
       const [m, id] = args._;
@@ -466,7 +466,7 @@ export const dataRows = [
   },
   {
     path: ['note', 'set'], plane: 'data', json: false, permission: 'write', agentInvokable: false,
-    usage: 'note set <m> <id> <key> <v>', summary: 'set one frontmatter field',
+    usage: 'note set <m> <id> <key> <v>', summary: 'set one field on a note',
     handler: ({ args, cwd, log }) => {
       const [m, id, key, ...rest] = args._;
       if (!m || !id || !key || !rest.length) return fail(log, 'usage: zz note set <module> <id> <key> <value>');
@@ -490,7 +490,7 @@ export const dataRows = [
   },
   {
     path: ['note', 'rename'], plane: 'data', json: false, permission: 'write', agentInvokable: false,
-    usage: 'note rename <m> <old> <new>', summary: 'rename a note + rewrite every inbound link',
+    usage: 'note rename <m> <old> <new>', summary: 'rename a note (and fix every link to it)',
     handler: ({ args, cwd, log }) => {
       const [m, oldId, newId] = args._;
       if (!m || !oldId || !newId) return fail(log, 'usage: zz note rename <module> <old-id> <new-id>');
@@ -502,7 +502,7 @@ export const dataRows = [
   },
   {
     path: ['note', 'fold'], plane: 'data', json: false, permission: 'write', agentInvokable: false,
-    usage: 'note fold <m> <src> <dst>', summary: 'fold two notes into one (re-point referrers to dst)',
+    usage: 'note fold <m> <src> <dst>', summary: 'merge two notes into one (and fix the links)',
     handler: ({ args, cwd, log }) => {
       const [m, src, dst] = args._;
       if (!m || !src || !dst) return fail(log, 'usage: zz note fold <module> <src-id> <dst-id>');
@@ -514,7 +514,7 @@ export const dataRows = [
   },
   {
     path: ['note', 'retype'], plane: 'data', json: false, permission: 'write', agentInvokable: false,
-    usage: 'note retype <m> --field k --from v --to v', summary: 'rewrite a field across the module',
+    usage: 'note retype <m> --field k --from v --to v', summary: 'change a field value across a whole collection',
     handler: ({ args, cwd, log }) => {
       const [m] = args._;
       if (!m || !args.field || args.from === undefined || args.to === undefined) return fail(log, 'usage: zz note retype <module> --field <key> --from <v> --to <v>');
