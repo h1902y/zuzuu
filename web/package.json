@@ -33,7 +33,7 @@
     "@xterm/headless": "^6.0.0",
     "archiver": "^8.0.0",
     "chokidar": "^5.0.0",
-    "hono": "^4.12.25",
+    "hono": "^4.12.31",
     "lucide-react": "^1.21.0",
     "ws": "^8.21.0"
   },
