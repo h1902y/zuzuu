@@ -1,6 +1,6 @@
 // U1 — the shell state model: selection → actors, concurrency, ribbon. Pure logic.
 import { describe, it, expect } from "vitest";
-import { selectActors, mostRecentlyActive, ribbonState, type SessionLite } from "../../src/client/shell/shell-state.js";
+import { selectActors, mostRecentlyActive, ribbonState, shouldClearWorldSelectionOnEscape, type SessionLite } from "../../src/client/shell/shell-state.js";
 
 describe("selectActors — the selection → stage/wing morph (no modes)", () => {
   it("session → terminal + review wing", () => {
@@ -57,5 +57,19 @@ describe("ribbonState — the ambient gate", () => {
   it("setupIncomplete defaults to false — existing call sites are unaffected", () => {
     expect(ribbonState([], { knowledge: 2 }).allCaughtUp).toBe(false);
     expect(ribbonState([], { knowledge: 2 }).pending).toBe(2);
+  });
+});
+
+describe("shouldClearWorldSelectionOnEscape — U5's replacement for the hardcoded cascade", () => {
+  it("clears the world selection when the overlay stack is empty and something is selected", () => {
+    expect(shouldClearWorldSelectionOnEscape(0, true)).toBe(true);
+  });
+  it("does nothing when the overlay stack is empty but nothing is selected", () => {
+    expect(shouldClearWorldSelectionOnEscape(0, false)).toBe(false);
+  });
+  it("stays out of the way whenever an overlay is open (stack non-empty) — its OWN useDismiss owns Escape, regardless of selection", () => {
+    expect(shouldClearWorldSelectionOnEscape(1, true)).toBe(false);
+    expect(shouldClearWorldSelectionOnEscape(1, false)).toBe(false);
+    expect(shouldClearWorldSelectionOnEscape(2, true)).toBe(false); // several overlays stacked — still not the shell's job
   });
 });

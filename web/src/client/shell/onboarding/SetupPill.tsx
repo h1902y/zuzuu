@@ -12,11 +12,21 @@
 // anything (a plain X, distinct from Affirm/Not-now/Re-enable). Mirrors
 // HudPill's placement contract: absolutely positioned inside the stage's
 // `relative` <main>.
-import { useEffect, useState } from "react";
+//
+// U6 (curried-plotting-coral.md) — bug fix: `dismissed` used to reset via a
+// `useEffect` keyed on `step?.kind`, so ANY recompute of the (pure, freshly
+// object-literal'd) onboarding step could silently reopen a card the user just
+// closed — WorkbenchShell invalidates the whole `["zuzuu"]` query on every
+// websocket brain-event, so this fired often ("the X did nothing" — confirmed
+// live). Fixed by tracking the IDENTITY last dismissed and re-surfacing only for
+// a genuinely new, more-urgent one (onboarding-state.ts's shouldResurface — see
+// that file for the full rationale). Also new: outside-click dismissal
+// (useDismiss) and a larger X hit target (was a bare 14px icon with no padding).
+import { useRef, useState } from "react";
 import { X } from "lucide-react";
 import { Checklist } from "./Checklist.js";
-import type { OnboardingStep, PrepRungId, SetupFailure } from "./onboarding-state.js";
-import { Icon } from "../../ds/index.js";
+import { stepIdentity, shouldResurface, type OnboardingStep, type PrepRungId, type SetupFailure, type StepIdentity } from "./onboarding-state.js";
+import { Icon, useDismiss } from "../../ds/index.js";
 
 export function SetupPill(props: {
   projectName: string;
@@ -28,21 +38,30 @@ export function SetupPill(props: {
   onRetry: () => void;
 }) {
   const { step } = props;
-  const [dismissed, setDismissed] = useState(false);
-  // re-surface on a genuine step change (e.g. awaiting-consent → dormant) —
-  // a dismiss is "not right now", not "never tell me about this step again"
-  useEffect(() => { setDismissed(false); }, [step?.kind]);
+  const [lastDismissed, setLastDismissed] = useState<StepIdentity | null>(null);
+  const identity = stepIdentity(step);
+  const dismissed = lastDismissed !== null && !shouldResurface(identity, lastDismissed);
+  const ref = useRef<HTMLDivElement | null>(null);
+  const dismiss = () => setLastDismissed(identity);
+  const visible = !!step && step.kind !== "complete" && step.kind !== "ready" && !dismissed;
 
-  if (!step || step.kind === "complete" || step.kind === "ready" || dismissed) return null;
+  // Called UNCONDITIONALLY, above the early return below (hooks can't be
+  // conditional) — `enabled: visible` keeps a hidden/dismissed/absent pill off the
+  // shared overlay stack entirely (Dialog/Popover's own pattern). U6 — outside-click
+  // dismissal is new here; Escape (the default) is a welcome side effect too, same
+  // "one intuitive contract" every overlay now shares.
+  useDismiss({ id: "setup-pill", onClose: dismiss, closeOnOutside: true, enabled: visible, ref });
+
+  if (!visible) return null;
 
   return (
-    <div className="animate-pop absolute bottom-4 right-4 z-30 w-80 max-w-full">
+    <div ref={ref} className="animate-pop absolute bottom-4 right-4 z-30 w-80 max-w-full">
       <div className="relative rounded-lg shadow-overlay">
         <button
           type="button"
           aria-label="dismiss"
-          onClick={() => setDismissed(true)}
-          className="absolute right-3 top-3 z-10 text-muted hover:text-ink-100"
+          onClick={dismiss}
+          className="absolute right-1 top-1 z-10 rounded-full p-2 text-muted hover:bg-surface hover:text-ink-100"
         >
           <Icon icon={X} size={14} />
         </button>

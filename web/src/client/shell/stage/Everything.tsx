@@ -4,7 +4,7 @@
 // '' scope to /api/zuzuu/items). The filter lives in the shared module-filter
 // store under the '' scope, so T flips this table into the full World with the
 // same lens spotlighted across all islands — one space, two projections.
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Table2 } from "lucide-react";
 import { NotesListProvider, useList } from "../../data/ListContext.js";
@@ -13,6 +13,7 @@ import { useTableSelection, selectionFor, EVERYTHING_SELECTION_SCOPE, useClearSe
 import { modulePalette } from "../../world/model.js";
 import { EVERYTHING_COLUMNS, moduleFacets, typeFacets, statusFacets, toggleFacet } from "./everything-model.js";
 import { parseInputClause, mergeTableRows } from "./table-model.js";
+import { type ToolbarPopoverKey } from "./toolbar-popover-model.js";
 import { useTableFilter } from "./use-table-filter.js";
 import { ClauseChips } from "./ClauseChips.js";
 import { ModuleDot, FacetChip } from "./FacetChip.js";
@@ -40,6 +41,12 @@ function EverythingInner({ moduleFacet, onModuleFacet }: { moduleFacet: string; 
   // gets pending rows for free the moment that route is fixed; until then this
   // view shows none (Grid.tsx's per-module table already does).
   const tableRows = mergeTableRows(rows, staged);
+  // U4's toolbar-popover coordinator slot (toolbar-popover-model.ts) — Everything
+  // has no separate "+ column" popover today (a schema column has no single home
+  // in the unified view), but TableBuilders is now a controlled component, so
+  // this view holds the same lifted state Grid.tsx does for its Filter/Group/Sort
+  // trio (which is already self-exclusive within TableBuilders).
+  const [openPopover, setOpenPopover] = useState<ToolbarPopoverKey | null>(null);
 
   // the typed input speaks the CLI's own grammar (§H.3.1): free text live-filters
   // via FTS as you type; Enter on a `key<op>value`/`#tag` shape commits it as a
@@ -89,7 +96,7 @@ function EverythingInner({ moduleFacet, onModuleFacet }: { moduleFacet: string; 
           placeholder="filter everything… (or key=value, #tag)"
           className="w-72 rounded-ui border border-border bg-app px-2 py-1 text-ui text-ink-100 outline-none placeholder:text-muted focus:border-accent-dim"
         />
-        <TableBuilders cols={EVERYTHING_COLUMNS} state={state} filterOps={filterOps} dispatch={dispatch} />
+        <TableBuilders cols={EVERYTHING_COLUMNS} state={state} filterOps={filterOps} dispatch={dispatch} open={openPopover} onOpenChange={setOpenPopover} />
       </div>
       {(modules.length > 1 || rows.length > 0) && (
         <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border bg-surface px-6 py-2">

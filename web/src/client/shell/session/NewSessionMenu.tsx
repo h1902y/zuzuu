@@ -3,11 +3,16 @@
 // session is selected into the stage (useStartSession redirects). This is the only
 // entry point to a FIRST agent session — the Composer's HostPill only appears once
 // you already have one. Static layout utilities only (the ds-no-inline guard).
+//
+// U4 (curried-plotting-coral.md): the hand-rolled full-screen scrim button is
+// gone — composes the shared Popover (U2, `closeOnSelect`) + `PopoverItem` rows,
+// single-select: picking a host closes the menu, same as before, now via the
+// primitive instead of a manual `setOpen(false)` in every item's onClick.
 import { useState } from "react";
 import { HOSTS } from "../../app/hosts.js";
 import { newSessionItems } from "./new-session-items.js";
 import { useStartSession } from "./use-start-session.js";
-import { Text } from "../../ds/index.js";
+import { Text, Popover, PopoverItem } from "../../ds/index.js";
 
 export function NewSessionMenu() {
   const start = useStartSession();
@@ -18,21 +23,22 @@ export function NewSessionMenu() {
     <div className="relative">
       <Text as="button" interactive size="meta" tone="muted" onClick={() => setOpen((o) => !o)}>+ new session</Text>
       {open && (
-        <>
-          <button type="button" aria-label="close" onClick={() => setOpen(false)} className="fixed inset-0 z-10 cursor-default" />
-          <div className="animate-pop absolute left-0 top-full z-20 mt-1 w-44 rounded-ui border border-border bg-elevated py-1 shadow-overlay">
-            {items.map((it) => (
-              <button
-                key={it.key}
-                type="button"
-                onClick={() => { void start(it.type, it.host); setOpen(false); }}
-                className="block w-full px-3 py-1.5 text-left text-ui text-subtle transition-colors hover:bg-hover hover:text-ink-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-focus"
-              >
-                {it.label}
-              </button>
-            ))}
-          </div>
-        </>
+        <Popover
+          open
+          onClose={() => setOpen(false)}
+          closeOnSelect
+          className="z-20 mt-1 w-44 rounded-ui border border-border bg-elevated py-1 shadow-overlay"
+        >
+          {items.map((it) => (
+            <PopoverItem
+              key={it.key}
+              onSelect={() => void start(it.type, it.host)}
+              className="block w-full px-3 py-1.5 text-left text-ui text-subtle transition-colors hover:bg-hover hover:text-ink-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-focus"
+            >
+              {it.label}
+            </PopoverItem>
+          ))}
+        </Popover>
       )}
     </div>
   );

@@ -5,8 +5,15 @@
 // so the ~1.5MB emoji set is a separate chunk fetched only on first open. The picker is
 // themed to the app's resolved light/dark. Trigger/popover use static, token-bound
 // utilities; the picker owns its own (shadow-DOM) styling.
+//
+// U4 (curried-plotting-coral.md): the hand-rolled full-screen scrim button is
+// gone — composes the shared Popover (U2) for outside-click + topmost-only
+// Escape. Chromeless override (`className="mt-1"`, no border/bg/shadow/width):
+// emoji-mart's Picker draws its OWN popup chrome into `host`, so Popover here is
+// pure positioning + dismiss, not a second box around it.
 import { useEffect, useRef, useState } from "react";
 import { useTheme } from "../../state/theme.js";
+import { Popover } from "./Popover.js";
 
 export function EmojiPicker({ value, onPick, label = "Change emoji" }: {
   value: string;
@@ -53,10 +60,9 @@ export function EmojiPicker({ value, onPick, label = "Change emoji" }: {
         {value}
       </button>
       {open && (
-        <>
-          <button type="button" aria-label="close" onClick={() => setOpen(false)} className="fixed inset-0 z-10 cursor-default" />
-          <div ref={host} className="absolute left-0 top-full z-20 mt-1" />
-        </>
+        <Popover open onClose={() => setOpen(false)} className="mt-1">
+          <div ref={host} />
+        </Popover>
       )}
     </div>
   );

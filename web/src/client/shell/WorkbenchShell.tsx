@@ -16,7 +16,7 @@ import { useWorldCommand } from "../state/world-command.js";
 import { FilterChips } from "./stage/FilterChips.js";
 import { useWorkbench } from "../state/store.js";
 import { useWorld } from "./world-state.js";
-import { selectActors } from "./shell-state.js";
+import { selectActors, shouldClearWorldSelectionOnEscape } from "./shell-state.js";
 import { onboardingWallShows, currentRung, type RungId } from "./project-home-state.js";
 import { useStartSession } from "./session/use-start-session.js";
 import { sessionTabs } from "./session/session-tabs.js";
@@ -52,7 +52,7 @@ import { Plus, Power, Orbit } from "lucide-react";
 import { Palette } from "../palette/Palette.js";
 import { useEndSession } from "../state/end-session.js";
 import { EndSessionDialog } from "./session/EndSessionDialog.js";
-import { Loading, ThemeToggle, AppHeader, Text, Inline, Icon } from "../ds/index.js";
+import { Loading, ThemeToggle, AppHeader, Text, Inline, Icon, Dialog, useDismiss, useOverlayStack } from "../ds/index.js";
 import { useReview } from "../state/review.js";
 import { Switcher } from "./switcher/Switcher.js";
 import { Ribbon } from "./Ribbon.js";
@@ -93,6 +93,20 @@ export function WorkbenchShell() {
   const [sessionView, setSessionView] = useState<string>("terminal"); // the session stage's Terminal·Changes tab (P2.8)
   const reviewOpen = useReview((s) => s.open);
   const setReview = useReview((s) => s.setOpen);
+  // U5 (curried-plotting-coral.md) — the review overlay registers with the shared
+  // stack: Escape now closes it ONLY when it's topmost, via the SAME `useDismiss`
+  // mechanism Dialog/Popover already use — the direct fix for "Escape closed the
+  // background review queue instead of the foreground agent view." Called
+  // unconditionally (hooks can't be conditional); `enabled: reviewOpen` keeps a
+  // closed review off the stack entirely (Dialog's own pattern). closeOnOutside
+  // stays at its default (true) — harmless alongside the scrim button below,
+  // which already closes on outside click the same way.
+  const reviewPanelRef = useRef<HTMLDivElement | null>(null);
+  useDismiss({ id: "review", onClose: () => setReview(false), enabled: reviewOpen, ref: reviewPanelRef });
+  // the shared overlay stack (U1) — read here so the shell's OWN Escape handler
+  // (below) can tell whether it's shadowed by an open overlay; see
+  // shouldClearWorldSelectionOnEscape.
+  const overlayStack = useOverlayStack();
   const setPalette = useWorld((s) => s.setPalette);
   const requestWorld = useWorldCommand((s) => s.request);
   const goGlobal = useAppSurface((s) => s.home);
@@ -203,19 +217,25 @@ export function WorkbenchShell() {
         }
       }
       else if (e.key === "Escape") {
-        // Esc cascade: an open overlay closes first (review · settings); otherwise,
-        // from any table/record stage, Esc returns to the World home (the map is the
-        // resting place). The palette owns its own Esc (it stops propagation); the
-        // onboarding dialog is non-dismissible (consent is the way through). A focused
+        // U5 (curried-plotting-coral.md) — no more hardcoded review→settings
+        // priority here: every overlay now owns its own Escape via `useDismiss`,
+        // guarded by the shared stack's topmost check (Settings' Dialog since U3;
+        // Review's own registration above, U5). This branch owns exactly the
+        // NON-overlay Escape — clearing the map/world selection — and only fires
+        // when the stack is empty (nothing is shadowing it); a non-empty stack
+        // means some overlay is topmost and already handling this keypress itself.
+        // The palette owns its own Esc (it stops propagation); the onboarding
+        // dialog is non-dismissible (consent is the way through). A focused
         // terminal/input is already guarded out above, so vim's Esc is preserved.
-        if (useReview.getState().open) setReview(false);
-        else if (useSettingsDialog.getState().open) setSettingsOpen(false);
-        else if (useWorld.getState().selected !== null) { e.preventDefault(); select(null); }
+        if (shouldClearWorldSelectionOnEscape(overlayStack.stack.length, useWorld.getState().selected !== null)) {
+          e.preventDefault();
+          select(null);
+        }
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [setReview, setPalette, select, setSettingsOpen]);
+  }, [setReview, setPalette, select, overlayStack.stack]);
 
   // The setup→work stitch: onboarding picks a HOST (an agent session — zuzuu only
   // observes agents), then drops into the terminal AND teaches the loop just entered.
@@ -516,21 +536,37 @@ export function WorkbenchShell() {
         </div>
       )}
 
-      {/* §D — Settings: a dialog from the footer's right edge; the canvas undisturbed */}
-      {settingsOpen && (
-        <>
-          <button type="button" aria-label="close settings" onClick={() => setSettingsOpen(false)} className="animate-fade fixed inset-0 z-40 bg-scrim" />
-          <div className="animate-pop fixed inset-x-0 top-16 z-50 mx-auto flex max-h-96 w-full max-w-2xl flex-col overflow-y-auto rounded-lg border border-border bg-elevated shadow-overlay">
-            <Settings />
-          </div>
-        </>
-      )}
+      {/* §D — Settings: a dialog from the footer's right edge; the canvas undisturbed.
+          Composes ds/kit/Dialog (U3, curried-plotting-coral.md) — no separate title/
+          footer slots (<Settings> renders its own heading + owns its own padding), so
+          the scrim + panel markup is the only thing that changed here. This dialog's
+          own useDismiss registration closes it on Escape (when topmost) / outside-
+          click — the shell's own Escape handler below no longer special-cases
+          settings at all (U5 reconciled the two mechanisms: the stack owns overlay-
+          Escape, the shell only clears the world selection when the stack is
+          empty). */}
+      <Dialog
+        open={settingsOpen}
+        id="settings-dialog"
+        onClose={() => setSettingsOpen(false)}
+        className="inset-x-0 top-16 mx-auto max-h-96 w-full max-w-2xl overflow-y-auto"
+      >
+        <Settings />
+      </Dialog>
 
       {reviewOpen && (
         <>
           <button type="button" aria-label="close review" onClick={() => setReview(false)} className="animate-fade fixed inset-0 z-40 bg-scrim" />
-          <div className="animate-pop fixed inset-x-0 top-12 z-50 mx-auto flex max-h-96 w-96 flex-col overflow-hidden rounded-lg border border-border bg-elevated shadow-overlay">
-            <ReviewQueue keyboard />
+          {/* U5 — registered on the shared stack via the `useDismiss` call above
+              (id "review"); ref is this panel so an eventual outside-pointerdown
+              check treats the scrim (outside this node) as "outside" too. Layout
+              unchanged (U3's scope note — this stays its own hand-rolled canvas,
+              not a Dialog). */}
+          <div ref={reviewPanelRef} className="animate-pop fixed inset-x-0 top-12 z-50 mx-auto flex max-h-96 w-96 flex-col overflow-hidden rounded-lg border border-border bg-elevated shadow-overlay">
+            {/* U6 — `overlay` marks THIS instance as the one allowed to auto-close
+                itself once the queue empties (review-flow.ts's shouldAutoCloseReview);
+                the wing's <ReviewQueue> below never gets it — closing isn't its job. */}
+            <ReviewQueue keyboard overlay />
           </div>
         </>
       )}

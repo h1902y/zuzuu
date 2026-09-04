@@ -5,7 +5,7 @@
 import { describe, it, expect } from "vitest";
 import {
   onboardingStep, recordConsent, reopen, prepRungFor, RUNG_NARRATION, RUNG_ROUTE, describeSetupFailure,
-  type ConsentRecord,
+  stepIdentity, shouldResurface, type ConsentRecord, type OnboardingStep,
 } from "../../src/client/shell/onboarding/onboarding-state.js";
 
 describe("onboardingStep — the consent gate", () => {
@@ -78,6 +78,75 @@ describe("onboardingStep — the consent gate", () => {
     expect(prepRungFor("steady")).toBeNull();
     expect(RUNG_ROUTE["git-init"]).toBe("gitInit");
     expect(Object.keys(RUNG_NARRATION)).toEqual(["git-init", "init", "enable"]);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// U6 (curried-plotting-coral.md) — SetupPill's re-surface decision. Bug fix: the
+// pill's `dismissed` flag used to reset on ANY recompute of `step?.kind` — and
+// WorkbenchShell invalidates the whole `["zuzuu"]` query on every websocket
+// brain-event, so a transient recompute of the IDENTICAL step silently reopened a
+// dismissed pill ("the X did nothing" — confirmed live). `shouldResurface`
+// replaces that with an identity comparison: re-surface only for a genuinely
+// NEW, more-urgent step, never for a recompute landing back on the same one.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("stepIdentity — the comparable identity a fresh onboardingStep() recompute shares with an earlier one", () => {
+  it("awaiting-consent/executing carry their rung as identity", () => {
+    expect(stepIdentity({ kind: "awaiting-consent", rung: "enable", narration: RUNG_NARRATION.enable })).toEqual({ kind: "awaiting-consent", rung: "enable" });
+    expect(stepIdentity({ kind: "executing", rung: "init" })).toEqual({ kind: "executing", rung: "init" });
+  });
+
+  it("dormant carries the DECLINED rung as identity", () => {
+    expect(stepIdentity({ kind: "dormant", declinedAt: "enable" })).toEqual({ kind: "dormant", rung: "enable" });
+  });
+
+  it("ready/complete carry no rung", () => {
+    expect(stepIdentity({ kind: "ready" })).toEqual({ kind: "ready", rung: null });
+    expect(stepIdentity({ kind: "complete" })).toEqual({ kind: "complete", rung: null });
+  });
+
+  it("null step → null identity", () => {
+    expect(stepIdentity(null)).toBeNull();
+  });
+
+  it("two SEPARATE object literals from repeated onboardingStep() calls over an unchanged state/consent produce the SAME identity — the exact case a zuzuu-query invalidation must not treat as new", () => {
+    const a = onboardingStep("hooks-off", {});
+    const b = onboardingStep("hooks-off", {}); // a fresh recompute, same inputs, a NEW object
+    expect(a).not.toBe(b); // different references (pure function, new literal)
+    expect(stepIdentity(a)).toEqual(stepIdentity(b)); // same identity
+  });
+});
+
+describe("shouldResurface — re-open a dismissed SetupPill only for a genuinely new, more-urgent step", () => {
+  const awaitingEnable: OnboardingStep = { kind: "awaiting-consent", rung: "enable", narration: RUNG_NARRATION.enable };
+  const executingEnable: OnboardingStep = { kind: "executing", rung: "enable" };
+  const dormantEnable: OnboardingStep = { kind: "dormant", declinedAt: "enable" };
+
+  it("nothing dismissed yet (null) → always shows", () => {
+    expect(shouldResurface(stepIdentity(awaitingEnable), null)).toBe(true);
+  });
+
+  it("no current step → never shows, regardless of history", () => {
+    expect(shouldResurface(null, stepIdentity(awaitingEnable))).toBe(false);
+  });
+
+  it("BUG FIX — a recompute landing back on the SAME identity never re-surfaces (this is the exact reported bug: a transient `[\"zuzuu\"]` invalidation recomputing the identical step must stay dismissed)", () => {
+    const recomputed = onboardingStep("hooks-off", {}); // a fresh object, same kind+rung
+    expect(shouldResurface(stepIdentity(recomputed), stepIdentity(awaitingEnable))).toBe(false);
+  });
+
+  it("a genuine escalation (awaiting-consent → dormant, same rung) DOES re-surface — dormant outranks a plain question", () => {
+    expect(shouldResurface(stepIdentity(dormantEnable), stepIdentity(awaitingEnable))).toBe(true);
+  });
+
+  it("a same-or-lower-urgency sibling for the SAME rung does NOT re-surface (executing doesn't nag a dismissed awaiting-consent)", () => {
+    expect(shouldResurface(stepIdentity(executingEnable), stepIdentity(awaitingEnable))).toBe(false);
+  });
+
+  it("dormant, once dismissed, does not re-open for a lower-urgency step of a DIFFERENT rung either — urgency order holds across rungs, not just within one", () => {
+    const awaitingInit: OnboardingStep = { kind: "awaiting-consent", rung: "init", narration: RUNG_NARRATION.init };
+    expect(shouldResurface(stepIdentity(awaitingInit), stepIdentity(dormantEnable))).toBe(false);
   });
 });
 

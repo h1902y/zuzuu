@@ -1,8 +1,10 @@
 // P2.4 — the focused decision flow over the review queue.
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import type { StagedSummary } from "../../src/shared/index.js";
 import {
-  clampFocus, moveFocus, focusedId, orderForApply, runBatchApprove,
+  clampFocus, moveFocus, focusedId, orderForApply, runBatchApprove, shouldAutoCloseReview,
 } from "../../src/client/shell/review/review-flow.js";
 
 const q = (n: number): StagedSummary[] =>
@@ -127,5 +129,60 @@ describe("runBatchApprove consumes the ordered list — dispatch follows orderFo
     ];
     await runBatchApprove(targets, approveOne);
     expect(callOrder).toEqual(["create-1", "create-2", "update-1", "delete-1", "deprecate-1"]);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// U6 (curried-plotting-coral.md) — auto-close the review OVERLAY when the queue
+// empties. Bug fix: approving/rejecting the last pending proposal used to leave an
+// empty review overlay sitting open — nothing ever dismissed it. `shouldAutoCloseReview`
+// is the pure trigger the ReviewQueue.tsx consumer schedules a gentle, cancellable
+// timeout off of; ONLY the overlay instance (never the session wing's own
+// <ReviewQueue>) should ever self-close.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("shouldAutoCloseReview — the auto-close trigger", () => {
+  it("fires only for the OVERLAY instance, once settled at zero", () => {
+    expect(shouldAutoCloseReview(true, false, 0)).toBe(true);
+  });
+
+  it("never fires for the wing instance (overlay=false), even at zero", () => {
+    expect(shouldAutoCloseReview(false, false, 0)).toBe(false);
+  });
+
+  it("never fires while still loading — a loading flicker (total transiently 0 before the first fetch resolves) must not close anything", () => {
+    expect(shouldAutoCloseReview(true, true, 0)).toBe(false);
+  });
+
+  it("never fires while the queue still has pending items", () => {
+    expect(shouldAutoCloseReview(true, false, 1)).toBe(false);
+    expect(shouldAutoCloseReview(true, false, 12)).toBe(false);
+  });
+
+  it("all three gates must hold at once — overlay AND settled AND empty", () => {
+    expect(shouldAutoCloseReview(false, true, 3)).toBe(false);
+    expect(shouldAutoCloseReview(true, true, 3)).toBe(false);
+    expect(shouldAutoCloseReview(false, false, 0)).toBe(false);
+  });
+});
+
+describe("ReviewQueue.tsx / WorkbenchShell.tsx source wiring — the gentle, cancellable auto-close", () => {
+  const queueSrc = readFileSync(fileURLToPath(new URL("../../src/client/shell/review/ReviewQueue.tsx", import.meta.url)), "utf8");
+  const shellSrc = readFileSync(fileURLToPath(new URL("../../src/client/shell/WorkbenchShell.tsx", import.meta.url)), "utf8");
+
+  it("ReviewQueue accepts an `overlay` flag, distinct from `keyboard`", () => {
+    expect(queueSrc).toMatch(/export function ReviewQueue\(\{ keyboard, overlay \}: \{ keyboard\?: boolean; overlay\?: boolean \} = \{\}\)/);
+  });
+
+  it("schedules the close via setTimeout (cancellable — a fresh proposal streaming in within the window cancels it), not an immediate call", () => {
+    expect(queueSrc).toMatch(/if \(!shouldAutoCloseReview\(!!overlay, loading, total\)\) return;/);
+    expect(queueSrc).toMatch(/const t = setTimeout\(\(\) => setReviewOpen\(false\), AUTO_CLOSE_DELAY_MS\);/);
+    expect(queueSrc).toMatch(/return \(\) => clearTimeout\(t\);/);
+  });
+
+  it("WorkbenchShell passes `overlay` ONLY on the fixed overlay instance, never on the session wing's <ReviewQueue>", () => {
+    expect(shellSrc).toMatch(/<ReviewQueue keyboard overlay \/>/);
+    expect(shellSrc).toMatch(/<ReviewQueue keyboard=\{!reviewOpen\} \/>/);
+    expect(shellSrc).not.toMatch(/<ReviewQueue keyboard=\{!reviewOpen\} overlay/);
   });
 });

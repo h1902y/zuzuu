@@ -6,14 +6,14 @@
 // The greeting rolls up needs-me across projects. New-project + global settings stay
 // reachable (a dialog each). The force ENGINE is intentionally NOT used here — see
 // globe-model.ts for why (projects have no islands/links to simulate).
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Plus, Settings, Shield, Clock, Database } from "lucide-react";
+import { Plus, Settings, Shield, Clock, Database, X } from "lucide-react";
 import { api } from "../../lib/api.js";
 import { useEnterProject } from "../session/use-enter-project.js";
 import { globeNodes, globalGreeting, type GlobeNode } from "./globe-model.js";
 import { relativeTime } from "./projects-model.js";
-import { Stack, Inline, Text, Icon, Button, ThemeToggle, Loading, AppHeader, AppFooter } from "../../ds/index.js";
+import { Stack, Inline, Text, Icon, Button, ThemeToggle, Loading, AppHeader, AppFooter, useDismiss } from "../../ds/index.js";
 import { NewProject } from "./NewProject.js";
 import { GlobalSettings } from "./GlobalSettings.js";
 
@@ -32,6 +32,15 @@ export function GlobalHome() {
   const greeting = useMemo(() => globalGreeting(rows, new Date().getHours()), [rows]);
   const sel = nodes.find((n) => n.path === selected) ?? null;
   const now = Date.now();
+
+  // U6 (curried-plotting-coral.md) — the inspector card had no real dismiss at all
+  // (no Escape, no outside-click, no X — only picking ANOTHER node replaced it).
+  // GlobalHome has no conditional early return, but the rule is the same one
+  // Dialog/Popover follow: call unconditionally, then gate registration itself —
+  // `enabled: sel !== null` keeps a closed inspector off the shared overlay stack.
+  const inspectorRef = useRef<HTMLDivElement | null>(null);
+  const closeInspector = () => setSelected(null);
+  useDismiss({ id: "global-home-inspector", onClose: closeInspector, enabled: sel !== null, ref: inspectorRef });
 
   return (
     <div className="flex h-full flex-col bg-app">
@@ -72,7 +81,7 @@ export function GlobalHome() {
 
             {/* the project detail — the inspector grammar, in place */}
             {sel && (
-              <div className="animate-pop absolute bottom-6 left-1/2 z-20 w-full max-w-md -translate-x-1/2 rounded-lg border border-border bg-elevated p-4 shadow-overlay">
+              <div ref={inspectorRef} className="animate-pop absolute bottom-6 left-1/2 z-20 w-full max-w-md -translate-x-1/2 rounded-lg border border-border bg-elevated p-4 shadow-overlay">
                 <Inline gap="sm" align="center" justify="between">
                   <Inline gap="sm" align="center">
                     <span className="text-lg">{sel.emoji}</span>
@@ -81,7 +90,17 @@ export function GlobalHome() {
                       <Text size="meta" tone="subtle">{sel.path}</Text>
                     </Stack>
                   </Inline>
-                  <Button variant="primary" size="sm" onClick={() => void enter(sel.path)}>Open ⏎</Button>
+                  <Inline gap="sm" align="center">
+                    <Button variant="primary" size="sm" onClick={() => void enter(sel.path)}>Open ⏎</Button>
+                    <button
+                      type="button"
+                      onClick={closeInspector}
+                      aria-label="dismiss project detail"
+                      className="rounded-ui p-1 text-muted hover:bg-surface hover:text-ink-100"
+                    >
+                      <Icon icon={X} size={14} />
+                    </button>
+                  </Inline>
                 </Inline>
                 <div className="mt-3">
                   <Inline gap="md" align="center">

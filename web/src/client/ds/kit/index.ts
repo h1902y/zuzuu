@@ -1,7 +1,8 @@
 // ds/kit — the copy-owned component kit (shadcn/Radix pattern, no batteries lib).
-// Seeded with Button; Dialog/Popover/Tabs/etc. are added as Phase-D surfaces need
-// them. The legacy panel/kit.tsx (IconButton/PanelHeader/Centered) is migrated +
-// deleted in Phase D, alongside its old-client callers.
+// Seeded with Button; Dialog/Popover are the shared overlay primitives (Tabs/etc.
+// are added as Phase-D surfaces need them). The legacy panel/kit.tsx
+// (IconButton/PanelHeader/Centered) is migrated + deleted in Phase D, alongside its
+// old-client callers.
 export { Button } from "./Button.js";
 export type { ButtonProps } from "./Button.js";
 export { Toaster } from "./Toaster.js";
@@ -24,3 +25,7 @@ export { ProposalBadge, proposalBadgeVariant } from "./ProposalBadge.js";
 export type { ProposalState } from "./ProposalBadge.js";
 export { Diff, COLLAPSE_AT } from "./Diff.js";
 export type { DiffProps } from "./Diff.js";
+export { OverlayStackProvider, useOverlayStack, useDismiss } from "./overlay/index.js";
+export type { UseDismissOptions, OverlayId, OverlayStack } from "./overlay/index.js";
+export { Popover, PopoverItem } from "./Popover.js";
+export type { PopoverProps, PopoverItemProps, PopoverPlacement } from "./Popover.js";

@@ -125,6 +125,59 @@ export interface SetupFailure {
   retryable: boolean;
 }
 
+// ── U6 (curried-plotting-coral.md) — SetupPill's re-surface decision ───────────────
+//
+// Bug fix: the pill's `dismissed` flag used to reset via `useEffect(() => setDismissed
+// (false), [step?.kind])` — but `onboardingStep` is a PURE function called fresh every
+// render, so WorkbenchShell invalidating the whole `["zuzuu"]` query on every websocket
+// brain-event recomputes a brand-new `step` object each time, and any transient blip
+// (even landing back on the SAME kind/rung) could flip the effect's dependency and
+// silently reopen a pill the user just dismissed with its X ("the X did nothing" —
+// confirmed live). The fix: compare STEP IDENTITY (kind + the rung it names), not
+// object identity, and only re-surface for a genuinely new, MORE URGENT identity than
+// the one last dismissed — never for a recompute that lands back on the same step.
+
+/** The comparable identity of an onboarding step — two steps with the same kind (and
+ *  the same rung, where the step carries one) are THE SAME STEP even across a fresh
+ *  recompute of a new object literal. */
+export interface StepIdentity {
+  kind: OnboardingStep["kind"];
+  rung: PrepRungId | null;
+}
+
+/** Extract a step's identity (null for no step at all). */
+export function stepIdentity(step: OnboardingStep | null): StepIdentity | null {
+  if (!step) return null;
+  if (step.kind === "awaiting-consent" || step.kind === "executing") return { kind: step.kind, rung: step.rung };
+  if (step.kind === "dormant") return { kind: step.kind, rung: step.declinedAt };
+  return { kind: step.kind, rung: null };
+}
+
+/** Urgency order for re-surfacing a dismissed pill — higher outranks lower. `dormant`
+ *  (setup paused, the brain isn't observing) is the one state genuinely more pressing
+ *  than a plain question; the rest sit at the same, non-interrupting baseline. */
+const STEP_URGENCY: Record<OnboardingStep["kind"], number> = {
+  "awaiting-consent": 0,
+  executing: 0,
+  dormant: 1,
+  ready: 0,
+  complete: 0,
+};
+
+/** Should a dismissed SetupPill re-surface for `current`, given the identity it was
+ *  LAST dismissed at? `lastDismissed: null` means nothing has been dismissed yet this
+ *  mount — always show. Otherwise: the SAME identity never re-surfaces (the exact bug
+ *  this fixes — a recompute landing back on an unchanged step must stay dismissed),
+ *  and a DIFFERENT identity only re-surfaces when it's strictly more urgent (a fresh
+ *  "awaiting-consent" for the same rung the user already brushed off doesn't nag
+ *  again; a genuine escalation to "dormant" does). */
+export function shouldResurface(current: StepIdentity | null, lastDismissed: StepIdentity | null): boolean {
+  if (!current) return false;
+  if (!lastDismissed) return true;
+  if (current.kind === lastDismissed.kind && current.rung === lastDismissed.rung) return false;
+  return STEP_URGENCY[current.kind] > STEP_URGENCY[lastDismissed.kind];
+}
+
 export function describeSetupFailure(rung: PrepRungId, status: number): SetupFailure {
   if (status === 503) {
     return {
