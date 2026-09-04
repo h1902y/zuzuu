@@ -17,6 +17,7 @@ import { useTableFilter } from "./use-table-filter.js";
 import { ClauseChips } from "./ClauseChips.js";
 import { ModuleDot, FacetChip } from "./FacetChip.js";
 import { TableBuilders } from "./TableBuilders.js";
+import { SaveViewForm } from "./SaveViewForm.js";
 import { TableFooter } from "./TableFooter.js";
 import { NotesTable } from "./NotesTable.js";
 import { emptyCopy } from "../empty-copy.js";
@@ -90,6 +91,11 @@ function EverythingInner({ moduleFacet, onModuleFacet }: { moduleFacet: string; 
           className="w-72 rounded-ui border border-border bg-app px-2 py-1 text-ui text-ink-100 outline-none placeholder:text-muted focus:border-accent-dim"
         />
         <TableBuilders cols={EVERYTHING_COLUMNS} state={state} filterOps={filterOps} dispatch={dispatch} />
+        {/* U5 (live-views plan): "Save as view" — needs a module scope (a view note
+            lands IN one, like any other row); disables itself with a hint when the
+            unified table has no module facet chosen (moduleFacet === "", the SAME
+            scope NotesListProvider itself uses below — see Everything()) */}
+        <SaveViewForm module={moduleFacet} state={state} />
       </div>
       {(modules.length > 1 || rows.length > 0) && (
         <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border bg-surface px-6 py-2">
@@ -118,8 +124,9 @@ function EverythingInner({ moduleFacet, onModuleFacet }: { moduleFacet: string; 
             rows={tableRows}
             sort={state.sort}
             onSort={(key) => dispatch({ type: "toggleSort", key })}
-            // §I rung 5: a workflow-typed row focuses Flow instead of the Record stage
-            onRow={(row) => select(noteOrFlowNav(row.module, row.id, row.kind === "workflow", "row"))}
+            // §I rung 5: a workflow-typed row focuses Flow instead of the Record stage.
+            // U3 (live-views plan): a view-typed row focuses the ViewBoard the same way.
+            onRow={(row) => select(noteOrFlowNav(row.module, row.id, row.kind === "workflow", "row", row.kind === "view"))}
             renderCell={renderCell}
             onChipClick={filterOps.addWhere}
             groupBy={state.groupBy}

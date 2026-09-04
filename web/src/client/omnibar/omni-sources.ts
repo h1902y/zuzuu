@@ -1,12 +1,13 @@
 // src/client/omnibar/omni-sources.ts — the shell's extra noun sources (§E.1 stage 2):
 // pending PROPOSALS (the gate as list items — approve/reject inline from the panel),
-// saved VIEWS (type:view notes — run applies the lens both projections share), and
-// the table SELECTION (§H.3.4 — selection is context, the omnibar is the verb).
+// saved VIEWS (type:view notes — Enter opens the full live board, U4/live-views plan),
+// and the table SELECTION (§H.3.4 — selection is context, the omnibar is the verb).
 // Pure builders over already-fetched data; PaletteBody feeds + renders them.
 
 import type { ModuleItem, StagedSummary } from "#shared/index.js";
 import { fuzzyScore } from "../palette/palette-logic.js";
 import type { PaletteCommand, PaletteGroup } from "../palette/palette-commands.js";
+import type { NavNode } from "../shell/shell-state.js";
 
 export interface StagedRow { module: string; s: StagedSummary }
 
@@ -35,22 +36,23 @@ export function proposalsGroup(staged: StagedRow[]): PaletteGroup | null {
   };
 }
 
-/** The lens a `type: view` note carries, mapped onto the shared filter store's
- *  axes. Only the axes the workbench lens HAS are applied (text · kind · module);
- *  `where`/aggregates stay CLI-side — an honest partial application, named so. */
-export function viewLens(item: ModuleItem): { module: string; text: string; noteKind: string } {
-  const q = (item as unknown as Record<string, unknown>).query;
-  const qq = q && typeof q === "object" && !Array.isArray(q) ? (q as Record<string, unknown>) : {};
-  return {
-    module: typeof qq.module === "string" ? qq.module : "",
-    text: typeof qq.text === "string" ? qq.text : "",
-    noteKind: typeof qq.type === "string" ? qq.type : "",
-  };
+/** U4 (live-views plan): the board nav a saved view's Enter now resolves to.
+ *  The view NOTE's own `module`/`id` name the note itself (mirrors
+ *  `noteOrFlowNav`'s `{kind:"flow"}` shape for its sibling projection) —
+ *  `ViewBoard` reads the note's `query` frontmatter (via U1's mappers) to
+ *  resolve the module/where/group-by/sort the board actually runs over. This
+ *  is deliberately NOT a lens: the omnibar never re-serializes the query, it
+ *  just opens the note as a live board, so the WHOLE query applies (the old
+ *  `viewLens` — text/kind/module only — is retired; no other caller depended
+ *  on it, confirmed by grep). Pure + unit-testable, same seam as
+ *  `noteOrFlowNav`. */
+export function runViewNav(item: ModuleItem): Extract<NavNode, { kind: "view" }> {
+  return { kind: "view", module: item.module, id: item.id };
 }
 
-/** The Views group: saved views (type:view notes) as rows — Enter RUNS the view
- *  (applies its lens and opens the scope's table; T then shows the same lens as a
- *  spotlight on the map — one filter state, two projections). */
+/** The Views group: saved views (type:view notes) as rows — Enter opens the
+ *  live board (the note's whole query applied, U4), not a partial lens on
+ *  the module table. */
 export function viewsGroup(items: ModuleItem[], query: string): PaletteGroup | null {
   if (!Array.isArray(items)) return null;
   const views = items.filter((it) => it.kind === "view");
@@ -63,14 +65,14 @@ export function viewsGroup(items: ModuleItem[], query: string): PaletteGroup | n
   return {
     heading: "Views",
     commands: match.map((v): PaletteCommand => {
-      const lens = viewLens(v);
+      const nav = runViewNav(v);
       return {
         value: `view ${v.title} ${v.id}`.toLowerCase(),
         label: v.title || v.id,
-        meta: `view · ${lens.module || "everything"}`,
+        meta: `view · ${v.module}`,
         detail: { kind: "note", module: v.module, id: v.id },
-        hint: "↵ run",
-        action: { kind: "run-view", ...lens },
+        hint: "↵ open",
+        action: { kind: "run-view", module: nav.module, id: nav.id },
       };
     }),
   };

@@ -1,6 +1,8 @@
 // U1 — the shell state model: selection → actors, concurrency, ribbon. Pure logic.
+// U3 (live-views plan, docs/plans/2026-07-04-002) extends this suite: noteOrFlowNav's
+// view branch (mirroring its workflow branch) + selectActors' view case.
 import { describe, it, expect } from "vitest";
-import { selectActors, mostRecentlyActive, ribbonState, type SessionLite } from "../../src/client/shell/shell-state.js";
+import { selectActors, mostRecentlyActive, ribbonState, noteOrFlowNav, type SessionLite } from "../../src/client/shell/shell-state.js";
 
 describe("selectActors — the selection → stage/wing morph (no modes)", () => {
   it("session → terminal + review wing", () => {
@@ -25,6 +27,30 @@ describe("selectActors — the selection → stage/wing morph (no modes)", () =>
   });
   it("acp session → the ACP conversation stage, wing retracts (short-id crumb)", () => {
     expect(selectActors({ kind: "acp", id: "abcdef1234" })).toEqual({ stage: "acp", wing: "none", crumb: ["Agent", "abcdef"] });
+  });
+  it("view (U3) → the live board stage, wing retracts (mirrors flow's no-wing posture)", () => {
+    expect(selectActors({ kind: "view", module: "crm", id: "pipeline" })).toEqual({ stage: "view", wing: "none", crumb: ["crm", "pipeline"] });
+  });
+});
+
+describe("noteOrFlowNav — U3 extends the workflow branch with a view branch (mirrored shape)", () => {
+  it("a type:workflow node still focuses Flow (unchanged)", () => {
+    expect(noteOrFlowNav("knowledge", "onboarding", true, "row")).toEqual({ kind: "flow", module: "knowledge", id: "onboarding" });
+    expect(noteOrFlowNav("knowledge", "onboarding", true, "note")).toEqual({ kind: "flow", module: "knowledge", id: "onboarding" });
+  });
+  it("a type:view node focuses the ViewBoard — same seam, new kind", () => {
+    expect(noteOrFlowNav("crm", "pipeline", false, "row", true)).toEqual({ kind: "view", module: "crm", id: "pipeline" });
+    expect(noteOrFlowNav("crm", "pipeline", false, "note", true)).toEqual({ kind: "view", module: "crm", id: "pipeline" });
+  });
+  it("workflow wins over view if both flags were ever true (shouldn't happen — type is singular)", () => {
+    expect(noteOrFlowNav("m", "x", true, "row", true)).toEqual({ kind: "flow", module: "m", id: "x" });
+  });
+  it("an ordinary note is unchanged: row → kind:row, note → kind:note (no regression)", () => {
+    expect(noteOrFlowNav("knowledge", "auth", false, "row")).toEqual({ kind: "row", id: "auth", module: "knowledge" });
+    expect(noteOrFlowNav("knowledge", "auth", false, "note")).toEqual({ kind: "note", id: "auth", module: "knowledge" });
+  });
+  it("isView defaults to false — existing 4-arg call sites (Grid/Everything/World) are unaffected", () => {
+    expect(noteOrFlowNav("knowledge", "auth", false, "row")).toEqual({ kind: "row", id: "auth", module: "knowledge" });
   });
 });
 

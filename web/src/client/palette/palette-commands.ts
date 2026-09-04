@@ -33,12 +33,14 @@ export type PaletteAction =
   | { kind: "open-flow"; module?: string; id?: string }
   | { kind: "converse"; prompt: string }
   // §E.1 stage 2 — the shell's noun verbs: the Record stage for a note, the gate's
-  // inline decisions (instant — the human IS the gate), and running a saved view
-  // (module '' = the Everything scope; noteKind = the lens's type facet)
+  // inline decisions (instant — the human IS the gate), and running a saved view.
   | { kind: "open-row"; module: string; id: string }
   | { kind: "approve-proposal"; module: string; id: string }
   | { kind: "reject-proposal"; module: string; id: string }
-  | { kind: "run-view"; module: string; text: string; noteKind: string }
+  // U4 (live-views plan) — the view NOTE's own address (mirrors "open-flow"'s
+  // shape): Enter opens the full board (ViewBoard reads the note's query), not
+  // a partial lens applied to the module-filter store.
+  | { kind: "run-view"; module: string; id: string }
   // §E.3 — the adapter's create resolution: open the DRAFT form pre-filled (the
   // form stages on save — the gate decides; the adapter never writes directly)
   | { kind: "draft-note"; module: string; title: string }
